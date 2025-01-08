@@ -1,42 +1,68 @@
 <p-toolbar class="py-0">
-    <ng-template pTemplate="start">
-    </ng-template>
-    <ng-template pTemplate="center">
-        <div class="flex flex-wrap align-items-center gap-6 justify-center items-center">
+  <ng-template pTemplate="start"> </ng-template>
+  <ng-template pTemplate="center">
+    <div
+      class="align-items-center flex flex-wrap gap-6 items-center justify-center"
+    >
+      <p-selectButton
+        [options]="tools"
+        [(ngModel)]="editorService.selectedTool"
+        optionLabel="name"
+      >
+        <ng-template let-tool>
+          <i [class]="tool.icon"></i>
+        </ng-template>
+      </p-selectButton>
 
-        
-            <p-selectButton [options]="tools" [(ngModel)]="drawService.selectedTool" optionLabel="name">
-                <ng-template let-tool>
-                    <i [class]="tool.icon"></i>
-                </ng-template>
+      <p-block-ui
+        [target]="linewidth"
+        [blocked]="!editorService.isToolWithBrushSize()"
+      />
+      <blockable-p #linewidth>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="editorService.lineWidth"
+            class="mb-3 w-full"
+          />
+          <p-slider [(ngModel)]="editorService.lineWidth" class="w-full" />
+      </blockable-p>
+    
+      <p-block-ui [target]="swapToggle" [blocked]="!editorService.isDrawingTool()" />
+      <app-labelled-switch #swapToggle [(checked)]="editorService.swapMarkers">
+        Swap existing markers</app-labelled-switch
+      >
+    
+      <p-block-ui [target]="eraseAllToggle" [blocked]="!editorService.isEraser()" />
+      <app-labelled-switch #eraseAllToggle [(checked)]="editorService.eraseAll">
+        Erase all labels</app-labelled-switch
+      >
 
-            </p-selectButton>
+      <app-labelled-switch
+        [(checked)]="editorService.edgesOnly"
+        (checkedChange)="editorService.requestCanvasRedraw()"
+      >
+        Show only edges</app-labelled-switch
+      >
 
-            <p>
-                <input type="text" pInputText [(ngModel)]="drawService.lineWidth" class="w-full mb-3" />
-                <p-slider [(ngModel)]="drawService.lineWidth" class="w-full" />
-
-            </p>
-            
-            <app-labelled-switch #swapToggle [(checked)]="drawService.swapMarkers"> Swap existing
-                markers</app-labelled-switch>
-
-            <app-labelled-switch [(checked)]="drawService.eraseAll"> Erase all
-                labels</app-labelled-switch>
-
-            
-            <app-labelled-switch [(checked)]="drawService.edgesOnly" (checkedChange)="drawService.requestCanvasRedraw()"> Show only edges</app-labelled-switch>
-
-            <button pButton pRipple icon='pi pi-undo' (onClick)="drawService.requestUndo()">
-            </button>
-            <p-button icon='pi pi-refresh' (onClick)="drawService.requestRedo()">
-            </p-button>
-            <app-labelled-switch [(checked)]="drawService.useProcessing" (checkedChange)="drawService.requestCanvasRedraw()"> Image processing</app-labelled-switch>
-            <app-labelled-switch [(checked)]="drawService.autoPostProcess" > Post-process drawing</app-labelled-switch>
-
-
-        </div>
-    </ng-template>
-    <ng-template pTemplate="end">
-    </ng-template>
+      <button
+        pButton
+        pRipple
+        icon="pi pi-undo"
+        (onClick)="editorService.requestUndo()"
+      ></button>
+      <p-button icon="pi pi-refresh" (onClick)="editorService.requestRedo()">
+      </p-button>
+      <app-labelled-switch
+        [(checked)]="editorService.useProcessing"
+        (checkedChange)="editorService.requestCanvasRedraw()"
+      >
+        Image processing</app-labelled-switch
+      >
+      <app-labelled-switch [(checked)]="editorService.autoPostProcess">
+        Post-process drawing</app-labelled-switch
+      >
+    </div>
+  </ng-template>
+  <ng-template pTemplate="end"> </ng-template>
 </p-toolbar>

@@ -9,7 +9,7 @@ import { LabelledSwitchComponent } from '../../../Core/labelled-switch/labelled-
 import { FieldsetModule } from 'primeng/fieldset';
 import { SliderModule } from 'primeng/slider';
 import { ProjectService } from '../../../../Services/Project/project.service';
-import { ImageProcessingService } from '../../../../Services/image-processing.service';
+import { ImageProcessingService } from '../../../Core/drawable-canvas/service/image-processing.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
 
 import { postProcessingOptions } from '../../../../Core/canvases/tools';

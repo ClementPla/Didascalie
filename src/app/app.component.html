@@ -1,34 +1,41 @@
-<p-toolbar styleClass="bg-gray-800">
+<p-toolbar>
+  <ng-template #start>
+    <span class="toolbar"> Annotator </span>
+  </ng-template>
+  <ng-template #center>
+    <p class="flex gap-8">
+      <p-button
+        routerLink="project-configuration/"
+        icon="pi pi-home"
+        [rounded]="true"
+        [text]="true"
+        [raised]="true"
+      >
+      </p-button>
 
-    <ng-template pTemplate="start">
-        <span class="toolbar">
-            Annotator
-        </span>
-    </ng-template>
-    <ng-template pTemplate="center">
-        <p class="flex gap-8">
+      <p-button
+        #galleryButton
+        routerLink="gallery/"
+        icon="pi pi-list"
+        [rounded]="true"
+        [text]="true"
+        [raised]="true"
+      >
+      </p-button>
 
-            <p-button routerLink="project-configuration/" [rounded]="true" [text]="true" severity="success">
-                <i class="pi pi-home text-2xl"></i>
-            </p-button>
-
-            <p-button routerLink="gallery/" [rounded]="true" [text]="true" severity="success">
-                <i class="pi pi-list text-2xl"></i>
-            </p-button>
-
-            <p-button routerLink="editor/" [rounded]="true" [text]="true" severity="success">
-                <i class="pi pi-pencil text-2xl"></i>
-            </p-button>
-        </p>
-
-    </ng-template>
-    <ng-template pTemplate="end">
-    </ng-template>
-
+      <p-button
+        routerLink="editor/"
+        icon="pi pi-pencil"
+        [rounded]="true"
+        [text]="true"
+        [raised]="true"
+      >
+      </p-button>
+    </p>
+  </ng-template>
+  <ng-template pTemplate="end"> </ng-template>
 </p-toolbar>
 
-
-<app-loading *ngIf="viewService.isLoading">
-</app-loading>
+<app-loading *ngIf="viewService.isLoading"> </app-loading>
 <!-- <app-testing></app-testing> -->
 <router-outlet></router-outlet>

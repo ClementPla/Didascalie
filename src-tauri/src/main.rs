@@ -6,6 +6,7 @@ fn main() {
         "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
         "--ignore-gpu-blocklist",
     );
+    std::env::set_var("RUST_LOG", "ort=debug");
 
     app_lib::run();
 }

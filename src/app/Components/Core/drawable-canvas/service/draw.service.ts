@@ -10,7 +10,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { StateManagerService } from './state-manager.service';
 import { Subject } from 'rxjs';
 import { CanvasManagerService } from './canvas-manager.service';
-import { ImageProcessingService } from '../../../../Services/image-processing.service';
+import { ImageProcessingService } from './image-processing.service';
 import { UndoRedoService } from './undo-redo.service';
 
 @Injectable({
@@ -75,8 +75,11 @@ export class DrawService {
         ctx.lineTo(canvasCoord.x, canvasCoord.y);
       }
       ctx.closePath();
-      ctx.fill();
-      this.binarizeCanvas(ctx, this.getFillColor());
+      for (let i = 0; i < 20; i++) {
+        ctx.fill();
+      }
+
+      // this.binarizeCanvas(ctx, this.getFillColor());
     }
 
     this.lassoPoints = [];
@@ -112,10 +115,6 @@ export class DrawService {
     let bbox = this.stateService.getBoundingBox();
     if (!this.projectService.isInstanceSegmentation) {
       this.openCVService.binarizeCanvas(ctx, color, bbox);
-    } else {
-      const shade = this.labelService.activeSegInstance!.shade;
-
-      this.openCVService.binarizeCanvas(ctx, shade, bbox);
     }
   }
 
@@ -248,7 +247,7 @@ export class DrawService {
     }
 
     await postProcessCallback?.then(() => {
-      console.log('Requesting redraw')
+      console.log('Requesting redraw');
       this.redrawRequest.next(true);
     });
 
@@ -394,6 +393,7 @@ export class DrawService {
               return invoke<Uint8ClampedArray>('sam_segment', {
                 coarseMask: await values[0]!.arrayBuffer(),
                 image: await values[1]!.arrayBuffer(),
+                threshold: this.editorService.samThreshold
               });
           }
         }
@@ -412,11 +412,13 @@ export class DrawService {
           bufferCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
           bufferCtx.drawImage(imageBitmap, rect.x, rect.y);
           activeCtx.drawImage(bufferCanvas, 0, 0);
+          this.binarizeCanvas(activeCtx, this.getFillColor());
         } else {
           bufferCtx.globalCompositeOperation = 'destination-over';
           bufferCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
           bufferCtx.drawImage(imageBitmap, rect.x, rect.y);
           activeCtx.drawImage(bufferCanvas, 0, 0);
+          this.binarizeCanvas(activeCtx, this.getFillColor());
         }
         this.stateService.recomputeCanvasSum = true;
       });
@@ -485,8 +487,14 @@ export class DrawService {
       ctx = inputCtx;
     }
     if (!ctx) {
-      ctx = this.canvasManagerService.canvasCtx[this.canvasManagerService.canvasCtx.length - 1];
-      this.labelService.activeLabel = this.labelService.listSegmentationLabels[this.labelService.listSegmentationLabels.length - 1];
+      ctx =
+        this.canvasManagerService.canvasCtx[
+          this.canvasManagerService.canvasCtx.length - 1
+        ];
+      this.labelService.activeLabel =
+        this.labelService.listSegmentationLabels[
+          this.labelService.listSegmentationLabels.length - 1
+        ];
     }
     if (!ctx) {
       return;
@@ -503,9 +511,12 @@ export class DrawService {
     this.redrawRequest.next(true);
   }
 
-  refreshAllColors() {
+  public refreshAllColors() {
     this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
-      this.refreshColor(ctx, this.labelService.listSegmentationLabels[index].color);
+      this.refreshColor(
+        ctx,
+        this.labelService.listSegmentationLabels[index].color
+      );
     });
   }
 

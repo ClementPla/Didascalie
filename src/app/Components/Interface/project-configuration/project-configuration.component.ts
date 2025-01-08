@@ -19,12 +19,18 @@ import { ColorPickerModule } from 'primeng/colorpicker';
 import { CheckboxModule } from 'primeng/checkbox';
 import { SegLabel } from '../../../Core/interface';
 import { CLIService } from '../../../Services/cli.service';
-import { ClassificationConfigurationComponent } from "./classification-configuration/classification-configuration.component";
+import { ClassificationConfigurationComponent } from './classification-configuration/classification-configuration.component';
+import { TableModule } from 'primeng/table';
+import { CommonModule } from '@angular/common';
+import { path } from '@tauri-apps/api';
+
 @Component({
   selector: 'app-project-configuration',
   standalone: true,
   imports: [
     CardModule,
+    TableModule,
+    CommonModule,
     ClassificationConfigurationComponent,
     NgClass,
     NgIf,
@@ -40,8 +46,8 @@ import { ClassificationConfigurationComponent } from "./classification-configura
     InputTextModule,
     FieldsetModule,
     LabelledSwitchComponent,
-    ClassificationConfigurationComponent
-],
+    ClassificationConfigurationComponent,
+  ],
   templateUrl: './project-configuration.component.html',
   styleUrl: './project-configuration.component.scss',
 })
@@ -110,10 +116,22 @@ export class ProjectConfigurationComponent implements OnInit {
     this.labelService.removeSegLabel(segLabel);
   }
 
-  addClassificationClass() {
-    this.labelService.addClassLabel({
-      label: 'Class ' + this.labelService.listClassificationLabels.length,
-      isExclusive: true,
+  async loadProjectFromFilepath(filepath: string) {
+    filepath = await path.join(filepath, 'project_config.json')
+    this.projectService.loadProjectFile(filepath);
+  }
+
+  findAndLoadProjectFile() {
+    const file = open({ directory: false });
+    file.then((value) => {
+      if (value) {
+        this.projectService.loadProjectFile(value);
+      }
     });
   }
+
+  removeProjectFromFilepath(filepath: string) {
+    this.projectService.removeProjectFile(filepath);
+  }
+
 }

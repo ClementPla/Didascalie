@@ -46,9 +46,9 @@
         <div class="w-full">
           <p class="flex flex-col gap-2">
             <input
-              type="text"
+              type="number"
               pInputText
-              (onChange)="imageProcess.refresh()"
+              (change)="imageProcess.refresh()"
               [(ngModel)]="imageProcess.brightness"
               class="mb-3 w-full"
             />
@@ -64,9 +64,9 @@
 
           <p class="flex flex-col gap-2">
             <input
-              type="text"
+              type="number"
               pInputText
-              (onChange)="imageProcess.refresh()"
+              (change)="imageProcess.refresh()"
               [(ngModel)]="imageProcess.contrast"
               class="mb-3 w-full"
             />
@@ -82,9 +82,9 @@
 
           <p class="flex flex-col gap-2">
             <input
-              type="text"
+              type="number"
               pInputText
-              (onChange)="imageProcess.refresh()"
+              ((change))="imageProcess.refresh()"
               [(ngModel)]="imageProcess.gamma"
               class="mb-3 w-full"
             />
@@ -113,10 +113,10 @@
 
         <p *ngIf="imageProcess.use_medianBlur" class="flex flex-col gap-2">
           <input
-            type="text"
+            type="number"
             pInputText
             [(ngModel)]="imageProcess.kernel_size"
-            (onChange)="imageProcess.refresh()"
+            (change)="imageProcess.refresh()"
             class="mb-3 w-full"
           />
           <p-slider
@@ -131,10 +131,10 @@
 
         <p *ngIf="imageProcess.reinforceEdges" class="flex flex-col gap-2">
           <input
-            type="text"
+            type="number"
             pInputText
             [(ngModel)]="imageProcess.edgeStrength"
-            (onChange)="imageProcess.refresh()"
+            (change)="imageProcess.refresh()"
             class="mb-3 w-full"
           />
           <p-slider
@@ -175,7 +175,7 @@
               >
               <p *ngIf="drawService.autoPostProcessOpening">
                 <input
-                  type="text"
+                  type="number"
                   pInputText
                   [(ngModel)]="drawService.morphoSize"
                   class="mb-3 w-full"
@@ -192,11 +192,25 @@
                 >Force connectivity</app-labelled-switch
               >
             </ng-container>
-            <ng-container>
-
-                <small>
-                    Use MED-Sam has a post-processing step to auto-segment based on the current stroke indication.
-                </small>
+            <ng-container *ngSwitchCase="'MedSAM'">
+              <small>
+                Use MED-Sam has a post-processing step to auto-segment based on
+                the current stroke indication.
+              </small>
+              <div>
+                <input
+                  type="number"
+                  pInputText
+                  [(ngModel)]="drawService.samThreshold"
+                  class="mb-3 w-full"
+                />
+                <p-slider
+                  [(ngModel)]="drawService.samThreshold"
+                  [min]="0"
+                  [max]="1"
+                  [step]="0.01"
+                />
+              </div>
             </ng-container>
           </ng-container>
         </ng-container>

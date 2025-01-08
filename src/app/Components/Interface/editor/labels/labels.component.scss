@@ -6,3 +6,9 @@
 .smallButton:hover{
     scale: 1.0 ;
 }
+
+.activeNode{
+    background: var(--p-tree-node-selected-background );
+    color: var(--p-tree-node-selected-color);
+
+}

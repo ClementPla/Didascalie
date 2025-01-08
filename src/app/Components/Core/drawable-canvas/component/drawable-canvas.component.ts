@@ -17,7 +17,7 @@ import { LabelsService } from '../../../../Services/Project/labels.service';
 import { Point2D, Viewbox } from '../../../../Core/interface';
 import { Button } from 'primeng/button';
 import { OpenCVService } from '../../../../Services/open-cv.service';
-import { ImageProcessingService } from '../../../../Services/image-processing.service';
+import { ImageProcessingService } from '../service/image-processing.service';
 import { ProjectService } from '../../../../Services/Project/project.service';
 import { SVGElementsComponent } from './svgelements/svgelements.component';
 import { ZoomPanService } from '../service/zoom-pan.service';
@@ -272,18 +272,24 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.ctxLabel.translate(Math.floor(offset.x), Math.floor(offset.y));
     this.ctxLabel.scale(scale, scale);
 
+    this.ctxLabel.imageSmoothingEnabled = false;
+    this.ctxLabel.filter = 'url(#remove-alpha)';
+
     if (this.stateService.recomputeCanvasSum) {
       this.canvasManagerService.computeCombinedCanvas();
       this.stateService.recomputeCanvasSum = false;
     }
 
-    this.ctxLabel.globalAlpha = this.editorService.labelOpacity;
     this.ctxLabel.imageSmoothingEnabled = false;
     this.ctxLabel.drawImage(
       this.canvasManagerService.getCombinedCanvas(),
       0,
       0
     );
+    // if(this.editorService.edgesOnly){
+    //   this.openCVService.edgeDetectionCanvas(this.ctxLabel.canvas)
+
+    // }
     this.ctxLabel.globalAlpha = 1;
   }
 
@@ -306,6 +312,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
       this.undoRedoService.empty();
       this.viewService.endLoading();
       requestAnimationFrame(() => {
+        console.log('Redrawing canvas');
         this.redrawAllCanvas();
       });
     };

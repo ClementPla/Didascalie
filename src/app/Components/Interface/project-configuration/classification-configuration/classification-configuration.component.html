@@ -1,23 +1,94 @@
 <div class="flex flex-col gap-4 items-center">
   <div
-    *ngFor="let label of labelService.listClassificationLabels; let i = index"
-    class="flex flex-row gap-4 items-center"
+    *ngFor="let label of labelService.listClassificationTasks; let i = index"
   >
-    <label [for]="label">Class {{ i }}:</label>
+    <p-fieldset [toggleable]="true">
+      <ng-template #header>
+        <span>{{ label.taskName }} </span>
+        <p-button
+          size="small"
+          icon="pi pi-times"
+          [rounded]="true"
+          [text]="true"
+          severity="danger"
+          (click)="removeTask(i)"
+        ></p-button>
+      </ng-template>
+      <div class="flex flex-row gap-4 items-center">
+        <label [for]="label">Task {{ i + 1 }}:</label>
+        <input pInputText [id]="label.taskName" [(ngModel)]="label.taskName" />
+        <p-button
+          (click)="addClassToTask(i)"
+          icon="pi pi-plus"
+          [rounded]="true"
+          label="Add class"
+          [text]="true"
+        ></p-button>
+      </div>
+      <p-divider />
+
+      <div
+        *ngFor="
+          let classLabel of label.classLabels;
+          let j = index;
+          trackBy: trackByFn
+        "
+        class="flex flex-row gap-4 items-center"
+      >
+        <label [for]="label.classLabels[j]">Class {{ j }}:</label>
+        <input
+          pInputText
+          [id]="label.classLabels[j]"
+          [(ngModel)]="label.classLabels[j]"
+        />
+        <p-button
+          icon="pi pi-times"
+          [rounded]="true"
+          [text]="true"
+          severity="danger"
+          (click)="removeClassFromTask(i, j)"
+        ></p-button>
+      </div>
+    </p-fieldset>
+  </div>
+  <p-divider />
+  <div *ngIf="labelService.multiLabelTask !== null">
     <input
       pInputText
-      [id]="label.label"
-      aria-describedby="inputPath-help"
-      [(ngModel)]="label.label"
+      #multiLabelInput
+      (keydown.enter)="addMultiLabelClass(multiLabelInput.value, $event)"
+      placeholder="Enter to confirm"
     />
-    <p-checkbox [(ngModel)]="label.isExclusive" [binary]="true"></p-checkbox>
+
+    <div>
+      <ng-container
+        *ngFor="
+          let label of labelService.multiLabelTask.taskLabels;
+          let i = index
+        "
+      >
+        <p-tag severity="info" class="m-1" [rounded]="true">
+          <span class="text-base">
+            {{ label }}
+          </span>
+
+          <i
+            class="hover:outline hover:outline-1 outline-white pi pi-times rounded-full"
+            style="font-size: 0.75rem"
+            (click)="removeClassFromMultitask(i)"
+          ></i>
+         
+        </p-tag>
+      </ng-container>
+    </div>
   </div>
   <p class="flex gap-4 items-center">
     <p-button
-      label="Add multiclass task"
+      label="Add multiclass task(s)"
       (click)="addMulticlassTask()"
     ></p-button>
     <p-button
+      *ngIf="labelService.multiLabelTask === null"
       label="Add multilabel task"
       (click)="addMultiLabelTask()"
     ></p-button>

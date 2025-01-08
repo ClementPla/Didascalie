@@ -34,12 +34,14 @@ export class CanvasManagerService {
     this.labelService.listSegmentationLabels.forEach((label) => {
       const canvas = new OffscreenCanvas(this.stateService.width, this.stateService.height);
       this.labelCanvas.push(canvas);
-      this.canvasCtx.push(canvas.getContext('2d', {'alpha': true})!);
+      this.canvasCtx.push(canvas.getContext('2d', {alpha: true})!);
     });
     this.combinedCanvas = new OffscreenCanvas(this.stateService.width, this.stateService.height);
-    this.combinedCtx = this.combinedCanvas.getContext('2d', {'alpha': true})!;
+    this.combinedCtx = this.combinedCanvas.getContext('2d', {alpha: true})!;
     this.bufferCanvas = new OffscreenCanvas(this.stateService.width, this.stateService.height);
-    this.bufferCtx = this.bufferCanvas.getContext('2d', {'alpha': true, 'willReadFrequently': true})!;
+    this.bufferCtx = this.bufferCanvas.getContext('2d', {alpha: true})!;
+
+    this.bufferCtx.filter = 'url(#remove-alpha)';
   }
 
   computeCombinedCanvas(){
@@ -48,27 +50,34 @@ export class CanvasManagerService {
       if(!this.labelService.listSegmentationLabels[index].isVisible){
         return;
       }
-
-      if(this.editorService.edgesOnly){
-        canvas = this.openCVService.edgeDetection(this.canvasCtx[index]) as OffscreenCanvas;
-      }
+      // if(this.editorService.edgesOnly){
+      //   canvas = this.openCVService.edgeDetection(this.canvasCtx[index]) as OffscreenCanvas;
+      // }
       this.combinedCtx.drawImage(canvas, 0, 0);
     });
+    if(this.editorService.edgesOnly){
+      let edge = this.openCVService.edgeDetection(this.combinedCtx);
+      this.combinedCtx.clearRect(0, 0, this.stateService.width, this.stateService.height);
+      this.combinedCtx.drawImage(edge, 0, 0);
+
+    }
   }
 
   clearCanvasAtIndex(index: number){
     this.clearCanvas(this.canvasCtx[index]);
   }
 
-  loadCanvas(data: string, index:number){
+  loadCanvas(data: string, index:number):Promise<boolean>{
     const img = new Image();
-    img.onload = () => {
-      this.clearCanvas(this.canvasCtx[index]);
-      this.canvasCtx[index].drawImage(img, 0, 0);
-      this.requestRedraw.next(true);
-
-    };
     img.src = data;
+    return new Promise((resolve, reject) => {
+      img.onload = () => {
+        this.clearCanvas(this.canvasCtx[index]);
+        this.canvasCtx[index].drawImage(img, 0, 0);
+        resolve(true);
+      };
+    });
+    
   }
 
   clearCanvas(ctx: OffscreenCanvasRenderingContext2D){
@@ -79,10 +88,10 @@ export class CanvasManagerService {
     this.clearCanvas(this.combinedCtx);
   }
 
-  loadAllCanvas(data: string[]){
-    data.forEach((d, index) => {
-      this.loadCanvas(d, index);
-    });
+  async loadAllCanvas(data: string[]){
+    for(let i = 0; i < data.length; i++){
+      await this.loadCanvas(data[i], i);
+    }
   }
 
   getBufferCanvas(){

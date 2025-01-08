@@ -7,4 +7,6 @@ export interface LabelFormat {
     labels: string[];
     colors: string[];
     shades: string[][] | null;
+    multiclass: string[] | null;
+    multilabel: string[] | null;
 }

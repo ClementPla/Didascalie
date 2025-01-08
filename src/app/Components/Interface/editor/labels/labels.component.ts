@@ -13,41 +13,48 @@ import { PanelModule } from 'primeng/panel';
 import { FieldsetModule } from 'primeng/fieldset';
 import { InstanceLabelComponent } from './instance-label/instance-label.component';
 import { ProjectService } from '../../../../Services/Project/project.service';
-
+import { SelectButtonModule } from 'primeng/selectbutton';
+import { DividerModule } from 'primeng/divider';
 
 @Component({
   selector: 'app-labels',
   standalone: true,
-  imports: [TreeModule, ColorPickerModule, CommonModule, FormsModule, Button, SliderModule, PanelModule, FieldsetModule, InstanceLabelComponent],
+  imports: [
+    TreeModule,
+    ColorPickerModule,
+    CommonModule,
+    FormsModule,
+    Button,
+    SelectButtonModule,
+    SliderModule,
+    PanelModule,
+    FieldsetModule,
+    DividerModule,
+    InstanceLabelComponent,
+  ],
   templateUrl: './labels.component.html',
-  styleUrl: './labels.component.scss'
+  styleUrl: './labels.component.scss',
 })
 export class LabelsComponent implements OnInit {
-
-
-
-  constructor(public labelsService: LabelsService, public drawService: EditorService, public projectService: ProjectService) {
-
-  }
+  constructor(
+    public labelsService: LabelsService,
+    public drawService: EditorService,
+    public projectService: ProjectService
+  ) {}
 
   ngOnInit(): void {
-    this.labelsService.activeLabel = this.labelsService.listSegmentationLabels[0];
-
-
+    this.labelsService.activeLabel =
+      this.labelsService.listSegmentationLabels[0];
   }
 
   hasChild(node: TreeNode): boolean {
     if (node.children) {
-      return node.children.length > 0
-    }
-    else {
+      return node.children.length > 0;
+    } else {
       return false;
     }
-
-
   }
   changeActiveLabel(event: TreeNode[] | TreeNode | null) {
-
     if (event instanceof Array) {
       return;
     }
@@ -55,21 +62,25 @@ export class LabelsComponent implements OnInit {
       return;
     }
     this.labelsService.activeLabel = event.data as SegLabel;
-    this.labelsService.activeSegInstance = { label: this.labelsService.activeLabel, instance: -1, shade: this.labelsService.activeLabel.color };
+    this.labelsService.activeSegInstance = {
+      label: this.labelsService.activeLabel,
+      instance: -1,
+      shade: this.labelsService.activeLabel.color,
+    };
     // this.labelsService.activeLabel = event.node.data as SegLabel;
   }
 
   clearCanvas(node: TreeNode) {
-    let index = this.labelsService.listSegmentationLabels.indexOf(node.data as SegLabel);
+    let index = this.labelsService.listSegmentationLabels.indexOf(
+      node.data as SegLabel
+    );
     this.drawService.requestCanvasClear(index);
-
   }
 
   changeVisibility(node: TreeNode) {
     let label = node.data as SegLabel;
     label.isVisible = !label.isVisible;
     this.drawService.requestCanvasRedraw();
-
   }
 
   changeColor() {
@@ -77,14 +88,11 @@ export class LabelsComponent implements OnInit {
   }
 
   changeAllVisibility() {
-    this.labelsService.switchVisibilityAllSegLabels()
+    this.labelsService.switchVisibilityAllSegLabels();
     this.drawService.requestCanvasRedraw();
   }
 
-  updateOpacity(){
-
+  updateOpacity() {
     this.drawService.requestCanvasRedraw();
-
-
   }
 }

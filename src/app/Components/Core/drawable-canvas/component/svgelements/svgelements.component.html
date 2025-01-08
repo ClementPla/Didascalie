@@ -6,5 +6,13 @@
       [attr.stroke]="labelService.activeLabel?.color"
       [attr.stroke-width]="2"
     />
-    />
+    <rect *ngFor="let rectLabel of bboxManager.listBbox"
+      class="lassoRect"
+      [attr.x]="rectLabel.bbox.x"
+      [attr.y]="rectLabel.bbox.y"
+      [attr.width]="rectLabel.bbox.width"
+      [attr.height]="rectLabel.bbox.height"
+      [attr.fill]="rectLabel.label.color + '55'"
+      [attr.stroke]="rectLabel.label.color"
+      [attr.stroke-width]="2"></rect>
   </svg>

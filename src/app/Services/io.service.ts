@@ -3,15 +3,13 @@ import { LabelFormat } from '../Core/io/formats';
 import { ProjectService } from './Project/project.service';
 import { path } from '@tauri-apps/api';
 import { invoke } from '@tauri-apps/api/core';
-import { DrawableCanvasComponent } from '../Components/Core/drawable-canvas/component/drawable-canvas.component';
 import { LabelsService } from './Project/labels.service';
 import { ViewService } from './UI/view.service';
 import { ImageFromCLI } from '../Core/interface';
 import { Subject } from 'rxjs';
-import { DrawService } from '../Components/Core/drawable-canvas/service/draw.service';
-import { ZoomPanService } from '../Components/Core/drawable-canvas/service/zoom-pan.service';
 import { CanvasManagerService } from '../Components/Core/drawable-canvas/service/canvas-manager.service';
 import { StateManagerService } from '../Components/Core/drawable-canvas/service/state-manager.service';
+import { blobToDataURL, invokeSaveXmlFile } from '../Core/io/save_load';
 
 @Injectable({
   providedIn: 'root',
@@ -23,8 +21,6 @@ export class IOService {
     private projectService: ProjectService,
     private labelService: LabelsService,
     private viewService: ViewService,
-    private drawService: DrawService,
-    private zoomPanService: ZoomPanService,
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService
   ) {}
@@ -49,81 +45,108 @@ export class IOService {
     });
   }
 
-  loadExistingAnnotations(): Promise<LabelFormat> {
-    return this.getActiveSavePath()
-      .then((filepath: string) => {
-        return invoke<string>('load_xml_file', { filepath });
-      })
-      .then((response: string) => {
-        // This is where you would parse the XML file and load the annotations
-        // Find the SVG element in the response
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(response as string, 'image/svg+xml');
-        let labels = {
-          masksName: [],
-          masks: [],
-          labels: [],
-          colors: [],
-          shades: null,
-        } as LabelFormat;
-        let hasShades = false;
-        // Get the image elements
-        const imageElements = doc.getElementsByTagName('image');
-        // Get the image data
-        for (let i = 0; i < imageElements.length; i++) {
-          const imageElement = imageElements[i];
-          const href = imageElement.getAttribute('href') as string;
-          const color = imageElement.getAttribute('color');
-          const id = imageElement.getAttribute('id');
-          if (imageElement.hasAttribute('shades')) {
-            hasShades = true;
-            if (!labels.shades) {
-              labels.shades = [];
-            }
-            labels.shades.push(imageElement.getAttribute('shades')!.split(','));
-          }
-          labels.masksName.push(id!);
-          labels.colors.push(color!);
-          // Decode the data URL to get the blob
+  async loadExistingAnnotations(): Promise<LabelFormat> {
+    const filepath = await this.getActiveSavePath();
+    const response = await invoke<string>('load_xml_file', { filepath });
 
-          labels.masks.push(href);
+    // Parse the XML file and load the annotations
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(response as string, 'image/svg+xml');
+
+    let labels = {
+      masksName: [],
+      masks: [],
+      labels: [],
+      colors: [],
+      multiclass: null,
+      multilabel: null,
+      shades: null,
+    } as LabelFormat;
+
+    // Get the image elements and their data
+    const imageElements = doc.getElementsByTagName('image');
+    for (let i = 0; i < imageElements.length; i++) {
+      const imageElement = imageElements[i];
+      const href = imageElement.getAttribute('href') as string;
+      const color = imageElement.getAttribute('color');
+      const id = imageElement.getAttribute('id');
+
+      if (imageElement.hasAttribute('shades')) {
+        if (!labels.shades) {
+          labels.shades = [];
         }
-        return labels;
-      });
+        labels.shades.push(imageElement.getAttribute('shades')!.split(','));
+      }
+
+      labels.masksName.push(id!);
+      labels.colors.push(color!);
+      labels.masks.push(href);
+    }
+
+    // Get the multiclass elements
+    const multiclassElements = doc.getElementsByTagName('multiclass');
+    if (multiclassElements.length > 0) {
+      labels.multiclass = multiclassElements[0]
+        .getAttribute('classes')!
+        .split(',');
+    }
+
+    // Get the multilabel elements
+    const multilabelElements = doc.getElementsByTagName('multilabel');
+    if (multilabelElements.length > 0) {
+      labels.multilabel = multilabelElements[0]
+        .getAttribute('classes')!
+        .split(',');
+    }
+
+    return labels;
   }
 
   async load() {
-    return this.checkIfDataExists()
-      .then((exists) => {
-        if (exists) {
-          return this.loadExistingAnnotations();
-        }
-        return null;
-      })
-      .then((data) => {
-        if (!data) {
-          return false;
-        }
+    let exists = await this.checkIfDataExists();
+    if (!exists) {
+      return;
+    }
+    let data = await this.loadExistingAnnotations();
 
-        data.masksName.forEach((label, index) => {
-          let segLabel = {
-            label: label,
-            color: data.colors[index],
-            isVisible: true,
-            shades: data.shades ? data.shades[index] : null,
-          };
-          this.labelService.addSegLabel(segLabel);
+    data.masksName.forEach((label, index) => {
+      let segLabel = {
+        label: label,
+        color: data.colors[index],
+        isVisible: true,
+        shades: data.shades ? data.shades[index] : null,
+      };
+      this.labelService.addSegLabel(segLabel);
+    });
+    this.labelService.rebuildTreeNodes();
+
+    if (this.labelService.multiLabelTask) {
+      if (data.multilabel) {
+        this.labelService.multiLabelTask.choices = data.multilabel;
+      }
+      else{
+        this.labelService.multiLabelTask.choices = [];
+      }
+    }
+    if (this.labelService.listClassificationTasks.length > 0) {
+      if (data.multiclass && data.multiclass.length === this.labelService.listClassificationTasks.length) {
+        
+        data.multiclass.forEach((choice, index) => {
+          this.labelService.listClassificationTasks[index].choice = choice;
         });
-        this.labelService.rebuildTreeNodes();
+      }
+      else if( !data.multiclass){
+        this.labelService.listClassificationTasks.forEach((task) => {
+          task.choice = '';
+        });
+      }
 
-        this.labelService.activeLabel =
-          this.labelService.listSegmentationLabels[0];
+    }
 
-        this.canvasManagerService.initCanvas();
-        this.canvasManagerService.loadAllCanvas(data.masks as string[]);
-        this.viewService.endLoading();
-        return true;
-      });
+    this.labelService.activeLabel = this.labelService.listSegmentationLabels[0];
+
+    this.canvasManagerService.initCanvas();
+    await this.canvasManagerService.loadAllCanvas(data.masks as string[]);
   }
 
   save() {
@@ -134,6 +157,8 @@ export class IOService {
       labels: [],
       colors: [],
       shades: null,
+      multiclass: [],
+      multilabel: null,
     } as LabelFormat;
 
     let allPromises$: Promise<void>[] = [];
@@ -160,6 +185,15 @@ export class IOService {
       savefile.colors.push(label.color);
     });
 
+    if (this.labelService.multiLabelTask) {
+      savefile.multiclass = this.labelService.multiLabelTask.choices;
+    }
+    this.labelService.listClassificationTasks.forEach((task) => {
+      if (task.choice) {
+        savefile.multiclass?.push(task.choice);
+      }
+    });
+
     let finished = Promise.all(allPromises$)
       .then(() => {
         this.writeSave(
@@ -181,6 +215,8 @@ export class IOService {
       masks: [],
       labels: [],
       colors: [],
+      multiclass: null,
+      multilabel: null,
       shades: null,
     } as LabelFormat;
 
@@ -199,6 +235,14 @@ export class IOService {
       }
       savefile.colors.push(label.color);
     });
+
+    if (data.classification_classes) {
+      savefile.multiclass = data.classification_classes;
+    }
+
+    if (data.classification_multilabel) {
+      savefile.multilabel = data.classification_multilabel;
+    }
 
     return this.writeSave(savefile, 512, 512);
   }
@@ -229,6 +273,22 @@ export class IOService {
       }
       svg.appendChild(svgMask);
     }
+    if (labelFormat.multiclass) {
+      let multiclass = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'multiclass'
+      );
+      multiclass.setAttribute('classes', labelFormat.multiclass.join(','));
+      svg.appendChild(multiclass);
+    }
+    if (labelFormat.multilabel) {
+      let multilabel = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'multilabel'
+      );
+      multilabel.setAttribute('classes', labelFormat.multilabel.join(','));
+      svg.appendChild(multilabel);
+    }
     return invokeSaveXmlFile(
       await this.getActiveSavePath(),
       new XMLSerializer().serializeToString(svg)
@@ -244,27 +304,7 @@ export class IOService {
       .slice(0, -1)
       .join('.');
     const svgName = imageNameWithoutExtension + '.svg';
-    console.log('SVG name:', svgName);
-    console.log('Project folder:', this.projectService.projectFolder);
     return path.join(this.projectService.projectFolder, 'annotations', svgName);
   }
-}
-function invokeSaveXmlFile(filepath: string, xmlContent: string) {
-  console.log('Saving XML file:', filepath);
-  try {
-    invoke('save_xml_file', { filepath, xmlContent }).then((response) => {
-      console.log('XML file saved successfully:', response);
-    });
-  } catch (error) {
-    console.error('Error saving XML file:', error);
-  }
-}
 
-function blobToDataURL(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
 }

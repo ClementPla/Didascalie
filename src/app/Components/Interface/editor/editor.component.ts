@@ -22,6 +22,9 @@ import { PanelModule } from 'primeng/panel';
 import { ButtonModule } from 'primeng/button';
 import { IOService } from '../../../Services/io.service';
 import { Subscription } from 'rxjs';
+import { DrawService } from '../../Core/drawable-canvas/service/draw.service';
+import { CanvasManagerService } from '../../Core/drawable-canvas/service/canvas-manager.service';
+import { StateManagerService } from '../../Core/drawable-canvas/service/state-manager.service';
 
 @Component({
   selector: 'app-editor',
@@ -43,25 +46,22 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public viewPortSize: number = 800;
   private subscriptions = new Subscription();
 
-  
   constructor(
     public projectService: ProjectService,
-    private drawService: EditorService,
+    private drawService: DrawService,
+    private stateService: StateManagerService,
+    private editorService: EditorService,
     private labelService: LabelsService,
     public IOService: IOService
   ) {
-    this.IOService.requestedReload.subscribe((value) => {
-      if (value) {
-        this.loadCanvas();
-      }
-    });
+    this.initializeSubscriptions();
   }
 
   ngOnInit() {
-    this.initializeSubscriptions()
   }
+
   ngAfterViewInit() {
-    void this.loadCanvas();
+    this.loadCanvas();
   }
 
   ngOnDestroy(): void {
@@ -78,12 +78,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         },
         error: (error: Error) => {
           console.error('Reload subscription error:', error);
-        }
+        },
       })
     );
   }
 
-  public async loadCanvas(): Promise<void> {
+  public async loadCanvas() {
     if (!this.canvas || !this.projectService.activeImage) {
       console.warn('Canvas or active image not available');
       return;
@@ -91,16 +91,21 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     try {
       await this.canvas.loadImage(this.projectService.activeImage);
-      const hasLoaded = await this.IOService.load();
+      await this.IOService.load();
       
-      if (hasLoaded) {
-        this.canvas.reload();
-      } else {
-        throw new Error('Failed to load canvas data');
-      }
+      this.drawService.refreshAllColors();
+      this.stateService.recomputeCanvasSum = true;
+
+      // Finally reload the canvas and wait for the next frame
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          this.canvas.redrawAllCanvas();
+          resolve();
+        }, 100);
+      });
     } catch (error) {
-      console.error('Error loading canvas:', error);
-      // Handle error appropriately (e.g., show user feedback)
+      console.error('Error in loadCanvas sequence:', error);
+      throw error; // Re-throw to handle at caller level if needed
     }
   }
 
@@ -115,42 +120,65 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown.control.z', ['$event'])
   undo(event: KeyboardEvent) {
-    this.drawService.requestUndo();
+    this.editorService.requestUndo();
   }
   @HostListener('window:keydown.control.y', ['$event'])
   redo(event: KeyboardEvent) {
-    this.drawService.requestRedo();
+    this.editorService.requestRedo();
   }
 
   @HostListener('window:keydown.e')
   changeToEraser() {
-    this.drawService.selectedTool = Tools.ERASER;
+    this.editorService.selectedTool = Tools.ERASER;
   }
   @HostListener('window:keydown.l')
   changeToLasso() {
-    this.drawService.selectedTool = Tools.LASSO;
+    this.editorService.selectedTool = Tools.LASSO;
   }
 
   @HostListener('window:keydown.shift.l')
   changeToLassoEraser() {
-    this.drawService.selectedTool = Tools.LASSO_ERASER;
+    this.editorService.selectedTool = Tools.LASSO_ERASER;
   }
 
   @HostListener('window:keydown.g')
   changeToPan() {
-    this.drawService.selectedTool = Tools.PAN;
+    this.editorService.selectedTool = Tools.PAN;
   }
 
   @HostListener('window:keydown.p')
   changeToPencil() {
-    this.drawService.selectedTool = Tools.PEN;
+    this.editorService.selectedTool = Tools.PEN;
   }
 
   @HostListener('window:keydown.tab', ['$event'])
   switchAllVisibility(e: KeyboardEvent) {
     e.preventDefault();
     this.labelService.switchVisibilityAllSegLabels();
-    this.drawService.requestCanvasRedraw();
+    this.editorService.requestCanvasRedraw();
+  }
+
+  @HostListener('window:keydown.control.tab', ['$event'])
+  nextLabel() {
+    const currentIndex = this.labelService.getActiveIndex();
+    const nextIndex = (currentIndex + 1) % this.labelService.listSegmentationLabels.length;
+    this.labelService.activeLabel = this.labelService.listSegmentationLabels[nextIndex];
+  }
+  @HostListener('window:keydown.space', ['$event'])
+  togglePostProcessing() {
+    this.editorService.autoPostProcess = !this.editorService.autoPostProcess;
+  }
+
+  @HostListener('window:keydown.q', ['$event'])
+  toggleImageProcessing() {
+    this.editorService.useProcessing = !this.editorService.useProcessing;
+    this.editorService.requestCanvasRedraw();
+  }
+
+  @HostListener('window:keydown.control.e', ['$event'])
+  toggleEdges() {
+    this.editorService.edgesOnly = !this.editorService.edgesOnly;
+    this.editorService.requestCanvasRedraw();
   }
 
   @HostListener('window:keydown.control.s', ['$event'])
@@ -171,6 +199,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loadCanvas();
       });
   }
+
+  
+  
 
   @HostListener('window:keydown.ArrowLeft', ['$event'])
   async loadPrevious() {

@@ -26,6 +26,8 @@ export class EditorService {
   public useInverse: boolean = false;
   public useProcessing: boolean = false;
 
+  public samThreshold: number = 0.5;
+
   public postProcessOption: string = "otsu"
 
   public incrementAfterStroke: boolean = false;

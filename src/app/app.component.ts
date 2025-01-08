@@ -2,11 +2,10 @@ import {
   AfterViewInit,
   ChangeDetectorRef,
   Component,
-  HostListener,
-  NgZone,
-  OnInit,
 } from '@angular/core';
+
 import { ToolbarModule } from 'primeng/toolbar';
+
 import { ViewService } from './Services/UI/view.service';
 import { LoadingComponent } from './Components/Interface/loading/loading.component';
 import { RouterOutlet } from '@angular/router';
@@ -17,14 +16,19 @@ import { RouterModule } from '@angular/router';
 import { environment } from '../environments/environment';
 import { LabelsService } from './Services/Project/labels.service';
 import { EditorService } from './Services/UI/editor.service';
-import { getDefaultColor } from './Core/misc/colors';
 import { path } from '@tauri-apps/api';
 import { CLIService } from './Services/cli.service';
 import { IOService } from './Services/io.service';
-import { ProjectConfig, ImageFromCLI, SegLabel } from './Core/interface';
+import { ImageFromCLI } from './Core/interface';
 
 import { PrimeNG } from 'primeng/config';
 import Aura from '@primeng/themes/aura';
+import Material from '@primeng/themes/material';
+import Lara from '@primeng/themes/lara';
+import Nora from '@primeng/themes/nora';
+import { MulticlassTask, MultilabelTask } from './Core/task';
+import { BlockUIModule } from 'primeng/blockui';
+
 
 @Component({
   selector: 'app-root',
@@ -36,11 +40,12 @@ import Aura from '@primeng/themes/aura';
     RouterOutlet,
     Button,
     RouterModule,
+    BlockUIModule
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent implements OnInit, AfterViewInit {
+export class AppComponent implements AfterViewInit {
   title = 'Client';
 
   constructor(
@@ -54,17 +59,20 @@ export class AppComponent implements OnInit, AfterViewInit {
     private primeNG: PrimeNG
   ) {
     this.primeNG.theme.set({
-      preset: Aura,
+      preset: Nora,
       options: {
+        darkModeSelector: '.darkTheme',
         cssLayer: {
           name: 'primeng',
           order: 'tailwind-base, primeng, tailwind-utilities',
         },
       },
     });
+    this.createCLISubscription();
   }
 
-  ngOnInit(): void {
+  createCLISubscription() {
+    // Not sure if this is the right way to do or even needed
     this.cli.commandProcessed.subscribe((value) => {
       if (value) {
         this.cdr.detectChanges();
@@ -72,7 +80,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
     this.cli.projectCreated.subscribe((config) => {
       if (config) {
-        this.create_project(config);
+        this.projectService.create_project(config);
       }
     });
     this.cli.imageLoaded.subscribe((imageConfig) => {
@@ -81,13 +89,12 @@ export class AppComponent implements OnInit, AfterViewInit {
       }
     });
   }
-
   ngAfterViewInit() {
-    this.projectService.isClassification = true;
     // this.debug();
   }
 
   async debug() {
+    this.projectService.isClassification = true;
     this.labelService.addSegLabel({
       label: 'Foreground',
       color: '#209fb5',
@@ -112,6 +119,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       isVisible: true,
       shades: null,
     });
+    this.projectService.isClassification = true;
+    this.labelService.addClassificationTask(new MulticlassTask('DR Grading', 
+      ['Absent', 'Mild', 'Moderate', 'Severe', 'Proliferative'], 'Absent'));
+    this.labelService.addClassificationTask(new MulticlassTask('Quality', ['Good', 'Readable', 'Ungradable']));
+    this.labelService.addMultilabelTask(new MultilabelTask('Misc', ['AMD', 'Glaucoma', 'Catract', 'Hypertension']));
     this.projectService.isSegmentation = true;
 
     let isStarted$ = this.projectService.startProject();
@@ -119,33 +131,19 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.projectService.openEditor(0);
     });
   }
-  create_project(config: ProjectConfig) {
-    this.projectService.isClassification = config.is_classification;
-    this.projectService.isInstanceSegmentation =
-      config.is_instance_segmentation;
-    this.projectService.projectName = config.project_name;
-    this.projectService.inputFolder = config.input_dir;
-    this.projectService.outputFolder = config.output_dir;
 
-    if (config.segmentation_classes) {
-      this.labelService.listSegmentationLabels =
-        config.segmentation_classes.map((label, index) => {
-          return {
-            label,
-            color: getDefaultColor(index + 1),
-            isVisible: true,
-            shades: null,
-          } as SegLabel;
-        });
-    }
-    this.labelService.rebuildTreeNodes();
-    this.projectService.isSegmentation = config.is_segmentation;
-  }
   async load_image(imageConfig: ImageFromCLI) {
+
+    this.viewService.setLoading(true, 'Loading image');
     const file = imageConfig.image_path;
 
     // Start project and get resolved path
-    await this.projectService.startProject();
+    if(!this.projectService.isProjectStarted) {
+      await this.projectService.startProject();
+    }
+    else {
+      await this.projectService.listFiles();
+    }
     const resolvedFile = await path.resolve(file);
 
     // Find image index
@@ -157,11 +155,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.projectService.activeIndex = index;
     // Save masks
     await this.IOService.saveFromCLI(imageConfig);
+    this.viewService.endLoading();
+  }
 
-    requestAnimationFrame(async () => {
-      this.viewService.endLoading();
-      this.cdr.detectChanges();
-      // await this.projectService.openEditor(index);
-    });
+  isProjectStarted(){
+    return this.projectService.isProjectStarted;
   }
 }

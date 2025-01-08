@@ -1,8 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, output } from '@angular/core';
 import { NgxOpenCVService, OpenCVState } from 'ngx-opencv';
 import { from_hex_to_rgb } from '../Core/misc/colors';
 import { Rect } from '../Core/interface';
-
 declare var cv: any;
 
 
@@ -11,6 +10,10 @@ declare var cv: any;
   providedIn: 'root'
 })
 export class OpenCVService {
+  gradient: any;
+  outputCanvas = new OffscreenCanvas(0, 0);
+  outputCtx = this.outputCanvas.getContext('2d', { alpha: true});
+  M: any;
   cv_ready: boolean = false;
   constructor(private ngxOpenCv: NgxOpenCVService) {
     this.ngxOpenCv.cvState.subscribe((cvState: OpenCVState) => {
@@ -22,6 +25,13 @@ export class OpenCVService {
         this.cv_ready = false;
       } else if (cvState.ready) {
         this.cv_ready = true;
+
+        this.gradient = new cv.Mat();
+
+        // Apply morphological gradient
+    
+        this.M = cv.Mat.ones(5, 5, cv.CV_8U);
+    
       }
     });
   }
@@ -29,9 +39,9 @@ export class OpenCVService {
   edgeDetection(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
 
     // Given a canvas with multiple colors, detect the edges of the different colors
-    // Use morpho gradient for that
 
-    let outputCanvas = new OffscreenCanvas(ctx.canvas.width, ctx.canvas.height);
+    this.outputCanvas.width = ctx.canvas.width;
+    this.outputCanvas.height = ctx.canvas.height;
 
     // Get the canvas context and image data
 
@@ -39,28 +49,74 @@ export class OpenCVService {
 
     const src = cv.matFromImageData(imgData);
 
-    // Convert the image data to OpenCV format
-
-
     // Convert the image to grayscale
 
-    const gradient = new cv.Mat();
-
-    // Apply morphological gradient
-
-    const M = cv.Mat.ones(3, 3, cv.CV_8U);
-
-    cv.morphologyEx(src, gradient, cv.MORPH_GRADIENT, M);
+    cv.morphologyEx(src, this.gradient, cv.MORPH_GRADIENT, this.M);
 
 
     // Convert the output to an image data format
-    const processedImageData = new ImageData(new Uint8ClampedArray(gradient.data), ctx.canvas.width, ctx.canvas.height);
-    outputCanvas.getContext('2d', { alpha: true })!.putImageData(processedImageData, 0, 0);
+    const processedImageData = new ImageData(new Uint8ClampedArray(this.gradient.data), ctx.canvas.width, ctx.canvas.height);
+    this.outputCtx!.putImageData(processedImageData, 0, 0);
     src.delete();
-    gradient.delete();
 
-    return outputCanvas;
+    return this.outputCanvas;
   }
+
+  edgeDetectionCanvas(canvas: HTMLCanvasElement){
+    let src = cv.imread(canvas);
+
+    cv.morphologyEx(src, this.gradient, cv.MORPH_GRADIENT, this.M);
+
+    cv.imshow(canvas, this.gradient);
+    src.delete();
+    
+
+  }
+
+  edgeDetection_v2(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
+    const width = ctx.canvas.width;
+    const height = ctx.canvas.height;
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    
+    // Create output canvas
+    const outCanvas = new OffscreenCanvas(width, height);
+    const outCtx = outCanvas.getContext('2d');
+    if (!outCtx) return outCanvas;
+    
+    // Create output image data
+    const outImageData = outCtx.createImageData(width, height);
+    const outData = outImageData.data;
+
+    // Scan only pixels that could be edges (have different neighbors)
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = (y * width + x) * 4;
+        
+        // Check if current pixel is non-empty (alpha > 0)
+        if (data[idx + 3] > 0) {
+          // Check 4-connected neighbors
+          const hasEmptyNeighbor = 
+            data[((y-1) * width + x) * 4 + 3] === 0 ||  // top
+            data[((y+1) * width + x) * 4 + 3] === 0 ||  // bottom
+            data[(y * width + x-1) * 4 + 3] === 0 ||    // left
+            data[(y * width + x+1) * 4 + 3] === 0;      // right
+
+          // If pixel has at least one empty neighbor, it's an edge
+          if (hasEmptyNeighbor) {
+            outData[idx] = data[idx];       // R
+            outData[idx + 1] = data[idx+1]; // G
+            outData[idx + 2] = data[idx+2]; // B
+            outData[idx + 3] = data[idx+3]; // A
+          }
+        }
+      }
+    }
+
+    outCtx.putImageData(outImageData, 0, 0);
+    return outCanvas;
+
+}
 
   to_grayscale(input: HTMLCanvasElement, output: HTMLCanvasElement): HTMLCanvasElement {
     let src = cv.imread(input);

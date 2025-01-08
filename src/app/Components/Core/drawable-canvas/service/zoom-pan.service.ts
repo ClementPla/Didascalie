@@ -199,6 +199,7 @@ export class ZoomPanService {
       this.offset.x = newOffsetX;
       this.offset.y = newOffsetY;
       requestAnimationFrame(() => {
+        this.stateService.recomputeCanvasSum = false;
         this.smoothUpdateTransform();
         this.redrawRequest.next(true);
       });
