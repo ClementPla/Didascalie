@@ -3,10 +3,8 @@ use super::images::{
   convert_image_to_luma_u8_array,
   convert_image_to_mask_array,
   convert_image_to_rgb_u8_array,
-  convert_mask_to_blob,
   convert_rgb_to_blob,
   load_blob_to_image,
-  load_mask_to_array,
 };
 use tauri::{ self, ipc::Response };
 use imageproc::morphology::{ open, close, dilate, erode };
@@ -183,7 +181,6 @@ pub async fn otsu_segmentation(
 ) -> Result<Response, String> {
   // 1. Load image and mask
 
-  
   let image = image::DynamicImage::ImageRgba8(
     image::RgbaImage::from_raw(width as u32, height as u32, image).unwrap()
   );
@@ -191,13 +188,14 @@ pub async fn otsu_segmentation(
   let mask = image::DynamicImage::ImageRgba8(
     image::RgbaImage::from_raw(width as u32, height as u32, mask).unwrap()
   );
-  let color = mask.pixels().collect::<Vec<_>>()
-      .iter()
-      .find_map(|(_, _, pixel)| {
-        if pixel[0] > 0 { Some([pixel[0], pixel[1], pixel[2], pixel[3]]) } else { None }
-      })
-      .unwrap_or([0, 0, 0, 0]);
-
+  let color = mask
+    .pixels()
+    .collect::<Vec<_>>()
+    .iter()
+    .find_map(|(_, _, pixel)| {
+      if pixel[0] > 0 { Some([pixel[0], pixel[1], pixel[2], pixel[3]]) } else { None }
+    })
+    .unwrap_or([0, 0, 0, 0]);
 
   let image = convert_image_to_luma_u8_array(&image);
   let mask = convert_image_to_mask_array(&mask);
@@ -224,36 +222,35 @@ pub async fn otsu_segmentation(
 }
 
 #[tauri::command]
-pub async fn find_overlapping_region(label: Vec<u8>, mask: Vec<u8>) -> Result<Response, String> {
+pub async fn find_overlapping_region(
+  label: Vec<u8>,
+  mask: Vec<u8>,
+  width: usize,
+  height: usize
+) -> Result<Response, String> {
   // 1. Load label and mask
 
-  let label = load_mask_to_array(&label)?;
+  let label = image::DynamicImage::ImageRgba8(
+    image::RgbaImage::from_raw(width as u32, height as u32, label).unwrap()
+  );
 
-  let label_array = label.0;
-  let color = label.1;
-
-  let (height, width) = label_array.dim();
-
-  let mask_image = load_blob_to_image(&mask)?;
-  let mask = convert_image_to_mask_array(&mask_image);
-
+  let label = label.to_luma8();
+  let mask = image::DynamicImage::ImageRgba8(
+    image::RgbaImage::from_raw(width as u32, height as u32, mask).unwrap()
+  );
   // Find connected components in the label image
-  let (raw_vec, _) = label_array.map(|&v| if v { 255u8 } else { 0u8 }).into_raw_vec_and_offset();
-  let label_image = GrayImage::from_raw(width as u32, height as u32, raw_vec).unwrap();
-  let connected_components = connected_components(&label_image, Connectivity::Eight, Luma([0]));
+  let connected_components = connected_components(&label, Connectivity::Eight, Luma([0]));
 
   // We need to iterate over the connected components and check if they overlap with the mask,
   // and store the value in a list.
 
-  let mut mask_over_cc = Vec::new();
-
-  mask_over_cc = (0..mask.dim().0)
+  let mask_over_cc: Vec<u32> = (0..height as u32)
     .into_par_iter()
     .flat_map(|y| {
-      (0..mask.dim().1)
+      (0..width as u32)
         .filter_map(|x| {
           let label_value = connected_components.get_pixel(x as u32, y as u32)[0];
-          if label_value != 0 && mask[(y, x)] == true {
+          if label_value != 0 && mask.get_pixel(x, y)[0] != 0 {
             Some(label_value)
           } else {
             None
@@ -263,12 +260,12 @@ pub async fn find_overlapping_region(label: Vec<u8>, mask: Vec<u8>) -> Result<Re
     })
     .collect();
 
-  let mut overlapping_region = Array2::from_elem(mask.dim(), false);
+  let mut overlapping_region = Array2::from_elem((height, width), false);
 
-  overlapping_region = (0..mask.dim().0)
+  overlapping_region = (0..height)
     .into_par_iter()
     .flat_map(|y| {
-      (0..mask.dim().1)
+      (0..width)
         .filter_map(|x| {
           let label_value = connected_components.get_pixel(x as u32, y as u32)[0];
           if mask_over_cc.contains(&label_value) {
@@ -286,10 +283,20 @@ pub async fn find_overlapping_region(label: Vec<u8>, mask: Vec<u8>) -> Result<Re
       acc
     });
 
-  // 3. Convert overlapping region back to blob
-  let output_blob = convert_mask_to_blob(&overlapping_region, &color)?;
+  // 3. Convert refined mask back to blob
+  let output_mask_image: image::DynamicImage = image::DynamicImage::ImageRgba8(
+    image::ImageBuffer::from_fn(width as u32, height as u32, |x, y| {
+      let value = *overlapping_region.get([y as usize, x as usize]).unwrap();
+      if value {
+        image::Rgba([255,255,255,255])
+      } else {
+        image::Rgba([0, 0, 0, 0])
+      }
+    })
+  );
 
-  Ok(Response::new(output_blob))
+  Ok(Response::new(output_mask_image.to_rgba8().into_vec()))
+
 }
 
 #[tauri::command]

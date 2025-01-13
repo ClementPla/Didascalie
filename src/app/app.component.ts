@@ -90,7 +90,7 @@ export class AppComponent implements AfterViewInit {
     });
   }
   ngAfterViewInit() {
-    // this.debug();
+    this.debug();
   }
 
   async debug() {
@@ -125,8 +125,7 @@ export class AppComponent implements AfterViewInit {
     this.labelService.addClassificationTask(new MulticlassTask('Quality', ['Good', 'Readable', 'Ungradable']));
     this.labelService.addMultilabelTask(new MultilabelTask('Misc', ['AMD', 'Glaucoma', 'Catract', 'Hypertension']));
     this.projectService.isSegmentation = true;
-    this.editorService.autoPostProcess = false;
-    this.editorService.postProcessOption = 'otsu';  
+    this.editorService.autoPostProcess = true;
 
     let isStarted$ = this.projectService.startProject();
     isStarted$.then(() => {

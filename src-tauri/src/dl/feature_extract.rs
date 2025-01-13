@@ -1,7 +1,7 @@
 use image::GenericImageView;
 use ndarray::{ Array4, Array3 };
 use ort::{
-  memory::{ AllocationDevice, Allocator, AllocatorType, MemoryInfo, MemoryType }, value::{Tensor, Value}
+  memory::Allocator, value::{Tensor, Value}
 
 };
 
@@ -57,16 +57,13 @@ impl FeaturesExtractor {
     session: &ort::session::Session
   ) -> Result<(), Box<dyn std::error::Error>> {
     println!("Running encoder inference");
-    let mut ioBinding = session.create_binding().unwrap();
+    let mut io_binding = session.create_binding().unwrap();
+    io_binding.bind_input("image", &image)?;
+    io_binding.bind_output_to_device("features", &session.allocator().memory_info())?;
 
-    
-
-    ioBinding.bind_input("image", &image)?;
-    ioBinding.bind_output_to_device("features", &session.allocator().memory_info())?;
-
-    self.features = ioBinding.run().unwrap().remove("features").unwrap();
-
+    self.features = io_binding.run().unwrap().remove("features").unwrap();
     Ok(())
+    
   }
   pub fn get_features(&self) -> &Value {
     &self.features
@@ -102,7 +99,7 @@ impl FeaturesExtractor {
     let mut boxes = tools::split_and_merge::quadtree_bounding_boxes(&graymask, max_depth, min_size);
     // Resize coordinates from 256x256 to expected_size x expected_size
     
-    for(bbox) in boxes.iter_mut() {
+    for bbox in boxes.iter_mut() {
       bbox[0] = (bbox[0] as f32 / 256.0 * self.expected_size as f32) as u32;
       bbox[1] = (bbox[1] as f32 / 256.0 * self.expected_size as f32) as u32;
       bbox[2] = (bbox[2] as f32 / 256.0 * self.expected_size as f32) as u32;

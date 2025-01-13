@@ -373,47 +373,7 @@ export class DrawService {
   }
 
   public async postProcessErase() {
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
-
-    const blobBuffer = await bufferCtx.canvas.convertToBlob({
-      type: 'image/png',
-    });
-
-    let allPromises: Promise<void>[] = [];
-    this.canvasManagerService.getAllCanvas().forEach((classCanvas, index) => {
-      if (
-        index != this.labelService.getActiveIndex() &&
-        !this.editorService.eraseAll
-      ) {
-        return;
-      }
-      const blobClass$ = classCanvas
-        .convertToBlob({ type: 'image/png' })
-        .then(async (blob) => {
-          return invoke<Uint8ClampedArray>('find_overlapping_region', {
-            label: await blob.arrayBuffer(),
-            mask: await blobBuffer.arrayBuffer(),
-          });
-        })
-        .then(async (result: Uint8ClampedArray | null) => {
-          if (!result) {
-            return;
-          }
-          let blob = new Blob([result], { type: 'image/png' });
-          let imageBitmap = await createImageBitmap(blob);
-          if (imageBitmap) {
-            const ctx = classCanvas.getContext('2d', { alpha: true })!;
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.drawImage(imageBitmap, 0, 0);
-          }
-        });
-      allPromises.push(blobClass$);
-    });
-
-    Promise.all(allPromises).then(() => {
-      this.stateService.recomputeCanvasSum = true;
-      this.redrawRequest.next(true);
-    });
+    await this.postProcessService.eraseAll_post_process();
   }
 
   public refreshColor(

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, input } from '@angular/core';
 import { EditorService } from '../../../../Services/UI/editor.service';
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
@@ -120,12 +120,55 @@ export class PostProcessService {
     });
   }
 
-  async eraseAll_post_process(){
+  async eraseAll_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
 
+    const inputCtx = this.editorService.eraseAll
+      ? this.canvasManagerService.getCombinedCtx()
+      : this.canvasManagerService.getActiveCtx();
+
+    const maskData = bufferCtx.getImageData(
+      0,
+      0,
+      this.stateService.width,
+      this.stateService.height
+    ).data;
+    const labelData = inputCtx.getImageData(
+      0,
+      0,
+      this.stateService.width,
+      this.stateService.height
+    ).data;
+
+    const activeIndex = this.canvasManagerService.getActiveIndex();
+    let start = performance.now();
+    return invoke<ArrayBufferLike>('find_overlapping_region', {
+      label: labelData.buffer,
+      mask: maskData.buffer,
+      width: this.stateService.width,
+      height: this.stateService.height
+    }).then((mask: ArrayBufferLike) => {
+      console.log('Time taken: ', performance.now() - start);
+      const newMAsk = new ImageData(
+        new Uint8ClampedArray(mask),
+        this.stateService.width,
+        this.stateService.height
+      );
+      bufferCtx.putImageData(newMAsk, 0, 0);
+      this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
+        if (index !== activeIndex && !this.editorService.eraseAll) return;
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.drawImage(
+          bufferCtx.canvas,
+          0,
+          0,
+          this.stateService.width,
+          this.stateService.height
+        );
+        ctx.globalCompositeOperation = 'source-over';
+      });
+    });
   }
-
-
 
   async drawQuadTreeBbox(
     maskData: Uint8ClampedArray,

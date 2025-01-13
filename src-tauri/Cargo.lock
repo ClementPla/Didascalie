@@ -7,6 +7,7 @@ name = "LabelMed"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "bitvec",
  "futures",
  "image 0.25.5",
  "imageproc",
