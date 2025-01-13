@@ -90,7 +90,7 @@ export class AppComponent implements AfterViewInit {
     });
   }
   ngAfterViewInit() {
-    this.debug();
+    // this.debug();
   }
 
   async debug() {
