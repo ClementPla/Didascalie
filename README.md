@@ -58,7 +58,6 @@ LabelMed combines multiple technologies for optimal performance:
 - ONNX Runtime (ML Model Integration)
 
 ## Communication with Python
-## Communication with Python
 
 LabelMed enables seamless integration with Python scripts through ZeroMQ:
 
