@@ -5,7 +5,6 @@ import {
   ElementRef,
   EventEmitter,
   HostListener,
-  Output,
   ViewChild,
 } from '@angular/core';
 
@@ -25,6 +24,7 @@ import { CanvasManagerService } from '../service/canvas-manager.service';
 import { StateManagerService } from '../service/state-manager.service';
 import { DrawService } from '../service/draw.service';
 import { UndoRedoService } from '../service/undo-redo.service';
+import { PostProcessService } from '../service/post-process.service';
 
 @Component({
   selector: 'app-drawable-canvas',
@@ -34,14 +34,13 @@ import { UndoRedoService } from '../service/undo-redo.service';
   styleUrl: './drawable-canvas.component.scss',
 })
 export class DrawableCanvasComponent implements AfterViewInit {
-  @Output() public imageLoaded = new EventEmitter<boolean>();
 
   public cursor: Point2D = { x: 25, y: 25 };
   public currentPixel: Point2D = { x: 0, y: 0 };
   public viewBox: Viewbox = { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
   public isFullscreen: boolean = false;
   public rulerSize: number = 16;
-
+  public isImageLoaded: boolean = false;
   private ctxImage: CanvasRenderingContext2D | null = null;
   private ctxLabel: CanvasRenderingContext2D;
   srcImg: string;
@@ -65,7 +64,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
     public stateService: StateManagerService,
     private drawService: DrawService,
     private undoRedoService: UndoRedoService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private postProcessService: PostProcessService
   ) {
     this.initSubscriptions();
   }
@@ -118,7 +118,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
     }
   }
 
-  public initalizeDims() {
+  public initializeDimensions() {
     this.stateService.setWidthAndHeight(this.image.width, this.image.height);
 
     this.imgCanvas.nativeElement.width = this.stateService.width; // This is the canvas with the main image
@@ -162,19 +162,20 @@ export class DrawableCanvasComponent implements AfterViewInit {
   }
 
   public loadImage(image: Promise<string>) {
+    this.isImageLoaded = false;
     return image.then((img) => {
       this.srcImg = img;
-      this.cdr.detectChanges();
       this.reload();
+      this.cdr.detectChanges();
+
     });
   }
   public wheel(event: WheelEvent): void {
     event.preventDefault();
-    if(event.ctrlKey){
+    if (event.ctrlKey) {
       this.editorService.lineWidth += event.deltaY > 0 ? -2 : 2;
       this.editorService.lineWidth = Math.max(1, this.editorService.lineWidth);
       return;
-
     }
     this.stateService.recomputeCanvasSum = false;
 
@@ -218,7 +219,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
     }
   }
 
-  public mouseUp($event: MouseEvent) {
+  public async mouseUp($event: MouseEvent) {
     if ($event.button == 1) {
       this.editorService.restoreLastTool();
     }
@@ -226,7 +227,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
     if (this.editorService.canPan()) {
       this.zoomPanService.endDrag();
     } else {
-      this.drawService.endDraw();
+      await this.drawService.endDraw();
     }
   }
 
@@ -274,7 +275,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
     this.ctxLabel.imageSmoothingEnabled = false;
     this.ctxLabel.filter = 'url(#remove-alpha)';
-
     if (this.stateService.recomputeCanvasSum) {
       this.canvasManagerService.computeCombinedCanvas();
       this.stateService.recomputeCanvasSum = false;
@@ -286,10 +286,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
       0,
       0
     );
-    // if(this.editorService.edgesOnly){
-    //   this.openCVService.edgeDetectionCanvas(this.ctxLabel.canvas)
 
-    // }
     this.ctxLabel.globalAlpha = 1;
   }
 
@@ -298,22 +295,22 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
     this.image.onload = () => {
       this.stateService.recomputeCanvasSum = true;
-      this.imageLoaded.emit(true);
+      this.postProcessService.featuresExtracted = false;
 
       this.imageProcessingService.setImage(this.image);
       this.drawService.clearCanvas(this.ctxLabel);
       this.drawService.clearCanvas(this.ctxImage!);
 
-      this.initalizeDims();
+      this.initializeDimensions();
 
       this.canvasManagerService.initCanvas();
-      this.canvasManagerService.resetCombinedCanvas();
 
       this.undoRedoService.empty();
       this.viewService.endLoading();
+      this.redrawAllCanvas();
+
       requestAnimationFrame(() => {
-        console.log('Redrawing canvas');
-        this.redrawAllCanvas();
+        this.isImageLoaded = true;
       });
     };
   }
@@ -324,7 +321,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
   public loadAllCanvas(masks: string[]) {
     this.canvasManagerService.loadAllCanvas(masks);
-    
   }
 
   public switchFullScreen() {

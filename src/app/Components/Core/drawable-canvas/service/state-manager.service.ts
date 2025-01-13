@@ -12,6 +12,7 @@ export class StateManagerService {
 
   public isDrawing: boolean = false;
 
+  public currentPoint: Point2D = { x: -1, y: -1 };
   public previousPoint: Point2D = { x: -1, y: -1 };
 
   public minPoint: Point2D = { x: Number.MAX_VALUE, y: Number.MAX_VALUE };
@@ -25,6 +26,11 @@ export class StateManagerService {
   updatePreviousPoint(point: Point2D) {
     this.previousPoint = point;
   }
+
+  updateCurrentPoint(point: Point2D) {
+    this.currentPoint = point;
+  }
+
   setWidthAndHeight(width: number, height: number) {
     this.width = width;
     this.height = height;
@@ -35,6 +41,10 @@ export class StateManagerService {
     this.maxPoint = { x: 0, y: 0 };
   }
 
+  resetCurrentPoint() {
+    this.currentPoint = { x: -1, y: -1 };
+  }
+
   resetPreviousPoint() {
     this.previousPoint = { x: -1, y: -1 };
   }
@@ -43,6 +53,7 @@ export class StateManagerService {
     this.isDrawing = false;
     this.resetMinMaxPoints();
     this.resetPreviousPoint();
+    this.resetCurrentPoint();
   }
 
   isFirstStroke() {

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { EditorService } from '../../../../Services/UI/editor.service';
 import { OpenCVService } from '../../../../Services/open-cv.service';
+import { PostProcessService } from './post-process.service';
 
 @Injectable({
   providedIn: 'root'
@@ -26,7 +27,8 @@ export class ImageProcessingService {
   edgeStrength: number = 1;
   reinforceEdges: boolean = false;
 
-  constructor(private editorService: EditorService, private openCVService: OpenCVService) { }
+  constructor(private editorService: EditorService, 
+    private openCVService: OpenCVService) { }
 
 
   refresh() {

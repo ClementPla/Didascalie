@@ -51,7 +51,7 @@ export class AppComponent implements AfterViewInit {
   constructor(
     public viewService: ViewService,
     public projectService: ProjectService,
-    public drawService: EditorService,
+    public editorService: EditorService,
     private labelService: LabelsService,
     private cli: CLIService,
     private cdr: ChangeDetectorRef,
@@ -90,7 +90,7 @@ export class AppComponent implements AfterViewInit {
     });
   }
   ngAfterViewInit() {
-    // this.debug();
+    this.debug();
   }
 
   async debug() {
@@ -125,6 +125,8 @@ export class AppComponent implements AfterViewInit {
     this.labelService.addClassificationTask(new MulticlassTask('Quality', ['Good', 'Readable', 'Ungradable']));
     this.labelService.addMultilabelTask(new MultilabelTask('Misc', ['AMD', 'Glaucoma', 'Catract', 'Hypertension']));
     this.projectService.isSegmentation = true;
+    this.editorService.autoPostProcess = false;
+    this.editorService.postProcessOption = 'otsu';  
 
     let isStarted$ = this.projectService.startProject();
     isStarted$.then(() => {

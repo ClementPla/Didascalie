@@ -1,129 +1,86 @@
-use tauri::Manager;
-use tauri::{ self, ipc::Response, path::BaseDirectory };
+use std::sync::{ Arc, Mutex };
+
+use base64::decode;
+use tauri::State;
+use tauri::{ self, ipc::Response };
 use ort::{ self, session::SessionOutputs };
-use ort::execution_providers::CUDAExecutionProvider;
-use image::GenericImageView;
-use ort::session::{ builder::GraphOptimizationLevel, Session, SessionInputValue };
-use ndarray::{ Array, Array2 };
 use ort::value::Tensor;
-use super::images::load_blob_to_image;
-use std::io::Cursor;
 
-use std::sync::OnceLock;
-use lazy_static::lazy_static;
-
-// Optional: Create a thread-safe singleton for the model
-lazy_static! {
-  static ref MODEL_SESSION: OnceLock<Session> = OnceLock::new();
-}
-
-fn get_or_create_model(app: &tauri::AppHandle) -> Result<&'static Session, ort::Error> {
-  Ok(
-    MODEL_SESSION.get_or_init(|| {
-      // First, create the CUDA execution provider
-      let cuda_provider = CUDAExecutionProvider::default();
-
-      let resource_path = app.path().resolve("resources/medsam.onnx", BaseDirectory::Resource).unwrap();
-
-      Session::builder()
-        .unwrap()
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .unwrap()
-        .with_intra_threads(4)
-        .unwrap()
-        // Try using .with_provider() instead
-        .with_execution_providers(vec![cuda_provider.into()])
-        .unwrap()
-        .commit_from_file(resource_path)
-        .unwrap()
-    })
-  )
-}
+use crate::dl::model::{ get_encoder, get_decoder };
+use crate::dl::feature_extract::FeaturesExtractor;
 
 #[tauri::command]
-pub fn sam_segment(app: tauri::AppHandle, image: Vec<u8>, coarse_mask: Vec<u8>, threshold: f32) -> Result<Response, String> {
-  // ort::init()
-  // 	.with_execution_providers([CUDAExecutionProvider::default().build().error_on_failure()])
-  // .commit().map_err(|e| e.to_string())?;
+pub fn sam_segment(
+  image: Vec<u8>,
+  coarse_mask: Vec<u8>,
+  threshold: f32,
+  width: usize,
+  height: usize,
+  extract_features: bool,
+  max_depth: u32,
+  min_size: u32,
+  app: tauri::AppHandle,
+  features_extractor: State<Arc<Mutex<FeaturesExtractor>>>
+) -> Result<Response, String> {
 
-  let model = get_or_create_model(&app).map_err(|e| format!("Model loading failed: {}", e))?;
-  let expected_size = 256;
-  let image = load_blob_to_image(&image).unwrap();
-  let coarse_mask = load_blob_to_image(&coarse_mask).unwrap();
-
-  // Get size
-  let (width, height) = image.dimensions();
-
-  // Find min and max pixel value (all channels combined)
-
-
-  // Resize image to 1024x1024
-  let image = image.resize_exact(expected_size, expected_size, image::imageops::FilterType::Nearest);
-  let coarse_mask = coarse_mask.resize_exact(expected_size, expected_size, image::imageops::FilterType::Nearest);
-
-  // Convert image to tensor
-  let mut image_array = Array::zeros([1, 3, expected_size as usize, expected_size as usize]);
-  let mut bbox_array = Array::zeros((1, 1, 4));
-
-  // Convert image to normalized array using parallel iterator
-  let pixels: Vec<_> = image.pixels().collect();
-  pixels.iter().for_each(|pixel| {
-    let x = pixel.0 as usize;
-    let y = pixel.1 as usize;
-    let [r, g, b, _] = pixel.2.0;
-    let norm = 1.0 / 255.0;
-    image_array[[0, 0, y, x]] = (r as f32) * norm;
-    image_array[[0, 1, y, x]] = (g as f32) * norm;
-    image_array[[0, 2, y, x]] = (b as f32) * norm;
-  });
-
-  // Find bounding box and color in single pass
-  let mask_pixels: Vec<_> = coarse_mask.pixels().collect();
-  let (color, bounds) = mask_pixels.iter()
-    .filter(|p| p.2.0[0] > 0)
-    .fold(
-      ([255, 255, 255, 255], (expected_size, expected_size, 0, 0)),
-      |acc, p| {
-        let (_, _, [r, g, b, a], (mut xmin, mut ymin, mut xmax, mut ymax)) = 
-          (p.0, p.1, p.2.0, acc.1);
-        xmin = xmin.min(p.0);
-        ymin = ymin.min(p.1);
-        xmax = xmax.max(p.0);
-        ymax = ymax.max(p.1);
-        ([r, g, b, a], (xmin, ymin, xmax, ymax))
-      }
+  let mut features_extractor = features_extractor.lock().unwrap();
+  if extract_features {
+    let image: ort::value::Value<ort::value::TensorValueType<f32>> = features_extractor.prepare_image(
+      image,
+      width as usize,
+      height as usize
     );
+    let encoder: &ort::session::Session = get_encoder(&app).map_err(|e|
+      format!("Failed to load encoder model: {}", e)
+    )?;
 
-  let (xmin, ymin, xmax, ymax) = bounds;
+    let _ = features_extractor.extract_features(image, &encoder);
+  }
 
-  bbox_array[[0, 0, 0]] = xmin as f32;
-  bbox_array[[0, 0, 1]] = ymin as f32;
-  bbox_array[[0, 0, 2]] = xmax as f32;
-  bbox_array[[0, 0, 3]] = ymax as f32;
+  let bbox_and_colors: (
+    ndarray::ArrayBase<ndarray::OwnedRepr<f32>, ndarray::Dim<[usize; 3]>>,
+    [u8; 4],
+  ) = features_extractor.extract_bbox_and_color_from_mask(
+    coarse_mask,
+    width,
+    height,
+    max_depth,
+    min_size
+  );
 
-  // Convert image array to a Tensor
-  let image_value = Tensor::from_array(image_array).unwrap();
-  let mask_value = Tensor::from_array(bbox_array).unwrap();
+  let bbox_array: ndarray::ArrayBase<
+    ndarray::OwnedRepr<f32>,
+    ndarray::Dim<[usize; 3]>
+  > = bbox_and_colors.0;
+
+  if bbox_array.dim().0 == 0 {
+    return Ok(Response::new(Vec::new()));
+  }
+  let bbox_tensor: ort::value::Value<ort::value::TensorValueType<f32>> = Tensor::from_array(
+    bbox_array.clone()
+  ).unwrap();
+  let color: [u8; 4] = bbox_and_colors.1;
 
   // Load model
-  let data: Vec<(&str, SessionInputValue)> = vec![
-    ("images".into(), SessionInputValue::from(image_value)),
-    ("bbox".into(), SessionInputValue::from(mask_value))
-  ];
-  println!("Running model inference");
-  let outputs: SessionOutputs = model.run(data).expect("Failed to run model inference");
-  let output: ndarray::ArrayBase<
-    ndarray::ViewRepr<&f32>,
-    ndarray::Dim<ndarray::IxDynImpl>
-  > = outputs["output_masks"].try_extract_tensor().unwrap();
+  let decoder: &ort::session::Session = get_decoder(&app).map_err(|e|
+    format!("Failed to load decoder model: {}", e)
+  )?;
 
-  // Display a message
+  let mut decoder_binding = decoder.create_binding().unwrap();
+  decoder_binding.bind_input("features", features_extractor.get_features()).unwrap();
+  decoder_binding.bind_input("bbox", &bbox_tensor).unwrap();
 
-  println!("Model ran successfully");
-
+  decoder_binding.bind_output_to_device("mask", &decoder.allocator().memory_info()).unwrap();
+  decoder_binding.synchronize_inputs().unwrap();
+  println!("Running decoder inference");
+  let mut outputs = decoder_binding.run().map_err(|e| e.to_string())?;
+  let binding = outputs.remove("mask").unwrap();
+  let output = binding
+    .try_extract_tensor::<f32>().map_err(|e| e.to_string())?;
+  
   // Convert the output tensor directly to a 2D view and create the image buffer in one pass
-  let output_mask_image = image::DynamicImage::ImageRgba8(
-    image::ImageBuffer::from_fn(expected_size, expected_size, |x, y| {
+  let output_mask_image: image::DynamicImage = image::DynamicImage::ImageRgba8(
+    image::ImageBuffer::from_fn(1024, 1024, |x, y| {
       let value = *output.get([y as usize, x as usize]).unwrap() > threshold;
       if value {
         image::Rgba(color)
@@ -134,16 +91,10 @@ pub fn sam_segment(app: tauri::AppHandle, image: Vec<u8>, coarse_mask: Vec<u8>, 
   );
 
   let output_mask_image = output_mask_image.resize_exact(
-    width,
-    height,
-    image::imageops::FilterType::CatmullRom,
+    width as u32,
+    height as u32,
+    image::imageops::FilterType::Nearest
   );
 
-  let mut blob = Vec::new();
-  let mut cursor = Cursor::new(&mut blob);
-  output_mask_image
-    .write_to(&mut cursor, image::ImageFormat::Png)
-    .map_err(|_| "Failed to convert mask to blob".to_string())?;
-
-  Ok(Response::new(blob))
+  Ok(Response::new(output_mask_image.to_rgba8().into_vec()))
 }

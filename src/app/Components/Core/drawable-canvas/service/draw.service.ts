@@ -8,10 +8,11 @@ import { Tools } from '../../../../Core/canvases/tools';
 import { EditorService } from '../../../../Services/UI/editor.service';
 import { invoke } from '@tauri-apps/api/core';
 import { StateManagerService } from './state-manager.service';
-import { Subject } from 'rxjs';
+import { buffer, combineLatest, Subject } from 'rxjs';
 import { CanvasManagerService } from './canvas-manager.service';
 import { ImageProcessingService } from './image-processing.service';
 import { UndoRedoService } from './undo-redo.service';
+import { PostProcessService } from './post-process.service';
 
 @Injectable({
   providedIn: 'root',
@@ -30,8 +31,8 @@ export class DrawService {
     private editorService: EditorService,
     private stateService: StateManagerService,
     private canvasManagerService: CanvasManagerService,
-    private imageProcessingService: ImageProcessingService,
-    private undoRedoService: UndoRedoService
+    private undoRedoService: UndoRedoService,
+    private postProcessService: PostProcessService
   ) {
     this.editorService.canvasSumRefresh.subscribe((value) => {
       this.canvasManagerService.computeCombinedCanvas();
@@ -54,32 +55,46 @@ export class DrawService {
     });
   }
 
-  public applyLasso(
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
-  ) {
+  public applyLasso() {
     if (this.lassoPoints.length < 3) {
       return;
     }
+    let ctx = this.canvasManagerService.getBufferCtx();
     ctx.strokeStyle = this.getFillColor();
     ctx.fillStyle = this.getFillColor();
     ctx.lineWidth = 0;
-    if (this.editorService.swapMarkers) {
-      this.swapLasso(ctx);
-    } else {
-      ctx.globalCompositeOperation = 'source-over';
-      let prev: Point2D = this.lassoPoints[0];
-      ctx.beginPath();
-      ctx.moveTo(prev.x, prev.y);
-      for (let i = 1; i < this.lassoPoints.length; i++) {
-        const canvasCoord = this.lassoPoints[i];
-        ctx.lineTo(canvasCoord.x, canvasCoord.y);
-      }
-      ctx.closePath();
-      for (let i = 0; i < 20; i++) {
-        ctx.fill();
-      }
+    ctx.globalCompositeOperation = 'source-over';
+    let prev: Point2D = this.lassoPoints[0];
+    ctx.beginPath();
+    ctx.moveTo(prev.x, prev.y);
+    for (let i = 1; i < this.lassoPoints.length; i++) {
+      const canvasCoord = this.lassoPoints[i];
+      ctx.lineTo(canvasCoord.x, canvasCoord.y);
+    }
+    ctx.closePath();
+    for (let i = 0; i < 20; i++) {
+      ctx.fill();
+    }
 
-      // this.binarizeCanvas(ctx, this.getFillColor());
+    if (this.editorService.swapMarkers) {
+      this.swapMarkers();
+    }
+
+    if (!this.editorService.autoPostProcess) {
+      let bbox = this.stateService.getBoundingBox();
+      this.canvasManagerService
+        .getActiveCtx()
+        .drawImage(
+          ctx.canvas,
+          bbox.x,
+          bbox.y,
+          bbox.width,
+          bbox.height,
+          bbox.x,
+          bbox.y,
+          bbox.width,
+          bbox.height
+        );
     }
 
     this.lassoPoints = [];
@@ -131,7 +146,7 @@ export class DrawService {
     if (!this.labelService.activeLabel) {
       return;
     }
-    let ctx = this.canvasManagerService.bufferCtx;
+    let ctx = this.canvasManagerService.getBufferCtx();
     if (!ctx) {
       return;
     }
@@ -148,12 +163,16 @@ export class DrawService {
     // Deactivate anti-aliasing
     ctx.imageSmoothingEnabled = false;
     ctx.lineCap = 'round';
+    if (this.stateService.isFirstStroke()) {
+      this.stateService.updatePreviousPoint(imageCoord);
+    }
+    this.stateService.updateCurrentPoint(imageCoord);
     switch (this.editorService.selectedTool) {
       case Tools.PEN:
-        this.drawPen(ctx, event);
+        this.drawPen(ctx);
         break;
       case Tools.ERASER:
-        this.eraserPen(ctx, event);
+        this.eraserPen(ctx);
         break;
       case Tools.LASSO:
         this.updateLasso(event);
@@ -162,31 +181,29 @@ export class DrawService {
         this.updateLasso(event);
         break;
     }
+    this.stateService.updatePreviousPoint(imageCoord);
   }
 
-  public drawPen(ctx: OffscreenCanvasRenderingContext2D, event: MouseEvent) {
-    const imageCoord = this.zoomPanService.getImageCoordinates(event);
+  public drawPen(ctx: OffscreenCanvasRenderingContext2D) {
     // Initialize previous point if not set
-    if (this.stateService.isFirstStroke()) {
-      this.stateService.updatePreviousPoint(imageCoord);
-    }
+
     ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = false;
 
-    // drawLine(ctx, this.previousPoint, imageCoord, this.editorService.lineWidth, this.getFillColor());
     ctx.beginPath();
     ctx.moveTo(
       this.stateService.previousPoint.x,
       this.stateService.previousPoint.y
     );
-    ctx.lineTo(imageCoord.x, imageCoord.y);
+    ctx.lineTo(
+      this.stateService.currentPoint.x,
+      this.stateService.currentPoint.y
+    );
     ctx.stroke();
 
-    // Do we need to binarize the canvas here?
     this.binarizeCanvas(ctx, this.getFillColor());
 
     // Update previous point
-    this.stateService.previousPoint = imageCoord;
     this.finalizeDraw(ctx);
   }
 
@@ -194,34 +211,36 @@ export class DrawService {
     if (!this.stateService.isDrawing) {
       return;
     }
+    this.stateService.recomputeCanvasSum = true;
     let bufferCtx = this.canvasManagerService.bufferCtx;
     let activeCtx = this.canvasManagerService.getActiveCtx();
     this.binarizeCanvas(bufferCtx, this.getFillColor());
+    this.stateService.recomputeCanvasSum = true;
     switch (this.editorService.selectedTool) {
       case Tools.PEN:
         let bbox = this.stateService.getBoundingBox();
         if (!this.editorService.autoPostProcess) {
-          activeCtx.drawImage(
-            this.canvasManagerService.getBufferCanvas(),
-            bbox.x,
-            bbox.y,
-            bbox.width,
-            bbox.height,
-            bbox.x,
-            bbox.y,
-            bbox.width,
-            bbox.height
-          );
+          if (this.editorService.swapMarkers) {
+            this.swapMarkers();
+          } else {
+            activeCtx.drawImage(
+              this.canvasManagerService.getBufferCanvas(),
+              bbox.x,
+              bbox.y,
+              bbox.width,
+              bbox.height,
+              bbox.x,
+              bbox.y,
+              bbox.width,
+              bbox.height
+            );
+          }
         }
         break;
       case Tools.ERASER:
         break;
       case Tools.LASSO:
-        if (this.editorService.autoPostProcess) {
-          this.applyLasso(bufferCtx);
-        } else {
-          this.applyLasso(activeCtx);
-        }
+        this.applyLasso();
         break;
       case Tools.LASSO_ERASER:
         if (this.editorService.eraseAll) {
@@ -236,18 +255,17 @@ export class DrawService {
     }
     this.stateService.isDrawing = false;
 
-    let postProcessCallback;
-    if (!this.editorService.autoPostProcess) {
-      // Callback is simply Identity
-      postProcessCallback = Promise.resolve();
-    } else if (this.editorService.isEraser()) {
-      postProcessCallback = this.postProcessErase();
-    } else if (this.editorService.isDrawingTool()) {
-      postProcessCallback = this.postProcessDraw();
+    let postProcessCallback = new Promise<void>((resolve) => {
+      resolve();
+    });
+    if (this.editorService.autoPostProcess) {
+      if (this.editorService.isEraser()) {
+        postProcessCallback = this.postProcessErase();
+      } else if (this.editorService.isDrawingTool()) {
+        postProcessCallback = this.postProcessDraw();
+      }
     }
-
     await postProcessCallback?.then(() => {
-      console.log('Requesting redraw');
       this.redrawRequest.next(true);
     });
 
@@ -258,15 +276,10 @@ export class DrawService {
     }
   }
 
-  public eraserPen(ctx: OffscreenCanvasRenderingContext2D, event: MouseEvent) {
+  public eraserPen(ctx: OffscreenCanvasRenderingContext2D) {
     // Is auto post-processing enabled? In which case, ctx is a buffer canvas
     // and we need to draw on the buffer canvas instead of the active canvas
     // Otherwise, we draw on the active canvas or all class canvases if eraseAll is enabled
-
-    const imageCoord = this.zoomPanService.getImageCoordinates(event);
-
-    // Initialize previous point if not set
-    this.stateService.updatePreviousPoint(imageCoord);
 
     ctx.globalCompositeOperation = 'source-over';
     ctx.beginPath();
@@ -274,7 +287,10 @@ export class DrawService {
       this.stateService.previousPoint.x,
       this.stateService.previousPoint.y
     );
-    ctx.lineTo(imageCoord.x, imageCoord.y);
+    ctx.lineTo(
+      this.stateService.currentPoint.x,
+      this.stateService.currentPoint.y
+    );
     ctx.stroke();
 
     this.binarizeCanvas(ctx, this.getFillColor());
@@ -308,13 +324,20 @@ export class DrawService {
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    // Update previous point
-    this.stateService.previousPoint = imageCoord;
-
     if (this.editorService.autoPostProcess) {
       let ctxCombined = this.canvasManagerService.getCombinedCtx();
-      ctxCombined.globalAlpha = 0.02;
-      ctxCombined.drawImage(ctx.canvas, 0, 0);
+      ctxCombined.globalAlpha = 0.2;
+      ctxCombined.drawImage(
+        ctx.canvas,
+        bbox.x,
+        bbox.y,
+        bbox.width,
+        bbox.height,
+        bbox.x,
+        bbox.y,
+        bbox.width,
+        bbox.height
+      );
       ctxCombined.globalAlpha = 1;
     }
     this.redrawRequest.next(true);
@@ -336,92 +359,17 @@ export class DrawService {
     return color ? color : '#ffffff';
   }
 
-  public async postProcessDraw() {
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
-    let rect = {
-      x: 0,
-      y: 0,
-      width: this.stateService.width,
-      height: this.stateService.height,
-    };
-
-    if (this.editorService.postProcessOption == 'otsu') {
-      rect = this.stateService.getBoundingBox();
+  public postProcessDraw() {
+    this.stateService.recomputeCanvasSum = true;
+    switch (this.editorService.postProcessOption) {
+      case 'otsu':
+        return this.postProcessService.otsu_post_process();
+      case 'MedSAM':
+        return this.postProcessService.sam_post_process();
     }
-
-    const imageData = bufferCtx.getImageData(
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height
-    );
-    const tmp = new OffscreenCanvas(rect.width, rect.height);
-    const tmpImage = new OffscreenCanvas(rect.width, rect.height);
-    tmp.getContext('2d')?.putImageData(imageData!, 0, 0);
-
-    tmpImage
-      .getContext('2d')
-      ?.drawImage(
-        this.imageProcessingService.getCurrentCanvas(),
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height,
-        0,
-        0,
-        rect.width,
-        rect.height
-      );
-
-    let blobMask$ = tmp.convertToBlob({ type: 'image/png' });
-    let blobImage$ = tmpImage.convertToBlob({ type: 'image/png' });
-
-    await Promise.all([blobMask$, blobImage$])
-      .then(async (values) => {
-        if (values[0] && values[1]) {
-          switch (this.editorService.postProcessOption) {
-            case 'otsu':
-              return invoke<Uint8ClampedArray>('refine_segmentation', {
-                mask: await values[0]!.arrayBuffer(),
-                image: await values[1]!.arrayBuffer(),
-                opening: this.editorService.autoPostProcessOpening,
-                inverse: this.editorService.useInverse,
-                kernelSize: this.editorService.morphoSize,
-                connectedness: this.editorService.enforceConnectivity,
-              });
-            case 'MedSAM':
-              return invoke<Uint8ClampedArray>('sam_segment', {
-                coarseMask: await values[0]!.arrayBuffer(),
-                image: await values[1]!.arrayBuffer(),
-                threshold: this.editorService.samThreshold
-              });
-          }
-        }
-        return null;
-      })
-      .then(async (result: Uint8ClampedArray | null) => {
-        if (!result) {
-          return;
-        }
-        // Decode PNG blob to Uint8ClampedArray
-        let blob = new Blob([result], { type: 'image/png' });
-        let imageBitmap = await createImageBitmap(blob);
-        let activeCtx = this.canvasManagerService.getActiveCtx();
-        let bufferCanvas = this.canvasManagerService.getBufferCanvas();
-        if (this.editorService.postProcessOption == 'MedSAM') {
-          bufferCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
-          bufferCtx.drawImage(imageBitmap, rect.x, rect.y);
-          activeCtx.drawImage(bufferCanvas, 0, 0);
-          this.binarizeCanvas(activeCtx, this.getFillColor());
-        } else {
-          bufferCtx.globalCompositeOperation = 'destination-over';
-          bufferCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
-          bufferCtx.drawImage(imageBitmap, rect.x, rect.y);
-          activeCtx.drawImage(bufferCanvas, 0, 0);
-          this.binarizeCanvas(activeCtx, this.getFillColor());
-        }
-        this.stateService.recomputeCanvasSum = true;
-      });
+    return new Promise<void>((resolve) => {
+      resolve();
+    });
   }
 
   public async postProcessErase() {
@@ -528,49 +476,57 @@ export class DrawService {
     return this.undoRedoService.update_undo_redo();
   }
 
-  public swapLasso(
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
-  ) {
-    // Create buffer canvas only once
-    this.clearCanvas(this.canvasManagerService.bufferCtx);
-    const ctxBuffer = this.canvasManagerService.bufferCtx;
-    // Batch draw other class canvases
+  public swapMarkers() {
     const activeIndex = this.labelService.getActiveIndex();
+    let ctx = this.canvasManagerService.getBufferCtx();
+    let bufferCanvas = this.canvasManagerService.getBufferCanvas();
+    ctx.fillStyle = this.getFillColor();
+    // We find the shape that overlap the current buffer with the other class canvas
+    const rect = this.stateService.getBoundingBox();
+    ctx.globalCompositeOperation = 'source-in';
+    this.stateService.recomputeCanvasSum = true;
+    const edgesOnly = this.editorService.edgesOnly;
+    this.editorService.edgesOnly = false;
+    this.canvasManagerService.computeCombinedCanvas();
+    this.editorService.edgesOnly = edgesOnly;
 
-    ctxBuffer.drawImage(this.canvasManagerService.getCombinedCanvas(), 0, 0);
-
-    // Create lasso path mask
-    ctxBuffer.globalCompositeOperation = 'source-in';
-    ctxBuffer.fillStyle = this.getFillColor();
-    ctxBuffer.beginPath();
-
-    const lassoPath = this.lassoPoints.map((point) =>
-      this.zoomPanService.fromCanvasToImageCoordinates(point)
+    ctx.drawImage(
+      this.canvasManagerService.getCombinedCanvas(),
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height
     );
 
-    ctxBuffer.moveTo(lassoPath[0].x, lassoPath[0].y);
-    lassoPath.slice(1).forEach((coord) => {
-      ctxBuffer.lineTo(coord.x, coord.y);
-    });
 
-    ctxBuffer.closePath();
-    ctxBuffer.fill();
-    this.binarizeCanvas(ctxBuffer, this.getFillColor());
-
-    // Draw masked buffer to main context
-    ctx.drawImage(this.canvasManagerService.getBufferCanvas(), 0, 0);
-
-    // Remove masked area from other class canvases
-    this.canvasManagerService.getAllCanvas().forEach((classCanvas, index) => {
-      if (index === activeIndex) return;
-      const ctxClass = classCanvas.getContext('2d', { alpha: true })!;
-      ctxClass.globalCompositeOperation = 'destination-out';
-      ctxClass.drawImage(this.canvasManagerService.getBufferCanvas(), 0, 0);
-      ctxClass.globalCompositeOperation = 'source-over';
-    });
-    // Reset composite operations
+    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     ctx.globalCompositeOperation = 'source-over';
-    ctxBuffer.globalCompositeOperation = 'source-over';
+
+    // Now, we remove the overlapped shape from the other class canvas
+    this.canvasManagerService.getAllCanvasCtx().forEach((classCtx, index) => {
+      if (index === activeIndex) {
+        classCtx.globalCompositeOperation = 'source-over';
+      } else {
+        classCtx.globalCompositeOperation = 'destination-out';
+      }
+      classCtx.drawImage(
+        bufferCanvas,
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height,
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height
+      );
+      classCtx.globalCompositeOperation = 'source-over';
+    });
+    this.stateService.recomputeCanvasSum = true;
   }
 
   public updateLasso(event: MouseEvent) {

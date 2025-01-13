@@ -50,9 +50,6 @@ export class CanvasManagerService {
       if(!this.labelService.listSegmentationLabels[index].isVisible){
         return;
       }
-      // if(this.editorService.edgesOnly){
-      //   canvas = this.openCVService.edgeDetection(this.canvasCtx[index]) as OffscreenCanvas;
-      // }
       this.combinedCtx.drawImage(canvas, 0, 0);
     });
     if(this.editorService.edgesOnly){
