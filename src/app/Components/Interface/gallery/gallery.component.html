@@ -1,10 +1,19 @@
 <div class="w-3/4 m-auto card">
-    <p-panel header="Gallery" class="flex flex-col grow items-stretch w-full justify-stretch">
-        <div class="flex flex-wrap gap-1">
-            <div *ngFor="let thumbnail of projectService.thumbnails$ | async ; let index = index; " >
-                <app-gallery-element [thumbnailPath$]="thumbnail.thumbnailPath" [name$]="thumbnail.name" [id]="index">
-                </app-gallery-element>
+    <p-dataview #dv [value]="projectService.imagesName" [layout]="'grid'" [rows]="16" [paginator]="true">
+        <ng-template #header>
+            <div class="flex justify-end">
+                <button pButton type="button" label="Refresh" icon="pi pi-sync" class="p-button-success"
+                    (click)="refresh()"></button>
             </div>
-        </div>
-    </p-panel>
+        </ng-template>
+        <ng-template #grid let-items let-rowIndexValue="rowIndex">
+            <div class="grid grid-cols-12 gap-4">
+                <div *ngFor="let items of items ; let index = index; let first=first" class="p-2 col-span-2">
+                    <app-gallery-element [imageName]="items" [id]="projectService.imagesName.indexOf(items)">
+                    </app-gallery-element>
+                </div>
+            </div>
+        </ng-template>
+
+    </p-dataview>
 </div>

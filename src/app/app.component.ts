@@ -81,6 +81,8 @@ export class AppComponent implements AfterViewInit {
     this.cli.projectCreated.subscribe((config) => {
       if (config) {
         this.projectService.create_project(config);
+        this.projectService.isProjectStarted = true;
+
       }
     });
     this.cli.imageLoaded.subscribe((imageConfig) => {
@@ -90,7 +92,7 @@ export class AppComponent implements AfterViewInit {
     });
   }
   ngAfterViewInit() {
-    this.debug();
+    // this.debug();
   }
 
   async debug() {
@@ -120,7 +122,7 @@ export class AppComponent implements AfterViewInit {
       shades: null,
     });
     this.projectService.isClassification = true;
-    this.labelService.addClassificationTask(new MulticlassTask('DR Grading', 
+    this.labelService.addClassificationTask(new MulticlassTask('DR Grading',
       ['Absent', 'Mild', 'Moderate', 'Severe', 'Proliferative'], 'Absent'));
     this.labelService.addClassificationTask(new MulticlassTask('Quality', ['Good', 'Readable', 'Ungradable']));
     this.labelService.addMultilabelTask(new MultilabelTask('Misc', ['AMD', 'Glaucoma', 'Catract', 'Hypertension']));
@@ -136,32 +138,22 @@ export class AppComponent implements AfterViewInit {
   }
 
   async load_image(imageConfig: ImageFromCLI) {
+    let image_path = await path.resolve(imageConfig.image_path);
+    // Get the image name: we split the path from projectService.inputFolder and get the last element of image_path
+    // i.e image_path = projectService.inputFolder / image_name
+    // The idea is to get not just the filename, but the path relative to the input folder
+    let image_name = image_path.split(this.projectService.inputFolder)[1];
 
-    this.viewService.setLoading(true, 'Loading image');
-    const file = imageConfig.image_path;
-
-    // Start project and get resolved path
-    if(!this.projectService.isProjectStarted) {
-      await this.projectService.startProject();
+    console.log('Image name:', image_name);
+    if (this.projectService.imagesName.includes(image_name)) {
     }
     else {
-      await this.projectService.listFiles();
+      this.projectService.imagesName.push(image_name);
     }
-    const resolvedFile = await path.resolve(file);
-
-    // Find image index
-    const filename = resolvedFile.split(this.projectService.inputFolder)[1];
-    const index = this.projectService.imagesName.findIndex(
-      (value) => value === filename
-    );
-
-    this.projectService.activeIndex = index;
-    // Save masks
-    await this.IOService.saveFromCLI(imageConfig);
-    this.viewService.endLoading();
+    await this.IOService.saveFromCLI(imageConfig, image_name);
   }
 
-  isProjectStarted(){
+  isProjectStarted() {
     return this.projectService.isProjectStarted;
   }
 }

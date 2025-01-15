@@ -23,11 +23,11 @@ export class IOService {
     private viewService: ViewService,
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService
-  ) {}
+  ) { }
 
-  loadPrevious() {}
+  loadPrevious() { }
 
-  loadNext() {}
+  loadNext() { }
 
   requestReload() {
     this.requestedReload.next(true);
@@ -124,18 +124,18 @@ export class IOService {
       if (data.multilabel) {
         this.labelService.multiLabelTask.choices = data.multilabel;
       }
-      else{
+      else {
         this.labelService.multiLabelTask.choices = [];
       }
     }
     if (this.labelService.listClassificationTasks.length > 0) {
       if (data.multiclass && data.multiclass.length === this.labelService.listClassificationTasks.length) {
-        
+
         data.multiclass.forEach((choice, index) => {
           this.labelService.listClassificationTasks[index].choice = choice;
         });
       }
-      else if( !data.multiclass){
+      else if (!data.multiclass) {
         this.labelService.listClassificationTasks.forEach((task) => {
           task.choice = '';
         });
@@ -209,7 +209,7 @@ export class IOService {
     return finished;
   }
 
-  saveFromCLI(data: ImageFromCLI) {
+  saveFromCLI(data: ImageFromCLI, imageName: string | null = null) {
     let savefile = {
       masksName: [],
       masks: [],
@@ -243,11 +243,10 @@ export class IOService {
     if (data.classification_multilabel) {
       savefile.multilabel = data.classification_multilabel;
     }
-
-    return this.writeSave(savefile, 512, 512);
+    return this.writeSave(savefile, 512, 512, imageName);
   }
 
-  async writeSave(labelFormat: LabelFormat, width: number, height: number) {
+  async writeSave(labelFormat: LabelFormat, width: number, height: number, imageName: string | null = null) {
     let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
     svg.setAttribute('height', `${height}`);
@@ -290,20 +289,22 @@ export class IOService {
       svg.appendChild(multilabel);
     }
     return invokeSaveXmlFile(
-      await this.getActiveSavePath(),
+      await this.getActiveSavePath(imageName),
       new XMLSerializer().serializeToString(svg)
     );
   }
 
-  async getActiveSavePath() {
-    const imageName =
-      this.projectService.imagesName[this.projectService.activeIndex!];
-
+  async getActiveSavePath(imageName: string | null = null) {
+    if (!imageName) {
+      imageName = this.projectService.imagesName[this.projectService.activeIndex!];
+    }
     const imageNameWithoutExtension = imageName
       .split('.')
       .slice(0, -1)
       .join('.');
     const svgName = imageNameWithoutExtension + '.svg';
+    console.log('SVG name:', svgName);
+    console.log('Project folder:', this.projectService.projectFolder);
     return path.join(this.projectService.projectFolder, 'annotations', svgName);
   }
 

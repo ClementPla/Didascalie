@@ -20,13 +20,14 @@ pub fn run() {
     .invoke_handler(
       tauri::generate_handler![
         commands::system_infos::list_files_in_folder,
-        commands::images::create_thumbnails,
+        commands::images::create_thumbnail,
         commands::images::load_image_as_base64,
         commands::images::process_image_blob,
         commands::segmentation::otsu_segmentation,
         commands::segmentation::edge_detection,
         commands::segmentation::find_overlapping_region,
         commands::segmentation::get_overlapping_region_with_mask,
+        connection::connection::event_processed,
         commands::crf::crf_refine,
         commands::segmentation::get_quad_tree_bbox,
         commands::dl::sam_segment,

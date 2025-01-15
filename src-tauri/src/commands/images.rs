@@ -11,59 +11,13 @@ use serde::Deserialize;
 
 use tauri::ipc::Response;
 
-use tokio::task;
-use futures::future;
-
-
-#[derive(Deserialize)]
-pub struct ThumbnailParams {
-    image_names: Vec<String>,
-    input_folder: String,
-    output_folder: String,
-    width: u32,
-    height: u32,
-}
 
 
 #[tauri::command]
-pub async fn create_thumbnails(params: ThumbnailParams) -> Vec<bool> {
-    let mut handles = Vec::new();
-
-    for image_name in params.image_names {
-        let input_folder = params.input_folder.clone();
-        let output_folder = params.output_folder.clone();
-        let width = params.width;
-        let height = params.height;
-
-        let handle = task::spawn_blocking(move || {
-            let thumbnail_path = join_path(&output_folder, &image_name);
-            if thumbnail_path.exists() {
-                eprintln!("Thumbnail {} already exists", thumbnail_path.display());
-                return false;
-            }
-
-            if let Err(e) = std::fs::create_dir_all(&output_folder) {
-                eprintln!(
-                    "Failed to create directory {}: {:?}",
-                    output_folder,
-                    e
-                );
-                return false;
-            }
-
-            let image_path = join_path(&input_folder, &image_name);
-            generate_thumbnail(&image_path, &thumbnail_path, width, height)
-        });
-
-        handles.push(handle);
-    }
-
-    // Await all the spawned tasks and collect their results
-    future::join_all(handles)
-        .await
-        .into_iter()
-        .map(|res| res.unwrap_or(false)) // Handle potential task failures
-        .collect()
+pub async fn create_thumbnail(image_path: String, thumbnail_path: String, width: u32, height: u32) -> Result<bool, String> {
+    let image_path = Path::new(&image_path).to_path_buf();   
+    let thumbnail_path = Path::new(&thumbnail_path).to_path_buf();
+    Ok(generate_thumbnail(&image_path, &thumbnail_path, width, height))
 }
 
 #[tauri::command]
@@ -104,12 +58,20 @@ fn generate_thumbnail(
     width: u32,
     height: u32,
 ) -> bool {
-    let img = image::open(image_path).unwrap();
-    let thumbnail = img.thumbnail(width, height);
-    if !thumbnail_path.parent().unwrap().exists() {
-        std::fs::create_dir_all(thumbnail_path.parent().unwrap()).unwrap();
-    }
-    thumbnail.save(thumbnail_path).is_ok()
+    let image_path = image_path.clone();
+    let thumbnail_path = thumbnail_path.clone();
+    
+    std::thread::spawn(move || {
+        let img = image::open(&image_path).unwrap();
+        let thumbnail = img.thumbnail(width, height);
+        if !thumbnail_path.parent().unwrap().exists() {
+            std::fs::create_dir_all(thumbnail_path.parent().unwrap()).unwrap();
+        }
+        if thumbnail_path.exists() {
+            return true;
+        }
+        thumbnail.save(&thumbnail_path).is_ok()
+    }).join().unwrap_or(false)
 }
 
 

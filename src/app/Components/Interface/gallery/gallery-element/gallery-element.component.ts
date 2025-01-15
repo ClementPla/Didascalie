@@ -1,13 +1,14 @@
-import { Component, Input } from '@angular/core';
+import { AfterViewInit, Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
-      
+
 
 import { ProjectService } from '../../../../Services/Project/project.service';
+import { invoke } from '@tauri-apps/api/core';
+import { path } from '@tauri-apps/api';
+import { loadImageFile } from '../../../../Core/io/images';
 
-
-    
 
 @Component({
   selector: 'app-gallery-element',
@@ -16,16 +17,31 @@ import { ProjectService } from '../../../../Services/Project/project.service';
   templateUrl: './gallery-element.component.html',
   styleUrl: './gallery-element.component.scss'
 })
-export class GalleryElementComponent {
-  @Input() thumbnailPath$: Promise<string>;
-  @Input() name$: Promise<string>;
+export class GalleryElementComponent implements OnInit {
+  @Input() imageName: string;
   @Input() id: number;
+  imagePath: string = '';
 
   constructor(private projectService: ProjectService) {
   }
 
-  openEditor(){
-    this.projectService.openEditor(this.id);
+  ngOnInit(): void {
+    this.getThumbnail().then((path) => {
+      this.imagePath = path;
+    });
   }
 
+
+
+  openEditor() {
+    let id = this.projectService.imagesName.indexOf(this.imageName);
+    this.projectService.openEditor(id);
+  }
+
+  async getThumbnail(): Promise<string> {
+    let imageInput = await path.resolve(this.projectService.inputFolder, this.imageName);
+    let thumbnailPath = await path.resolve(this.projectService.inputFolder, '.thumbnails', this.imageName);
+    await invoke('create_thumbnail', { imagePath: imageInput, thumbnailPath: thumbnailPath, width: 128, height: 128 })
+    return loadImageFile(thumbnailPath);
+  }
 }

@@ -35,7 +35,6 @@ export class ProjectService {
   imagesName: string[] = [];
 
   localStoragesProjectsFilepaths: ProjectFile[] = [];
-  thumbnails$: Promise<Array<Thumbnail>>;
 
   activeIndex: number | null = null;
   activeImage: Promise<string> | null = null;
@@ -50,10 +49,9 @@ export class ProjectService {
     this.localStoragesProjectsFilepaths = JSON.parse(
       localStorage.getItem('projects') || '[]'
     );
-    
+
   }
   async startProject(): Promise<void> {
-    this.viewService.setLoading(true, 'Starting project...');
     this.inputFolder = await path.resolve(this.inputFolder);
     let sep = path.sep();
     if (!this.inputFolder.endsWith(sep)) {
@@ -85,10 +83,10 @@ export class ProjectService {
       ),
       classification_multilabel: this.labelService.multiLabelTask
         ? {
-            name: this.labelService.multiLabelTask.taskName,
-            classes: this.labelService.multiLabelTask.taskLabels,
-            default: this.labelService.multiLabelTask.choices,
-          }
+          name: this.labelService.multiLabelTask.taskName,
+          classes: this.labelService.multiLabelTask.taskLabels,
+          default: this.labelService.multiLabelTask.choices,
+        }
         : null,
     };
 
@@ -96,9 +94,9 @@ export class ProjectService {
 
     // Save ProjectName/config file path to localStorage
     // Check if the projectFolder is already in the list, if so remove it
-    const projectFile = {'project_name': this.projectName, 'root': await path.join(this.outputFolder, this.projectName)};
+    const projectFile = { 'project_name': this.projectName, 'root': await path.join(this.outputFolder, this.projectName) };
     const existingRoots = this.localStoragesProjectsFilepaths.map((projectFile) => projectFile.root);
-  
+
     if (!existingRoots.includes(projectFile.root)) {
       this.localStoragesProjectsFilepaths.push(projectFile);
       localStorage.setItem(
@@ -107,7 +105,9 @@ export class ProjectService {
       );
     }
 
-    return this.listFiles();
+    await this.listFiles();
+    this.viewService.navigateToGallery();
+
   }
 
   async loadProjectFile(filepath: string) {
@@ -134,56 +134,20 @@ export class ProjectService {
   }
 
   async listFiles() {
-    let fileList$ = invoke('list_files_in_folder', {
+    let fileList = await invoke<string[]>('list_files_in_folder', {
       folder: this.inputFolder,
       regexfilter: this.inputRegex,
       recursive: this.recursive,
     });
-    return fileList$
-      .then((value: any) => {
-        if (value) {
-          this.viewService.setLoading(
-            true,
-            value.length + ' images found. Generating thumbnails...'
-          );
-          this.extractImagesName(value);
-          this.generateThumbnails();
-        }
-      })
-      .then(() => {
-        this.isProjectStarted = true;
-        this.viewService.navigateToGallery();
-        this.viewService.endLoading();
-      });
+    this.extractImagesName(fileList);
+    this.isProjectStarted = true;
+
   }
 
   extractImagesName(files: string[]) {
     this.imagesName = files.map((file) => {
       let filename = file.split(this.inputFolder)[1];
       return filename;
-    });
-  }
-
-  async generateThumbnails() {
-    let output_folder = await path.join(this.projectFolder, 'thumbnails');
-    let thumbnails$ = invoke<boolean[] | null>('create_thumbnails', {
-      params: {
-        image_names: this.imagesName,
-        input_folder: this.inputFolder,
-        output_folder: output_folder,
-        width: this.viewService.thumbnailsSize,
-        height: this.viewService.thumbnailsSize,
-      },
-    });
-    this.thumbnails$ = thumbnails$.then(() => {
-      return Promise.all(
-        this.imagesName.map(async (image, index) => {
-          return {
-            thumbnailPath: loadImageFile(await path.join(output_folder, image)),
-            name: path.basename(image),
-          };
-        })
-      );
     });
   }
 
@@ -228,7 +192,7 @@ export class ProjectService {
     this.activeImage = null;
   }
 
-  create_project(config: ProjectConfig) {
+  async create_project(config: ProjectConfig) {
     this.isClassification = config.is_classification;
     this.isSegmentation = config.is_segmentation;
     this.isInstanceSegmentation = config.is_instance_segmentation;
@@ -236,6 +200,7 @@ export class ProjectService {
     this.projectName = config.project_name;
     this.inputFolder = config.input_dir;
     this.outputFolder = config.output_dir;
+    this.projectFolder = await path.join(this.outputFolder, this.projectName);
 
     if (config.segmentation_classes) {
       this.labelService.listSegmentationLabels =
@@ -272,5 +237,6 @@ export class ProjectService {
     }
 
     this.labelService.rebuildTreeNodes();
+    this.startProject();
   }
 }

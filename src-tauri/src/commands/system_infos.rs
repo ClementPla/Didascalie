@@ -12,6 +12,10 @@ pub fn list_files_in_folder(folder: &str, regexfilter: &str, recursive: bool) ->
         Ok(re) => {
             for path in paths {
                 let path = path.unwrap().path();
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+                if file_name.starts_with(".") {
+                    continue;
+                }
                 if path.is_file() && re.is_match(path.to_str().unwrap()) {
                     files.push(path.display().to_string());
                 }
