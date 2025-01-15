@@ -22,4 +22,10 @@ export class Tools {
     public static ALL_TOOLS = [Tools.PAN, Tools.PEN, Tools.ERASER, Tools.LASSO, Tools.LASSO_ERASER];
 }
 
-export const postProcessingOptions = [ 'otsu', 'MedSAM'];
+export enum PostProcessOption{
+    MEDSAM = 'MedSAM',
+    OTSU = 'Otsu',
+    CRF = 'CRF',
+  }
+
+export const postProcessingOptions = [PostProcessOption.OTSU, PostProcessOption.MEDSAM, PostProcessOption.CRF];

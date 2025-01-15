@@ -6,13 +6,13 @@ import { ProjectService } from '../../../../Services/Project/project.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { Tools } from '../../../../Core/canvases/tools';
 import { EditorService } from '../../../../Services/UI/editor.service';
-import { invoke } from '@tauri-apps/api/core';
 import { StateManagerService } from './state-manager.service';
-import { buffer, combineLatest, Subject } from 'rxjs';
+import { Subject } from 'rxjs';
 import { CanvasManagerService } from './canvas-manager.service';
-import { ImageProcessingService } from './image-processing.service';
 import { UndoRedoService } from './undo-redo.service';
 import { PostProcessService } from './post-process.service';
+import { SVGUIService } from './svgui.service';
+import { PostProcessOption } from '../../../../Core/canvases/tools';
 
 @Injectable({
   providedIn: 'root',
@@ -32,7 +32,8 @@ export class DrawService {
     private stateService: StateManagerService,
     private canvasManagerService: CanvasManagerService,
     private undoRedoService: UndoRedoService,
-    private postProcessService: PostProcessService
+    private postProcessService: PostProcessService,
+    private svgUIService: SVGUIService
   ) {
     this.editorService.canvasSumRefresh.subscribe((value) => {
       this.canvasManagerService.computeCombinedCanvas();
@@ -201,7 +202,7 @@ export class DrawService {
     );
     ctx.stroke();
 
-    this.binarizeCanvas(ctx, this.getFillColor());
+    // this.binarizeCanvas(ctx, this.getFillColor());
 
     // Update previous point
     this.finalizeDraw(ctx);
@@ -318,28 +319,11 @@ export class DrawService {
         );
         ctxClass.globalCompositeOperation = 'source-over';
       });
-    } else {
-      ctx.fillStyle = 'white';
-      ctx.strokeStyle = 'black';
-      ctx.globalCompositeOperation = 'source-over';
+    } 
+    else {
+      this.svgUIService.addPoint(this.stateService.currentPoint);
     }
 
-    if (this.editorService.autoPostProcess) {
-      let ctxCombined = this.canvasManagerService.getCombinedCtx();
-      ctxCombined.globalAlpha = 0.2;
-      ctxCombined.drawImage(
-        ctx.canvas,
-        bbox.x,
-        bbox.y,
-        bbox.width,
-        bbox.height,
-        bbox.x,
-        bbox.y,
-        bbox.width,
-        bbox.height
-      );
-      ctxCombined.globalAlpha = 1;
-    }
     this.redrawRequest.next(true);
   }
 
@@ -362,10 +346,12 @@ export class DrawService {
   public postProcessDraw() {
     this.stateService.recomputeCanvasSum = true;
     switch (this.editorService.postProcessOption) {
-      case 'otsu':
+      case PostProcessOption.OTSU:
         return this.postProcessService.otsu_post_process();
-      case 'MedSAM':
+      case PostProcessOption.MEDSAM:
         return this.postProcessService.sam_post_process();
+      case PostProcessOption.CRF:
+        return this.postProcessService.crf_post_process();
     }
     return new Promise<void>((resolve) => {
       resolve();

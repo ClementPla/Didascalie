@@ -11,7 +11,7 @@ import { SliderModule } from 'primeng/slider';
 import { ProjectService } from '../../../../Services/Project/project.service';
 import { ImageProcessingService } from '../../../Core/drawable-canvas/service/image-processing.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
-
+import { PostProcessOption } from '../../../../Core/canvases/tools';
 import { postProcessingOptions } from '../../../../Core/canvases/tools';
 @Component({
   selector: 'app-tool-setting',
@@ -34,6 +34,7 @@ import { postProcessingOptions } from '../../../../Core/canvases/tools';
 })
 export class ToolSettingComponent {
   postProcessingOptions = postProcessingOptions;
+  ppOption = PostProcessOption;
   constructor(
     public drawService: EditorService,
     public projectService: ProjectService,

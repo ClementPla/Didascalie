@@ -5,6 +5,7 @@ import { StateManagerService } from './state-manager.service';
 import { ImageProcessingService } from './image-processing.service';
 import { invoke } from '@tauri-apps/api/core';
 import { BboxManagerService } from './bbox-manager.service';
+import { SVGUIService } from './svgui.service';
 
 @Injectable({
   providedIn: 'root',
@@ -16,10 +17,57 @@ export class PostProcessService {
     private imageProcessingService: ImageProcessingService,
     private canvasManagerService: CanvasManagerService,
     private bboxManager: BboxManagerService,
-    private stateService: StateManagerService
+    private stateService: StateManagerService,
+    private svgUIService: SVGUIService
   ) {}
 
   postProcess() {}
+
+  async crf_post_process() {
+    let bufferCtx = this.canvasManagerService.getBufferCtx();
+    let rect = this.stateService.getBoundingBox();
+    const maskData = bufferCtx.getImageData(
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height
+    ).data;
+    
+    const imgData = this.imageProcessingService
+      .getCurrentCanvas()
+      .getContext('2d', { alpha: false })!
+      .getImageData(
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height
+
+      ).data;
+    let timer = performance.now();
+    return invoke<ArrayBufferLike>('crf_refine', {
+      mask: maskData.buffer,
+      image: imgData.buffer,
+      width: rect.width,
+      height: rect.height,
+      spatialWeight: 0.25,
+      bilateralWeight: 2.0,
+      numIterations: 50,
+    }).then((imageBitmap: ArrayBufferLike) => {
+      console.log('CRF took', performance.now() - timer);
+      let activeCtx = this.canvasManagerService.getActiveCtx();
+      let bufferCanvas = this.canvasManagerService.getBufferCanvas();
+      bufferCtx.putImageData(
+        new ImageData(
+          new Uint8ClampedArray(imageBitmap),
+          rect.width,
+          rect.height
+        ),
+        rect.x,
+        rect.y
+      );
+      activeCtx.drawImage(bufferCanvas, 0, 0);
+    });
+  }
 
   async sam_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
@@ -142,13 +190,13 @@ export class PostProcessService {
 
     const activeIndex = this.canvasManagerService.getActiveIndex();
     let start = performance.now();
-    return invoke<ArrayBufferLike>('find_overlapping_region', {
+    return invoke<ArrayBufferLike>('get_overlapping_region_with_mask', {
       label: labelData.buffer,
       mask: maskData.buffer,
       width: this.stateService.width,
       height: this.stateService.height
     }).then((mask: ArrayBufferLike) => {
-      console.log('Time taken: ', performance.now() - start);
+      this.svgUIService.resetPath();
       const newMAsk = new ImageData(
         new Uint8ClampedArray(mask),
         this.stateService.width,

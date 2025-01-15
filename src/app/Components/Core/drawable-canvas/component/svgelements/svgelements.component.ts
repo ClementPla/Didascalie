@@ -3,6 +3,8 @@ import { LabelsService } from '../../../../../Services/Project/labels.service';
 import { Point2D, Rect } from '../../../../../Core/interface';
 import { BboxManagerService } from '../../service/bbox-manager.service';
 import { NgFor } from '@angular/common';
+import { SVGUIService } from '../../service/svgui.service';
+import { EditorService } from '../../../../../Services/UI/editor.service';
 
 
 @Component({
@@ -17,7 +19,10 @@ export class SVGElementsComponent {
 
   @ViewChild('svg') svg: ElementRef<SVGElement>;
 
-  constructor(public labelService: LabelsService, public bboxManager: BboxManagerService) {}
+  constructor(public labelService: LabelsService, 
+    public editorService: EditorService,
+    public bboxManager: BboxManagerService, 
+    public svgUIService: SVGUIService) {}
 
   setViewBox(viewbox: Rect) {
     this.svg.nativeElement.setAttribute(

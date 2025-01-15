@@ -14,8 +14,8 @@ use imageproc::region_labelling::{ connected_components, Connectivity };
 use itertools::Itertools;
 use std::collections::HashMap;
 use crate::tools;
-
-use rayon::prelude::*;
+use std::collections::HashSet;
+use rayon::prelude::*; // for .into_par_iter()
 
 fn otsu_level(pixels: &Vec<u8>) -> u8 {
   // Step 1: Compute histogram
@@ -134,8 +134,8 @@ fn morpho_mask(
   let mut morphed: GrayImage = GrayImage::from_raw(width as u32, height as u32, raw_vec).unwrap();
 
   if opening {
-    morphed = open(&morphed, Norm::L2, kernel_size);
-    morphed = close(&morphed, Norm::L2, kernel_size);
+    morphed = open(&morphed, Norm::L1, kernel_size);
+    morphed = close(&morphed, Norm::L1, kernel_size);
   }
   if enforce_connectedness {
     let background = Luma([0]);
@@ -229,66 +229,79 @@ pub async fn find_overlapping_region(
   height: usize
 ) -> Result<Response, String> {
   // 1. Load label and mask
+  let label = image::DynamicImage
+    ::ImageRgba8(image::RgbaImage::from_raw(width as u32, height as u32, label).unwrap())
+    .to_luma8();
 
-  let label = image::DynamicImage::ImageRgba8(
-    image::RgbaImage::from_raw(width as u32, height as u32, label).unwrap()
-  );
-
-  let label = label.to_luma8();
   let mask = image::DynamicImage::ImageRgba8(
     image::RgbaImage::from_raw(width as u32, height as u32, mask).unwrap()
   );
-  // Find connected components in the label image
+
+  // 2. Find connected components in the label image
   let connected_components = connected_components(&label, Connectivity::Eight, Luma([0]));
 
-  // We need to iterate over the connected components and check if they overlap with the mask,
-  // and store the value in a list.
-
-  let mask_over_cc: Vec<u32> = (0..height as u32)
+  // --- First pass: Collect IDs of components that overlap with `mask` ---
+  // Use a HashSet for O(1) membership lookup
+  let connected_components = std::sync::Arc::new(connected_components);
+  let mask = std::sync::Arc::new(mask);
+  let overlap_labels = (0..height as u32)
     .into_par_iter()
-    .flat_map(|y| {
-      (0..width as u32)
-        .filter_map(|x| {
-          let label_value = connected_components.get_pixel(x as u32, y as u32)[0];
-          if label_value != 0 && mask.get_pixel(x, y)[0] != 0 {
-            Some(label_value)
-          } else {
-            None
-          }
-        })
-        .collect::<Vec<u32>>()
-    })
-    .collect();
+    .map(|y| {
+      let mut local_labels = HashSet::new();
 
+      for x in 0..width as u32 {
+        let label_value = connected_components.get_pixel(x, y)[0];
+        let mask_val = mask.get_pixel(x, y)[0];
+        if label_value != 0 && mask_val != 0 {
+          local_labels.insert(label_value);
+        }
+      }
+
+      // Return partial HashSet and partial bounding box
+      local_labels
+    })
+    .reduce(
+      // Identity
+      || HashSet::new(),
+      // Reduction
+      |mut set_a, set_b| {
+        // Combine the sets
+        set_a.extend(set_b);
+
+        // Combine bounding boxes
+
+        set_a
+      }
+    );
+
+  // Now we have a global `overlap_labels` HashSet and a combined bounding box.
+  let overlap_labels = overlap_labels; // HashSet<u32>
+  // --- Second pass: For every pixel, check if its connected-component ID is in `overlap_labels` ---
+  // Create a 2D array of bool to store the final overlap.
+  // Create one big array of false
   let mut overlapping_region = Array2::from_elem((height, width), false);
 
-  overlapping_region = (0..height)
-    .into_par_iter()
-    .flat_map(|y| {
-      (0..width)
-        .filter_map(|x| {
-          let label_value = connected_components.get_pixel(x as u32, y as u32)[0];
-          if mask_over_cc.contains(&label_value) {
-            Some((y, x))
-          } else {
-            None
-          }
-        })
-        .collect::<Vec<(usize, usize)>>()
-    })
-    .collect::<Vec<(usize, usize)>>()
-    .into_iter()
-    .fold(overlapping_region, |mut acc, (y, x)| {
-      acc[(y, x)] = true;
-      acc
+  // We can safely split by rows and update without data races,
+  // because each row is independent:
+  overlapping_region
+    .axis_chunks_iter_mut(ndarray::Axis(0), 1) // each row = axis 0
+    .into_par_iter() // parallelize over rows
+    .enumerate() // get the row index
+    .for_each(|(y, mut row)| {
+      // For each x in this row
+      for (x, elem) in row.iter_mut().enumerate() {
+        let label_value = connected_components.get_pixel(x as u32, y as u32)[0];
+        if overlap_labels.contains(&label_value) {
+          *elem = true;
+        }
+      }
     });
 
   // 3. Convert refined mask back to blob
   let output_mask_image: image::DynamicImage = image::DynamicImage::ImageRgba8(
     image::ImageBuffer::from_fn(width as u32, height as u32, |x, y| {
-      let value = *overlapping_region.get([y as usize, x as usize]).unwrap();
-      if value {
-        image::Rgba([255,255,255,255])
+      if overlapping_region[[y as usize, x as usize]] {
+        image::Rgba([255, 255, 255, 255])
       } else {
         image::Rgba([0, 0, 0, 0])
       }
@@ -296,7 +309,87 @@ pub async fn find_overlapping_region(
   );
 
   Ok(Response::new(output_mask_image.to_rgba8().into_vec()))
+}
 
+
+#[tauri::command]
+pub async fn get_overlapping_region_with_mask(
+  label: Vec<u8>,
+  mask: Vec<u8>,
+  width: usize,
+  height: usize
+) -> Result<Response, String> {
+  // 1. Load label and mask
+  let start_time = std::time::Instant::now();
+
+  let load_time: std::time::Instant = std::time::Instant::now();
+  let mut label = image::DynamicImage::ImageRgba8(
+    image::RgbaImage::from_raw(width as u32, height as u32, label).unwrap()
+  ).to_luma8();
+  for p in label.pixels_mut() {
+    p.0[0] = if p.0[0] > 0 { 255 } else { 0 };
+  }
+  println!("Label image loading took: {:?}", load_time.elapsed());
+
+  let load_time: std::time::Instant = std::time::Instant::now();
+  let mask = image::DynamicImage::ImageRgba8(
+    image::RgbaImage::from_raw(width as u32, height as u32, mask).unwrap()
+  ).to_luma8();
+  println!("Mask image loading took: {:?}", load_time.elapsed());
+
+
+  // 2. Find connected components in the label image
+  let connected_components = connected_components(&label, Connectivity::Four, Luma([0]));
+  println!("Connected components computation took: {:?}", start_time.elapsed());
+
+  let cc_time = std::time::Instant::now();
+  // --- First pass: Collect IDs of components that overlap with `mask` ---
+  let connected_components = std::sync::Arc::new(connected_components);
+  let mask = std::sync::Arc::new(mask);
+  let overlap_labels = (0..height as u32)
+    .into_par_iter()
+    .map(|y| {
+      let mut local_labels = HashSet::new();
+
+      for x in 0..width as u32 {
+        let label_value = connected_components.get_pixel(x, y)[0];
+        let mask_val = mask.get_pixel(x, y)[0];
+        if label_value != 0 && mask_val != 0 {
+          local_labels.insert(label_value);
+        }
+      }
+      local_labels
+    })
+    .reduce(
+      || HashSet::new(),
+      |mut set_a, set_b| {
+        set_a.extend(set_b);
+        set_a
+      }
+    );
+  println!("Overlap labels computation took: {:?}", cc_time.elapsed());
+
+  let overlap_labels = overlap_labels;
+
+  let output_time = std::time::Instant::now();
+  let background_pixel: image::Rgba<u8> = image::Rgba([0, 0, 0, 0]);
+  let foreground_pixel: image::Rgba<u8> = image::Rgba([255, 255, 255, 255]);
+
+  // 3. Convert refined mask back to blob  
+  let output_mask_image: image::DynamicImage = image::DynamicImage::ImageRgba8(
+    image::ImageBuffer::from_fn(width as u32, height as u32, |x, y| {
+      let label_value = connected_components.get_pixel(x, y)[0];
+      if overlap_labels.contains(&label_value) {
+        foreground_pixel
+      } else {
+        background_pixel
+      }
+    })
+  );
+  println!("Output image generation took: {:?}", output_time.elapsed());
+  println!("Total time: {:?}", start_time.elapsed());
+
+  Ok(Response::new(output_mask_image.to_rgba8().into_vec()))
 }
 
 #[tauri::command]
@@ -330,8 +423,8 @@ pub async fn edge_detection(mask: Vec<u8>) -> Result<Response, String> {
       channel.into_raw_vec_and_offset().0
     ).unwrap();
 
-    let dilated: ImageBuffer<Luma<u8>, Vec<u8>> = dilate(&channel, Norm::L2, 3);
-    let eroded = erode(&channel, Norm::L2, 3);
+    let dilated: ImageBuffer<Luma<u8>, Vec<u8>> = dilate(&channel, Norm::L1, 3);
+    let eroded = erode(&channel, Norm::L1, 3);
 
     let diff = ImageBuffer::from_fn(dilated.width(), dilated.height(), |x, y| {
       let dilated_pixel = dilated.get_pixel(x, y)[0];

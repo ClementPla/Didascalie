@@ -26,14 +26,15 @@ pub fn run() {
         commands::segmentation::otsu_segmentation,
         commands::segmentation::edge_detection,
         commands::segmentation::find_overlapping_region,
+        commands::segmentation::get_overlapping_region_with_mask,
+        commands::crf::crf_refine,
+        commands::segmentation::get_quad_tree_bbox,
         commands::dl::sam_segment,
         commands::io::save_json_file,
         commands::io::load_json_file,
         commands::io::save_xml_file,
         commands::io::load_xml_file,
         commands::io::check_file_exists,
-        commands::segmentation::get_quad_tree_bbox,
-        connection::connection::event_processed
       ]
     )
     .run(tauri::generate_context!())

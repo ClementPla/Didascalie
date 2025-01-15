@@ -1,108 +1,105 @@
 .cursor {
-
-    border-radius: 100%;
-    position: absolute;
-    background-color: rgba(0, 0, 0, 0.25);
-    border: 1px dashed;
-    pointer-events: none;
-    z-index: 1000;
-    aspect-ratio: 1;
-    -webkit-animation: rotating 16s linear infinite;
-    -moz-animation: rotating 16s linear infinite;
-    -ms-animation: rotating 16s linear infinite;
-    -o-animation: rotating 16s linear infinite;
-    animation: rotating 16s linear infinite;
-    transform-origin: center center;
-    translate: -50% -50%;
+  border-radius: 100%;
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.25);
+  border: 1px dashed;
+  pointer-events: none;
+  z-index: 1000;
+  aspect-ratio: 1;
+  -webkit-animation: rotating 16s linear infinite;
+  -moz-animation: rotating 16s linear infinite;
+  -ms-animation: rotating 16s linear infinite;
+  -o-animation: rotating 16s linear infinite;
+  animation: rotating 16s linear infinite;
+  transform-origin: center center;
+  translate: -50% -50%;
 }
-.max-screen-available{
-    height: calc(100vh -  2 * var(--toolbar-height) - 8rem);
+.max-screen-available {
+  height: calc(100vh - 2 * var(--toolbar-height) - 8rem);
 }
 
 .noAntialiasing {
-    image-rendering: pixelated;
+  image-rendering: pixelated;
 }
 
 .cursor::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 2px;
-    height: 2px;
-    background-color: white;
-    border-radius: 100%;
-    transform: translate(-50%, -50%);
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 2px;
+  background-color: white;
+  border-radius: 100%;
+  transform: translate(-50%, -50%);
 }
 
+.labelCanvas {
+  filter: drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));
+}
 @-webkit-keyframes rotating
 
-/* Safari and Chrome */
-    {
-    from {
-        -webkit-transform: rotate(0deg);
-        -o-transform: rotate(0deg);
-        transform: rotate(0deg);
-    }
+/* Safari and Chrome */ {
+  from {
+    -webkit-transform: rotate(0deg);
+    -o-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
 
-    to {
-        -webkit-transform: rotate(360deg);
-        -o-transform: rotate(360deg);
-        transform: rotate(360deg);
-    }
+  to {
+    -webkit-transform: rotate(360deg);
+    -o-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes rotating {
-    from {
-        -ms-transform: rotate(0deg);
-        -moz-transform: rotate(0deg);
-        -webkit-transform: rotate(0deg);
-        -o-transform: rotate(0deg);
-        transform: rotate(0deg);
-    }
+  from {
+    -ms-transform: rotate(0deg);
+    -moz-transform: rotate(0deg);
+    -webkit-transform: rotate(0deg);
+    -o-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
 
-    to {
-        -ms-transform: rotate(360deg);
-        -moz-transform: rotate(360deg);
-        -webkit-transform: rotate(360deg);
-        -o-transform: rotate(360deg);
-        transform: rotate(360deg);
-    }
+  to {
+    -ms-transform: rotate(360deg);
+    -moz-transform: rotate(360deg);
+    -webkit-transform: rotate(360deg);
+    -o-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
 }
 
-
-
-.viewBoxMarker{
-    height: inherit;
-    display: flex;
-    align-items: start;
-    translate: 0% -80%;
-    gap: 5px;
-    z-index: 1200;
-    color: var(--green-400);
+.viewBoxMarker {
+  height: inherit;
+  display: flex;
+  align-items: start;
+  translate: 0% -80%;
+  gap: 5px;
+  z-index: 1200;
+  color: var(--green-400);
 }
-.viewBoxMarker::before{
-    content: '';
-    position: absolute;
-    top: 0;
-    width: 1px;
-    height: inherit;
-    background-color: white;
-
+.viewBoxMarker::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: inherit;
+  background-color: white;
 }
 
-.viewBoxMarkerHorizontal{
-    width: inherit;
-    z-index: 1200;
-    color: var(--green-400);
+.viewBoxMarkerHorizontal {
+  width: inherit;
+  z-index: 1200;
+  color: var(--green-400);
 }
 
-.viewBoxMarkerHorizontal::before{
-    content: '';
-    position: absolute;
-    width: inherit;
-    height: 1px;
-    left: 0px;
-    background-color: white;
-
+.viewBoxMarkerHorizontal::before {
+  content: "";
+  position: absolute;
+  width: inherit;
+  height: 1px;
+  left: 0px;
+  background-color: white;
 }

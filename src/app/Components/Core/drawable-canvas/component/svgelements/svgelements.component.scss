@@ -1,23 +1,27 @@
 .path {
-    stroke-dasharray: 100;
-    animation: dash 5s linear;
+  stroke-dasharray: 100;
+  animation: dash 5s linear;
 }
 
 @keyframes dash {
-    to {
-        stroke-dashoffset: 1000;
-    }
+  to {
+    stroke-dashoffset: 1000;
+  }
 }
 
 .lassoPolygon {
-    stroke-width: 1;
-    stroke-dasharray: 10;
-    animation: dash 20s linear;
-    animation-iteration-count: infinite;
+  stroke-width: 1;
+  stroke-dasharray: 10;
+  animation: dash 20s linear;
+  animation-iteration-count: infinite;
 }
 
+.eraserPath {
+  opacity: 0.75;
+  filter: drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));
+}
 @keyframes dash {
-    to {
-        stroke-dashoffset: 1000;
-    }
+  to {
+    stroke-dashoffset: 1000;
+  }
 }

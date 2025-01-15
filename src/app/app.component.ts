@@ -20,7 +20,7 @@ import { path } from '@tauri-apps/api';
 import { CLIService } from './Services/cli.service';
 import { IOService } from './Services/io.service';
 import { ImageFromCLI } from './Core/interface';
-
+import { PostProcessOption } from './Core/canvases/tools';
 import { PrimeNG } from 'primeng/config';
 import Aura from '@primeng/themes/aura';
 import Material from '@primeng/themes/material';
@@ -126,6 +126,8 @@ export class AppComponent implements AfterViewInit {
     this.labelService.addMultilabelTask(new MultilabelTask('Misc', ['AMD', 'Glaucoma', 'Catract', 'Hypertension']));
     this.projectService.isSegmentation = true;
     this.editorService.autoPostProcess = true;
+    this.editorService.postProcessOption = PostProcessOption.CRF;
+    this.editorService.lineWidth = 40;
 
     let isStarted$ = this.projectService.startProject();
     isStarted$.then(() => {

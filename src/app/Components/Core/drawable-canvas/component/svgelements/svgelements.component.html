@@ -15,4 +15,11 @@
       [attr.fill]="rectLabel.label.color + '55'"
       [attr.stroke]="rectLabel.label.color"
       [attr.stroke-width]="2"></rect>
+
+    <path [attr.d]="svgUIService.getEraserPathasSVG()" 
+    class="eraserPath lassoRect"
+    stroke-linecap="round"
+    fill="transparent" 
+    [attr.stroke-width]="editorService.lineWidth"
+    [attr.stroke]="labelService.activeLabel?.color"/>
   </svg>
