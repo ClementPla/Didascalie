@@ -1,0 +1,1490 @@
+<!doctype html>
+<html class="no-js" lang="">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <title>labelmed documentation</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="icon" type="image/x-icon" href="../images/favicon.ico">
+	   <link rel="stylesheet" href="../styles/style.css">
+        <link rel="stylesheet" href="../styles/dark.css">
+    </head>
+    <body>
+          <script>
+               // Blocking script to avoid flickering dark mode
+               // Dark mode toggle button
+               var useDark = window.matchMedia('(prefers-color-scheme: dark)');
+               var darkModeState = useDark.matches;
+               var $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               var $darkModeToggles = document.querySelectorAll('.dark-mode-switch');
+               var darkModeStateLocal = localStorage.getItem('compodoc_darkmode-state');
+
+               function checkToggle(check) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].checked = check;
+                    }
+               }
+
+               function toggleDarkMode(state) {
+                    if (window.localStorage) {
+                         localStorage.setItem('compodoc_darkmode-state', state);
+                    }
+
+                    checkToggle(state);
+
+                    const hasClass = document.body.classList.contains('dark');
+
+                    if (state) {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.add('dark');
+                         }
+                         if (!hasClass) {
+                              document.body.classList.add('dark');
+                         }
+                    } else {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.remove('dark');
+                         }
+                         if (hasClass) {
+                              document.body.classList.remove('dark');
+                         }
+                    }
+               }
+
+               useDark.addEventListener('change', function (evt) {
+                    toggleDarkMode(evt.matches);
+               });
+               if (darkModeStateLocal) {
+                    darkModeState = darkModeStateLocal === 'true';
+               }
+               toggleDarkMode(darkModeState);
+          </script>
+
+        <div class="navbar navbar-default navbar-fixed-top d-md-none p-0">
+               <div class="d-flex">
+                    <a href="../" class="navbar-brand">labelmed documentation</a>
+                    <button type="button" class="btn btn-default btn-menu ion-ios-menu" id="btn-menu"></button>
+               </div>
+        </div>
+
+        <div class="xs-menu menu" id="mobile-menu">
+                <div id="book-search-input" role="search"><input type="text" placeholder="Type to search"></div>            <compodoc-menu></compodoc-menu>
+        </div>
+
+        <div class="container-fluid main">
+           <div class="row main">
+               <div class="d-none d-md-block menu">
+                   <compodoc-menu mode="normal"></compodoc-menu>
+               </div>
+               <!-- START CONTENT -->
+               <div class="content component">
+                   <div class="content-data">
+
+
+
+
+<ol class="breadcrumb">
+  <li class="breadcrumb-item">Components</li>
+  <li class="breadcrumb-item"
+  >
+  ProjectConfigurationComponent</li>
+</ol>
+
+<ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a href="#info" class="nav-link active"
+                role="tab" id="info-tab" data-bs-toggle="tab" data-link="info">Info</a>
+        </li>
+        <li class="nav-item">
+            <a href="#source" class="nav-link"
+                role="tab" id="source-tab" data-bs-toggle="tab" data-link="source">Source</a>
+        </li>
+        <li class="nav-item">
+            <a href="#templateData" class="nav-link"
+                role="tab" id="templateData-tab" data-bs-toggle="tab" data-link="template">Template</a>
+        </li>
+        <li class="nav-item">
+            <a href="#tree" class="nav-link"
+                role="tab" id="tree-tab" data-bs-toggle="tab" data-link="dom-tree">DOM Tree</a>
+        </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade active in" id="info"><p class="comment">
+    <h3>File</h3>
+</p>
+<p class="comment">
+    <code>src/app/Components/Interface/project-configuration/project-configuration.component.ts</code>
+</p>
+
+
+
+
+    <p class="comment">
+        <h3>Implements</h3>
+    </p>
+    <p class="comment">
+                <code>OnInit</code>
+    </p>
+
+
+<section data-compodoc="block-metadata">
+    <h3>Metadata</h3>
+    <table class="table table-sm table-hover metadata">
+        <tbody>
+
+
+
+
+
+
+
+
+
+
+
+
+            <tr>
+                <td class="col-md-3">selector</td>
+                <td class="col-md-9"><code>app-project-configuration</code></td>
+            </tr>
+
+            <tr>
+                <td class="col-md-3">standalone</td>
+                <td class="col-md-9"><code>true</code></td>
+            </tr>
+
+            <tr>
+                <td class="col-md-3">imports</td>
+                <td class="col-md-9">
+                            <code>CardModule</code>
+                            <code>TableModule</code>
+                            <code>CommonModule</code>
+                                <code><a href="../components/ClassificationConfigurationComponent.html" target="_self" >ClassificationConfigurationComponent</a></code>
+                            <code>NgClass</code>
+                            <code>NgIf</code>
+                            <code>NgFor</code>
+                            <code>DividerModule</code>
+                                <code><a href="../interfaces/Color.html" target="_self" >ColorPickerModule</a></code>
+                            <code>CheckboxModule</code>
+                            <code>ButtonModule</code>
+                            <code>FloatLabelModule</code>
+                            <code>FormsModule</code>
+                            <code>PanelModule</code>
+                            <code>InputSwitchModule</code>
+                            <code>InputTextModule</code>
+                            <code>FieldsetModule</code>
+                                <code><a href="../components/LabelledSwitchComponent.html" target="_self" >LabelledSwitchComponent</a></code>
+                                <code><a href="../components/ClassificationConfigurationComponent.html" target="_self" >ClassificationConfigurationComponent</a></code>
+                </td>
+            </tr>
+
+
+
+
+            <tr>
+                <td class="col-md-3">templateUrl</td>
+                <td class="col-md-9"><code>./project-configuration.component.html</code></td>
+            </tr>
+
+
+
+            <tr>
+                <td class="col-md-3">styleUrl</td>
+                <td class="col-md-9"><code>./project-configuration.component.scss</code></td>
+            </tr>
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+    <section data-compodoc="block-index">
+    <h3 id="index">Index</h3>
+    <table class="table table-sm table-bordered index-table">
+        <tbody>
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Properties</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                <a href="#generateThumbnails" >generateThumbnails</a>
+                            </li>
+                            <li>
+                                <a href="#isInputValid" >isInputValid</a>
+                            </li>
+                            <li>
+                                <a href="#isNameValid" >isNameValid</a>
+                            </li>
+                            <li>
+                                <a href="#isOutputValid" >isOutputValid</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#labelService" >labelService</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#projectService" >projectService</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Methods</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                <a href="#addSegmentationClass" >addSegmentationClass</a>
+                            </li>
+                            <li>
+                                <a href="#deleteSegmentationClass" >deleteSegmentationClass</a>
+                            </li>
+                            <li>
+                                <a href="#findAndLoadProjectFile" >findAndLoadProjectFile</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Async</span>
+                                <a href="#loadProjectFromFilepath" >loadProjectFromFilepath</a>
+                            </li>
+                            <li>
+                                <a href="#ngOnInit" >ngOnInit</a>
+                            </li>
+                            <li>
+                                <a href="#openInputFolder" >openInputFolder</a>
+                            </li>
+                            <li>
+                                <a href="#openOutputFolder" >openOutputFolder</a>
+                            </li>
+                            <li>
+                                <a href="#removeProjectFromFilepath" >removeProjectFromFilepath</a>
+                            </li>
+                            <li>
+                                <a href="#startProject" >startProject</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+    <section data-compodoc="block-constructor">
+    <h3 id="constructor">Constructor</h3>
+        <table class="table table-sm table-bordered">
+            <tbody>
+                <tr>
+                    <td class="col-md-4">
+<code>constructor(projectService: <a href="../injectables/ProjectService.html" target="_self">ProjectService</a>, labelService: <a href="../injectables/LabelsService.html" target="_self">LabelsService</a>, cli: <a href="../injectables/CLIService.html" target="_self">CLIService</a>, cdr: ChangeDetectorRef)</code>
+                    </td>
+                </tr>
+                        <tr>
+                            <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="59" class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:59</a></div>
+                            </td>
+                        </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                            <div>
+                                    <b>Parameters :</b>
+                                    <table class="params">
+                                        <thead>
+                                            <tr>
+                                                <td>Name</td>
+                                                    <td>Type</td>
+                                                <td>Optional</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                                <tr>
+                                                        <td>projectService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/ProjectService.html" target="_self" >ProjectService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>labelService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/LabelsService.html" target="_self" >LabelsService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>cli</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/CLIService.html" target="_self" >CLIService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>cdr</td>
+                                                  
+                                                        <td>
+                                                                    <code>ChangeDetectorRef</code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                        </tbody>
+                                    </table>
+                            </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+</section>
+
+
+
+
+
+    <section data-compodoc="block-methods">
+    
+    <h3 id="methods">
+        Methods
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="addSegmentationClass"></a>
+                    <span class="name">
+                        <span ><b>addSegmentationClass</b></span>
+                        <a href="#addSegmentationClass"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>addSegmentationClass()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="104"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:104</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="deleteSegmentationClass"></a>
+                    <span class="name">
+                        <span ><b>deleteSegmentationClass</b></span>
+                        <a href="#deleteSegmentationClass"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>deleteSegmentationClass(segLabel: <a href="../interfaces/SegLabel.html" target="_self">SegLabel</a>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="115"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:115</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>segLabel</td>
+                                            <td>
+                                                            <code><a href="../interfaces/SegLabel.html" target="_self" >SegLabel</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="findAndLoadProjectFile"></a>
+                    <span class="name">
+                        <span ><b>findAndLoadProjectFile</b></span>
+                        <a href="#findAndLoadProjectFile"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>findAndLoadProjectFile()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="124"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:124</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="loadProjectFromFilepath"></a>
+                    <span class="name">
+                            <span class="modifier">Async</span>
+                        <span ><b>loadProjectFromFilepath</b></span>
+                        <a href="#loadProjectFromFilepath"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>loadProjectFromFilepath(filepath: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank">string</a>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="119"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:119</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>filepath</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank" >string</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >any</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="ngOnInit"></a>
+                    <span class="name">
+                        <span ><b>ngOnInit</b></span>
+                        <a href="#ngOnInit"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>ngOnInit()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="67"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:67</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="openInputFolder"></a>
+                    <span class="name">
+                        <span ><b>openInputFolder</b></span>
+                        <a href="#openInputFolder"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>openInputFolder()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="76"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:76</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="openOutputFolder"></a>
+                    <span class="name">
+                        <span ><b>openOutputFolder</b></span>
+                        <a href="#openOutputFolder"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>openOutputFolder()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="87"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:87</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="removeProjectFromFilepath"></a>
+                    <span class="name">
+                        <span ><b>removeProjectFromFilepath</b></span>
+                        <a href="#removeProjectFromFilepath"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>removeProjectFromFilepath(filepath: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank">string</a>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="133"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:133</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>filepath</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank" >string</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="startProject"></a>
+                    <span class="name">
+                        <span ><b>startProject</b></span>
+                        <a href="#startProject"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>startProject()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="94"
+                                    class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:94</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+    <section data-compodoc="block-properties">
+    
+    <h3 id="inputs">
+        Properties
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="generateThumbnails"></a>
+                    <span class="name">
+                        <span ><b>generateThumbnails</b></span>
+                        <a href="#generateThumbnails"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/boolean" target="_blank" >boolean</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>true</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="55" class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:55</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="isInputValid"></a>
+                    <span class="name">
+                        <span ><b>isInputValid</b></span>
+                        <a href="#isInputValid"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/boolean" target="_blank" >boolean</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>true</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="57" class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:57</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="isNameValid"></a>
+                    <span class="name">
+                        <span ><b>isNameValid</b></span>
+                        <a href="#isNameValid"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/boolean" target="_blank" >boolean</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>true</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="59" class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:59</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="isOutputValid"></a>
+                    <span class="name">
+                        <span ><b>isOutputValid</b></span>
+                        <a href="#isOutputValid"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/boolean" target="_blank" >boolean</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>true</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="58" class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:58</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="labelService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>labelService</b></span>
+                        <a href="#labelService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/LabelsService.html" target="_self" >LabelsService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="62" class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:62</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="projectService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>projectService</b></span>
+                        <a href="#projectService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/ProjectService.html" target="_self" >ProjectService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="61" class="link-to-prism">src/app/Components/Interface/project-configuration/project-configuration.component.ts:61</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+</section>
+
+</div>
+
+
+    <div class="tab-pane fade  tab-source-code" id="source">
+        <pre class="line-numbers compodoc-sourcecode"><code class="language-typescript">import { ChangeDetectorRef, Component, OnInit, output } from &#x27;@angular/core&#x27;;
+import { DividerModule } from &#x27;primeng/divider&#x27;;
+import { PanelModule } from &#x27;primeng/panel&#x27;;
+import { FloatLabelModule } from &#x27;primeng/floatlabel&#x27;;
+import { FormsModule } from &#x27;@angular/forms&#x27;;
+import { CardModule } from &#x27;primeng/card&#x27;;
+import { NgClass, NgIf, NgFor } from &#x27;@angular/common&#x27;;
+import { InputSwitchModule } from &#x27;primeng/inputswitch&#x27;;
+import { InputTextModule } from &#x27;primeng/inputtext&#x27;;
+import { open } from &#x27;@tauri-apps/plugin-dialog&#x27;;
+import { FieldsetModule } from &#x27;primeng/fieldset&#x27;;
+import { ButtonModule } from &#x27;primeng/button&#x27;;
+import { environment } from &#x27;../../../../environments/environment&#x27;;
+import { ProjectService } from &#x27;../../../Services/Project/project.service&#x27;;
+import { LabelsService } from &#x27;../../../Services/Project/labels.service&#x27;;
+import { LabelledSwitchComponent } from &#x27;../../Core/labelled-switch/labelled-switch.component&#x27;;
+import { getDefaultColor } from &#x27;../../../Core/misc/colors&#x27;;
+import { ColorPickerModule } from &#x27;primeng/colorpicker&#x27;;
+import { CheckboxModule } from &#x27;primeng/checkbox&#x27;;
+import { SegLabel } from &#x27;../../../Core/interface&#x27;;
+import { CLIService } from &#x27;../../../Services/cli.service&#x27;;
+import { ClassificationConfigurationComponent } from &#x27;./classification-configuration/classification-configuration.component&#x27;;
+import { TableModule } from &#x27;primeng/table&#x27;;
+import { CommonModule } from &#x27;@angular/common&#x27;;
+import { path } from &#x27;@tauri-apps/api&#x27;;
+
+@Component({
+  selector: &#x27;app-project-configuration&#x27;,
+  standalone: true,
+  imports: [
+    CardModule,
+    TableModule,
+    CommonModule,
+    ClassificationConfigurationComponent,
+    NgClass,
+    NgIf,
+    NgFor,
+    DividerModule,
+    ColorPickerModule,
+    CheckboxModule,
+    ButtonModule,
+    FloatLabelModule,
+    FormsModule,
+    PanelModule,
+    InputSwitchModule,
+    InputTextModule,
+    FieldsetModule,
+    LabelledSwitchComponent,
+    ClassificationConfigurationComponent,
+  ],
+  templateUrl: &#x27;./project-configuration.component.html&#x27;,
+  styleUrl: &#x27;./project-configuration.component.scss&#x27;,
+})
+export class ProjectConfigurationComponent implements OnInit {
+  generateThumbnails: boolean &#x3D; true;
+
+  isInputValid: boolean &#x3D; true;
+  isOutputValid: boolean &#x3D; true;
+  isNameValid: boolean &#x3D; true;
+  constructor(
+    public projectService: ProjectService,
+    public labelService: LabelsService,
+    private cli: CLIService,
+    private cdr: ChangeDetectorRef
+  ) {}
+
+  ngOnInit(): void {
+    this.cli.commandProcessed.subscribe((value) &#x3D;&gt; {
+      if (value) {
+        console.log(&#x27;Command processed from Project Configuration&#x27;);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  openInputFolder() {
+    const file &#x3D; open({ directory: true });
+    file.then((value) &#x3D;&gt; {
+      if (value) {
+        if (value !&#x3D; this.projectService.inputFolder) {
+          this.projectService.resetProject();
+        }
+        this.projectService.inputFolder &#x3D; value;
+      }
+    });
+  }
+  openOutputFolder() {
+    const file &#x3D; open({ directory: true });
+    file.then((value) &#x3D;&gt; {
+      if (value) this.projectService.outputFolder &#x3D; value;
+    });
+  }
+
+  startProject() {
+    // Validate input
+    this.isInputValid &#x3D; this.projectService.inputFolder !&#x3D;&#x3D; &#x27;&#x27;;
+    this.isOutputValid &#x3D; this.projectService.outputFolder !&#x3D;&#x3D; &#x27;&#x27;;
+    this.isNameValid &#x3D; this.projectService.projectName !&#x3D;&#x3D; &#x27;&#x27;;
+    if (this.isInputValid &amp;&amp; this.isOutputValid) {
+      this.projectService.startProject();
+    }
+  }
+
+  addSegmentationClass() {
+    let color &#x3D; getDefaultColor(
+      this.labelService.listSegmentationLabels.length + 1
+    );
+    this.labelService.addSegLabel({
+      label: &#x27;Class &#x27; + this.labelService.listSegmentationLabels.length,
+      color: color,
+      isVisible: true,
+      shades: null,
+    });
+  }
+  deleteSegmentationClass(segLabel: SegLabel) {
+    this.labelService.removeSegLabel(segLabel);
+  }
+
+  async loadProjectFromFilepath(filepath: string) {
+    filepath &#x3D; await path.join(filepath, &#x27;project_config.json&#x27;)
+    this.projectService.loadProjectFile(filepath);
+  }
+
+  findAndLoadProjectFile() {
+    const file &#x3D; open({ directory: false });
+    file.then((value) &#x3D;&gt; {
+      if (value) {
+        this.projectService.loadProjectFile(value);
+      }
+    });
+  }
+
+  removeProjectFromFilepath(filepath: string) {
+    this.projectService.removeProjectFile(filepath);
+  }
+
+}
+</code></pre>
+    </div>
+
+    <div class="tab-pane fade " id="templateData">
+        <pre class="line-numbers"><code class="language-html">&lt;div class&#x3D;&quot;flex flex-row items-stretch justify-around my-14&quot;&gt;
+  &lt;div class&#x3D;&quot;flex flex-col gap-8 items-stretch&quot;&gt;
+    &lt;p-panel
+      header&#x3D;&quot;Load recent&quot;
+      class&#x3D;&quot;flex flex-col items-stretch&quot;
+      *ngIf&#x3D;&quot;projectService.localStoragesProjectsFilepaths.length &gt; 0&quot;
+    &gt;
+      &lt;p-table [value]&#x3D;&quot;projectService.localStoragesProjectsFilepaths&quot;&gt;
+        &lt;ng-template #header&gt;
+          &lt;tr&gt;
+            &lt;th&gt;Project Name&lt;/th&gt;
+            &lt;th&gt;Filepath&lt;/th&gt;
+            &lt;th&gt;Remove from history&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/ng-template&gt;
+        &lt;ng-template #body let-rows&gt;
+          &lt;tr class&#x3D;&quot;table-row&quot; &gt;
+            &lt;td (click)&#x3D;&quot;loadProjectFromFilepath(rows.root)&quot;&gt;{{ rows.project_name }}&lt;/td&gt;
+            &lt;td (click)&#x3D;&quot;loadProjectFromFilepath(rows.root)&quot;&gt;{{ rows.root }}&lt;/td&gt;
+            &lt;td&gt;
+              &lt;p-button
+                icon&#x3D;&quot;pi pi-times&quot;
+                [rounded]&#x3D;&quot;true&quot;
+                [text]&#x3D;&quot;true&quot;
+                severity&#x3D;&quot;danger&quot;
+                (click)&#x3D;&quot;removeProjectFromFilepath(rows.root)&quot;
+              /&gt;
+            &lt;/td&gt;
+          &lt;/tr&gt;
+        &lt;/ng-template&gt;
+      &lt;/p-table&gt;
+    &lt;/p-panel&gt;
+
+    &lt;p-panel header&#x3D;&quot;Project Configuration&quot; class&#x3D;&quot;flex flex-col items-stretch&quot;&gt;
+      &lt;div class&#x3D;&quot;flex flex-col items-stretch&quot;&gt;
+        &lt;p-button class&#x3D;&quot;m-auto&quot; (click)&#x3D;&quot;findAndLoadProjectFile()&quot;
+          &gt;Load from disk&lt;/p-button
+        &gt;
+        &lt;p-divider align&#x3D;&quot;left&quot; type&#x3D;&quot;solid&quot;
+          &gt;&lt;b&gt;Configure project&lt;/b&gt;&lt;/p-divider
+        &gt;
+        &lt;div class&#x3D;&quot;flex flex-col flex-column gap-8 items-center&quot;&gt;
+          &lt;p-floatLabel&gt;
+            &lt;input
+              pInputText
+              [ngClass]&#x3D;&quot;{ &#x27;ng-invalid ng-dirty&#x27;: !isNameValid }&quot;
+              id&#x3D;&quot;projectName&quot;
+              aria-describedby&#x3D;&quot;projectName-help&quot;
+              [(ngModel)]&#x3D;&quot;projectService.projectName&quot;
+            /&gt;
+            &lt;label for&#x3D;&quot;projectName&quot;&gt;Project name&lt;/label&gt;
+          &lt;/p-floatLabel&gt;
+          &lt;div class&#x3D;&quot;flex gap-16 items-center&quot;&gt;
+            &lt;app-labelled-switch [(checked)]&#x3D;&quot;projectService.isClassification&quot;
+              &gt;Classification&lt;/app-labelled-switch
+            &gt;
+            &lt;app-labelled-switch [(checked)]&#x3D;&quot;projectService.isSegmentation&quot;
+              &gt;Segmentation&lt;/app-labelled-switch
+            &gt;
+            &lt;app-labelled-switch
+              [(checked)]&#x3D;&quot;projectService.isInstanceSegmentation&quot;
+              &gt;Instance segmentation&lt;/app-labelled-switch
+            &gt;
+            &lt;app-labelled-switch
+              [(checked)]&#x3D;&quot;projectService.isBoundingBoxDetection&quot;
+              &gt;Bounding box&lt;/app-labelled-switch
+            &gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+        &lt;ng-container *ngIf&#x3D;&quot;projectService.isClassification&quot;&gt;
+          &lt;p-fieldset
+            legend&#x3D;&quot;Classification configuration&quot;
+            [toggleable]&#x3D;&quot;true&quot;
+            [collapsed]&#x3D;&quot;true&quot;
+          &gt;
+            &lt;app-classification-configuration&gt;&lt;/app-classification-configuration&gt;
+          &lt;/p-fieldset&gt;
+        &lt;/ng-container&gt;
+
+        &lt;ng-container
+          *ngIf&#x3D;&quot;
+            projectService.isSegmentation ||
+            projectService.isInstanceSegmentation
+          &quot;
+        &gt;
+          &lt;p-fieldset
+            legend&#x3D;&quot;Pixel-level configuration&quot;
+            [toggleable]&#x3D;&quot;true&quot;
+            [collapsed]&#x3D;&quot;true&quot;
+          &gt;
+            &lt;div class&#x3D;&quot;flex flex-col gap-4 items-center&quot;&gt;
+              &lt;div
+                *ngFor&#x3D;&quot;
+                  let label of labelService.listSegmentationLabels;
+                  let i &#x3D; index
+                &quot;
+                class&#x3D;&quot;flex flex-row gap-4 items-center&quot;
+              &gt;
+                &lt;label [for]&#x3D;&quot;label.label&quot;&gt;Class {{ i }}:&lt;/label&gt;
+                &lt;input
+                  pInputText
+                  [id]&#x3D;&quot;label.label&quot;
+                  aria-describedby&#x3D;&quot;inputPath-help&quot;
+                  [(ngModel)]&#x3D;&quot;label.label&quot;
+                /&gt;
+
+                &lt;div #colorPicker class&#x3D;&quot;aspect-auto w-12&quot;&gt;&lt;/div&gt;
+                &lt;p-colorPicker
+                  [(ngModel)]&#x3D;&quot;label.color&quot;
+                  [appendTo]&#x3D;&quot;colorPicker&quot;
+                /&gt;
+                &lt;p-button
+                  icon&#x3D;&quot;pi pi-times&quot;
+                  [rounded]&#x3D;&quot;true&quot;
+                  [text]&#x3D;&quot;true&quot;
+                  severity&#x3D;&quot;danger&quot;
+                  (onClick)&#x3D;&quot;deleteSegmentationClass(label)&quot;
+                &gt;&lt;/p-button&gt;
+              &lt;/div&gt;
+              &lt;p-button
+                class&#x3D;&quot;flex items-center&quot;
+                label&#x3D;&quot;Add class&quot;
+                (click)&#x3D;&quot;addSegmentationClass()&quot;
+              &gt;&lt;/p-button&gt;
+            &lt;/div&gt;
+          &lt;/p-fieldset&gt;
+        &lt;/ng-container&gt;
+      &lt;/div&gt;
+    &lt;/p-panel&gt;
+  &lt;/div&gt;
+
+  &lt;p-panel header&#x3D;&quot;Input/Output&quot; class&#x3D;&quot;flex flex-col items-stretch&quot;&gt;
+    &lt;div&gt;
+      &lt;p-fieldset legend&#x3D;&quot;Input&quot; [toggleable]&#x3D;&quot;true&quot;&gt;
+        &lt;div class&#x3D;&quot;flex gap-24 items-center justify-center&quot;&gt;
+          &lt;div class&#x3D;&quot;flex flex-col gap-4 items-center&quot;&gt;
+            &lt;p-floatLabel&gt;
+              &lt;input
+                pInputText
+                id&#x3D;&quot;inputPath&quot;
+                aria-describedby&#x3D;&quot;inputPath-help&quot;
+                [(ngModel)]&#x3D;&quot;projectService.inputFolder&quot;
+                [ngClass]&#x3D;&quot;{ &#x27;ng-invalid ng-dirty&#x27;: !isInputValid }&quot;
+              /&gt;
+              &lt;label for&#x3D;&quot;inputPath&quot;&gt;Input path&lt;/label&gt;
+            &lt;/p-floatLabel&gt;
+
+            &lt;p-button (click)&#x3D;&quot;openInputFolder()&quot;&gt;Choose folder&lt;/p-button&gt;
+            &lt;small id&#x3D;&quot;inputPath-help&quot;&gt;
+              Enter the path manually or open the explorer.
+            &lt;/small&gt;
+          &lt;/div&gt;
+          &lt;div class&#x3D;&quot;flex flex-col gap-4 items-center&quot;&gt;
+            &lt;div class&#x3D;&quot;flex flex-col&quot;&gt;
+              &lt;p-inputSwitch
+                id&#x3D;&quot;recursiveLoad&quot;
+                ariaLabelledBy&#x3D;&quot;recursiveLoad&quot;
+                [(ngModel)]&#x3D;&quot;projectService.recursive&quot;
+              /&gt;
+              &lt;small&gt;
+                &lt;label for&#x3D;&quot;recursiveLoad&quot; id&#x3D;&quot;recursiveLoad&quot;
+                  &gt;Recursive loading&lt;/label
+                &gt;
+              &lt;/small&gt;
+            &lt;/div&gt;
+            &lt;p-floatLabel&gt;
+              &lt;input
+                pInputText
+                id&#x3D;&quot;fileExtension&quot;
+                aria-describedby&#x3D;&quot;fileExtension-help&quot;
+                [(ngModel)]&#x3D;&quot;projectService.inputRegex&quot;
+              /&gt;
+              &lt;label for&#x3D;&quot;fileExtension&quot;&gt;regex&lt;/label&gt;
+            &lt;/p-floatLabel&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/p-fieldset&gt;
+
+      &lt;p-fieldset legend&#x3D;&quot;Output&quot; [toggleable]&#x3D;&quot;true&quot; [collapsed]&#x3D;&quot;false&quot;&gt;
+        &lt;div class&#x3D;&quot;flex flex-col gap-2 items-center&quot;&gt;
+          &lt;p-floatLabel&gt;
+            &lt;input
+              pInputText
+              id&#x3D;&quot;outputPath&quot;
+              aria-describedby&#x3D;&quot;outputPath-help&quot;
+              [(ngModel)]&#x3D;&quot;projectService.outputFolder&quot;
+              [ngClass]&#x3D;&quot;{ &#x27;ng-invalid ng-dirty&#x27;: !isOutputValid }&quot;
+            /&gt;
+            &lt;label for&#x3D;&quot;outputPath&quot;&gt;Output path&lt;/label&gt;
+          &lt;/p-floatLabel&gt;
+
+          &lt;p-button (click)&#x3D;&quot;openOutputFolder()&quot;&gt;Choose folder&lt;/p-button&gt;
+          &lt;small id&#x3D;&quot;outputPath-help&quot;&gt;
+            Enter the path manually or open the explorer.
+          &lt;/small&gt;
+        &lt;/div&gt;
+      &lt;/p-fieldset&gt;
+    &lt;/div&gt;
+  &lt;/p-panel&gt;
+
+  &lt;p-panel header&#x3D;&quot;Advanced settings&quot; class&#x3D;&quot;flex flex-col items-stretch&quot;&gt;
+    &lt;div&gt;
+      &lt;p-fieldset
+        legend&#x3D;&quot;Advanced options&quot;
+        [toggleable]&#x3D;&quot;true&quot;
+        [collapsed]&#x3D;&quot;true&quot;
+      &gt;
+        &lt;div class&#x3D;&quot;flex flex-col gap-2 items-center&quot;&gt;
+          &lt;p-inputSwitch
+            id&#x3D;&quot;generateThumbnails&quot;
+            ariaLabelledBy&#x3D;&quot;generateThumbnails&quot;
+            [(ngModel)]&#x3D;&quot;generateThumbnails&quot;
+          /&gt;
+          &lt;small&gt;
+            &lt;label for&#x3D;&quot;generateThumbnails&quot; id&#x3D;&quot;generateThumbnails&quot;
+              &gt;Create thumbnails&lt;/label
+            &gt;
+          &lt;/small&gt;
+        &lt;/div&gt;
+      &lt;/p-fieldset&gt;
+    &lt;/div&gt;
+  &lt;/p-panel&gt;
+&lt;/div&gt;
+
+&lt;p-button class&#x3D;&quot;flex justify-center&quot; (click)&#x3D;&quot;startProject()&quot;&gt;
+  &lt;b&gt;Start&lt;/b&gt;
+&lt;/p-button&gt;
+</code></pre>
+    </div>
+
+
+    <div class="tab-pane fade " id="tree">
+        <div id="tree-container"></div>
+        <div class="tree-legend">
+            <div class="title">
+                <b>Legend</b>
+            </div>
+            <div>
+                <div class="color htmlelement"></div><span>Html element</span>
+            </div>
+            <div>
+                <div class="color component"></div><span>Component</span>
+            </div>
+            <div>
+                <div class="color directive"></div><span>Html element with directive</span>
+            </div>
+        </div>
+    </div>
+
+    
+</div>
+
+<script src="../js/libs/vis.min.js"></script>
+<script src="../js/libs/htmlparser.js"></script>
+<script src="../js/libs/deep-iterator.js"></script>
+<script>
+        var COMPONENT_TEMPLATE = '<div><div class="flex flex-row items-stretch justify-around my-14">  <div class="flex flex-col gap-8 items-stretch">    <p-panel      header="Load recent"      class="flex flex-col items-stretch"      *ngIf="projectService.localStoragesProjectsFilepaths.length > 0"    >      <p-table [value]="projectService.localStoragesProjectsFilepaths">        <ng-template #header>          <tr>            <th>Project Name</th>            <th>Filepath</th>            <th>Remove from history</th>          </tr>        </ng-template>        <ng-template #body let-rows>          <tr class="table-row" >            <td (click)="loadProjectFromFilepath(rows.root)">{{ rows.project_name }}</td>            <td (click)="loadProjectFromFilepath(rows.root)">{{ rows.root }}</td>            <td>              <p-button                icon="pi pi-times"                [rounded]="true"                [text]="true"                severity="danger"                (click)="removeProjectFromFilepath(rows.root)"              />            </td>          </tr>        </ng-template>      </p-table>    </p-panel>    <p-panel header="Project Configuration" class="flex flex-col items-stretch">      <div class="flex flex-col items-stretch">        <p-button class="m-auto" (click)="findAndLoadProjectFile()"          >Load from disk</p-button        >        <p-divider align="left" type="solid"          ><b>Configure project</b></p-divider        >        <div class="flex flex-col flex-column gap-8 items-center">          <p-floatLabel>            <input              pInputText              [ngClass]="{ \'ng-invalid ng-dirty\': !isNameValid }"              id="projectName"              aria-describedby="projectName-help"              [(ngModel)]="projectService.projectName"            />            <label for="projectName">Project name</label>          </p-floatLabel>          <div class="flex gap-16 items-center">            <app-labelled-switch [(checked)]="projectService.isClassification"              >Classification</app-labelled-switch            >            <app-labelled-switch [(checked)]="projectService.isSegmentation"              >Segmentation</app-labelled-switch            >            <app-labelled-switch              [(checked)]="projectService.isInstanceSegmentation"              >Instance segmentation</app-labelled-switch            >            <app-labelled-switch              [(checked)]="projectService.isBoundingBoxDetection"              >Bounding box</app-labelled-switch            >          </div>        </div>        <ng-container *ngIf="projectService.isClassification">          <p-fieldset            legend="Classification configuration"            [toggleable]="true"            [collapsed]="true"          >            <app-classification-configuration></app-classification-configuration>          </p-fieldset>        </ng-container>        <ng-container          *ngIf="            projectService.isSegmentation ||            projectService.isInstanceSegmentation          "        >          <p-fieldset            legend="Pixel-level configuration"            [toggleable]="true"            [collapsed]="true"          >            <div class="flex flex-col gap-4 items-center">              <div                *ngFor="                  let label of labelService.listSegmentationLabels;                  let i = index                "                class="flex flex-row gap-4 items-center"              >                <label [for]="label.label">Class {{ i }}:</label>                <input                  pInputText                  [id]="label.label"                  aria-describedby="inputPath-help"                  [(ngModel)]="label.label"                />                <div #colorPicker class="aspect-auto w-12"></div>                <p-colorPicker                  [(ngModel)]="label.color"                  [appendTo]="colorPicker"                />                <p-button                  icon="pi pi-times"                  [rounded]="true"                  [text]="true"                  severity="danger"                  (onClick)="deleteSegmentationClass(label)"                ></p-button>              </div>              <p-button                class="flex items-center"                label="Add class"                (click)="addSegmentationClass()"              ></p-button>            </div>          </p-fieldset>        </ng-container>      </div>    </p-panel>  </div>  <p-panel header="Input/Output" class="flex flex-col items-stretch">    <div>      <p-fieldset legend="Input" [toggleable]="true">        <div class="flex gap-24 items-center justify-center">          <div class="flex flex-col gap-4 items-center">            <p-floatLabel>              <input                pInputText                id="inputPath"                aria-describedby="inputPath-help"                [(ngModel)]="projectService.inputFolder"                [ngClass]="{ \'ng-invalid ng-dirty\': !isInputValid }"              />              <label for="inputPath">Input path</label>            </p-floatLabel>            <p-button (click)="openInputFolder()">Choose folder</p-button>            <small id="inputPath-help">              Enter the path manually or open the explorer.            </small>          </div>          <div class="flex flex-col gap-4 items-center">            <div class="flex flex-col">              <p-inputSwitch                id="recursiveLoad"                ariaLabelledBy="recursiveLoad"                [(ngModel)]="projectService.recursive"              />              <small>                <label for="recursiveLoad" id="recursiveLoad"                  >Recursive loading</label                >              </small>            </div>            <p-floatLabel>              <input                pInputText                id="fileExtension"                aria-describedby="fileExtension-help"                [(ngModel)]="projectService.inputRegex"              />              <label for="fileExtension">regex</label>            </p-floatLabel>          </div>        </div>      </p-fieldset>      <p-fieldset legend="Output" [toggleable]="true" [collapsed]="false">        <div class="flex flex-col gap-2 items-center">          <p-floatLabel>            <input              pInputText              id="outputPath"              aria-describedby="outputPath-help"              [(ngModel)]="projectService.outputFolder"              [ngClass]="{ \'ng-invalid ng-dirty\': !isOutputValid }"            />            <label for="outputPath">Output path</label>          </p-floatLabel>          <p-button (click)="openOutputFolder()">Choose folder</p-button>          <small id="outputPath-help">            Enter the path manually or open the explorer.          </small>        </div>      </p-fieldset>    </div>  </p-panel>  <p-panel header="Advanced settings" class="flex flex-col items-stretch">    <div>      <p-fieldset        legend="Advanced options"        [toggleable]="true"        [collapsed]="true"      >        <div class="flex flex-col gap-2 items-center">          <p-inputSwitch            id="generateThumbnails"            ariaLabelledBy="generateThumbnails"            [(ngModel)]="generateThumbnails"          />          <small>            <label for="generateThumbnails" id="generateThumbnails"              >Create thumbnails</label            >          </small>        </div>      </p-fieldset>    </div>  </p-panel></div><p-button class="flex justify-center" (click)="startProject()">  <b>Start</b></p-button></div>'
+    var COMPONENTS = [{'name': 'AppComponent', 'selector': 'app-root'},{'name': 'BlockableDiv', 'selector': 'blockable-div'},{'name': 'BlockableP', 'selector': 'blockable-p'},{'name': 'ClassificationConfigurationComponent', 'selector': 'app-classification-configuration'},{'name': 'DrawableCanvasComponent', 'selector': 'app-drawable-canvas'},{'name': 'EditorComponent', 'selector': 'app-editor'},{'name': 'GalleryComponent', 'selector': 'app-gallery'},{'name': 'GalleryElementComponent', 'selector': 'app-gallery-element'},{'name': 'InstanceLabelComponent', 'selector': 'app-instance-label'},{'name': 'InteractiveBboxComponent', 'selector': 'app-interactive-bbox'},{'name': 'LabelledSwitchComponent', 'selector': 'app-labelled-switch'},{'name': 'LabelsComponent', 'selector': 'app-labels'},{'name': 'LoadingComponent', 'selector': 'app-loading'},{'name': 'ProjectConfigurationComponent', 'selector': 'app-project-configuration'},{'name': 'SVGElementsComponent', 'selector': 'app-svgelements'},{'name': 'TestingComponent', 'selector': 'app-testing'},{'name': 'ToolbarComponent', 'selector': 'app-toolbar'},{'name': 'ToolSettingComponent', 'selector': 'app-tool-setting'}];
+    var DIRECTIVES = [];
+    var ACTUAL_COMPONENT = {'name': 'ProjectConfigurationComponent'};
+</script>
+<script src="../js/tree.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div>
+</div>
+               <!-- END CONTENT -->
+           </div>
+       </div>
+
+          <label class="dark-mode-switch">
+               <input type="checkbox">
+               <span class="slider">
+                    <svg class="slider-icon" viewBox="0 0 24 24" fill="none" height="20" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" width="20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+                    </svg>
+               </span>
+          </label>
+
+       <script>
+            var COMPODOC_CURRENT_PAGE_DEPTH = 1;
+            var COMPODOC_CURRENT_PAGE_CONTEXT = 'component';
+            var COMPODOC_CURRENT_PAGE_URL = 'ProjectConfigurationComponent.html';
+            var MAX_SEARCH_RESULTS = 15;
+       </script>
+
+       <script>
+               $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               checkToggle(darkModeState);
+               if ($darkModeToggleSwitchers.length > 0) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].addEventListener('change', function (event) {
+                              darkModeState = !darkModeState;
+                              toggleDarkMode(darkModeState);
+                         });
+                    }
+               }
+          </script>
+
+       <script src="../js/libs/custom-elements.min.js"></script>
+       <script src="../js/libs/lit-html.js"></script>
+
+       <script src="../js/menu-wc.js" defer></script>
+       <script nomodule src="../js/menu-wc_es5.js" defer></script>
+
+       <script src="../js/libs/bootstrap-native.js"></script>
+
+       <script src="../js/libs/es6-shim.min.js"></script>
+       <script src="../js/libs/EventDispatcher.js"></script>
+       <script src="../js/libs/promise.min.js"></script>
+
+       <script src="../js/compodoc.js"></script>
+
+       <script src="../js/tabs.js"></script>
+       <script src="../js/menu.js"></script>
+       <script src="../js/libs/clipboard.min.js"></script>
+       <script src="../js/libs/prism.js"></script>
+       <script src="../js/sourceCode.js"></script>
+          <script src="../js/search/search.js"></script>
+          <script src="../js/search/lunr.min.js"></script>
+          <script src="../js/search/search-lunr.js"></script>
+          <script src="../js/search/search_index.js"></script>
+       <script src="../js/lazy-load-graphs.js"></script>
+
+
+    </body>
+</html>

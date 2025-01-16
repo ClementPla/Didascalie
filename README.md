@@ -104,15 +104,17 @@ def run_model(filepath):
     
     return masks, multiclass, multilabel
 
+ALL_FILES = list(Path(ROOT_FOLDER).glob('*.jpeg'))
+INPUT_DIR = "inputFundus/" # Folder where the images are stored. Can be the same as the root folder
+OUTPUT_DIR = "output/" # Folder where the annotations will be stored.
 
 with Project(project_name="FundusLesions", 
-             input_dir=str(Path("inputFundus/").resolve()),
-             output_dir=str(Path(".").resolve()),
+             input_dir=str(Path(INPUT_DIR).resolve()),
+             output_dir=str(Path(OUTPUT_DIR).resolve()),
              classification_classes=classifications_classes,
              classification_multilabel=classification_multilabel,
              segmentation_classes=segmentation_classes) as cli:
-    for i in tqdm(range(N_IMAGES)):
-        filepath = PATH_TO_IMAGE
+    for filepath in tqdm(ALL_FILES):
         masks, multiclass, multilabel = run_model(filepath)
         cli.load_image(filepath, segmentation_masks=masks, multiclass_choices=multiclass, multilabel_choices=multilabel)
 

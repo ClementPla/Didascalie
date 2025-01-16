@@ -1,0 +1,855 @@
+<!doctype html>
+<html class="no-js" lang="">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <title>labelmed documentation</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="icon" type="image/x-icon" href="../images/favicon.ico">
+	   <link rel="stylesheet" href="../styles/style.css">
+        <link rel="stylesheet" href="../styles/dark.css">
+    </head>
+    <body>
+          <script>
+               // Blocking script to avoid flickering dark mode
+               // Dark mode toggle button
+               var useDark = window.matchMedia('(prefers-color-scheme: dark)');
+               var darkModeState = useDark.matches;
+               var $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               var $darkModeToggles = document.querySelectorAll('.dark-mode-switch');
+               var darkModeStateLocal = localStorage.getItem('compodoc_darkmode-state');
+
+               function checkToggle(check) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].checked = check;
+                    }
+               }
+
+               function toggleDarkMode(state) {
+                    if (window.localStorage) {
+                         localStorage.setItem('compodoc_darkmode-state', state);
+                    }
+
+                    checkToggle(state);
+
+                    const hasClass = document.body.classList.contains('dark');
+
+                    if (state) {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.add('dark');
+                         }
+                         if (!hasClass) {
+                              document.body.classList.add('dark');
+                         }
+                    } else {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.remove('dark');
+                         }
+                         if (hasClass) {
+                              document.body.classList.remove('dark');
+                         }
+                    }
+               }
+
+               useDark.addEventListener('change', function (evt) {
+                    toggleDarkMode(evt.matches);
+               });
+               if (darkModeStateLocal) {
+                    darkModeState = darkModeStateLocal === 'true';
+               }
+               toggleDarkMode(darkModeState);
+          </script>
+
+        <div class="navbar navbar-default navbar-fixed-top d-md-none p-0">
+               <div class="d-flex">
+                    <a href="../" class="navbar-brand">labelmed documentation</a>
+                    <button type="button" class="btn btn-default btn-menu ion-ios-menu" id="btn-menu"></button>
+               </div>
+        </div>
+
+        <div class="xs-menu menu" id="mobile-menu">
+                <div id="book-search-input" role="search"><input type="text" placeholder="Type to search"></div>            <compodoc-menu></compodoc-menu>
+        </div>
+
+        <div class="container-fluid main">
+           <div class="row main">
+               <div class="d-none d-md-block menu">
+                   <compodoc-menu mode="normal"></compodoc-menu>
+               </div>
+               <!-- START CONTENT -->
+               <div class="content component">
+                   <div class="content-data">
+
+
+
+
+<ol class="breadcrumb">
+  <li class="breadcrumb-item">Components</li>
+  <li class="breadcrumb-item"
+  >
+  ToolSettingComponent</li>
+</ol>
+
+<ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a href="#info" class="nav-link active"
+                role="tab" id="info-tab" data-bs-toggle="tab" data-link="info">Info</a>
+        </li>
+        <li class="nav-item">
+            <a href="#source" class="nav-link"
+                role="tab" id="source-tab" data-bs-toggle="tab" data-link="source">Source</a>
+        </li>
+        <li class="nav-item">
+            <a href="#templateData" class="nav-link"
+                role="tab" id="templateData-tab" data-bs-toggle="tab" data-link="template">Template</a>
+        </li>
+        <li class="nav-item">
+            <a href="#tree" class="nav-link"
+                role="tab" id="tree-tab" data-bs-toggle="tab" data-link="dom-tree">DOM Tree</a>
+        </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade active in" id="info"><p class="comment">
+    <h3>File</h3>
+</p>
+<p class="comment">
+    <code>src/app/Components/Interface/editor/tool-setting/tool-setting.component.ts</code>
+</p>
+
+
+
+
+
+
+<section data-compodoc="block-metadata">
+    <h3>Metadata</h3>
+    <table class="table table-sm table-hover metadata">
+        <tbody>
+
+
+
+
+
+
+
+
+
+
+
+
+            <tr>
+                <td class="col-md-3">selector</td>
+                <td class="col-md-9"><code>app-tool-setting</code></td>
+            </tr>
+
+            <tr>
+                <td class="col-md-3">standalone</td>
+                <td class="col-md-9"><code>true</code></td>
+            </tr>
+
+            <tr>
+                <td class="col-md-3">imports</td>
+                <td class="col-md-9">
+                            <code>CommonModule</code>
+                            <code>PanelModule</code>
+                            <code>SliderModule</code>
+                            <code>NgIf</code>
+                            <code>InputSwitchModule</code>
+                            <code>NgSwitch</code>
+                            <code>SelectButtonModule</code>
+                            <code>FormsModule</code>
+                            <code>CardModule</code>
+                                <code><a href="../components/LabelledSwitchComponent.html" target="_self" >LabelledSwitchComponent</a></code>
+                            <code>FieldsetModule</code>
+                </td>
+            </tr>
+
+
+
+
+            <tr>
+                <td class="col-md-3">templateUrl</td>
+                <td class="col-md-9"><code>./tool-setting.component.html</code></td>
+            </tr>
+
+
+
+            <tr>
+                <td class="col-md-3">styleUrl</td>
+                <td class="col-md-9"><code>./tool-setting.component.scss</code></td>
+            </tr>
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+    <section data-compodoc="block-index">
+    <h3 id="index">Index</h3>
+    <table class="table table-sm table-bordered index-table">
+        <tbody>
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Properties</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#drawService" >drawService</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#imageProcess" >imageProcess</a>
+                            </li>
+                            <li>
+                                <a href="#postProcessingOptions" >postProcessingOptions</a>
+                            </li>
+                            <li>
+                                <a href="#ppOption" >ppOption</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#projectService" >projectService</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+    <section data-compodoc="block-constructor">
+    <h3 id="constructor">Constructor</h3>
+        <table class="table table-sm table-bordered">
+            <tbody>
+                <tr>
+                    <td class="col-md-4">
+<code>constructor(drawService: <a href="../injectables/EditorService.html" target="_self">EditorService</a>, projectService: <a href="../injectables/ProjectService.html" target="_self">ProjectService</a>, imageProcess: <a href="../injectables/ImageProcessingService.html" target="_self">ImageProcessingService</a>)</code>
+                    </td>
+                </tr>
+                        <tr>
+                            <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="37" class="link-to-prism">src/app/Components/Interface/editor/tool-setting/tool-setting.component.ts:37</a></div>
+                            </td>
+                        </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                            <div>
+                                    <b>Parameters :</b>
+                                    <table class="params">
+                                        <thead>
+                                            <tr>
+                                                <td>Name</td>
+                                                    <td>Type</td>
+                                                <td>Optional</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                                <tr>
+                                                        <td>drawService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/EditorService.html" target="_self" >EditorService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>projectService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/ProjectService.html" target="_self" >ProjectService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>imageProcess</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/ImageProcessingService.html" target="_self" >ImageProcessingService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                        </tbody>
+                                    </table>
+                            </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+</section>
+
+
+
+
+
+
+    <section data-compodoc="block-properties">
+    
+    <h3 id="inputs">
+        Properties
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="drawService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>drawService</b></span>
+                        <a href="#drawService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/EditorService.html" target="_self" >EditorService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="39" class="link-to-prism">src/app/Components/Interface/editor/tool-setting/tool-setting.component.ts:39</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="imageProcess"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>imageProcess</b></span>
+                        <a href="#imageProcess"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/ImageProcessingService.html" target="_self" >ImageProcessingService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="41" class="link-to-prism">src/app/Components/Interface/editor/tool-setting/tool-setting.component.ts:41</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="postProcessingOptions"></a>
+                    <span class="name">
+                        <span ><b>postProcessingOptions</b></span>
+                        <a href="#postProcessingOptions"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>postProcessingOptions</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="36" class="link-to-prism">src/app/Components/Interface/editor/tool-setting/tool-setting.component.ts:36</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="ppOption"></a>
+                    <span class="name">
+                        <span ><b>ppOption</b></span>
+                        <a href="#ppOption"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>PostProcessOption</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="37" class="link-to-prism">src/app/Components/Interface/editor/tool-setting/tool-setting.component.ts:37</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="projectService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>projectService</b></span>
+                        <a href="#projectService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/ProjectService.html" target="_self" >ProjectService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="40" class="link-to-prism">src/app/Components/Interface/editor/tool-setting/tool-setting.component.ts:40</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+</section>
+
+</div>
+
+
+    <div class="tab-pane fade  tab-source-code" id="source">
+        <pre class="line-numbers compodoc-sourcecode"><code class="language-typescript">import { Component } from &#x27;@angular/core&#x27;;
+import { PanelModule } from &#x27;primeng/panel&#x27;;
+import { NgIf, NgSwitch, CommonModule } from &#x27;@angular/common&#x27;;
+import { InputSwitchModule } from &#x27;primeng/inputswitch&#x27;;
+import { EditorService } from &#x27;../../../../Services/UI/editor.service&#x27;;
+import { FormsModule } from &#x27;@angular/forms&#x27;;
+import { CardModule } from &#x27;primeng/card&#x27;;
+import { LabelledSwitchComponent } from &#x27;../../../Core/labelled-switch/labelled-switch.component&#x27;;
+import { FieldsetModule } from &#x27;primeng/fieldset&#x27;;
+import { SliderModule } from &#x27;primeng/slider&#x27;;
+import { ProjectService } from &#x27;../../../../Services/Project/project.service&#x27;;
+import { ImageProcessingService } from &#x27;../../../Core/drawable-canvas/service/image-processing.service&#x27;;
+import { SelectButtonModule } from &#x27;primeng/selectbutton&#x27;;
+import { PostProcessOption } from &#x27;../../../../Core/canvases/tools&#x27;;
+import { postProcessingOptions } from &#x27;../../../../Core/canvases/tools&#x27;;
+@Component({
+  selector: &#x27;app-tool-setting&#x27;,
+  standalone: true,
+  imports: [
+    CommonModule,
+    PanelModule,
+    SliderModule,
+    NgIf,
+    InputSwitchModule,
+    NgSwitch,
+    SelectButtonModule,
+    FormsModule,
+    CardModule,
+    LabelledSwitchComponent,
+    FieldsetModule,
+  ],
+  templateUrl: &#x27;./tool-setting.component.html&#x27;,
+  styleUrl: &#x27;./tool-setting.component.scss&#x27;,
+})
+export class ToolSettingComponent {
+  postProcessingOptions &#x3D; postProcessingOptions;
+  ppOption &#x3D; PostProcessOption;
+  constructor(
+    public drawService: EditorService,
+    public projectService: ProjectService,
+    public imageProcess: ImageProcessingService
+  ) {}
+}
+</code></pre>
+    </div>
+
+    <div class="tab-pane fade " id="templateData">
+        <pre class="line-numbers"><code class="language-html">&lt;p-panel header&#x3D;&quot;Advanced settings&quot;&gt;
+  &lt;div class&#x3D;&quot;h-full max-w-[256px] overflow-y-auto&quot;&gt;
+    &lt;p-fieldset
+      legend&#x3D;&quot;Instance Segmentation&quot;
+      [toggleable]&#x3D;&quot;true&quot;
+      *ngIf&#x3D;&quot;projectService.isInstanceSegmentation&quot;
+    &gt;
+      &lt;p&gt;
+        &lt;input
+          type&#x3D;&quot;text&quot;
+          pInputText
+          [(ngModel)]&#x3D;&quot;projectService.maxInstances&quot;
+          class&#x3D;&quot;mb-3 w-full&quot;
+        /&gt;
+
+        &lt;p-slider
+          [(ngModel)]&#x3D;&quot;projectService.maxInstances&quot;
+          [min]&#x3D;&quot;1&quot;
+          [max]&#x3D;&quot;150&quot;
+          [step]&#x3D;&quot;1&quot;
+        &gt;
+        &lt;/p-slider&gt;
+      &lt;/p&gt;
+      &lt;app-labelled-switch [(checked)]&#x3D;&quot;drawService.incrementAfterStroke&quot;&gt;
+        Increment after stroke
+      &lt;/app-labelled-switch&gt;
+    &lt;/p-fieldset&gt;
+
+    &lt;p-fieldset
+      *ngIf&#x3D;&quot;drawService.useProcessing&quot;
+      legend&#x3D;&quot;Image processsing&quot;
+      [toggleable]&#x3D;&quot;true&quot;
+    &gt;
+      &lt;div class&#x3D;&quot;flex flex-wrap gap-2 justify-center&quot;&gt;
+        &lt;app-labelled-switch
+          [(checked)]&#x3D;&quot;imageProcess.to_BW&quot;
+          (checkedChange)&#x3D;&quot;imageProcess.refresh()&quot;
+          &gt;Convert to grayscale&lt;/app-labelled-switch
+        &gt;
+        &lt;app-labelled-switch
+          [(checked)]&#x3D;&quot;imageProcess.stretchHist&quot;
+          (checkedChange)&#x3D;&quot;imageProcess.refresh()&quot;
+          &gt;Histogram stretching&lt;/app-labelled-switch
+        &gt;
+
+        &lt;div class&#x3D;&quot;w-full&quot;&gt;
+          &lt;p class&#x3D;&quot;flex flex-col gap-2&quot;&gt;
+            &lt;input
+              type&#x3D;&quot;number&quot;
+              pInputText
+              (change)&#x3D;&quot;imageProcess.refresh()&quot;
+              [(ngModel)]&#x3D;&quot;imageProcess.brightness&quot;
+              class&#x3D;&quot;mb-3 w-full&quot;
+            /&gt;
+            &lt;p-slider
+              [(ngModel)]&#x3D;&quot;imageProcess.brightness&quot;
+              (onChange)&#x3D;&quot;imageProcess.refresh()&quot;
+              [min]&#x3D;&quot;-255&quot;
+              [max]&#x3D;&quot;255&quot;
+              [step]&#x3D;&quot;1&quot;
+            /&gt;
+            &lt;small&gt;Brightness&lt;/small&gt;
+          &lt;/p&gt;
+
+          &lt;p class&#x3D;&quot;flex flex-col gap-2&quot;&gt;
+            &lt;input
+              type&#x3D;&quot;number&quot;
+              pInputText
+              (change)&#x3D;&quot;imageProcess.refresh()&quot;
+              [(ngModel)]&#x3D;&quot;imageProcess.contrast&quot;
+              class&#x3D;&quot;mb-3 w-full&quot;
+            /&gt;
+            &lt;p-slider
+              [(ngModel)]&#x3D;&quot;imageProcess.contrast&quot;
+              (onChange)&#x3D;&quot;imageProcess.refresh()&quot;
+              [min]&#x3D;&quot;0&quot;
+              [max]&#x3D;&quot;5&quot;
+              [step]&#x3D;&quot;0.1&quot;
+            /&gt;
+            &lt;small&gt;Contrast&lt;/small&gt;
+          &lt;/p&gt;
+
+          &lt;p class&#x3D;&quot;flex flex-col gap-2&quot;&gt;
+            &lt;input
+              type&#x3D;&quot;number&quot;
+              pInputText
+              ((change))&#x3D;&quot;imageProcess.refresh()&quot;
+              [(ngModel)]&#x3D;&quot;imageProcess.gamma&quot;
+              class&#x3D;&quot;mb-3 w-full&quot;
+            /&gt;
+            &lt;p-slider
+              [(ngModel)]&#x3D;&quot;imageProcess.gamma&quot;
+              (onChange)&#x3D;&quot;imageProcess.refresh()&quot;
+              [min]&#x3D;&quot;0.25&quot;
+              [max]&#x3D;&quot;2&quot;
+              [step]&#x3D;&quot;0.05&quot;
+            /&gt;
+            &lt;small&gt;Gamma&lt;/small&gt;
+          &lt;/p&gt;
+        &lt;/div&gt;
+
+        &lt;app-labelled-switch
+          [(checked)]&#x3D;&quot;imageProcess.use_medianBlur&quot;
+          (checkedChange)&#x3D;&quot;imageProcess.refresh()&quot;
+          &gt;Smooth&lt;/app-labelled-switch
+        &gt;
+
+        &lt;app-labelled-switch
+          [(checked)]&#x3D;&quot;imageProcess.reinforceEdges&quot;
+          (checkedChange)&#x3D;&quot;imageProcess.refresh()&quot;
+          &gt;Edge reinforcement&lt;/app-labelled-switch
+        &gt;
+
+        &lt;p *ngIf&#x3D;&quot;imageProcess.use_medianBlur&quot; class&#x3D;&quot;flex flex-col gap-2&quot;&gt;
+          &lt;input
+            type&#x3D;&quot;number&quot;
+            pInputText
+            [(ngModel)]&#x3D;&quot;imageProcess.kernel_size&quot;
+            (change)&#x3D;&quot;imageProcess.refresh()&quot;
+            class&#x3D;&quot;mb-3 w-full&quot;
+          /&gt;
+          &lt;p-slider
+            [(ngModel)]&#x3D;&quot;imageProcess.kernel_size&quot;
+            [min]&#x3D;&quot;1&quot;
+            [max]&#x3D;&quot;15&quot;
+            [step]&#x3D;&quot;2&quot;
+            (onChange)&#x3D;&quot;imageProcess.refresh()&quot;
+          /&gt;
+          &lt;small&gt;Kernel size&lt;/small&gt;
+        &lt;/p&gt;
+
+        &lt;p *ngIf&#x3D;&quot;imageProcess.reinforceEdges&quot; class&#x3D;&quot;flex flex-col gap-2&quot;&gt;
+          &lt;input
+            type&#x3D;&quot;number&quot;
+            pInputText
+            [(ngModel)]&#x3D;&quot;imageProcess.edgeStrength&quot;
+            (change)&#x3D;&quot;imageProcess.refresh()&quot;
+            class&#x3D;&quot;mb-3 w-full&quot;
+          /&gt;
+          &lt;p-slider
+            [(ngModel)]&#x3D;&quot;imageProcess.edgeStrength&quot;
+            [min]&#x3D;&quot;0&quot;
+            [max]&#x3D;&quot;5&quot;
+            [step]&#x3D;&quot;0.1&quot;
+            (onChange)&#x3D;&quot;imageProcess.refresh()&quot;
+          /&gt;
+          &lt;small&gt;Edge strength&lt;/small&gt;
+        &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/p-fieldset&gt;
+
+    &lt;p-fieldset
+      legend&#x3D;&quot;Auto-postprocessing&quot;
+      [toggleable]&#x3D;&quot;true&quot;
+      *ngIf&#x3D;&quot;drawService.autoPostProcess&quot;
+    &gt;
+      &lt;div class&#x3D;&quot;flex flex-wrap gap-2 justify-center&quot;&gt;
+        &lt;ng-container *ngIf&#x3D;&quot;drawService.isDrawingTool()&quot;&gt;
+          &lt;p-selectButton
+            [options]&#x3D;&quot;postProcessingOptions&quot;
+            [(ngModel)]&#x3D;&quot;drawService.postProcessOption&quot;
+          &gt;&lt;/p-selectButton&gt;
+          &lt;ng-container [ngSwitch]&#x3D;&quot;drawService.postProcessOption&quot;&gt;
+            &lt;ng-container *ngSwitchCase&#x3D;&quot;ppOption.OTSU&quot;&gt;
+              &lt;small
+                &gt;Automatically snap to the extrema by thresholding the area
+                covered by the brush stroke
+              &lt;/small&gt;
+              &lt;app-labelled-switch [(checked)]&#x3D;&quot;drawService.useInverse&quot;
+                &gt;Use inverse image&lt;/app-labelled-switch
+              &gt;
+              &lt;app-labelled-switch
+                [(checked)]&#x3D;&quot;drawService.autoPostProcessOpening&quot;
+                &gt;Smooth&lt;/app-labelled-switch
+              &gt;
+              &lt;p *ngIf&#x3D;&quot;drawService.autoPostProcessOpening&quot;&gt;
+                &lt;input
+                  type&#x3D;&quot;number&quot;
+                  pInputText
+                  [(ngModel)]&#x3D;&quot;drawService.morphoSize&quot;
+                  class&#x3D;&quot;mb-3 w-full&quot;
+                /&gt;
+
+                &lt;p-slider
+                  [(ngModel)]&#x3D;&quot;drawService.morphoSize&quot;
+                  [min]&#x3D;&quot;1&quot;
+                  [max]&#x3D;&quot;15&quot;
+                  [step]&#x3D;&quot;2&quot;
+                /&gt;
+              &lt;/p&gt;
+              &lt;app-labelled-switch [(checked)]&#x3D;&quot;drawService.enforceConnectivity&quot;
+                &gt;Force connectivity&lt;/app-labelled-switch
+              &gt;
+            &lt;/ng-container&gt;
+            &lt;ng-container *ngSwitchCase&#x3D;&quot;ppOption.MEDSAM&quot;&gt;
+              &lt;small&gt;
+                Use MED-Sam has a post-processing step to auto-segment based on
+                the current stroke indication.
+              &lt;/small&gt;
+              &lt;div&gt;
+                &lt;input
+                  type&#x3D;&quot;number&quot;
+                  pInputText
+                  [(ngModel)]&#x3D;&quot;drawService.samThreshold&quot;
+                  class&#x3D;&quot;mb-3 w-full&quot;
+                /&gt;
+                &lt;p-slider
+                  [(ngModel)]&#x3D;&quot;drawService.samThreshold&quot;
+                  [min]&#x3D;&quot;0&quot;
+                  [max]&#x3D;&quot;1&quot;
+                  [step]&#x3D;&quot;0.01&quot;
+                /&gt;
+              &lt;/div&gt;
+            &lt;/ng-container&gt;
+            &lt;ng-container *ngSwitchCase&#x3D;&quot;ppOption.CRF&quot;&gt;
+              &lt;small&gt;Use Conditional Random Field to refine the segmentation
+              &lt;/small&gt;
+            &lt;/ng-container&gt;
+          &lt;/ng-container&gt;
+        &lt;/ng-container&gt;
+        &lt;div class&#x3D;&quot;flex&quot; *ngIf&#x3D;&quot;drawService.isEraser()&quot;&gt;
+          &lt;small&gt;
+            Automatically remove all connected pixels that were covered by the
+            brush stroke&lt;/small
+          &gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/p-fieldset&gt;
+  &lt;/div&gt;
+&lt;/p-panel&gt;
+</code></pre>
+    </div>
+
+
+    <div class="tab-pane fade " id="tree">
+        <div id="tree-container"></div>
+        <div class="tree-legend">
+            <div class="title">
+                <b>Legend</b>
+            </div>
+            <div>
+                <div class="color htmlelement"></div><span>Html element</span>
+            </div>
+            <div>
+                <div class="color component"></div><span>Component</span>
+            </div>
+            <div>
+                <div class="color directive"></div><span>Html element with directive</span>
+            </div>
+        </div>
+    </div>
+
+    
+</div>
+
+<script src="../js/libs/vis.min.js"></script>
+<script src="../js/libs/htmlparser.js"></script>
+<script src="../js/libs/deep-iterator.js"></script>
+<script>
+        var COMPONENT_TEMPLATE = '<div><p-panel header="Advanced settings">  <div class="h-full max-w-[256px] overflow-y-auto">    <p-fieldset      legend="Instance Segmentation"      [toggleable]="true"      *ngIf="projectService.isInstanceSegmentation"    >      <p>        <input          type="text"          pInputText          [(ngModel)]="projectService.maxInstances"          class="mb-3 w-full"        />        <p-slider          [(ngModel)]="projectService.maxInstances"          [min]="1"          [max]="150"          [step]="1"        >        </p-slider>      </p>      <app-labelled-switch [(checked)]="drawService.incrementAfterStroke">        Increment after stroke      </app-labelled-switch>    </p-fieldset>    <p-fieldset      *ngIf="drawService.useProcessing"      legend="Image processsing"      [toggleable]="true"    >      <div class="flex flex-wrap gap-2 justify-center">        <app-labelled-switch          [(checked)]="imageProcess.to_BW"          (checkedChange)="imageProcess.refresh()"          >Convert to grayscale</app-labelled-switch        >        <app-labelled-switch          [(checked)]="imageProcess.stretchHist"          (checkedChange)="imageProcess.refresh()"          >Histogram stretching</app-labelled-switch        >        <div class="w-full">          <p class="flex flex-col gap-2">            <input              type="number"              pInputText              (change)="imageProcess.refresh()"              [(ngModel)]="imageProcess.brightness"              class="mb-3 w-full"            />            <p-slider              [(ngModel)]="imageProcess.brightness"              (onChange)="imageProcess.refresh()"              [min]="-255"              [max]="255"              [step]="1"            />            <small>Brightness</small>          </p>          <p class="flex flex-col gap-2">            <input              type="number"              pInputText              (change)="imageProcess.refresh()"              [(ngModel)]="imageProcess.contrast"              class="mb-3 w-full"            />            <p-slider              [(ngModel)]="imageProcess.contrast"              (onChange)="imageProcess.refresh()"              [min]="0"              [max]="5"              [step]="0.1"            />            <small>Contrast</small>          </p>          <p class="flex flex-col gap-2">            <input              type="number"              pInputText              ((change))="imageProcess.refresh()"              [(ngModel)]="imageProcess.gamma"              class="mb-3 w-full"            />            <p-slider              [(ngModel)]="imageProcess.gamma"              (onChange)="imageProcess.refresh()"              [min]="0.25"              [max]="2"              [step]="0.05"            />            <small>Gamma</small>          </p>        </div>        <app-labelled-switch          [(checked)]="imageProcess.use_medianBlur"          (checkedChange)="imageProcess.refresh()"          >Smooth</app-labelled-switch        >        <app-labelled-switch          [(checked)]="imageProcess.reinforceEdges"          (checkedChange)="imageProcess.refresh()"          >Edge reinforcement</app-labelled-switch        >        <p *ngIf="imageProcess.use_medianBlur" class="flex flex-col gap-2">          <input            type="number"            pInputText            [(ngModel)]="imageProcess.kernel_size"            (change)="imageProcess.refresh()"            class="mb-3 w-full"          />          <p-slider            [(ngModel)]="imageProcess.kernel_size"            [min]="1"            [max]="15"            [step]="2"            (onChange)="imageProcess.refresh()"          />          <small>Kernel size</small>        </p>        <p *ngIf="imageProcess.reinforceEdges" class="flex flex-col gap-2">          <input            type="number"            pInputText            [(ngModel)]="imageProcess.edgeStrength"            (change)="imageProcess.refresh()"            class="mb-3 w-full"          />          <p-slider            [(ngModel)]="imageProcess.edgeStrength"            [min]="0"            [max]="5"            [step]="0.1"            (onChange)="imageProcess.refresh()"          />          <small>Edge strength</small>        </p>      </div>    </p-fieldset>    <p-fieldset      legend="Auto-postprocessing"      [toggleable]="true"      *ngIf="drawService.autoPostProcess"    >      <div class="flex flex-wrap gap-2 justify-center">        <ng-container *ngIf="drawService.isDrawingTool()">          <p-selectButton            [options]="postProcessingOptions"            [(ngModel)]="drawService.postProcessOption"          ></p-selectButton>          <ng-container [ngSwitch]="drawService.postProcessOption">            <ng-container *ngSwitchCase="ppOption.OTSU">              <small                >Automatically snap to the extrema by thresholding the area                covered by the brush stroke              </small>              <app-labelled-switch [(checked)]="drawService.useInverse"                >Use inverse image</app-labelled-switch              >              <app-labelled-switch                [(checked)]="drawService.autoPostProcessOpening"                >Smooth</app-labelled-switch              >              <p *ngIf="drawService.autoPostProcessOpening">                <input                  type="number"                  pInputText                  [(ngModel)]="drawService.morphoSize"                  class="mb-3 w-full"                />                <p-slider                  [(ngModel)]="drawService.morphoSize"                  [min]="1"                  [max]="15"                  [step]="2"                />              </p>              <app-labelled-switch [(checked)]="drawService.enforceConnectivity"                >Force connectivity</app-labelled-switch              >            </ng-container>            <ng-container *ngSwitchCase="ppOption.MEDSAM">              <small>                Use MED-Sam has a post-processing step to auto-segment based on                the current stroke indication.              </small>              <div>                <input                  type="number"                  pInputText                  [(ngModel)]="drawService.samThreshold"                  class="mb-3 w-full"                />                <p-slider                  [(ngModel)]="drawService.samThreshold"                  [min]="0"                  [max]="1"                  [step]="0.01"                />              </div>            </ng-container>            <ng-container *ngSwitchCase="ppOption.CRF">              <small>Use Conditional Random Field to refine the segmentation              </small>            </ng-container>          </ng-container>        </ng-container>        <div class="flex" *ngIf="drawService.isEraser()">          <small>            Automatically remove all connected pixels that were covered by the            brush stroke</small          >        </div>      </div>    </p-fieldset>  </div></p-panel></div>'
+    var COMPONENTS = [{'name': 'AppComponent', 'selector': 'app-root'},{'name': 'BlockableDiv', 'selector': 'blockable-div'},{'name': 'BlockableP', 'selector': 'blockable-p'},{'name': 'ClassificationConfigurationComponent', 'selector': 'app-classification-configuration'},{'name': 'DrawableCanvasComponent', 'selector': 'app-drawable-canvas'},{'name': 'EditorComponent', 'selector': 'app-editor'},{'name': 'GalleryComponent', 'selector': 'app-gallery'},{'name': 'GalleryElementComponent', 'selector': 'app-gallery-element'},{'name': 'InstanceLabelComponent', 'selector': 'app-instance-label'},{'name': 'InteractiveBboxComponent', 'selector': 'app-interactive-bbox'},{'name': 'LabelledSwitchComponent', 'selector': 'app-labelled-switch'},{'name': 'LabelsComponent', 'selector': 'app-labels'},{'name': 'LoadingComponent', 'selector': 'app-loading'},{'name': 'ProjectConfigurationComponent', 'selector': 'app-project-configuration'},{'name': 'SVGElementsComponent', 'selector': 'app-svgelements'},{'name': 'TestingComponent', 'selector': 'app-testing'},{'name': 'ToolbarComponent', 'selector': 'app-toolbar'},{'name': 'ToolSettingComponent', 'selector': 'app-tool-setting'}];
+    var DIRECTIVES = [];
+    var ACTUAL_COMPONENT = {'name': 'ToolSettingComponent'};
+</script>
+<script src="../js/tree.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div>
+</div>
+               <!-- END CONTENT -->
+           </div>
+       </div>
+
+          <label class="dark-mode-switch">
+               <input type="checkbox">
+               <span class="slider">
+                    <svg class="slider-icon" viewBox="0 0 24 24" fill="none" height="20" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" width="20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+                    </svg>
+               </span>
+          </label>
+
+       <script>
+            var COMPODOC_CURRENT_PAGE_DEPTH = 1;
+            var COMPODOC_CURRENT_PAGE_CONTEXT = 'component';
+            var COMPODOC_CURRENT_PAGE_URL = 'ToolSettingComponent.html';
+            var MAX_SEARCH_RESULTS = 15;
+       </script>
+
+       <script>
+               $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               checkToggle(darkModeState);
+               if ($darkModeToggleSwitchers.length > 0) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].addEventListener('change', function (event) {
+                              darkModeState = !darkModeState;
+                              toggleDarkMode(darkModeState);
+                         });
+                    }
+               }
+          </script>
+
+       <script src="../js/libs/custom-elements.min.js"></script>
+       <script src="../js/libs/lit-html.js"></script>
+
+       <script src="../js/menu-wc.js" defer></script>
+       <script nomodule src="../js/menu-wc_es5.js" defer></script>
+
+       <script src="../js/libs/bootstrap-native.js"></script>
+
+       <script src="../js/libs/es6-shim.min.js"></script>
+       <script src="../js/libs/EventDispatcher.js"></script>
+       <script src="../js/libs/promise.min.js"></script>
+
+       <script src="../js/compodoc.js"></script>
+
+       <script src="../js/tabs.js"></script>
+       <script src="../js/menu.js"></script>
+       <script src="../js/libs/clipboard.min.js"></script>
+       <script src="../js/libs/prism.js"></script>
+       <script src="../js/sourceCode.js"></script>
+          <script src="../js/search/search.js"></script>
+          <script src="../js/search/lunr.min.js"></script>
+          <script src="../js/search/search-lunr.js"></script>
+          <script src="../js/search/search_index.js"></script>
+       <script src="../js/lazy-load-graphs.js"></script>
+
+
+    </body>
+</html>

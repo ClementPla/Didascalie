@@ -1,0 +1,1807 @@
+<!doctype html>
+<html class="no-js" lang="">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <title>labelmed documentation</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="icon" type="image/x-icon" href="../images/favicon.ico">
+	   <link rel="stylesheet" href="../styles/style.css">
+        <link rel="stylesheet" href="../styles/dark.css">
+    </head>
+    <body>
+          <script>
+               // Blocking script to avoid flickering dark mode
+               // Dark mode toggle button
+               var useDark = window.matchMedia('(prefers-color-scheme: dark)');
+               var darkModeState = useDark.matches;
+               var $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               var $darkModeToggles = document.querySelectorAll('.dark-mode-switch');
+               var darkModeStateLocal = localStorage.getItem('compodoc_darkmode-state');
+
+               function checkToggle(check) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].checked = check;
+                    }
+               }
+
+               function toggleDarkMode(state) {
+                    if (window.localStorage) {
+                         localStorage.setItem('compodoc_darkmode-state', state);
+                    }
+
+                    checkToggle(state);
+
+                    const hasClass = document.body.classList.contains('dark');
+
+                    if (state) {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.add('dark');
+                         }
+                         if (!hasClass) {
+                              document.body.classList.add('dark');
+                         }
+                    } else {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.remove('dark');
+                         }
+                         if (hasClass) {
+                              document.body.classList.remove('dark');
+                         }
+                    }
+               }
+
+               useDark.addEventListener('change', function (evt) {
+                    toggleDarkMode(evt.matches);
+               });
+               if (darkModeStateLocal) {
+                    darkModeState = darkModeStateLocal === 'true';
+               }
+               toggleDarkMode(darkModeState);
+          </script>
+
+        <div class="navbar navbar-default navbar-fixed-top d-md-none p-0">
+               <div class="d-flex">
+                    <a href="../" class="navbar-brand">labelmed documentation</a>
+                    <button type="button" class="btn btn-default btn-menu ion-ios-menu" id="btn-menu"></button>
+               </div>
+        </div>
+
+        <div class="xs-menu menu" id="mobile-menu">
+                <div id="book-search-input" role="search"><input type="text" placeholder="Type to search"></div>            <compodoc-menu></compodoc-menu>
+        </div>
+
+        <div class="container-fluid main">
+           <div class="row main">
+               <div class="d-none d-md-block menu">
+                   <compodoc-menu mode="normal"></compodoc-menu>
+               </div>
+               <!-- START CONTENT -->
+               <div class="content injectable">
+                   <div class="content-data">
+
+
+
+
+
+
+
+
+<ol class="breadcrumb">
+  <li class="breadcrumb-item">Injectables</li>
+  <li class="breadcrumb-item" >OpenCVService</li>
+</ol>
+
+<ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a href="#info" 
+                class="nav-link"
+                class="nav-link active"
+                role="tab" id="info-tab" data-bs-toggle="tab" data-link="info">Info</a>
+        </li>
+        <li class="nav-item">
+            <a href="#source" 
+                class="nav-link"
+                
+                role="tab" id="source-tab" data-bs-toggle="tab" data-link="source">Source</a>
+        </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade active in" id="info">
+        <p class="comment">
+            <h3>File</h3>
+        </p>
+        <p class="comment">
+            <code>src/app/Services/open-cv.service.ts</code>
+        </p>
+
+
+
+
+
+            <section data-compodoc="block-index">
+    <h3 id="index">Index</h3>
+    <table class="table table-sm table-bordered index-table">
+        <tbody>
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Properties</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                <a href="#cv_ready" >cv_ready</a>
+                            </li>
+                            <li>
+                                <a href="#gradient" >gradient</a>
+                            </li>
+                            <li>
+                                <a href="#M" >M</a>
+                            </li>
+                            <li>
+                                <a href="#outputCanvas" >outputCanvas</a>
+                            </li>
+                            <li>
+                                <a href="#outputCtx" >outputCtx</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Methods</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                <a href="#binarizeCanvas" >binarizeCanvas</a>
+                            </li>
+                            <li>
+                                <a href="#binarizeMultiColorCanvas" >binarizeMultiColorCanvas</a>
+                            </li>
+                            <li>
+                                <a href="#brightness_contrast" >brightness_contrast</a>
+                            </li>
+                            <li>
+                                <a href="#edgeDetection" >edgeDetection</a>
+                            </li>
+                            <li>
+                                <a href="#edgeDetection_v2" >edgeDetection_v2</a>
+                            </li>
+                            <li>
+                                <a href="#edgeDetectionCanvas" >edgeDetectionCanvas</a>
+                            </li>
+                            <li>
+                                <a href="#gammaCorrection" >gammaCorrection</a>
+                            </li>
+                            <li>
+                                <a href="#median_blur" >median_blur</a>
+                            </li>
+                            <li>
+                                <a href="#reinforceEdges" >reinforceEdges</a>
+                            </li>
+                            <li>
+                                <a href="#stretchHist" >stretchHist</a>
+                            </li>
+                            <li>
+                                <a href="#to_grayscale" >to_grayscale</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+            <section data-compodoc="block-constructor">
+    <h3 id="constructor">Constructor</h3>
+        <table class="table table-sm table-bordered">
+            <tbody>
+                <tr>
+                    <td class="col-md-4">
+<code>constructor(ngxOpenCv: <a href="../injectables/OpenCVService.html" target="_self">NgxOpenCVService</a>)</code>
+                    </td>
+                </tr>
+                        <tr>
+                            <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="17" class="link-to-prism">src/app/Services/open-cv.service.ts:17</a></div>
+                            </td>
+                        </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                            <div>
+                                    <b>Parameters :</b>
+                                    <table class="params">
+                                        <thead>
+                                            <tr>
+                                                <td>Name</td>
+                                                    <td>Type</td>
+                                                <td>Optional</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                                <tr>
+                                                        <td>ngxOpenCv</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/OpenCVService.html" target="_self" >NgxOpenCVService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                        </tbody>
+                                    </table>
+                            </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+</section>
+
+            <section data-compodoc="block-methods">
+    
+    <h3 id="methods">
+        Methods
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="binarizeCanvas"></a>
+                    <span class="name">
+                        <span ><b>binarizeCanvas</b></span>
+                        <a href="#binarizeCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>binarizeCanvas(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, color: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank">string</a>, bbox: Rect | null)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="302"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:302</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>ctx</td>
+                                            <td>
+                                                        <code>CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>color</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank" >string</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>bbox</td>
+                                            <td>
+                                                        <code>Rect | null</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="binarizeMultiColorCanvas"></a>
+                    <span class="name">
+                        <span ><b>binarizeMultiColorCanvas</b></span>
+                        <a href="#binarizeMultiColorCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>binarizeMultiColorCanvas(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, labelColors: string[], bbox: Rect | null)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="342"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:342</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>ctx</td>
+                                            <td>
+                                                        <code>CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>labelColors</td>
+                                            <td>
+                                                        <code>string[]</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>bbox</td>
+                                            <td>
+                                                        <code>Rect | null</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="brightness_contrast"></a>
+                    <span class="name">
+                        <span ><b>brightness_contrast</b></span>
+                        <a href="#brightness_contrast"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>brightness_contrast(input: HTMLCanvasElement, output: HTMLCanvasElement, contrast: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank">number</a>, brightness: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank">number</a>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="131"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:131</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>input</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>output</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>contrast</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank" >number</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>brightness</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank" >number</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>    <code>HTMLCanvasElement</code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="edgeDetection"></a>
+                    <span class="name">
+                        <span ><b>edgeDetection</b></span>
+                        <a href="#edgeDetection"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>edgeDetection(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="39"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:39</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>ctx</td>
+                                            <td>
+                                                        <code>CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>    <code>OffscreenCanvas | HTMLCanvasElement</code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="edgeDetection_v2"></a>
+                    <span class="name">
+                        <span ><b>edgeDetection_v2</b></span>
+                        <a href="#edgeDetection_v2"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>edgeDetection_v2(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="76"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:76</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>ctx</td>
+                                            <td>
+                                                        <code>CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>    <code>OffscreenCanvas | HTMLCanvasElement</code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="edgeDetectionCanvas"></a>
+                    <span class="name">
+                        <span ><b>edgeDetectionCanvas</b></span>
+                        <a href="#edgeDetectionCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>edgeDetectionCanvas(canvas: HTMLCanvasElement)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="65"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:65</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>canvas</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="gammaCorrection"></a>
+                    <span class="name">
+                        <span ><b>gammaCorrection</b></span>
+                        <a href="#gammaCorrection"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>gammaCorrection(input: HTMLCanvasElement, output: HTMLCanvasElement, gamma: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank">number</a>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="267"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:267</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>input</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>output</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>gamma</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank" >number</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>    <code>HTMLCanvasElement</code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="median_blur"></a>
+                    <span class="name">
+                        <span ><b>median_blur</b></span>
+                        <a href="#median_blur"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>median_blur(input: HTMLCanvasElement, output: HTMLCanvasElement, kernel_size: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank">number</a>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="139"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:139</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>input</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>output</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>kernel_size</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank" >number</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>    <code>HTMLCanvasElement</code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="reinforceEdges"></a>
+                    <span class="name">
+                        <span ><b>reinforceEdges</b></span>
+                        <a href="#reinforceEdges"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>reinforceEdges(input: HTMLCanvasElement, output: HTMLCanvasElement, strengh: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank">number</a>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="241"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:241</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>input</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>output</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>strengh</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank" >number</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>    <code>HTMLCanvasElement</code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="stretchHist"></a>
+                    <span class="name">
+                        <span ><b>stretchHist</b></span>
+                        <a href="#stretchHist"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>stretchHist(input: HTMLCanvasElement, output: HTMLCanvasElement)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="147"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:147</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>input</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>output</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>    <code>HTMLCanvasElement</code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="to_grayscale"></a>
+                    <span class="name">
+                        <span ><b>to_grayscale</b></span>
+                        <a href="#to_grayscale"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>to_grayscale(input: HTMLCanvasElement, output: HTMLCanvasElement)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="121"
+                                    class="link-to-prism">src/app/Services/open-cv.service.ts:121</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>input</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>output</td>
+                                            <td>
+                                                        <code>HTMLCanvasElement</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>    <code>HTMLCanvasElement</code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+            <section data-compodoc="block-properties">
+    
+    <h3 id="inputs">
+        Properties
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="cv_ready"></a>
+                    <span class="name">
+                        <span ><b>cv_ready</b></span>
+                        <a href="#cv_ready"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/boolean" target="_blank" >boolean</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>false</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="17" class="link-to-prism">src/app/Services/open-cv.service.ts:17</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="gradient"></a>
+                    <span class="name">
+                        <span ><b>gradient</b></span>
+                        <a href="#gradient"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >any</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="13" class="link-to-prism">src/app/Services/open-cv.service.ts:13</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="M"></a>
+                    <span class="name">
+                        <span ><b>M</b></span>
+                        <a href="#M"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >any</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="16" class="link-to-prism">src/app/Services/open-cv.service.ts:16</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="outputCanvas"></a>
+                    <span class="name">
+                        <span ><b>outputCanvas</b></span>
+                        <a href="#outputCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>new OffscreenCanvas(0, 0)</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="14" class="link-to-prism">src/app/Services/open-cv.service.ts:14</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="outputCtx"></a>
+                    <span class="name">
+                        <span ><b>outputCtx</b></span>
+                        <a href="#outputCtx"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>this.outputCanvas.getContext(&#x27;2d&#x27;, { alpha: true})</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="15" class="link-to-prism">src/app/Services/open-cv.service.ts:15</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+</section>
+
+    </div>
+
+
+    <div class="tab-pane fade  tab-source-code" id="source">
+        <pre class="line-numbers compodoc-sourcecode"><code class="language-typescript">import { Injectable, output } from &#x27;@angular/core&#x27;;
+import { NgxOpenCVService, OpenCVState } from &#x27;ngx-opencv&#x27;;
+import { from_hex_to_rgb } from &#x27;../Core/misc/colors&#x27;;
+import { Rect } from &#x27;../Core/interface&#x27;;
+declare var cv: any;
+
+
+
+@Injectable({
+  providedIn: &#x27;root&#x27;
+})
+export class OpenCVService {
+  gradient: any;
+  outputCanvas &#x3D; new OffscreenCanvas(0, 0);
+  outputCtx &#x3D; this.outputCanvas.getContext(&#x27;2d&#x27;, { alpha: true});
+  M: any;
+  cv_ready: boolean &#x3D; false;
+  constructor(private ngxOpenCv: NgxOpenCVService) {
+    this.ngxOpenCv.cvState.subscribe((cvState: OpenCVState) &#x3D;&gt; {
+      // do something with the state string
+      if (cvState.error) {
+        console.error(&#x27;Error loading OpenCV:&#x27;, cvState.error);
+      }
+      else if (cvState.loading) {
+        this.cv_ready &#x3D; false;
+      } else if (cvState.ready) {
+        this.cv_ready &#x3D; true;
+
+        this.gradient &#x3D; new cv.Mat();
+
+        // Apply morphological gradient
+    
+        this.M &#x3D; cv.Mat.ones(3, 3, cv.CV_8U);
+    
+      }
+    });
+  }
+
+  edgeDetection(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
+
+    // Given a canvas with multiple colors, detect the edges of the different colors
+
+    this.outputCanvas.width &#x3D; ctx.canvas.width;
+    this.outputCanvas.height &#x3D; ctx.canvas.height;
+
+    // Get the canvas context and image data
+
+    const imgData &#x3D; ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    const src &#x3D; cv.matFromImageData(imgData);
+
+    // Convert the image to grayscale
+
+    cv.morphologyEx(src, this.gradient, cv.MORPH_GRADIENT, this.M);
+
+
+    // Convert the output to an image data format
+    const processedImageData &#x3D; new ImageData(new Uint8ClampedArray(this.gradient.data), ctx.canvas.width, ctx.canvas.height);
+    this.outputCtx!.putImageData(processedImageData, 0, 0);
+    src.delete();
+
+    return this.outputCanvas;
+  }
+
+  edgeDetectionCanvas(canvas: HTMLCanvasElement){
+    let src &#x3D; cv.imread(canvas);
+
+    cv.morphologyEx(src, this.gradient, cv.MORPH_GRADIENT, this.M);
+
+    cv.imshow(canvas, this.gradient);
+    src.delete();
+    
+
+  }
+
+  edgeDetection_v2(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
+    const width &#x3D; ctx.canvas.width;
+    const height &#x3D; ctx.canvas.height;
+    const imageData &#x3D; ctx.getImageData(0, 0, width, height);
+    const data &#x3D; imageData.data;
+    
+    // Create output canvas
+    const outCanvas &#x3D; new OffscreenCanvas(width, height);
+    const outCtx &#x3D; outCanvas.getContext(&#x27;2d&#x27;);
+    if (!outCtx) return outCanvas;
+    
+    // Create output image data
+    const outImageData &#x3D; outCtx.createImageData(width, height);
+    const outData &#x3D; outImageData.data;
+
+    // Scan only pixels that could be edges (have different neighbors)
+    for (let y &#x3D; 1; y &lt; height - 1; y++) {
+      for (let x &#x3D; 1; x &lt; width - 1; x++) {
+        const idx &#x3D; (y * width + x) * 4;
+        
+        // Check if current pixel is non-empty (alpha &gt; 0)
+        if (data[idx + 3] &gt; 0) {
+          // Check 4-connected neighbors
+          const hasEmptyNeighbor &#x3D; 
+            data[((y-1) * width + x) * 4 + 3] &#x3D;&#x3D;&#x3D; 0 ||  // top
+            data[((y+1) * width + x) * 4 + 3] &#x3D;&#x3D;&#x3D; 0 ||  // bottom
+            data[(y * width + x-1) * 4 + 3] &#x3D;&#x3D;&#x3D; 0 ||    // left
+            data[(y * width + x+1) * 4 + 3] &#x3D;&#x3D;&#x3D; 0;      // right
+
+          // If pixel has at least one empty neighbor, it&#x27;s an edge
+          if (hasEmptyNeighbor) {
+            outData[idx] &#x3D; data[idx];       // R
+            outData[idx + 1] &#x3D; data[idx+1]; // G
+            outData[idx + 2] &#x3D; data[idx+2]; // B
+            outData[idx + 3] &#x3D; data[idx+3]; // A
+          }
+        }
+      }
+    }
+
+    outCtx.putImageData(outImageData, 0, 0);
+    return outCanvas;
+
+}
+
+  to_grayscale(input: HTMLCanvasElement, output: HTMLCanvasElement): HTMLCanvasElement {
+    let src &#x3D; cv.imread(input);
+
+    cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0);
+    cv.cvtColor(src, src, cv.COLOR_GRAY2RGBA, 0);
+    cv.imshow(output, src);
+    src.delete();
+    return output;
+  }
+
+  brightness_contrast(input: HTMLCanvasElement, output: HTMLCanvasElement, contrast: number, brightness: number): HTMLCanvasElement {
+    let src &#x3D; cv.imread(input);
+    cv.convertScaleAbs(src, src, contrast, brightness);
+    cv.imshow(output, src);
+    src.delete();
+    return output;
+  }
+
+  median_blur(input: HTMLCanvasElement, output: HTMLCanvasElement, kernel_size: number): HTMLCanvasElement {
+    let src &#x3D; cv.imread(input);
+    cv.medianBlur(src, src, kernel_size);
+    cv.imshow(output, src);
+    src.delete();
+    return output;
+  }
+
+  stretchHist(input: HTMLCanvasElement, output: HTMLCanvasElement): HTMLCanvasElement {
+
+    let image &#x3D; cv.imread(input);
+    cv.cvtColor(image, image, cv.COLOR_RGBA2RGB, 0);
+
+    let srcVec &#x3D; new cv.MatVector();
+    srcVec.push_back(image);
+
+    let accumulate &#x3D; false;
+    let histSize &#x3D; [256];
+    let ranges &#x3D; [0, 255];
+    let rhist &#x3D; new cv.Mat();
+    let ghist &#x3D; new cv.Mat();
+    let bhist &#x3D; new cv.Mat();
+    let mask &#x3D; new cv.Mat();
+    cv.calcHist(srcVec, [0], mask, rhist, histSize, ranges, accumulate);
+    cv.calcHist(srcVec, [1], mask, ghist, histSize, ranges, accumulate);
+    cv.calcHist(srcVec, [2], mask, bhist, histSize, ranges, accumulate);
+    let total &#x3D; new cv.Mat(rhist.rows, rhist.cols, cv.CV_32F, new cv.Scalar(image.rows * image.cols));
+    let rnorm_hist &#x3D; new cv.Mat(rhist.rows, rhist.cols, cv.CV_32F);
+    let bnorm_hist &#x3D; new cv.Mat(rhist.rows, rhist.cols, cv.CV_32F);
+    let gnorm_hist &#x3D; new cv.Mat(rhist.rows, rhist.cols, cv.CV_32F);
+
+    cv.divide(rhist, total, rnorm_hist);
+    cv.divide(bhist, total, bnorm_hist);
+    cv.divide(ghist, total, gnorm_hist);
+
+    rhist.delete();
+    bhist.delete();
+    ghist.delete();
+    total.delete();
+    srcVec.delete();
+
+    let r_cdf &#x3D; new Array(256).fill(0)
+    let g_cdf &#x3D; new Array(256).fill(0)
+    let b_cdf &#x3D; new Array(256).fill(0)
+    for (let i &#x3D; 0; i &lt; 256; i++) {
+      if (i &#x3D;&#x3D; 0) {
+        r_cdf[i] &#x3D; rnorm_hist.data32F[i]
+        g_cdf[i] &#x3D; gnorm_hist.data32F[i]
+        b_cdf[i] &#x3D; bnorm_hist.data32F[i]
+      }
+      else {
+        r_cdf[i] &#x3D; rnorm_hist.data32F[i] + r_cdf[i - 1]
+        g_cdf[i] &#x3D; gnorm_hist.data32F[i] + g_cdf[i - 1]
+        b_cdf[i] &#x3D; bnorm_hist.data32F[i] + b_cdf[i - 1]
+      }
+
+    }
+    let percent &#x3D; 2 / 100;
+    let rmin &#x3D; -1, rmax &#x3D; -1, gmin &#x3D; -1, gmax &#x3D; -1, bmin &#x3D; -1, bmax &#x3D; -1;
+    for (let i &#x3D; 0; i &lt; 256; i++) {
+      if (r_cdf[i] &gt; percent &amp;&amp; rmin &#x3D;&#x3D; -1) {
+        rmin &#x3D; i;
+      }
+      if (g_cdf[i] &gt; percent &amp;&amp; gmin &#x3D;&#x3D; -1) {
+        gmin &#x3D; i;
+      }
+      if (b_cdf[i] &gt; percent &amp;&amp; bmin &#x3D;&#x3D; -1) {
+        bmin &#x3D; i;
+      }
+      if (r_cdf[i] &gt; 1 - percent &amp;&amp; rmax &#x3D;&#x3D; -1) {
+        rmax &#x3D; i;
+      }
+      if (g_cdf[i] &gt; 1 - percent &amp;&amp; gmax &#x3D;&#x3D; -1) {
+        gmax &#x3D; i;
+      }
+      if (b_cdf[i] &gt; 1 - percent &amp;&amp; bmax &#x3D;&#x3D; -1) {
+        bmax &#x3D; i;
+      }
+    }
+
+    let vec &#x3D; new cv.MatVector();
+    image.convertTo(image, cv.CV_32F, 1, 0);
+    cv.split(image, vec);
+
+    vec.get(0).convertTo(vec.get(0), cv.CV_32F, 1 / (rmax - rmin), -rmin / (rmax - rmin));
+    vec.get(1).convertTo(vec.get(1), cv.CV_32F, 1 / (gmax - gmin), -gmin / (gmax - gmin));
+    vec.get(2).convertTo(vec.get(2), cv.CV_32F, 1 / (bmax - bmin), -bmin / (bmax - bmin));
+
+    cv.merge(vec, image);
+    vec.delete();
+    rnorm_hist.delete();
+    gnorm_hist.delete();
+    bnorm_hist.delete();
+    cv.convertScaleAbs(image, image, 255)
+
+    cv.imshow(output, image);
+    image.delete();
+    return output;
+
+  }
+
+
+  reinforceEdges(input: HTMLCanvasElement, output: HTMLCanvasElement, strengh: number): HTMLCanvasElement {
+
+    // Compute the gaussian blur of the image
+    // Compute the difference between the original image and the gaussian blur
+
+
+    let src &#x3D; cv.imread(input);
+    let dst &#x3D; new cv.Mat();
+
+    cv.GaussianBlur(src, dst, new cv.Size(0, 0), 10);
+
+    cv.addWeighted(src, 1 + strengh, dst, -strengh, 0, src);
+
+    cv.convertScaleAbs(src, src, 1, 0);
+
+    cv.imshow(output, src);
+    src.delete();
+    dst.delete();
+
+
+
+
+    return output;
+
+  }
+
+  gammaCorrection(input: HTMLCanvasElement, output: HTMLCanvasElement, gamma: number): HTMLCanvasElement {
+    // Create matrices from input and output canvases
+    let src &#x3D; cv.imread(input);
+    let dst &#x3D; new cv.Mat();
+
+    // Convert source image to floating point for precise calculations
+    src.convertTo(dst, cv.CV_32F);
+
+    // Normalize the image to 0-1 range
+    cv.normalize(dst, dst, 0, 1, cv.NORM_MINMAX);
+
+    // Apply gamma correction
+    // Formula: output &#x3D; input^(1/gamma)
+    let gamma_inv &#x3D; 1.0 / gamma;
+
+    // Create a temporary matrix to store results
+    let corrected &#x3D; new cv.Mat();
+
+    // Perform gamma correction
+    cv.pow(dst, gamma_inv, corrected);
+
+    // Scale back to 0-255 range
+    corrected.convertTo(corrected, cv.CV_8U, 255.0);
+
+    // Write the result to the output canvas
+    cv.imshow(output, corrected);
+
+    // Free memory
+    src.delete();
+    dst.delete();
+    corrected.delete();
+
+    return output;
+  }
+
+  binarizeCanvas(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, color: string, bbox: Rect | null) {
+    // Get the canvas context and image data
+    const rgb &#x3D; from_hex_to_rgb(color); // Convert hex color to RGB
+    if (!bbox) {
+      bbox &#x3D; { x: 0, y: 0, width: ctx.canvas.width, height: ctx.canvas.height }
+    }
+    const imgData &#x3D; ctx.getImageData(bbox.x, bbox.y, bbox.width, bbox.height);
+
+    // Convert the image data to OpenCV format
+    const src &#x3D; cv.matFromImageData(imgData);
+    const gray &#x3D; new cv.Mat();
+    const binary &#x3D; new cv.Mat();
+
+    // Convert to grayscale
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+    // Apply binary thresholding to remove anti-aliasing
+    cv.threshold(gray, binary, 1, 255, cv.THRESH_BINARY);
+
+    // Create an RGBA matrix for the foreground color
+    const foreground &#x3D; new cv.Mat(src.size(), src.type());
+    foreground.setTo(new cv.Scalar(rgb[0], rgb[1], rgb[2], 255)); // Opaque foreground color
+
+    // Create an output matrix
+    const output &#x3D; new cv.Mat();
+
+    // Copy the foreground color to the output where the binary mask is 255
+    foreground.copyTo(output, binary);
+
+    // Convert the output to an image data format
+    const processedImageData &#x3D; new ImageData(new Uint8ClampedArray(output.data), bbox.width, bbox.height);
+    ctx.putImageData(processedImageData, bbox.x, bbox.y, 0, 0, bbox.width, bbox.height);
+
+    // Clean up
+    src.delete();
+    gray.delete();
+    binary.delete();
+    foreground.delete();
+    output.delete();
+  }
+  binarizeMultiColorCanvas(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, labelColors: string[], bbox: Rect | null) {
+    if (!bbox) {
+      bbox &#x3D; { x: 0, y: 0, width: ctx.canvas.width, height: ctx.canvas.height }
+    }
+
+    // Get the canvas context and image data
+    const imgData &#x3D; ctx.getImageData(bbox.x, bbox.y, bbox.width, bbox.height);
+
+    // Convert the image data to OpenCV format
+    const src &#x3D; cv.matFromImageData(imgData);
+    const rgba &#x3D; new cv.Mat();
+    const output &#x3D; new cv.Mat.zeros(src.size(), src.type()); // Initialize output with transparent background
+
+    // Loop through each label color
+    for (const labelColor of labelColors) {
+
+      const [r, g, b] &#x3D; from_hex_to_rgb(labelColor)
+
+      // Create a mask for the current label color
+      const mask &#x3D; new cv.Mat();
+      const lowerBound &#x3D; new cv.Mat(src.size(), src.type()); // Slight tolerance
+      const upperBound &#x3D; new cv.Mat(src.size(), src.type());
+
+      lowerBound.setTo(new cv.Scalar(r - 5, g - 5, b - 5, 255))
+      upperBound.setTo(new cv.Scalar(r + 5, g + 5, b + 5, 255))
+
+      cv.inRange(src, lowerBound, upperBound, mask);
+
+      // Remove anti-aliasing artifacts by thresholding the mask
+      cv.threshold(mask, mask, 1, 255, cv.THRESH_BINARY);
+
+      // Create a label matrix for the current color
+      const label &#x3D; new cv.Mat(src.size(), src.type());
+      label.setTo(new cv.Scalar(r, g, b, 255))
+      label.copyTo(output, mask); // Copy the label color where the mask is 255
+
+      // Clean up temporary matrices
+      mask.delete();
+      lowerBound.delete();
+      upperBound.delete();
+      label.delete();
+    }
+
+    // Convert the output to an ImageData object
+    const processedImageData &#x3D; new ImageData(new Uint8ClampedArray(output.data), bbox.width, bbox.height);
+    ctx.putImageData(processedImageData, bbox.x, bbox.y, 0, 0, bbox.width, bbox.height);
+
+    // Clean up
+    src.delete();
+    rgba.delete();
+    output.delete();
+  }
+
+}
+</code></pre>
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div>
+</div>
+               <!-- END CONTENT -->
+           </div>
+       </div>
+
+          <label class="dark-mode-switch">
+               <input type="checkbox">
+               <span class="slider">
+                    <svg class="slider-icon" viewBox="0 0 24 24" fill="none" height="20" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" width="20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+                    </svg>
+               </span>
+          </label>
+
+       <script>
+            var COMPODOC_CURRENT_PAGE_DEPTH = 1;
+            var COMPODOC_CURRENT_PAGE_CONTEXT = 'injectable';
+            var COMPODOC_CURRENT_PAGE_URL = 'OpenCVService.html';
+            var MAX_SEARCH_RESULTS = 15;
+       </script>
+
+       <script>
+               $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               checkToggle(darkModeState);
+               if ($darkModeToggleSwitchers.length > 0) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].addEventListener('change', function (event) {
+                              darkModeState = !darkModeState;
+                              toggleDarkMode(darkModeState);
+                         });
+                    }
+               }
+          </script>
+
+       <script src="../js/libs/custom-elements.min.js"></script>
+       <script src="../js/libs/lit-html.js"></script>
+
+       <script src="../js/menu-wc.js" defer></script>
+       <script nomodule src="../js/menu-wc_es5.js" defer></script>
+
+       <script src="../js/libs/bootstrap-native.js"></script>
+
+       <script src="../js/libs/es6-shim.min.js"></script>
+       <script src="../js/libs/EventDispatcher.js"></script>
+       <script src="../js/libs/promise.min.js"></script>
+
+       <script src="../js/compodoc.js"></script>
+
+       <script src="../js/tabs.js"></script>
+       <script src="../js/menu.js"></script>
+       <script src="../js/libs/clipboard.min.js"></script>
+       <script src="../js/libs/prism.js"></script>
+       <script src="../js/sourceCode.js"></script>
+          <script src="../js/search/search.js"></script>
+          <script src="../js/search/lunr.min.js"></script>
+          <script src="../js/search/search-lunr.js"></script>
+          <script src="../js/search/search_index.js"></script>
+       <script src="../js/lazy-load-graphs.js"></script>
+
+
+    </body>
+</html>

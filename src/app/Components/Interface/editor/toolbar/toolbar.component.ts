@@ -11,8 +11,9 @@ import { InputSwitchModule } from 'primeng/inputswitch';
 import { LabelledSwitchComponent } from '../../../Core/labelled-switch/labelled-switch.component';
 import { BlockUIModule } from 'primeng/blockui';
 import { PanelModule } from 'primeng/panel';
-import { BlockableP } from '../../../Blockable/p/p.component';
-import { BlockableDiv } from "../../../Blockable/div/div.component";
+import { BlockableP } from '../../../Core/Blockable/p/p.component';
+import { BlockableDiv } from "../../../Core/Blockable/div/div.component";
+
 @Component({
   selector: 'app-toolbar',
   standalone: true,

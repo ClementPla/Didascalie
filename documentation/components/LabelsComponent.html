@@ -1,0 +1,1216 @@
+<!doctype html>
+<html class="no-js" lang="">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <title>labelmed documentation</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="icon" type="image/x-icon" href="../images/favicon.ico">
+	   <link rel="stylesheet" href="../styles/style.css">
+        <link rel="stylesheet" href="../styles/dark.css">
+    </head>
+    <body>
+          <script>
+               // Blocking script to avoid flickering dark mode
+               // Dark mode toggle button
+               var useDark = window.matchMedia('(prefers-color-scheme: dark)');
+               var darkModeState = useDark.matches;
+               var $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               var $darkModeToggles = document.querySelectorAll('.dark-mode-switch');
+               var darkModeStateLocal = localStorage.getItem('compodoc_darkmode-state');
+
+               function checkToggle(check) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].checked = check;
+                    }
+               }
+
+               function toggleDarkMode(state) {
+                    if (window.localStorage) {
+                         localStorage.setItem('compodoc_darkmode-state', state);
+                    }
+
+                    checkToggle(state);
+
+                    const hasClass = document.body.classList.contains('dark');
+
+                    if (state) {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.add('dark');
+                         }
+                         if (!hasClass) {
+                              document.body.classList.add('dark');
+                         }
+                    } else {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.remove('dark');
+                         }
+                         if (hasClass) {
+                              document.body.classList.remove('dark');
+                         }
+                    }
+               }
+
+               useDark.addEventListener('change', function (evt) {
+                    toggleDarkMode(evt.matches);
+               });
+               if (darkModeStateLocal) {
+                    darkModeState = darkModeStateLocal === 'true';
+               }
+               toggleDarkMode(darkModeState);
+          </script>
+
+        <div class="navbar navbar-default navbar-fixed-top d-md-none p-0">
+               <div class="d-flex">
+                    <a href="../" class="navbar-brand">labelmed documentation</a>
+                    <button type="button" class="btn btn-default btn-menu ion-ios-menu" id="btn-menu"></button>
+               </div>
+        </div>
+
+        <div class="xs-menu menu" id="mobile-menu">
+                <div id="book-search-input" role="search"><input type="text" placeholder="Type to search"></div>            <compodoc-menu></compodoc-menu>
+        </div>
+
+        <div class="container-fluid main">
+           <div class="row main">
+               <div class="d-none d-md-block menu">
+                   <compodoc-menu mode="normal"></compodoc-menu>
+               </div>
+               <!-- START CONTENT -->
+               <div class="content component">
+                   <div class="content-data">
+
+
+
+
+<ol class="breadcrumb">
+  <li class="breadcrumb-item">Components</li>
+  <li class="breadcrumb-item"
+  >
+  LabelsComponent</li>
+</ol>
+
+<ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a href="#info" class="nav-link active"
+                role="tab" id="info-tab" data-bs-toggle="tab" data-link="info">Info</a>
+        </li>
+        <li class="nav-item">
+            <a href="#source" class="nav-link"
+                role="tab" id="source-tab" data-bs-toggle="tab" data-link="source">Source</a>
+        </li>
+        <li class="nav-item">
+            <a href="#templateData" class="nav-link"
+                role="tab" id="templateData-tab" data-bs-toggle="tab" data-link="template">Template</a>
+        </li>
+        <li class="nav-item">
+            <a href="#tree" class="nav-link"
+                role="tab" id="tree-tab" data-bs-toggle="tab" data-link="dom-tree">DOM Tree</a>
+        </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade active in" id="info"><p class="comment">
+    <h3>File</h3>
+</p>
+<p class="comment">
+    <code>src/app/Components/Interface/editor/labels/labels.component.ts</code>
+</p>
+
+
+
+
+    <p class="comment">
+        <h3>Implements</h3>
+    </p>
+    <p class="comment">
+                <code>OnInit</code>
+    </p>
+
+
+<section data-compodoc="block-metadata">
+    <h3>Metadata</h3>
+    <table class="table table-sm table-hover metadata">
+        <tbody>
+
+
+
+
+
+
+
+
+
+
+
+
+            <tr>
+                <td class="col-md-3">selector</td>
+                <td class="col-md-9"><code>app-labels</code></td>
+            </tr>
+
+            <tr>
+                <td class="col-md-3">standalone</td>
+                <td class="col-md-9"><code>true</code></td>
+            </tr>
+
+            <tr>
+                <td class="col-md-3">imports</td>
+                <td class="col-md-9">
+                            <code>TreeModule</code>
+                                <code><a href="../interfaces/Color.html" target="_self" >ColorPickerModule</a></code>
+                            <code>CommonModule</code>
+                            <code>FormsModule</code>
+                            <code>Button</code>
+                            <code>SelectButtonModule</code>
+                            <code>SliderModule</code>
+                            <code>PanelModule</code>
+                            <code>FieldsetModule</code>
+                            <code>DividerModule</code>
+                                <code><a href="../components/InstanceLabelComponent.html" target="_self" >InstanceLabelComponent</a></code>
+                </td>
+            </tr>
+
+
+
+
+            <tr>
+                <td class="col-md-3">templateUrl</td>
+                <td class="col-md-9"><code>./labels.component.html</code></td>
+            </tr>
+
+
+
+            <tr>
+                <td class="col-md-3">styleUrl</td>
+                <td class="col-md-9"><code>./labels.component.scss</code></td>
+            </tr>
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+    <section data-compodoc="block-index">
+    <h3 id="index">Index</h3>
+    <table class="table table-sm table-bordered index-table">
+        <tbody>
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Properties</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#drawService" >drawService</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#labelsService" >labelsService</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#projectService" >projectService</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Methods</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                <a href="#changeActiveLabel" >changeActiveLabel</a>
+                            </li>
+                            <li>
+                                <a href="#changeAllVisibility" >changeAllVisibility</a>
+                            </li>
+                            <li>
+                                <a href="#changeColor" >changeColor</a>
+                            </li>
+                            <li>
+                                <a href="#changeVisibility" >changeVisibility</a>
+                            </li>
+                            <li>
+                                <a href="#clearCanvas" >clearCanvas</a>
+                            </li>
+                            <li>
+                                <a href="#hasChild" >hasChild</a>
+                            </li>
+                            <li>
+                                <a href="#ngOnInit" >ngOnInit</a>
+                            </li>
+                            <li>
+                                <a href="#updateOpacity" >updateOpacity</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+    <section data-compodoc="block-constructor">
+    <h3 id="constructor">Constructor</h3>
+        <table class="table table-sm table-bordered">
+            <tbody>
+                <tr>
+                    <td class="col-md-4">
+<code>constructor(labelsService: <a href="../injectables/LabelsService.html" target="_self">LabelsService</a>, drawService: <a href="../injectables/EditorService.html" target="_self">EditorService</a>, projectService: <a href="../injectables/ProjectService.html" target="_self">ProjectService</a>)</code>
+                    </td>
+                </tr>
+                        <tr>
+                            <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="38" class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:38</a></div>
+                            </td>
+                        </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                            <div>
+                                    <b>Parameters :</b>
+                                    <table class="params">
+                                        <thead>
+                                            <tr>
+                                                <td>Name</td>
+                                                    <td>Type</td>
+                                                <td>Optional</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                                <tr>
+                                                        <td>labelsService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/LabelsService.html" target="_self" >LabelsService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>drawService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/EditorService.html" target="_self" >EditorService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>projectService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/ProjectService.html" target="_self" >ProjectService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                        </tbody>
+                                    </table>
+                            </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+</section>
+
+
+
+
+
+    <section data-compodoc="block-methods">
+    
+    <h3 id="methods">
+        Methods
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="changeActiveLabel"></a>
+                    <span class="name">
+                        <span ><b>changeActiveLabel</b></span>
+                        <a href="#changeActiveLabel"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>changeActiveLabel(event: TreeNode[] | TreeNode | null)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="57"
+                                    class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:57</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>event</td>
+                                            <td>
+                                                        <code>TreeNode[] | TreeNode | null</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="changeAllVisibility"></a>
+                    <span class="name">
+                        <span ><b>changeAllVisibility</b></span>
+                        <a href="#changeAllVisibility"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>changeAllVisibility()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="90"
+                                    class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:90</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="changeColor"></a>
+                    <span class="name">
+                        <span ><b>changeColor</b></span>
+                        <a href="#changeColor"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>changeColor()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="86"
+                                    class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:86</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="changeVisibility"></a>
+                    <span class="name">
+                        <span ><b>changeVisibility</b></span>
+                        <a href="#changeVisibility"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>changeVisibility(node: TreeNode)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="80"
+                                    class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:80</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>node</td>
+                                            <td>
+                                                        <code>TreeNode</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="clearCanvas"></a>
+                    <span class="name">
+                        <span ><b>clearCanvas</b></span>
+                        <a href="#clearCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>clearCanvas(node: TreeNode)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="73"
+                                    class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:73</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>node</td>
+                                            <td>
+                                                        <code>TreeNode</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="hasChild"></a>
+                    <span class="name">
+                        <span ><b>hasChild</b></span>
+                        <a href="#hasChild"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>hasChild(node: TreeNode)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="50"
+                                    class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:50</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>node</td>
+                                            <td>
+                                                        <code>TreeNode</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/boolean" target="_blank" >boolean</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="ngOnInit"></a>
+                    <span class="name">
+                        <span ><b>ngOnInit</b></span>
+                        <a href="#ngOnInit"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>ngOnInit()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="45"
+                                    class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:45</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="updateOpacity"></a>
+                    <span class="name">
+                        <span ><b>updateOpacity</b></span>
+                        <a href="#updateOpacity"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+<code>updateOpacity()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="95"
+                                    class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:95</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+    <section data-compodoc="block-properties">
+    
+    <h3 id="inputs">
+        Properties
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="drawService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>drawService</b></span>
+                        <a href="#drawService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/EditorService.html" target="_self" >EditorService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="41" class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:41</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="labelsService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>labelsService</b></span>
+                        <a href="#labelsService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/LabelsService.html" target="_self" >LabelsService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="40" class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:40</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="projectService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>projectService</b></span>
+                        <a href="#projectService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/ProjectService.html" target="_self" >ProjectService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="42" class="link-to-prism">src/app/Components/Interface/editor/labels/labels.component.ts:42</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+</section>
+
+</div>
+
+
+    <div class="tab-pane fade  tab-source-code" id="source">
+        <pre class="line-numbers compodoc-sourcecode"><code class="language-typescript">import { Component, OnInit } from &#x27;@angular/core&#x27;;
+import { LabelsService } from &#x27;../../../../Services/Project/labels.service&#x27;;
+import { TreeModule } from &#x27;primeng/tree&#x27;;
+import { ColorPickerModule } from &#x27;primeng/colorpicker&#x27;;
+import { CommonModule } from &#x27;@angular/common&#x27;;
+import { SliderModule } from &#x27;primeng/slider&#x27;;
+import { FormsModule } from &#x27;@angular/forms&#x27;;
+import { TreeNode } from &#x27;primeng/api&#x27;;
+import { Button } from &#x27;primeng/button&#x27;;
+import { SegLabel } from &#x27;../../../../Core/interface&#x27;;
+import { EditorService } from &#x27;../../../../Services/UI/editor.service&#x27;;
+import { PanelModule } from &#x27;primeng/panel&#x27;;
+import { FieldsetModule } from &#x27;primeng/fieldset&#x27;;
+import { InstanceLabelComponent } from &#x27;./instance-label/instance-label.component&#x27;;
+import { ProjectService } from &#x27;../../../../Services/Project/project.service&#x27;;
+import { SelectButtonModule } from &#x27;primeng/selectbutton&#x27;;
+import { DividerModule } from &#x27;primeng/divider&#x27;;
+
+@Component({
+  selector: &#x27;app-labels&#x27;,
+  standalone: true,
+  imports: [
+    TreeModule,
+    ColorPickerModule,
+    CommonModule,
+    FormsModule,
+    Button,
+    SelectButtonModule,
+    SliderModule,
+    PanelModule,
+    FieldsetModule,
+    DividerModule,
+    InstanceLabelComponent,
+  ],
+  templateUrl: &#x27;./labels.component.html&#x27;,
+  styleUrl: &#x27;./labels.component.scss&#x27;,
+})
+export class LabelsComponent implements OnInit {
+  constructor(
+    public labelsService: LabelsService,
+    public drawService: EditorService,
+    public projectService: ProjectService
+  ) {}
+
+  ngOnInit(): void {
+    this.labelsService.activeLabel &#x3D;
+      this.labelsService.listSegmentationLabels[0];
+  }
+
+  hasChild(node: TreeNode): boolean {
+    if (node.children) {
+      return node.children.length &gt; 0;
+    } else {
+      return false;
+    }
+  }
+  changeActiveLabel(event: TreeNode[] | TreeNode | null) {
+    if (event instanceof Array) {
+      return;
+    }
+    if (!event) {
+      return;
+    }
+    this.labelsService.activeLabel &#x3D; event.data as SegLabel;
+    this.labelsService.activeSegInstance &#x3D; {
+      label: this.labelsService.activeLabel,
+      instance: -1,
+      shade: this.labelsService.activeLabel.color,
+    };
+    // this.labelsService.activeLabel &#x3D; event.node.data as SegLabel;
+  }
+
+  clearCanvas(node: TreeNode) {
+    let index &#x3D; this.labelsService.listSegmentationLabels.indexOf(
+      node.data as SegLabel
+    );
+    this.drawService.requestCanvasClear(index);
+  }
+
+  changeVisibility(node: TreeNode) {
+    let label &#x3D; node.data as SegLabel;
+    label.isVisible &#x3D; !label.isVisible;
+    this.drawService.requestCanvasRedraw();
+  }
+
+  changeColor() {
+    this.drawService.requestCanvasRedraw();
+  }
+
+  changeAllVisibility() {
+    this.labelsService.switchVisibilityAllSegLabels();
+    this.drawService.requestCanvasRedraw();
+  }
+
+  updateOpacity() {
+    this.drawService.requestCanvasRedraw();
+  }
+}
+</code></pre>
+    </div>
+
+    <div class="tab-pane fade " id="templateData">
+        <pre class="line-numbers"><code class="language-html">&lt;p-panel header&#x3D;&quot;Classes&quot;&gt;
+  &lt;div class&#x3D;&quot;flex flex-col gap-4 h-full&quot;&gt;
+    &lt;p-fieldset
+      legend&#x3D;&quot;Classification&quot;
+      *ngIf&#x3D;&quot;projectService.isClassification&quot;
+      [toggleable]&#x3D;&quot;true&quot;
+      class&#x3D;&quot;m-0&quot;
+      [collapsed]&#x3D;&quot;true&quot;
+    &gt;
+      &lt;ng-container *ngFor&#x3D;&quot;let task of labelsService.listClassificationTasks&quot;&gt;
+        &lt;p-divider align&#x3D;&quot;left&quot; type&#x3D;&quot;solid&quot;&gt;
+          &lt;b&gt;{{ task.taskName }}&lt;/b&gt;
+        &lt;/p-divider&gt;
+        &lt;p-selectButton
+          [options]&#x3D;&quot;task.classLabels&quot;
+          [(ngModel)]&#x3D;&quot;task.choice&quot;
+        &gt;&lt;/p-selectButton&gt;
+      &lt;/ng-container&gt;
+
+      &lt;ng-container *ngIf&#x3D;&quot;labelsService.multiLabelTask !&#x3D;&#x3D; null&quot;&gt;
+        &lt;p-divider align&#x3D;&quot;left&quot; type&#x3D;&quot;solid&quot;&gt;
+          &lt;b&gt;Multiple label&lt;/b&gt;
+        &lt;/p-divider&gt;
+        &lt;p-select-button
+          [options]&#x3D;&quot;labelsService.multiLabelTask.taskLabels&quot;
+          [multiple]&#x3D;&quot;true&quot;
+          [(ngModel)]&#x3D;&quot;labelsService.multiLabelTask.choices&quot;
+        &gt;&lt;/p-select-button&gt;
+      &lt;/ng-container&gt;
+    &lt;/p-fieldset&gt;
+
+    &lt;p-fieldset
+      legend&#x3D;&quot;Pixel-level&quot;
+      [toggleable]&#x3D;&quot;true&quot;
+      class&#x3D;&quot;m-0&quot;
+      *ngIf&#x3D;&quot;
+        projectService.isSegmentation || projectService.isInstanceSegmentation
+      &quot;
+    &gt;
+      &lt;div class&#x3D;&quot;flex flex-row gap-4 items-center&quot;&gt;
+        &lt;p-button
+          icon&#x3D;&quot;pi pi-eye&quot;
+          (click)&#x3D;&quot;changeAllVisibility()&quot;
+          [rounded]&#x3D;&quot;true&quot;
+          *ngIf&#x3D;&quot;labelsService.showAllLabels; else eyeClose&quot;
+        &gt;&lt;/p-button&gt;
+        &lt;ng-template #eyeClose&gt;
+          &lt;p-button
+            #eyeClose
+            icon&#x3D;&quot;pi pi-eye-slash&quot;
+            (click)&#x3D;&quot;changeAllVisibility()&quot;
+            [rounded]&#x3D;&quot;true&quot;
+          &gt;&lt;/p-button&gt;
+        &lt;/ng-template&gt;
+        &lt;p class&#x3D;&quot;flex flex-col gap-2&quot;&gt;
+          &lt;input
+            type&#x3D;&quot;text&quot;
+            pInputText
+            [(ngModel)]&#x3D;&quot;drawService.labelOpacity&quot;
+            (onChange)&#x3D;&quot;updateOpacity()&quot;
+            class&#x3D;&quot;mb-3 w-full&quot;
+          /&gt;
+          &lt;p-slider
+            [(ngModel)]&#x3D;&quot;drawService.labelOpacity&quot;
+            [min]&#x3D;&quot;0&quot;
+            [max]&#x3D;&quot;1&quot;
+            [step]&#x3D;&quot;0.01&quot;
+            (onChange)&#x3D;&quot;updateOpacity()&quot;
+          /&gt;
+          &lt;small&gt;Opacity&lt;/small&gt;
+        &lt;/p&gt;
+      &lt;/div&gt;
+      &lt;p-divider align&#x3D;&quot;left&quot; type&#x3D;&quot;solid&quot;&gt;
+        &lt;b&gt;Labels&lt;/b&gt;
+      &lt;/p-divider&gt;
+      &lt;p-tree
+        #tree
+        [value]&#x3D;&quot;labelsService.getTreeNode()&quot;
+        (selectionChange)&#x3D;&quot;changeActiveLabel($event)&quot;
+        selectionMode&#x3D;&quot;single&quot;
+        class&#x3D;&quot;p-0&quot;
+      &gt;
+        &lt;ng-template let-node pTemplate&#x3D;&quot;default&quot; class&#x3D;&quot;p-0 w-full&quot;&gt;
+            &lt;div *ngIf&#x3D;&quot;!hasChild(node)&quot; class&#x3D;&quot;flex flex-row gap-2 items-center justify-stretch w-full&quot; [ngClass]&#x3D;&quot;{ &#x27;activeNode&#x27;: node.data &#x3D;&#x3D;&#x3D; labelsService.activeLabel }&quot;&gt;
+              &lt;p-button
+                icon&#x3D;&quot;pi pi-eye&quot;
+                (click)&#x3D;&quot;changeVisibility(node)&quot;
+                [rounded]&#x3D;&quot;true&quot;
+                *ngIf&#x3D;&quot;node.data.isVisible; else eyeClose&quot;
+              &gt;&lt;/p-button&gt;
+              &lt;ng-template #eyeClose&gt;
+                &lt;p-button
+                  #eyeClose
+                  icon&#x3D;&quot;pi pi-eye-slash&quot;
+                  (click)&#x3D;&quot;changeVisibility(node)&quot;
+                  [rounded]&#x3D;&quot;true&quot;
+                &gt;&lt;/p-button&gt;
+              &lt;/ng-template&gt;
+
+              &lt;p-colorPicker
+                *ngIf&#x3D;&quot;!projectService.isInstanceSegmentation&quot;
+                [(ngModel)]&#x3D;&quot;node.data.color&quot;
+                [appendTo]&#x3D;&quot;colorPicker&quot;
+                (onChange)&#x3D;&quot;changeColor()&quot;
+              /&gt;
+              &lt;b&gt;
+                {{ node.label }}
+              &lt;/b&gt;
+              &lt;p-button
+                icon&#x3D;&quot;pi pi-trash&quot;
+                class&#x3D;&quot;smallButton&quot;
+                (click)&#x3D;&quot;clearCanvas(node)&quot;
+                severity&#x3D;&quot;danger&quot;
+              &gt;&lt;/p-button&gt;
+            &lt;/div&gt;
+            &lt;b *ngIf&#x3D;&quot;hasChild(node)&quot;&gt;
+              {{ node.label }}
+            &lt;/b&gt;
+          &lt;div
+            *ngIf&#x3D;&quot;!hasChild(node) &amp;&amp; projectService.isInstanceSegmentation&quot;
+          &gt;
+            &lt;app-instance-label [label]&#x3D;&quot;node.data&quot;&gt;&lt;/app-instance-label&gt;
+          &lt;/div&gt;
+        &lt;/ng-template&gt;
+      &lt;/p-tree&gt;
+    &lt;/p-fieldset&gt;
+  &lt;/div&gt;
+&lt;/p-panel&gt;
+
+&lt;div #colorPicker class&#x3D;&quot;aspect-auto w-12&quot;&gt;&lt;/div&gt;
+</code></pre>
+    </div>
+
+
+    <div class="tab-pane fade " id="tree">
+        <div id="tree-container"></div>
+        <div class="tree-legend">
+            <div class="title">
+                <b>Legend</b>
+            </div>
+            <div>
+                <div class="color htmlelement"></div><span>Html element</span>
+            </div>
+            <div>
+                <div class="color component"></div><span>Component</span>
+            </div>
+            <div>
+                <div class="color directive"></div><span>Html element with directive</span>
+            </div>
+        </div>
+    </div>
+
+    
+</div>
+
+<script src="../js/libs/vis.min.js"></script>
+<script src="../js/libs/htmlparser.js"></script>
+<script src="../js/libs/deep-iterator.js"></script>
+<script>
+        var COMPONENT_TEMPLATE = '<div><p-panel header="Classes">  <div class="flex flex-col gap-4 h-full">    <p-fieldset      legend="Classification"      *ngIf="projectService.isClassification"      [toggleable]="true"      class="m-0"      [collapsed]="true"    >      <ng-container *ngFor="let task of labelsService.listClassificationTasks">        <p-divider align="left" type="solid">          <b>{{ task.taskName }}</b>        </p-divider>        <p-selectButton          [options]="task.classLabels"          [(ngModel)]="task.choice"        ></p-selectButton>      </ng-container>      <ng-container *ngIf="labelsService.multiLabelTask !== null">        <p-divider align="left" type="solid">          <b>Multiple label</b>        </p-divider>        <p-select-button          [options]="labelsService.multiLabelTask.taskLabels"          [multiple]="true"          [(ngModel)]="labelsService.multiLabelTask.choices"        ></p-select-button>      </ng-container>    </p-fieldset>    <p-fieldset      legend="Pixel-level"      [toggleable]="true"      class="m-0"      *ngIf="        projectService.isSegmentation || projectService.isInstanceSegmentation      "    >      <div class="flex flex-row gap-4 items-center">        <p-button          icon="pi pi-eye"          (click)="changeAllVisibility()"          [rounded]="true"          *ngIf="labelsService.showAllLabels; else eyeClose"        ></p-button>        <ng-template #eyeClose>          <p-button            #eyeClose            icon="pi pi-eye-slash"            (click)="changeAllVisibility()"            [rounded]="true"          ></p-button>        </ng-template>        <p class="flex flex-col gap-2">          <input            type="text"            pInputText            [(ngModel)]="drawService.labelOpacity"            (onChange)="updateOpacity()"            class="mb-3 w-full"          />          <p-slider            [(ngModel)]="drawService.labelOpacity"            [min]="0"            [max]="1"            [step]="0.01"            (onChange)="updateOpacity()"          />          <small>Opacity</small>        </p>      </div>      <p-divider align="left" type="solid">        <b>Labels</b>      </p-divider>      <p-tree        #tree        [value]="labelsService.getTreeNode()"        (selectionChange)="changeActiveLabel($event)"        selectionMode="single"        class="p-0"      >        <ng-template let-node pTemplate="default" class="p-0 w-full">            <div *ngIf="!hasChild(node)" class="flex flex-row gap-2 items-center justify-stretch w-full" [ngClass]="{ \'activeNode\': node.data === labelsService.activeLabel }">              <p-button                icon="pi pi-eye"                (click)="changeVisibility(node)"                [rounded]="true"                *ngIf="node.data.isVisible; else eyeClose"              ></p-button>              <ng-template #eyeClose>                <p-button                  #eyeClose                  icon="pi pi-eye-slash"                  (click)="changeVisibility(node)"                  [rounded]="true"                ></p-button>              </ng-template>              <p-colorPicker                *ngIf="!projectService.isInstanceSegmentation"                [(ngModel)]="node.data.color"                [appendTo]="colorPicker"                (onChange)="changeColor()"              />              <b>                {{ node.label }}              </b>              <p-button                icon="pi pi-trash"                class="smallButton"                (click)="clearCanvas(node)"                severity="danger"              ></p-button>            </div>            <b *ngIf="hasChild(node)">              {{ node.label }}            </b>          <div            *ngIf="!hasChild(node) && projectService.isInstanceSegmentation"          >            <app-instance-label [label]="node.data"></app-instance-label>          </div>        </ng-template>      </p-tree>    </p-fieldset>  </div></p-panel><div #colorPicker class="aspect-auto w-12"></div></div>'
+    var COMPONENTS = [{'name': 'AppComponent', 'selector': 'app-root'},{'name': 'BlockableDiv', 'selector': 'blockable-div'},{'name': 'BlockableP', 'selector': 'blockable-p'},{'name': 'ClassificationConfigurationComponent', 'selector': 'app-classification-configuration'},{'name': 'DrawableCanvasComponent', 'selector': 'app-drawable-canvas'},{'name': 'EditorComponent', 'selector': 'app-editor'},{'name': 'GalleryComponent', 'selector': 'app-gallery'},{'name': 'GalleryElementComponent', 'selector': 'app-gallery-element'},{'name': 'InstanceLabelComponent', 'selector': 'app-instance-label'},{'name': 'InteractiveBboxComponent', 'selector': 'app-interactive-bbox'},{'name': 'LabelledSwitchComponent', 'selector': 'app-labelled-switch'},{'name': 'LabelsComponent', 'selector': 'app-labels'},{'name': 'LoadingComponent', 'selector': 'app-loading'},{'name': 'ProjectConfigurationComponent', 'selector': 'app-project-configuration'},{'name': 'SVGElementsComponent', 'selector': 'app-svgelements'},{'name': 'TestingComponent', 'selector': 'app-testing'},{'name': 'ToolbarComponent', 'selector': 'app-toolbar'},{'name': 'ToolSettingComponent', 'selector': 'app-tool-setting'}];
+    var DIRECTIVES = [];
+    var ACTUAL_COMPONENT = {'name': 'LabelsComponent'};
+</script>
+<script src="../js/tree.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div>
+</div>
+               <!-- END CONTENT -->
+           </div>
+       </div>
+
+          <label class="dark-mode-switch">
+               <input type="checkbox">
+               <span class="slider">
+                    <svg class="slider-icon" viewBox="0 0 24 24" fill="none" height="20" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" width="20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+                    </svg>
+               </span>
+          </label>
+
+       <script>
+            var COMPODOC_CURRENT_PAGE_DEPTH = 1;
+            var COMPODOC_CURRENT_PAGE_CONTEXT = 'component';
+            var COMPODOC_CURRENT_PAGE_URL = 'LabelsComponent.html';
+            var MAX_SEARCH_RESULTS = 15;
+       </script>
+
+       <script>
+               $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               checkToggle(darkModeState);
+               if ($darkModeToggleSwitchers.length > 0) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].addEventListener('change', function (event) {
+                              darkModeState = !darkModeState;
+                              toggleDarkMode(darkModeState);
+                         });
+                    }
+               }
+          </script>
+
+       <script src="../js/libs/custom-elements.min.js"></script>
+       <script src="../js/libs/lit-html.js"></script>
+
+       <script src="../js/menu-wc.js" defer></script>
+       <script nomodule src="../js/menu-wc_es5.js" defer></script>
+
+       <script src="../js/libs/bootstrap-native.js"></script>
+
+       <script src="../js/libs/es6-shim.min.js"></script>
+       <script src="../js/libs/EventDispatcher.js"></script>
+       <script src="../js/libs/promise.min.js"></script>
+
+       <script src="../js/compodoc.js"></script>
+
+       <script src="../js/tabs.js"></script>
+       <script src="../js/menu.js"></script>
+       <script src="../js/libs/clipboard.min.js"></script>
+       <script src="../js/libs/prism.js"></script>
+       <script src="../js/sourceCode.js"></script>
+          <script src="../js/search/search.js"></script>
+          <script src="../js/search/lunr.min.js"></script>
+          <script src="../js/search/search-lunr.js"></script>
+          <script src="../js/search/search_index.js"></script>
+       <script src="../js/lazy-load-graphs.js"></script>
+
+
+    </body>
+</html>

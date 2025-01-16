@@ -1,0 +1,2547 @@
+<!doctype html>
+<html class="no-js" lang="">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <title>labelmed documentation</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="icon" type="image/x-icon" href="../images/favicon.ico">
+	   <link rel="stylesheet" href="../styles/style.css">
+        <link rel="stylesheet" href="../styles/dark.css">
+    </head>
+    <body>
+          <script>
+               // Blocking script to avoid flickering dark mode
+               // Dark mode toggle button
+               var useDark = window.matchMedia('(prefers-color-scheme: dark)');
+               var darkModeState = useDark.matches;
+               var $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               var $darkModeToggles = document.querySelectorAll('.dark-mode-switch');
+               var darkModeStateLocal = localStorage.getItem('compodoc_darkmode-state');
+
+               function checkToggle(check) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].checked = check;
+                    }
+               }
+
+               function toggleDarkMode(state) {
+                    if (window.localStorage) {
+                         localStorage.setItem('compodoc_darkmode-state', state);
+                    }
+
+                    checkToggle(state);
+
+                    const hasClass = document.body.classList.contains('dark');
+
+                    if (state) {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.add('dark');
+                         }
+                         if (!hasClass) {
+                              document.body.classList.add('dark');
+                         }
+                    } else {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.remove('dark');
+                         }
+                         if (hasClass) {
+                              document.body.classList.remove('dark');
+                         }
+                    }
+               }
+
+               useDark.addEventListener('change', function (evt) {
+                    toggleDarkMode(evt.matches);
+               });
+               if (darkModeStateLocal) {
+                    darkModeState = darkModeStateLocal === 'true';
+               }
+               toggleDarkMode(darkModeState);
+          </script>
+
+        <div class="navbar navbar-default navbar-fixed-top d-md-none p-0">
+               <div class="d-flex">
+                    <a href="../" class="navbar-brand">labelmed documentation</a>
+                    <button type="button" class="btn btn-default btn-menu ion-ios-menu" id="btn-menu"></button>
+               </div>
+        </div>
+
+        <div class="xs-menu menu" id="mobile-menu">
+                <div id="book-search-input" role="search"><input type="text" placeholder="Type to search"></div>            <compodoc-menu></compodoc-menu>
+        </div>
+
+        <div class="container-fluid main">
+           <div class="row main">
+               <div class="d-none d-md-block menu">
+                   <compodoc-menu mode="normal"></compodoc-menu>
+               </div>
+               <!-- START CONTENT -->
+               <div class="content component">
+                   <div class="content-data">
+
+
+
+
+<ol class="breadcrumb">
+  <li class="breadcrumb-item">Components</li>
+  <li class="breadcrumb-item"
+  >
+  DrawableCanvasComponent</li>
+</ol>
+
+<ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item">
+            <a href="#info" class="nav-link active"
+                role="tab" id="info-tab" data-bs-toggle="tab" data-link="info">Info</a>
+        </li>
+        <li class="nav-item">
+            <a href="#source" class="nav-link"
+                role="tab" id="source-tab" data-bs-toggle="tab" data-link="source">Source</a>
+        </li>
+        <li class="nav-item">
+            <a href="#templateData" class="nav-link"
+                role="tab" id="templateData-tab" data-bs-toggle="tab" data-link="template">Template</a>
+        </li>
+        <li class="nav-item">
+            <a href="#tree" class="nav-link"
+                role="tab" id="tree-tab" data-bs-toggle="tab" data-link="dom-tree">DOM Tree</a>
+        </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade active in" id="info"><p class="comment">
+    <h3>File</h3>
+</p>
+<p class="comment">
+    <code>src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts</code>
+</p>
+
+
+
+
+    <p class="comment">
+        <h3>Implements</h3>
+    </p>
+    <p class="comment">
+                <code>AfterViewInit</code>
+    </p>
+
+
+<section data-compodoc="block-metadata">
+    <h3>Metadata</h3>
+    <table class="table table-sm table-hover metadata">
+        <tbody>
+
+
+
+
+
+
+
+
+
+
+
+
+            <tr>
+                <td class="col-md-3">selector</td>
+                <td class="col-md-9"><code>app-drawable-canvas</code></td>
+            </tr>
+
+            <tr>
+                <td class="col-md-3">standalone</td>
+                <td class="col-md-9"><code>true</code></td>
+            </tr>
+
+            <tr>
+                <td class="col-md-3">imports</td>
+                <td class="col-md-9">
+                            <code>CommonModule</code>
+                            <code>FormsModule</code>
+                            <code>Button</code>
+                                <code><a href="../components/SVGElementsComponent.html" target="_self" >SVGElementsComponent</a></code>
+                </td>
+            </tr>
+
+
+
+
+            <tr>
+                <td class="col-md-3">templateUrl</td>
+                <td class="col-md-9"><code>./drawable-canvas.component.html</code></td>
+            </tr>
+
+
+
+            <tr>
+                <td class="col-md-3">styleUrl</td>
+                <td class="col-md-9"><code>./drawable-canvas.component.scss</code></td>
+            </tr>
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+    <section data-compodoc="block-index">
+    <h3 id="index">Index</h3>
+    <table class="table table-sm table-bordered index-table">
+        <tbody>
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Properties</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                    <span class="modifier">Private</span>
+                                <a href="#ctxImage" >ctxImage</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Private</span>
+                                <a href="#ctxLabel" >ctxLabel</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#currentPixel" >currentPixel</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#cursor" >cursor</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#editorService" >editorService</a>
+                            </li>
+                            <li>
+                                <a href="#image" >image</a>
+                            </li>
+                            <li>
+                                    <span class="modifier"></span>
+                                    <span class="modifier">Public</span>
+                                <a href="#imgCanvas" >imgCanvas</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#isFullscreen" >isFullscreen</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#isImageLoaded" >isImageLoaded</a>
+                            </li>
+                            <li>
+                                    <span class="modifier"></span>
+                                    <span class="modifier">Public</span>
+                                <a href="#labelCanvas" >labelCanvas</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#labelService" >labelService</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#rulerSize" >rulerSize</a>
+                            </li>
+                            <li>
+                                <a href="#srcImg" >srcImg</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#stateService" >stateService</a>
+                            </li>
+                            <li>
+                                    <span class="modifier"></span>
+                                    <span class="modifier">Public</span>
+                                <a href="#svg" >svg</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#viewBox" >viewBox</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#viewService" >viewService</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#zoomPanService" >zoomPanService</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                        <h6><b>Methods</b></h6>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <ul class="index-list">
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#getCursorSize" >getCursorSize</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#getLassoPointsToPolygon" >getLassoPointsToPolygon</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#initializeDimensions" >initializeDimensions</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Private</span>
+                                <a href="#initSubscriptions" >initSubscriptions</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#loadAllCanvas" >loadAllCanvas</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#loadCanvas" >loadCanvas</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#loadImage" >loadImage</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#mouseDown" >mouseDown</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#mouseMove" >mouseMove</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                    <span class="modifier">Async</span>
+                                <a href="#mouseUp" >mouseUp</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                    <span class="modifier">Async</span>
+                                <a href="#ngAfterViewInit" >ngAfterViewInit</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#redrawAllCanvas" >redrawAllCanvas</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#reload" >reload</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#switchFullScreen" >switchFullScreen</a>
+                            </li>
+                            <li>
+                                    <span class="modifier">Public</span>
+                                <a href="#wheel" >wheel</a>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+
+
+
+
+
+        </tbody>
+    </table>
+</section>
+
+    <section data-compodoc="block-constructor">
+    <h3 id="constructor">Constructor</h3>
+        <table class="table table-sm table-bordered">
+            <tbody>
+                <tr>
+                    <td class="col-md-4">
+<code>constructor(editorService: <a href="../injectables/EditorService.html" target="_self">EditorService</a>, viewService: <a href="../injectables/ViewService.html" target="_self">ViewService</a>, labelService: <a href="../injectables/LabelsService.html" target="_self">LabelsService</a>, imageProcessingService: <a href="../injectables/ImageProcessingService.html" target="_self">ImageProcessingService</a>, openCVService: <a href="../injectables/OpenCVService.html" target="_self">OpenCVService</a>, projectService: <a href="../injectables/ProjectService.html" target="_self">ProjectService</a>, zoomPanService: <a href="../injectables/ZoomPanService.html" target="_self">ZoomPanService</a>, canvasManagerService: <a href="../injectables/CanvasManagerService.html" target="_self">CanvasManagerService</a>, stateService: <a href="../injectables/StateManagerService.html" target="_self">StateManagerService</a>, drawService: <a href="../injectables/DrawService.html" target="_self">DrawService</a>, undoRedoService: <a href="../injectables/UndoRedoService.html" target="_self">UndoRedoService</a>, cdr: ChangeDetectorRef, postProcessService: <a href="../injectables/PostProcessService.html" target="_self">PostProcessService</a>)</code>
+                    </td>
+                </tr>
+                        <tr>
+                            <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="53" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:53</a></div>
+                            </td>
+                        </tr>
+
+                <tr>
+                    <td class="col-md-4">
+                            <div>
+                                    <b>Parameters :</b>
+                                    <table class="params">
+                                        <thead>
+                                            <tr>
+                                                <td>Name</td>
+                                                    <td>Type</td>
+                                                <td>Optional</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                                <tr>
+                                                        <td>editorService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/EditorService.html" target="_self" >EditorService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>viewService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/ViewService.html" target="_self" >ViewService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>labelService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/LabelsService.html" target="_self" >LabelsService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>imageProcessingService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/ImageProcessingService.html" target="_self" >ImageProcessingService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>openCVService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/OpenCVService.html" target="_self" >OpenCVService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>projectService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/ProjectService.html" target="_self" >ProjectService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>zoomPanService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/ZoomPanService.html" target="_self" >ZoomPanService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>canvasManagerService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/CanvasManagerService.html" target="_self" >CanvasManagerService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>stateService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/StateManagerService.html" target="_self" >StateManagerService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>drawService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/DrawService.html" target="_self" >DrawService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>undoRedoService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/UndoRedoService.html" target="_self" >UndoRedoService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>cdr</td>
+                                                  
+                                                        <td>
+                                                                    <code>ChangeDetectorRef</code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                                <tr>
+                                                        <td>postProcessService</td>
+                                                  
+                                                        <td>
+                                                                        <code><a href="../injectables/PostProcessService.html" target="_self" >PostProcessService</a></code>
+                                                        </td>
+                                                  
+                                                    <td>
+                                                            No
+                                                    </td>
+                                                    
+                                                </tr>
+                                        </tbody>
+                                    </table>
+                            </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+</section>
+
+
+
+
+
+    <section data-compodoc="block-methods">
+    
+    <h3 id="methods">
+        Methods
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="getCursorSize"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>getCursorSize</b></span>
+                        <a href="#getCursorSize"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>getCursorSize()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="138"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:138</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank" >number</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="getLassoPointsToPolygon"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>getLassoPointsToPolygon</b></span>
+                        <a href="#getLassoPointsToPolygon"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>getLassoPointsToPolygon()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="149"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:149</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank" >string</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="initializeDimensions"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>initializeDimensions</b></span>
+                        <a href="#initializeDimensions"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>initializeDimensions()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="121"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:121</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="initSubscriptions"></a>
+                    <span class="name">
+                            <span class="modifier">Private</span>
+                        <span ><b>initSubscriptions</b></span>
+                        <a href="#initSubscriptions"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>initSubscriptions()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="73"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:73</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="loadAllCanvas"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>loadAllCanvas</b></span>
+                        <a href="#loadAllCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>loadAllCanvas(masks: string[])</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="322"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:322</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>masks</td>
+                                            <td>
+                                                        <code>string[]</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="loadCanvas"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>loadCanvas</b></span>
+                        <a href="#loadCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>loadCanvas(data: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank">string</a>, index: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank">number</a>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="318"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:318</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>data</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank" >string</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                        <tr>
+                                                <td>index</td>
+                                            <td>
+                                                            <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank" >number</a></code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="loadImage"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>loadImage</b></span>
+                        <a href="#loadImage"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>loadImage(image: Promise<string>)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="164"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:164</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>image</td>
+                                            <td>
+                                                        <code>Promise&lt;string&gt;</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >any</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="mouseDown"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>mouseDown</b></span>
+                        <a href="#mouseDown"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>mouseDown(event: MouseEvent)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="188"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:188</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>event</td>
+                                            <td>
+                                                        <code>MouseEvent</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="mouseMove"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>mouseMove</b></span>
+                        <a href="#mouseMove"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>mouseMove(event: MouseEvent)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="203"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:203</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>event</td>
+                                            <td>
+                                                        <code>MouseEvent</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="mouseUp"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                            <span class="modifier">Async</span>
+                        <span ><b>mouseUp</b></span>
+                        <a href="#mouseUp"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>mouseUp($event: MouseEvent)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="222"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:222</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>$event</td>
+                                            <td>
+                                                        <code>MouseEvent</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >any</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="ngAfterViewInit"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                            <span class="modifier">Async</span>
+                        <span ><b>ngAfterViewInit</b></span>
+                        <a href="#ngAfterViewInit"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>ngAfterViewInit()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="106"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:106</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >any</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="redrawAllCanvas"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>redrawAllCanvas</b></span>
+                        <a href="#redrawAllCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>redrawAllCanvas()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="234"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:234</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="reload"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>reload</b></span>
+                        <a href="#reload"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>reload()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="293"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:293</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="switchFullScreen"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>switchFullScreen</b></span>
+                        <a href="#switchFullScreen"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>switchFullScreen()</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="326"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:326</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="wheel"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>wheel</b></span>
+                        <a href="#wheel"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+            <tr>
+                <td class="col-md-4">
+                        <span class="modifier-icon icon ion-ios-reset"></span>
+                    <code>wheel(event: WheelEvent)</code>
+                </td>
+            </tr>
+
+
+                    <tr>
+                        <td class="col-md-4">
+                            <div class="io-line">Defined in <a href="" data-line="173"
+                                    class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:173</a></div>
+                        </td>
+                    </tr>
+
+
+            <tr>
+                <td class="col-md-4">
+
+                            <div class="io-description">
+                                <b>Parameters :</b>
+                                
+                                <table class="params">
+                                    <thead>
+                                        <tr>
+                                            <td>Name</td>
+                                                <td>Type</td>
+                                            <td>Optional</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                                <td>event</td>
+                                            <td>
+                                                        <code>WheelEvent</code>
+                                            </td>
+
+                                            <td>
+                                                    No
+                                            </td>
+
+
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <div class="io-description">
+                            <b>Returns : </b>        <code><a href="https://www.typescriptlang.org/docs/handbook/basic-types.html" target="_blank" >void</a></code>
+
+                        </div>
+                            <div class="io-description">
+                                
+                            </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+    <section data-compodoc="block-properties">
+    
+    <h3 id="inputs">
+        Properties
+    </h3>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="ctxImage"></a>
+                    <span class="name">
+                            <span class="modifier">Private</span>
+                        <span ><b>ctxImage</b></span>
+                        <a href="#ctxImage"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>    <code>CanvasRenderingContext2D | null</code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>null</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="44" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:44</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="ctxLabel"></a>
+                    <span class="name">
+                            <span class="modifier">Private</span>
+                        <span ><b>ctxLabel</b></span>
+                        <a href="#ctxLabel"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>    <code>CanvasRenderingContext2D</code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="45" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:45</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="currentPixel"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>currentPixel</b></span>
+                        <a href="#currentPixel"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../interfaces/Point2D.html" target="_self" >Point2D</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>{ x: 0, y: 0 }</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="39" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:39</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="cursor"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>cursor</b></span>
+                        <a href="#cursor"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../interfaces/Point2D.html" target="_self" >Point2D</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>{ x: 25, y: 25 }</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="38" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:38</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="editorService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>editorService</b></span>
+                        <a href="#editorService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/EditorService.html" target="_self" >EditorService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="56" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:56</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="image"></a>
+                    <span class="name">
+                        <span ><b>image</b></span>
+                        <a href="#image"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>    <code>HTMLImageElement</code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>new Image()</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="53" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:53</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="imgCanvas"></a>
+                    <span class="name">
+                            <span class="modifier"></span>
+                            <span class="modifier">Public</span>
+                        <span ><b>imgCanvas</b></span>
+                        <a href="#imgCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>    <code>ElementRef&lt;HTMLCanvasElement&gt;</code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <b>Decorators : </b>
+                        <br />
+                        <code>
+                            @ViewChild(&#x27;imageCanvas&#x27;)<br />
+                        </code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="48" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:48</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="isFullscreen"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>isFullscreen</b></span>
+                        <a href="#isFullscreen"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/boolean" target="_blank" >boolean</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>false</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="41" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:41</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="isImageLoaded"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>isImageLoaded</b></span>
+                        <a href="#isImageLoaded"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/boolean" target="_blank" >boolean</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>false</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="43" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:43</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="labelCanvas"></a>
+                    <span class="name">
+                            <span class="modifier"></span>
+                            <span class="modifier">Public</span>
+                        <span ><b>labelCanvas</b></span>
+                        <a href="#labelCanvas"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>    <code>ElementRef&lt;HTMLCanvasElement&gt;</code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <b>Decorators : </b>
+                        <br />
+                        <code>
+                            @ViewChild(&#x27;labelCanvas&#x27;)<br />
+                        </code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="49" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:49</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="labelService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>labelService</b></span>
+                        <a href="#labelService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/LabelsService.html" target="_self" >LabelsService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="58" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:58</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="rulerSize"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>rulerSize</b></span>
+                        <a href="#rulerSize"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/number" target="_blank" >number</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>16</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="42" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:42</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="srcImg"></a>
+                    <span class="name">
+                        <span ><b>srcImg</b></span>
+                        <a href="#srcImg"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/string" target="_blank" >string</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="46" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:46</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="stateService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>stateService</b></span>
+                        <a href="#stateService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/StateManagerService.html" target="_self" >StateManagerService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="64" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:64</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="svg"></a>
+                    <span class="name">
+                            <span class="modifier"></span>
+                            <span class="modifier">Public</span>
+                        <span ><b>svg</b></span>
+                        <a href="#svg"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../components/SVGElementsComponent.html" target="_self" >SVGElementsComponent</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <b>Decorators : </b>
+                        <br />
+                        <code>
+                            @ViewChild(&#x27;svg&#x27;)<br />
+                        </code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="51" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:51</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="viewBox"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>viewBox</b></span>
+                        <a href="#viewBox"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../interfaces/Viewbox.html" target="_self" >Viewbox</a></code>
+
+                    </td>
+                </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Default value : </i><code>{ xmin: 0, ymin: 0, xmax: 0, ymax: 0 }</code>
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="40" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:40</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="viewService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>viewService</b></span>
+                        <a href="#viewService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/ViewService.html" target="_self" >ViewService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="57" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:57</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+    <table class="table table-sm table-bordered">
+        <tbody>
+            <tr>
+                <td class="col-md-4">
+                    <a name="zoomPanService"></a>
+                    <span class="name">
+                            <span class="modifier">Public</span>
+                        <span ><b>zoomPanService</b></span>
+                        <a href="#zoomPanService"><span class="icon ion-ios-link"></span></a>
+                    </span>
+                </td>
+            </tr>
+                <tr>
+                    <td class="col-md-4">
+                        <i>Type : </i>        <code><a href="../injectables/ZoomPanService.html" target="_self" >ZoomPanService</a></code>
+
+                    </td>
+                </tr>
+                    <tr>
+                        <td class="col-md-4">
+                                <div class="io-line">Defined in <a href="" data-line="62" class="link-to-prism">src/app/Components/Core/drawable-canvas/component/drawable-canvas.component.ts:62</a></div>
+                        </td>
+                    </tr>
+
+
+        </tbody>
+    </table>
+</section>
+
+</div>
+
+
+    <div class="tab-pane fade  tab-source-code" id="source">
+        <pre class="line-numbers compodoc-sourcecode"><code class="language-typescript">import {
+  AfterViewInit,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostListener,
+  ViewChild,
+} from &#x27;@angular/core&#x27;;
+
+import { CommonModule } from &#x27;@angular/common&#x27;;
+import { FormsModule } from &#x27;@angular/forms&#x27;;
+import { EditorService } from &#x27;../../../../Services/UI/editor.service&#x27;;
+import { ViewService } from &#x27;../../../../Services/UI/view.service&#x27;;
+import { LabelsService } from &#x27;../../../../Services/Project/labels.service&#x27;;
+import { Point2D, Viewbox } from &#x27;../../../../Core/interface&#x27;;
+import { Button } from &#x27;primeng/button&#x27;;
+import { OpenCVService } from &#x27;../../../../Services/open-cv.service&#x27;;
+import { ImageProcessingService } from &#x27;../service/image-processing.service&#x27;;
+import { ProjectService } from &#x27;../../../../Services/Project/project.service&#x27;;
+import { SVGElementsComponent } from &#x27;./svgelements/svgelements.component&#x27;;
+import { ZoomPanService } from &#x27;../service/zoom-pan.service&#x27;;
+import { CanvasManagerService } from &#x27;../service/canvas-manager.service&#x27;;
+import { StateManagerService } from &#x27;../service/state-manager.service&#x27;;
+import { DrawService } from &#x27;../service/draw.service&#x27;;
+import { UndoRedoService } from &#x27;../service/undo-redo.service&#x27;;
+import { PostProcessService } from &#x27;../service/post-process.service&#x27;;
+
+@Component({
+  selector: &#x27;app-drawable-canvas&#x27;,
+  standalone: true,
+  imports: [CommonModule, FormsModule, Button, SVGElementsComponent],
+  templateUrl: &#x27;./drawable-canvas.component.html&#x27;,
+  styleUrl: &#x27;./drawable-canvas.component.scss&#x27;,
+})
+export class DrawableCanvasComponent implements AfterViewInit {
+
+  public cursor: Point2D &#x3D; { x: 25, y: 25 };
+  public currentPixel: Point2D &#x3D; { x: 0, y: 0 };
+  public viewBox: Viewbox &#x3D; { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
+  public isFullscreen: boolean &#x3D; false;
+  public rulerSize: number &#x3D; 16;
+  public isImageLoaded: boolean &#x3D; false;
+  private ctxImage: CanvasRenderingContext2D | null &#x3D; null;
+  private ctxLabel: CanvasRenderingContext2D;
+  srcImg: string;
+
+  @ViewChild(&#x27;imageCanvas&#x27;) public imgCanvas: ElementRef&lt;HTMLCanvasElement&gt;;
+  @ViewChild(&#x27;labelCanvas&#x27;) public labelCanvas: ElementRef&lt;HTMLCanvasElement&gt;;
+
+  @ViewChild(&#x27;svg&#x27;) public svg: SVGElementsComponent;
+
+  image: HTMLImageElement &#x3D; new Image();
+
+  constructor(
+    public editorService: EditorService,
+    public viewService: ViewService,
+    public labelService: LabelsService,
+    protected imageProcessingService: ImageProcessingService,
+    protected openCVService: OpenCVService,
+    protected projectService: ProjectService,
+    public zoomPanService: ZoomPanService,
+    private canvasManagerService: CanvasManagerService,
+    public stateService: StateManagerService,
+    private drawService: DrawService,
+    private undoRedoService: UndoRedoService,
+    private cdr: ChangeDetectorRef,
+    private postProcessService: PostProcessService
+  ) {
+    this.initSubscriptions();
+  }
+
+  private initSubscriptions() {
+    this.zoomPanService.redrawRequest.subscribe((value) &#x3D;&gt; {
+      if (value) {
+        this.redrawAllCanvas();
+      }
+    });
+
+    this.canvasManagerService.requestRedraw.subscribe((value) &#x3D;&gt; {
+      if (value) {
+        this.drawService.refreshAllColors();
+        this.redrawAllCanvas();
+      }
+    });
+
+    this.drawService.redrawRequest.subscribe((value) &#x3D;&gt; {
+      if (value) {
+        this.redrawAllCanvas();
+      }
+    });
+
+    this.drawService.singleDrawRequest.subscribe((ctx) &#x3D;&gt; {
+      if (ctx) {
+        this.ctxLabel.drawImage(ctx.canvas, 0, 0);
+      }
+    });
+
+    this.undoRedoService.redrawRequest.subscribe((value) &#x3D;&gt; {
+      if (value) {
+        this.redrawAllCanvas();
+      }
+    });
+  }
+
+  public async ngAfterViewInit() {
+    this.ctxImage &#x3D; this.imgCanvas.nativeElement.getContext(&#x27;2d&#x27;, {
+      alpha: false,
+    })!;
+    this.ctxLabel &#x3D; this.labelCanvas.nativeElement.getContext(&#x27;2d&#x27;, {
+      alpha: true,
+    })!;
+
+    this.zoomPanService.setContext(this.imgCanvas.nativeElement);
+    this.undoRedoService.empty();
+    if (this.projectService.activeImage) {
+      await this.loadImage(this.projectService.activeImage);
+    }
+  }
+
+  public initializeDimensions() {
+    this.stateService.setWidthAndHeight(this.image.width, this.image.height);
+
+    this.imgCanvas.nativeElement.width &#x3D; this.stateService.width; // This is the canvas with the main image
+    this.imgCanvas.nativeElement.height &#x3D; this.stateService.height;
+
+    this.labelCanvas.nativeElement.width &#x3D; this.stateService.width; // This is the displayed canvas
+    this.labelCanvas.nativeElement.height &#x3D; this.stateService.height;
+
+    this.svg.setViewBox({
+      x: 0,
+      y: 0,
+      width: this.stateService.width,
+      height: this.stateService.height,
+    });
+  }
+
+  public getCursorSize() {
+    if (!this.ctxLabel) {
+      return 0;
+    }
+    const rect &#x3D; this.ctxLabel.canvas.getBoundingClientRect();
+    return (
+      ((this.editorService.lineWidth * rect.width) / this.stateService.width) *
+      this.zoomPanService.getScale()
+    );
+  }
+
+  public getLassoPointsToPolygon() {
+    if (this.drawService.lassoPoints.length &lt; 3) {
+      return &#x27;&#x27;;
+    }
+    let points &#x3D; &#x27;&#x27;;
+    for (let i &#x3D; 0; i &lt; this.drawService.lassoPoints.length; i++) {
+      points +&#x3D;
+        this.drawService.lassoPoints[i].x +
+        &#x27;,&#x27; +
+        this.drawService.lassoPoints[i].y +
+        &#x27; &#x27;;
+    }
+    return points;
+  }
+
+  public loadImage(image: Promise&lt;string&gt;) {
+    this.isImageLoaded &#x3D; false;
+    return image.then((img) &#x3D;&gt; {
+      this.srcImg &#x3D; img;
+      this.reload();
+      this.cdr.detectChanges();
+
+    });
+  }
+  public wheel(event: WheelEvent): void {
+    event.preventDefault();
+    if (event.ctrlKey) {
+      this.editorService.lineWidth +&#x3D; event.deltaY &gt; 0 ? -2 : 2;
+      this.editorService.lineWidth &#x3D; Math.max(1, this.editorService.lineWidth);
+      return;
+    }
+    this.stateService.recomputeCanvasSum &#x3D; false;
+
+    this.zoomPanService.wheel(event);
+    // Transform mouse coordinates to canvas coordinates
+    this.currentPixel &#x3D; this.zoomPanService.getImageCoordinates(event);
+    this.viewBox &#x3D; this.zoomPanService.getViewBox();
+  }
+
+  public mouseDown(event: MouseEvent) {
+    if (event.button &#x3D;&#x3D; 1) {
+      this.editorService.activatePanMode();
+    }
+    if (this.editorService.canPan()) {
+      this.stateService.recomputeCanvasSum &#x3D; false;
+      this.zoomPanService.startDrag();
+    } else {
+      this.stateService.recomputeCanvasSum &#x3D; true;
+      this.drawService.startDraw().then(() &#x3D;&gt; {
+        this.drawService.draw(event);
+      });
+    }
+  }
+
+  public mouseMove(event: MouseEvent) {
+    const rect &#x3D; this.ctxLabel.canvas.getBoundingClientRect();
+    // Transform mouse coordinates to canvas coordinates
+    const mouseX &#x3D; event.clientX - rect.left;
+    const mouseY &#x3D; event.clientY - rect.top;
+
+    this.currentPixel &#x3D; this.zoomPanService.getImageCoordinates(event);
+
+    this.cursor &#x3D; { x: mouseX, y: mouseY };
+    if (this.editorService.canPan()) {
+      this.stateService.recomputeCanvasSum &#x3D; false;
+      this.zoomPanService.drag(event);
+      this.viewBox &#x3D; this.zoomPanService.getViewBox();
+    } else {
+      this.stateService.recomputeCanvasSum &#x3D; true;
+      this.drawService.draw(event);
+    }
+  }
+
+  public async mouseUp($event: MouseEvent) {
+    if ($event.button &#x3D;&#x3D; 1) {
+      this.editorService.restoreLastTool();
+    }
+
+    if (this.editorService.canPan()) {
+      this.zoomPanService.endDrag();
+    } else {
+      await this.drawService.endDraw();
+    }
+  }
+
+  public redrawAllCanvas() {
+    // Redraw the main image
+    this.viewBox &#x3D; this.zoomPanService.getViewBox();
+    this.svg.setViewBox(this.zoomPanService.getSVGViewBox());
+
+    if (!this.image.complete || this.image.naturalWidth &#x3D;&#x3D;&#x3D; 0) {
+      console.error(&#x27;Image is not fully loaded or is invalid&#x27;);
+      return;
+    }
+
+    // Redraw the main image
+    if (this.ctxImage &#x3D;&#x3D; null) {
+      this.ctxImage &#x3D; this.imgCanvas.nativeElement.getContext(&#x27;2d&#x27;, {
+        alpha: false,
+      })!;
+    }
+    if (!this.ctxImage) {
+      console.error(&#x27;Failed to get 2D context&#x27;);
+      return;
+    }
+    const scale &#x3D; this.zoomPanService.getScale();
+    const offset &#x3D; this.zoomPanService.getOffset();
+    // This is the canvas with the main image
+    this.ctxImage.resetTransform();
+    this.drawService.clearCanvas(this.ctxImage);
+    this.ctxImage.translate(Math.floor(offset.x), Math.floor(offset.y));
+    this.ctxImage.scale(scale, scale);
+    let image &#x3D; this.imageProcessingService.getCurrentCanvas();
+    this.ctxImage.drawImage(
+      image,
+      0,
+      0,
+      this.stateService.width,
+      this.stateService.height
+    );
+    // This is the canvas with the marker drawings
+    this.drawService.clearCanvas(this.ctxLabel);
+
+    this.ctxLabel.resetTransform();
+    this.ctxLabel.translate(Math.floor(offset.x), Math.floor(offset.y));
+    this.ctxLabel.scale(scale, scale);
+
+    this.ctxLabel.imageSmoothingEnabled &#x3D; false;
+    this.ctxLabel.filter &#x3D; &#x27;url(#remove-alpha)&#x27;;
+    if (this.stateService.recomputeCanvasSum) {
+      this.canvasManagerService.computeCombinedCanvas();
+      this.stateService.recomputeCanvasSum &#x3D; false;
+    }
+
+    this.ctxLabel.imageSmoothingEnabled &#x3D; false;
+    this.ctxLabel.drawImage(
+      this.canvasManagerService.getCombinedCanvas(),
+      0,
+      0
+    );
+
+    this.ctxLabel.globalAlpha &#x3D; 1;
+  }
+
+  public reload(): void {
+    this.image.src &#x3D; this.srcImg;
+
+    this.image.onload &#x3D; () &#x3D;&gt; {
+      this.stateService.recomputeCanvasSum &#x3D; true;
+      this.postProcessService.featuresExtracted &#x3D; false;
+
+      this.imageProcessingService.setImage(this.image);
+      this.drawService.clearCanvas(this.ctxLabel);
+      this.drawService.clearCanvas(this.ctxImage!);
+
+      this.initializeDimensions();
+
+      this.canvasManagerService.initCanvas();
+
+      this.undoRedoService.empty();
+      this.viewService.endLoading();
+      this.redrawAllCanvas();
+
+      requestAnimationFrame(() &#x3D;&gt; {
+        this.isImageLoaded &#x3D; true;
+      });
+    };
+  }
+
+  public loadCanvas(data: string, index: number) {
+    this.canvasManagerService.loadCanvas(data, index);
+  }
+
+  public loadAllCanvas(masks: string[]) {
+    this.canvasManagerService.loadAllCanvas(masks);
+  }
+
+  public switchFullScreen() {
+    this.isFullscreen &#x3D; !this.isFullscreen;
+    if (this.isFullscreen) {
+    } else {
+      this.zoomPanService.resetZoomAndPan(true, true);
+    }
+  }
+}
+</code></pre>
+    </div>
+
+    <div class="tab-pane fade " id="templateData">
+        <pre class="line-numbers"><code class="language-html">&lt;div class&#x3D;&quot;max-screen-available&quot;&gt;
+  &lt;div
+    class&#x3D;&quot;bg-gray-950 overflow-hidden relative rounded-t-lg&quot;
+    [style.height.px]&#x3D;&quot;rulerSize&quot;
+    [style.width]&#x3D;&quot;&#x27;calc(100% - &#x27; + rulerSize + &#x27;px)&#x27;&quot;
+    [ngStyle]&#x3D;&quot;{ translate: rulerSize + &#x27;px&#x27; }&quot;
+  &gt;
+    &lt;p
+      class&#x3D;&quot;absolute text-gray viewBoxMarker w-fit&quot;
+      [style.left.px]&#x3D;&quot;viewBox.xmin&quot;
+    &gt;
+      0
+    &lt;/p&gt;
+
+    &lt;p
+      class&#x3D;&quot;absolute text-gray viewBoxMarker w-fit&quot;
+      [style.left.px]&#x3D;&quot;cursor.x&quot;
+    &gt;
+      {{ currentPixel.x }}
+    &lt;/p&gt;
+
+    &lt;p class&#x3D;&quot;absolute viewBoxMarker w-fit&quot; [style.left.px]&#x3D;&quot;viewBox.xmax&quot;&gt;
+      {{ stateService.width }}
+    &lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class&#x3D;&quot;flex flex-row overflow-hidden relative&quot;&gt;
+    &lt;div
+      class&#x3D;&quot;bg-gray-950 overflow-hidden rounded-l-lg&quot;
+      [style.width.px]&#x3D;&quot;rulerSize&quot;
+    &gt;
+      &lt;p class&#x3D;&quot;absolute viewBoxMarkerHorizontal&quot; [style.top.px]&#x3D;&quot;viewBox.ymin&quot;&gt;
+        0
+      &lt;/p&gt;
+      &lt;p class&#x3D;&quot;absolute viewBoxMarkerHorizontal&quot; [style.top.px]&#x3D;&quot;cursor.y&quot;&gt;
+        {{ currentPixel.y }}
+      &lt;/p&gt;
+      &lt;p class&#x3D;&quot;absolute viewBoxMarkerHorizontal&quot; [style.top.px]&#x3D;&quot;viewBox.ymax&quot;&gt;
+        {{ stateService.height }}
+      &lt;/p&gt;
+    &lt;/div&gt;
+    &lt;div
+      #myImageContainer
+      [ngStyle]&#x3D;&quot;{
+        &#x27;aspect-ratio&#x27;: stateService.width / stateService.height,
+      }&quot;
+      [ngClass]&#x3D;&quot;{
+        &#x27;relative max-screen-available&#x27;: !isFullscreen,
+        &#x27;fixed h-full max-w-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black box-shadow z-50&#x27;:
+          isFullscreen
+      }&quot;
+    &gt;
+      &lt;canvas
+        #imageCanvas
+        id&#x3D;&quot;image&quot;
+        class&#x3D;&quot;absolute cursor-crosshair min-w-[128px] w-full&quot;
+        [ngClass]&#x3D;&quot;{
+          &#x27;cursor-grab&#x27;: editorService.canPan(),
+          &#x27;cursor-none&#x27;: editorService.isToolWithBrushSize(),
+          &#x27;cursor-crosshair&#x27;: !(
+            editorService.isToolWithBrushSize() || editorService.canPan()
+          )
+        }&quot;
+        (wheel)&#x3D;&quot;wheel($event)&quot;
+        (mousedown)&#x3D;&quot;mouseDown($event)&quot;
+        (mouseup)&#x3D;&quot;mouseUp($event)&quot;
+        (mousemove)&#x3D;&quot;mouseMove($event)&quot;
+        (mouseleave)&#x3D;&quot;mouseUp($event)&quot;
+        [width]&#x3D;&quot;stateService.width&quot;
+        [height]&#x3D;&quot;stateService.height&quot;
+        [attr.passive]&#x3D;&quot;true&quot;
+      &gt;
+      &lt;/canvas&gt;
+
+      &lt;canvas
+        #labelCanvas
+        class&#x3D;&quot;absolute labelCanvas min-w-[128px] noAntialiasing pointer-events-none w-full&quot;
+        [width]&#x3D;&quot;stateService.width&quot;
+        [height]&#x3D;&quot;stateService.height&quot;
+        [style.opacity]&#x3D;&quot;editorService.labelOpacity&quot;
+      &gt;&lt;/canvas&gt;
+
+      &lt;app-svgelements #svg [UIPoints]&#x3D;&quot;getLassoPointsToPolygon()&quot;&gt;
+      &lt;/app-svgelements&gt;
+
+      &lt;div
+        class&#x3D;&quot;cursor&quot;
+        *ngIf&#x3D;&quot;editorService.isToolWithBrushSize()&quot;
+        [ngStyle]&#x3D;&quot;{
+          &#x27;left.px&#x27;: cursor.x,
+          &#x27;top.px&#x27;: cursor.y,
+          &#x27;width.px&#x27;: getCursorSize(),
+          &#x27;border-color&#x27;: labelService.activeLabel?.color
+        }&quot;
+      &gt;&lt;/div&gt;
+      &lt;div
+        class&#x3D;&quot;absolute h-full skeleton w-full z-50&quot;
+        [ngClass]&#x3D;&quot;{
+          invisible: !viewService.isLoading,
+          visible: viewService.isLoading
+        }&quot;
+      &gt;&lt;/div&gt;
+
+      &lt;p class&#x3D;&quot;absolute flex items-center justify-start&quot;&gt;
+        &lt;p-button
+          pRipple
+          [rounded]&#x3D;&quot;true&quot;
+          [raised]&#x3D;&quot;true&quot;
+          (click)&#x3D;&quot;switchFullScreen()&quot;
+          *ngIf&#x3D;&quot;!isFullscreen&quot;
+          icon&#x3D;&quot;pi pi-window-maximize&quot;
+          severity&#x3D;&quot;help&quot;
+        &gt;
+        &lt;/p-button&gt;
+        &lt;p-button
+          pButton
+          pRipple
+          [rounded]&#x3D;&quot;true&quot;
+          [raised]&#x3D;&quot;true&quot;
+          (click)&#x3D;&quot;switchFullScreen()&quot;
+          *ngIf&#x3D;&quot;isFullscreen&quot;
+          icon&#x3D;&quot;pi pi-window-minimize&quot;
+          severity&#x3D;&quot;help&quot;
+        &gt;
+        &lt;/p-button&gt;
+
+        &lt;p-button
+          [rounded]&#x3D;&quot;true&quot;
+          [raised]&#x3D;&quot;true&quot;
+          (click)&#x3D;&quot;zoomPanService.resetZoomAndPan(true, true)&quot;
+          icon&#x3D;&quot;pi pi-refresh&quot;
+          severity&#x3D;&quot;help&quot;
+        &gt;
+        &lt;/p-button&gt;
+      &lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/div&gt;
+
+
+&lt;svg width&#x3D;&quot;0&quot; height&#x3D;&quot;0&quot; style&#x3D;&quot;position:absolute;z-index:-1;&quot;&gt;
+  &lt;defs&gt;
+    &lt;filter id&#x3D;&quot;remove-alpha&quot; x&#x3D;&quot;0&quot; y&#x3D;&quot;0&quot; width&#x3D;&quot;100%&quot; height&#x3D;&quot;100%&quot;&gt;
+      &lt;feComponentTransfer&gt;
+        &lt;feFuncA type&#x3D;&quot;discrete&quot; tableValues&#x3D;&quot;0 1&quot;&gt;&lt;/feFuncA&gt;
+      &lt;/feComponentTransfer&gt;
+      &lt;/filter&gt;
+  &lt;/defs&gt;
+&lt;/svg&gt;</code></pre>
+    </div>
+
+
+    <div class="tab-pane fade " id="tree">
+        <div id="tree-container"></div>
+        <div class="tree-legend">
+            <div class="title">
+                <b>Legend</b>
+            </div>
+            <div>
+                <div class="color htmlelement"></div><span>Html element</span>
+            </div>
+            <div>
+                <div class="color component"></div><span>Component</span>
+            </div>
+            <div>
+                <div class="color directive"></div><span>Html element with directive</span>
+            </div>
+        </div>
+    </div>
+
+    
+</div>
+
+<script src="../js/libs/vis.min.js"></script>
+<script src="../js/libs/htmlparser.js"></script>
+<script src="../js/libs/deep-iterator.js"></script>
+<script>
+        var COMPONENT_TEMPLATE = '<div><div class="max-screen-available">  <div    class="bg-gray-950 overflow-hidden relative rounded-t-lg"    [style.height.px]="rulerSize"    [style.width]="\'calc(100% - \' + rulerSize + \'px)\'"    [ngStyle]="{ translate: rulerSize + \'px\' }"  >    <p      class="absolute text-gray viewBoxMarker w-fit"      [style.left.px]="viewBox.xmin"    >      0    </p>    <p      class="absolute text-gray viewBoxMarker w-fit"      [style.left.px]="cursor.x"    >      {{ currentPixel.x }}    </p>    <p class="absolute viewBoxMarker w-fit" [style.left.px]="viewBox.xmax">      {{ stateService.width }}    </p>  </div>  <div class="flex flex-row overflow-hidden relative">    <div      class="bg-gray-950 overflow-hidden rounded-l-lg"      [style.width.px]="rulerSize"    >      <p class="absolute viewBoxMarkerHorizontal" [style.top.px]="viewBox.ymin">        0      </p>      <p class="absolute viewBoxMarkerHorizontal" [style.top.px]="cursor.y">        {{ currentPixel.y }}      </p>      <p class="absolute viewBoxMarkerHorizontal" [style.top.px]="viewBox.ymax">        {{ stateService.height }}      </p>    </div>    <div      #myImageContainer      [ngStyle]="{        \'aspect-ratio\': stateService.width / stateService.height,      }"      [ngClass]="{        \'relative max-screen-available\': !isFullscreen,        \'fixed h-full max-w-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black box-shadow z-50\':          isFullscreen      }"    >      <canvas        #imageCanvas        id="image"        class="absolute cursor-crosshair min-w-[128px] w-full"        [ngClass]="{          \'cursor-grab\': editorService.canPan(),          \'cursor-none\': editorService.isToolWithBrushSize(),          \'cursor-crosshair\': !(            editorService.isToolWithBrushSize() || editorService.canPan()          )        }"        (wheel)="wheel($event)"        (mousedown)="mouseDown($event)"        (mouseup)="mouseUp($event)"        (mousemove)="mouseMove($event)"        (mouseleave)="mouseUp($event)"        [width]="stateService.width"        [height]="stateService.height"        [attr.passive]="true"      >      </canvas>      <canvas        #labelCanvas        class="absolute labelCanvas min-w-[128px] noAntialiasing pointer-events-none w-full"        [width]="stateService.width"        [height]="stateService.height"        [style.opacity]="editorService.labelOpacity"      ></canvas>      <app-svgelements #svg [UIPoints]="getLassoPointsToPolygon()">      </app-svgelements>      <div        class="cursor"        *ngIf="editorService.isToolWithBrushSize()"        [ngStyle]="{          \'left.px\': cursor.x,          \'top.px\': cursor.y,          \'width.px\': getCursorSize(),          \'border-color\': labelService.activeLabel?.color        }"      ></div>      <div        class="absolute h-full skeleton w-full z-50"        [ngClass]="{          invisible: !viewService.isLoading,          visible: viewService.isLoading        }"      ></div>      <p class="absolute flex items-center justify-start">        <p-button          pRipple          [rounded]="true"          [raised]="true"          (click)="switchFullScreen()"          *ngIf="!isFullscreen"          icon="pi pi-window-maximize"          severity="help"        >        </p-button>        <p-button          pButton          pRipple          [rounded]="true"          [raised]="true"          (click)="switchFullScreen()"          *ngIf="isFullscreen"          icon="pi pi-window-minimize"          severity="help"        >        </p-button>        <p-button          [rounded]="true"          [raised]="true"          (click)="zoomPanService.resetZoomAndPan(true, true)"          icon="pi pi-refresh"          severity="help"        >        </p-button>      </p>    </div>  </div></div><svg width="0" height="0" style="position:absolute;z-index:-1;">  <defs>    <filter id="remove-alpha" x="0" y="0" width="100%" height="100%">      <feComponentTransfer>        <feFuncA type="discrete" tableValues="0 1"></feFuncA>      </feComponentTransfer>      </filter>  </defs></svg></div>'
+    var COMPONENTS = [{'name': 'AppComponent', 'selector': 'app-root'},{'name': 'BlockableDiv', 'selector': 'blockable-div'},{'name': 'BlockableP', 'selector': 'blockable-p'},{'name': 'ClassificationConfigurationComponent', 'selector': 'app-classification-configuration'},{'name': 'DrawableCanvasComponent', 'selector': 'app-drawable-canvas'},{'name': 'EditorComponent', 'selector': 'app-editor'},{'name': 'GalleryComponent', 'selector': 'app-gallery'},{'name': 'GalleryElementComponent', 'selector': 'app-gallery-element'},{'name': 'InstanceLabelComponent', 'selector': 'app-instance-label'},{'name': 'InteractiveBboxComponent', 'selector': 'app-interactive-bbox'},{'name': 'LabelledSwitchComponent', 'selector': 'app-labelled-switch'},{'name': 'LabelsComponent', 'selector': 'app-labels'},{'name': 'LoadingComponent', 'selector': 'app-loading'},{'name': 'ProjectConfigurationComponent', 'selector': 'app-project-configuration'},{'name': 'SVGElementsComponent', 'selector': 'app-svgelements'},{'name': 'TestingComponent', 'selector': 'app-testing'},{'name': 'ToolbarComponent', 'selector': 'app-toolbar'},{'name': 'ToolSettingComponent', 'selector': 'app-tool-setting'}];
+    var DIRECTIVES = [];
+    var ACTUAL_COMPONENT = {'name': 'DrawableCanvasComponent'};
+</script>
+<script src="../js/tree.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div>
+</div>
+               <!-- END CONTENT -->
+           </div>
+       </div>
+
+          <label class="dark-mode-switch">
+               <input type="checkbox">
+               <span class="slider">
+                    <svg class="slider-icon" viewBox="0 0 24 24" fill="none" height="20" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" width="20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+                    </svg>
+               </span>
+          </label>
+
+       <script>
+            var COMPODOC_CURRENT_PAGE_DEPTH = 1;
+            var COMPODOC_CURRENT_PAGE_CONTEXT = 'component';
+            var COMPODOC_CURRENT_PAGE_URL = 'DrawableCanvasComponent.html';
+            var MAX_SEARCH_RESULTS = 15;
+       </script>
+
+       <script>
+               $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               checkToggle(darkModeState);
+               if ($darkModeToggleSwitchers.length > 0) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].addEventListener('change', function (event) {
+                              darkModeState = !darkModeState;
+                              toggleDarkMode(darkModeState);
+                         });
+                    }
+               }
+          </script>
+
+       <script src="../js/libs/custom-elements.min.js"></script>
+       <script src="../js/libs/lit-html.js"></script>
+
+       <script src="../js/menu-wc.js" defer></script>
+       <script nomodule src="../js/menu-wc_es5.js" defer></script>
+
+       <script src="../js/libs/bootstrap-native.js"></script>
+
+       <script src="../js/libs/es6-shim.min.js"></script>
+       <script src="../js/libs/EventDispatcher.js"></script>
+       <script src="../js/libs/promise.min.js"></script>
+
+       <script src="../js/compodoc.js"></script>
+
+       <script src="../js/tabs.js"></script>
+       <script src="../js/menu.js"></script>
+       <script src="../js/libs/clipboard.min.js"></script>
+       <script src="../js/libs/prism.js"></script>
+       <script src="../js/sourceCode.js"></script>
+          <script src="../js/search/search.js"></script>
+          <script src="../js/search/lunr.min.js"></script>
+          <script src="../js/search/search-lunr.js"></script>
+          <script src="../js/search/search_index.js"></script>
+       <script src="../js/lazy-load-graphs.js"></script>
+
+
+    </body>
+</html>

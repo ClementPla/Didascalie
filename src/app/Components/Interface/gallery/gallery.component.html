@@ -1,14 +1,18 @@
-<div class="w-3/4 m-auto card">
+<div class="card m-auto w-3/4">
     <p-dataview #dv [value]="projectService.imagesName" [layout]="'grid'" [rows]="16" [paginator]="true">
         <ng-template #header>
             <div class="flex justify-end">
                 <button pButton type="button" label="Refresh" icon="pi pi-sync" class="p-button-success"
-                    (click)="refresh()"></button>
+                    (click)="refresh()">
+
+                    <p-knob [(ngModel)]="percentageBeforeRefresh" [size]="15" [valueTemplate]="''" />
+                
+                </button>
             </div>
         </ng-template>
         <ng-template #grid let-items let-rowIndexValue="rowIndex">
-            <div class="grid grid-cols-12 gap-4">
-                <div *ngFor="let items of items ; let index = index; let first=first" class="p-2 col-span-2">
+            <div class="gap-4 grid grid-cols-8">
+                <div *ngFor="let items of items ; let index = index; let first=first" class="p-2">
                     <app-gallery-element [imageName]="items" [id]="projectService.imagesName.indexOf(items)">
                     </app-gallery-element>
                 </div>

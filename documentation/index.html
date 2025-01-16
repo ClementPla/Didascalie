@@ -1,0 +1,293 @@
+<!doctype html>
+<html class="no-js" lang="">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="x-ua-compatible" content="ie=edge">
+        <title>labelmed documentation</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="icon" type="image/x-icon" href="./images/favicon.ico">
+	   <link rel="stylesheet" href="./styles/style.css">
+        <link rel="stylesheet" href="./styles/dark.css">
+    </head>
+    <body>
+          <script>
+               // Blocking script to avoid flickering dark mode
+               // Dark mode toggle button
+               var useDark = window.matchMedia('(prefers-color-scheme: dark)');
+               var darkModeState = useDark.matches;
+               var $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               var $darkModeToggles = document.querySelectorAll('.dark-mode-switch');
+               var darkModeStateLocal = localStorage.getItem('compodoc_darkmode-state');
+
+               function checkToggle(check) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].checked = check;
+                    }
+               }
+
+               function toggleDarkMode(state) {
+                    if (window.localStorage) {
+                         localStorage.setItem('compodoc_darkmode-state', state);
+                    }
+
+                    checkToggle(state);
+
+                    const hasClass = document.body.classList.contains('dark');
+
+                    if (state) {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.add('dark');
+                         }
+                         if (!hasClass) {
+                              document.body.classList.add('dark');
+                         }
+                    } else {
+                         for (var i = 0; i < $darkModeToggles.length; i++) {
+                              $darkModeToggles[i].classList.remove('dark');
+                         }
+                         if (hasClass) {
+                              document.body.classList.remove('dark');
+                         }
+                    }
+               }
+
+               useDark.addEventListener('change', function (evt) {
+                    toggleDarkMode(evt.matches);
+               });
+               if (darkModeStateLocal) {
+                    darkModeState = darkModeStateLocal === 'true';
+               }
+               toggleDarkMode(darkModeState);
+          </script>
+
+        <div class="navbar navbar-default navbar-fixed-top d-md-none p-0">
+               <div class="d-flex">
+                    <a href="./" class="navbar-brand">labelmed documentation</a>
+                    <button type="button" class="btn btn-default btn-menu ion-ios-menu" id="btn-menu"></button>
+               </div>
+        </div>
+
+        <div class="xs-menu menu" id="mobile-menu">
+                <div id="book-search-input" role="search"><input type="text" placeholder="Type to search"></div>            <compodoc-menu></compodoc-menu>
+        </div>
+
+        <div class="container-fluid main">
+           <div class="row main">
+               <div class="d-none d-md-block menu">
+                   <compodoc-menu mode="normal"></compodoc-menu>
+               </div>
+               <!-- START CONTENT -->
+               <div class="content getting-started">
+                   <div class="content-data">
+
+<h1>LabelMed Client</h1>
+<p>A powerful medical image labeling application built with <a href="https://github.com/angular/angular-cli">Angular CLI</a> version 18.2.12 and <a href="https://v2.tauri.app/start/">Tauri V2</a>. LabelMed prioritizes privacy, speed, and ease of use for medical image annotation tasks.</p>
+<h2>Key Features</h2>
+<ul>
+<li><strong>Local Processing</strong>: All operations run locally, ensuring data privacy and security</li>
+<li><strong>Multi-task Classification</strong>: Support for multiple classification types<ul>
+<li>Multiclass classification</li>
+<li>Multilabel classification</li>
+</ul>
+</li>
+<li><strong>Flexible Configuration</strong>: Easy setup for input/output folders</li>
+<li><strong>Advanced Image Processing</strong>: Integrated OpenCV WASM for real-time image preprocessing</li>
+</ul>
+<h2>Prerequisites</h2>
+<ul>
+<li>Node.js and NPM</li>
+<li>Angular CLI</li>
+<li>Rust (for Tauri)</li>
+</ul>
+<h2>Development</h2>
+<ol>
+<li>Install dependencies:</li>
+</ol>
+<b>Example :</b><div><pre class="line-numbers"><code class="language-bash">npm install</code></pre></div><ol start="2">
+<li>Start development server:</li>
+</ol>
+<b>Example :</b><div><pre class="line-numbers"><code class="language-bash">npm run tauri dev</code></pre></div><h2>Building</h2>
+<p>Create production binaries:</p>
+<b>Example :</b><div><pre class="line-numbers"><code class="language-bash">npm run tauri build</code></pre></div><p>Executables will be generated in <code>src-tauri/target/release/</code></p>
+<h2>Architecture</h2>
+<p>LabelMed combines multiple technologies for optimal performance:</p>
+<ul>
+<li><strong>Frontend</strong>: Angular framework for responsive UI</li>
+<li><strong>Image Processing</strong>: OpenCV WASM for client-side image operations</li>
+<li><strong>Backend Services</strong>: <ul>
+<li>Tauri/Rust for application serving and native features</li>
+<li>MedSAM integration via ONNX Runtime</li>
+<li>ZeroMQ for Python library communication</li>
+</ul>
+</li>
+</ul>
+<h2>Technical Stack</h2>
+<ul>
+<li>Angular (Frontend Framework)</li>
+<li>Tauri V2 (Desktop Application Framework)</li>
+<li>Rust (Backend Processing)</li>
+<li>OpenCV WASM (Image Processing)</li>
+<li>ZeroMQ (Inter-process Communication)</li>
+<li>ONNX Runtime (ML Model Integration)</li>
+</ul>
+<h2>Communication with Python</h2>
+<p>LabelMed enables seamless integration with Python scripts through ZeroMQ:</p>
+<ul>
+<li><p><strong>Real-time Communication</strong>: Bidirectional data exchange between LabelMed and Python processes</p>
+</li>
+<li><p><strong>Custom Model Integration</strong>: </p>
+<ul>
+<li><p>Run your own ML models in Python</p>
+</li>
+<li><p>Send results directly to LabelMed for validation</p>
+</li>
+<li><p>Receive corrected annotations back in Python</p>
+</li>
+<li><p><strong>System Overview</strong>:
+  <img src="doc/images/intercoms.png" alt="Communication Overview" class="img-responsive"></p>
+</li>
+</ul>
+</li>
+<li><p><strong>Example Usage</strong>:</p>
+</li>
+</ul>
+<b>Example :</b><div><pre class="line-numbers"><code class="language-python">from pathlib import Path
+from pynotate import Project
+import numpy as np
+from fundus_lesions_toolkit.models.segmentation import segment as segment_lesions, Dataset
+from fundus_data_toolkit.functional import open_image
+
+from fundus_lesions_toolkit.constants import LESIONS
+from fundus_odmac_toolkit.models.segmentation import segment as segment_odmac
+from tqdm.notebook import tqdm
+
+segmentation_classes = [&#39;Lesions/&#39; + l for l in LESIONS[1:]] + [&#39;OD&#39;, &#39;MAC&#39;]
+
+classifications_classes = [{&#39;name&#39;: &#39;Diabetic Retinopathy&#39;, &#39;classes&#39;: [&#39;No DR&#39;, &#39;Mild&#39;, &#39;Moderate&#39;, &#39;Severe&#39;, &#39;Proliferative&#39;]}]
+classification_multilabel = {&#39;name&#39;: &#39;Others diseases&#39;, &#39;classes&#39;: [&#39;Hypertension&#39;, &#39;Glaucoma&#39;, &#39;Myopia&#39;, &#39;Other&#39;]}
+
+def run_model(filepath):
+    img = open_image(filepath)
+    lesions = segment_lesions(img, train_datasets=Dataset.IDRID).argmax(0).cpu().numpy()
+    od_mask = segment_odmac(img).argmax(0).cpu().numpy()
+    # Lesions
+    masks = [255*(lesions == i).astype(np.uint8) for i in range(1, 5)]
+    # OD and MAC
+    masks += [255*(od_mask==i) for i in range(1, 3)] 
+
+    # Random classification
+    multilabel = np.random.choice(classification_multilabel[&#39;classes&#39;], size=np.random.randint(0, len(classification_multilabel[&#39;classes&#39;]))).tolist()
+    multiclass = np.random.choice(classifications_classes[0][&#39;classes&#39;], size=1).tolist()
+    multilabel = None if len(multilabel) == 0 else multilabel
+    
+    return masks, multiclass, multilabel
+
+ALL_FILES = list(Path(ROOT_FOLDER).glob(&#39;*.jpeg&#39;))
+INPUT_DIR = &quot;inputFundus/&quot; # Folder where the images are stored. Can be the same as the root folder
+OUTPUT_DIR = &quot;output/&quot; # Folder where the annotations will be stored.
+
+with Project(project_name=&quot;FundusLesions&quot;, 
+             input_dir=str(Path(INPUT_DIR).resolve()),
+             output_dir=str(Path(OUTPUT_DIR).resolve()),
+             classification_classes=classifications_classes,
+             classification_multilabel=classification_multilabel,
+             segmentation_classes=segmentation_classes) as cli:
+    for filepath in tqdm(ALL_FILES):
+        masks, multiclass, multilabel = run_model(filepath)
+        cli.load_image(filepath, segmentation_masks=masks, multiclass_choices=multiclass, multilabel_choices=multilabel)
+
+</code></pre></div><p>For detailed Python integration examples, see our <a href="">Python SDK Documentation (under construction)</a>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                   </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div>
+</div>
+               <!-- END CONTENT -->
+           </div>
+       </div>
+
+          <label class="dark-mode-switch">
+               <input type="checkbox">
+               <span class="slider">
+                    <svg class="slider-icon" viewBox="0 0 24 24" fill="none" height="20" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" width="20" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+                    </svg>
+               </span>
+          </label>
+
+       <script>
+            var COMPODOC_CURRENT_PAGE_DEPTH = 0;
+            var COMPODOC_CURRENT_PAGE_CONTEXT = 'getting-started';
+            var COMPODOC_CURRENT_PAGE_URL = 'index.html';
+            var MAX_SEARCH_RESULTS = 15;
+       </script>
+
+       <script>
+               $darkModeToggleSwitchers = document.querySelectorAll('.dark-mode-switch input');
+               checkToggle(darkModeState);
+               if ($darkModeToggleSwitchers.length > 0) {
+                    for (var i = 0; i < $darkModeToggleSwitchers.length; i++) {
+                         $darkModeToggleSwitchers[i].addEventListener('change', function (event) {
+                              darkModeState = !darkModeState;
+                              toggleDarkMode(darkModeState);
+                         });
+                    }
+               }
+          </script>
+
+       <script src="./js/libs/custom-elements.min.js"></script>
+       <script src="./js/libs/lit-html.js"></script>
+
+       <script src="./js/menu-wc.js" defer></script>
+       <script nomodule src="./js/menu-wc_es5.js" defer></script>
+
+       <script src="./js/libs/bootstrap-native.js"></script>
+
+       <script src="./js/libs/es6-shim.min.js"></script>
+       <script src="./js/libs/EventDispatcher.js"></script>
+       <script src="./js/libs/promise.min.js"></script>
+
+       <script src="./js/compodoc.js"></script>
+
+       <script src="./js/tabs.js"></script>
+       <script src="./js/menu.js"></script>
+       <script src="./js/libs/clipboard.min.js"></script>
+       <script src="./js/libs/prism.js"></script>
+       <script src="./js/sourceCode.js"></script>
+          <script src="./js/search/search.js"></script>
+          <script src="./js/search/lunr.min.js"></script>
+          <script src="./js/search/search-lunr.js"></script>
+          <script src="./js/search/search_index.js"></script>
+       <script src="./js/lazy-load-graphs.js"></script>
+
+
+    </body>
+</html>
