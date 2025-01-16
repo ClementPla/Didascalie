@@ -67,6 +67,9 @@ LabelMed enables seamless integration with Python scripts through ZeroMQ:
     - Send results directly to LabelMed for validation
     - Receive corrected annotations back in Python
 
+    - **System Overview**:
+        ![Communication Overview](doc/images/intercoms.png)
+
 - **Example Usage**:
 
 ```python

@@ -30,7 +30,7 @@ export class OpenCVService {
 
         // Apply morphological gradient
     
-        this.M = cv.Mat.ones(5, 5, cv.CV_8U);
+        this.M = cv.Mat.ones(3, 3, cv.CV_8U);
     
       }
     });
