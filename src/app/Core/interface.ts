@@ -17,6 +17,10 @@ export interface BboxLabel {
   instance: number;
 }
 
+export interface TextLabel {
+  name: string;
+  text: string;
+}
 export interface Thumbnail {
   name: Promise<string>;
   thumbnailPath: Promise<string>;
@@ -66,9 +70,11 @@ export interface ProjectConfig {
   is_classification: boolean;
   is_instance_segmentation: boolean;
   is_bbox_detection: boolean;
+  has_text_description: boolean;
   segmentation_classes: null | string[];
   classification_classes: null | MulticlassInterface[];
   classification_multilabel: null | MultilabelInterface;
+  text_names: null | string[];
 }
 
 export interface ImageFromCLI {
@@ -77,11 +83,24 @@ export interface ImageFromCLI {
   segmentation_classes: string[] | null;
   classification_classes: string[] | null;
   classification_multilabel: string[] | null;
+  texts: string[] | null;
 }
 
 
-export interface ProjectFile{
+export interface ProjectFile {
   root: string;
   project_name: string;
 }
 
+
+export interface LabelFormat {
+  masksName: string[];
+  masks: (Blob | string)[]; // Saved as Blob, loaded as string
+  labels: string[];
+  colors: string[];
+  shades: string[][] | null;
+  multiclass: string[] | null;
+  multilabel: string[] | null;
+  textsNames: string[];
+  texts: string[] | null;
+}

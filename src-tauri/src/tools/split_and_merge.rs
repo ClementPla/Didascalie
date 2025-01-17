@@ -1,4 +1,4 @@
-use image::{ DynamicImage, GrayImage };
+use image::GrayImage;
 use ndarray::Array3;
 
 #[derive(Debug)]

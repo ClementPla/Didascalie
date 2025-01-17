@@ -1,0 +1,135 @@
+<div class="flex flex-row items-stretch justify-around my-14">
+  <div class="flex flex-col gap-8 items-stretch">
+    <p-panel header="Load recent" class="flex flex-col items-stretch"
+      *ngIf="projectService.localStoragesProjectsFilepaths.length > 0">
+      <p-table [value]="projectService.localStoragesProjectsFilepaths">
+        <ng-template #header>
+          <tr>
+            <th>Project Name</th>
+            <th>Filepath</th>
+            <th>Remove from history</th>
+          </tr>
+        </ng-template>
+        <ng-template #body let-rows>
+          <tr class="table-row">
+            <td (click)="loadProjectFromFilepath(rows.root)">{{ rows.project_name }}</td>
+            <td (click)="loadProjectFromFilepath(rows.root)">{{ rows.root }}</td>
+            <td>
+              <p-button icon="pi pi-times" [rounded]="true" [text]="true" severity="danger"
+                (click)="removeProjectFromFilepath(rows.root)" />
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-panel>
+
+    <p-panel header="Project Configuration" class="flex flex-col items-stretch">
+      <div class="flex flex-col items-stretch">
+        <p-button class="m-auto" (click)="findAndLoadProjectFile()">Load from disk</p-button>
+        <p-divider align="left" type="solid"><b>Configure project</b></p-divider>
+        <div class="flex flex-col flex-column gap-8 items-center">
+          <p-floatLabel>
+            <input pInputText [ngClass]="{ 'ng-invalid ng-dirty': !isNameValid }" id="projectName"
+              aria-describedby="projectName-help" [(ngModel)]="projectService.projectName" />
+            <label for="projectName">Project name</label>
+          </p-floatLabel>
+          <div class="flex gap-16 items-center">
+            <app-labelled-switch [(checked)]="projectService.isClassification">Classification</app-labelled-switch>
+            <app-labelled-switch [(checked)]="projectService.isSegmentation">Segmentation</app-labelled-switch>
+            <app-labelled-switch [(checked)]="projectService.isInstanceSegmentation">Instance
+              segmentation</app-labelled-switch>
+            <app-labelled-switch [(checked)]="projectService.isBoundingBoxDetection">Bounding box</app-labelled-switch>
+
+            <app-labelled-switch [(checked)]="projectService.hasTextDescription">Text
+              description</app-labelled-switch>
+          </div>
+        </div>
+        <p-fieldset *ngIf="projectService.isClassification" legend="Classification configuration" [toggleable]="true"
+          [collapsed]="true">
+          <app-classification-configuration></app-classification-configuration>
+        </p-fieldset>
+
+        <p-fieldset *ngIf="
+          projectService.isSegmentation ||
+          projectService.isInstanceSegmentation || projectService.isBoundingBoxDetection
+        " legend="Pixel-level configuration" [toggleable]="true" [collapsed]="true">
+          <app-pixels-configuration></app-pixels-configuration>
+        </p-fieldset>
+
+        <p-fieldset *ngIf="projectService.hasTextDescription" legend="Text description" [toggleable]="true"
+          [collapsed]="true">
+
+          <app-text-configuration></app-text-configuration>
+
+        </p-fieldset>
+
+      </div>
+    </p-panel>
+  </div>
+
+  <p-panel header="Input/Output" class="flex flex-col items-stretch">
+    <div>
+      <p-fieldset legend="Input" [toggleable]="true">
+        <div class="flex gap-24 items-center justify-center">
+          <div class="flex flex-col gap-4 items-center">
+            <p-floatLabel>
+              <input pInputText id="inputPath" aria-describedby="inputPath-help"
+                [(ngModel)]="projectService.inputFolder" [ngClass]="{ 'ng-invalid ng-dirty': !isInputValid }" />
+              <label for="inputPath">Input path</label>
+            </p-floatLabel>
+
+            <p-button (click)="openInputFolder()">Choose folder</p-button>
+            <small id="inputPath-help">
+              Enter the path manually or open the explorer.
+            </small>
+          </div>
+          <div class="flex flex-col gap-4 items-center">
+            <div class="flex flex-col">
+              <p-inputSwitch id="recursiveLoad" ariaLabelledBy="recursiveLoad" [(ngModel)]="projectService.recursive" />
+              <small>
+                <label for="recursiveLoad" id="recursiveLoad">Recursive loading</label>
+              </small>
+            </div>
+            <p-floatLabel>
+              <input pInputText id="fileExtension" aria-describedby="fileExtension-help"
+                [(ngModel)]="projectService.inputRegex" />
+              <label for="fileExtension">regex</label>
+            </p-floatLabel>
+          </div>
+        </div>
+      </p-fieldset>
+
+      <p-fieldset legend="Output" [toggleable]="true" [collapsed]="false">
+        <div class="flex flex-col gap-2 items-center">
+          <p-floatLabel>
+            <input pInputText id="outputPath" aria-describedby="outputPath-help"
+              [(ngModel)]="projectService.outputFolder" [ngClass]="{ 'ng-invalid ng-dirty': !isOutputValid }" />
+            <label for="outputPath">Output path</label>
+          </p-floatLabel>
+
+          <p-button (click)="openOutputFolder()">Choose folder</p-button>
+          <small id="outputPath-help">
+            Enter the path manually or open the explorer.
+          </small>
+        </div>
+      </p-fieldset>
+    </div>
+  </p-panel>
+
+  <p-panel header="Advanced settings" class="flex flex-col items-stretch">
+    <div>
+      <p-fieldset legend="Advanced options" [toggleable]="true" [collapsed]="true">
+        <div class="flex flex-col gap-2 items-center">
+          <p-inputSwitch id="generateThumbnails" ariaLabelledBy="generateThumbnails" [(ngModel)]="generateThumbnails" />
+          <small>
+            <label for="generateThumbnails" id="generateThumbnails">Create thumbnails</label>
+          </small>
+        </div>
+      </p-fieldset>
+    </div>
+  </p-panel>
+</div>
+
+<p-button class="flex justify-center" (click)="startProject()">
+  <b>Start</b>
+</p-button>

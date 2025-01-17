@@ -7,8 +7,6 @@ use image::{ImageBuffer, Rgba};
 use image::{GenericImageView, DynamicImage};
 use ndarray::{Array2, Array3, ArrayView3};
 
-use serde::Deserialize;
-
 use tauri::ipc::Response;
 
 
@@ -47,10 +45,6 @@ pub fn load_image_as_base64(filepath: String) -> Result<Response, String> {
     Ok(Response::new(buffer.into_inner()))
 }
 
-
-fn join_path(root_folder: &str, filename: &str) -> PathBuf {
-    Path::new(root_folder).join(Path::new(filename))
-}
 
 fn generate_thumbnail(
     image_path: &PathBuf,

@@ -6,14 +6,14 @@ import { ViewService } from '../UI/view.service';
 import { path } from '@tauri-apps/api';
 import { ProjectConfig, ProjectFile, SegLabel, Thumbnail } from '../../Core/interface';
 
-import { loadImageFile } from '../../Core/io/images';
+import { loadImageFile } from '../../Core/save_load';
 import { LabelsService } from './labels.service';
 import { getDefaultColor } from '../../Core/misc/colors';
 import { MulticlassTask, MultilabelTask } from '../../Core/task';
 import {
   invokeLoadJsonFile,
   saveProjectConfigFile,
-} from '../../Core/io/save_load';
+} from '../../Core/save_load';
 
 @Injectable({
   providedIn: 'root',
@@ -23,6 +23,7 @@ export class ProjectService {
   isSegmentation: boolean = false;
   isInstanceSegmentation: boolean = false;
   isBoundingBoxDetection: boolean = false;
+  hasTextDescription: boolean = false;
 
   inputRegex: string = environment.defaultRegex;
   recursive: boolean = true;
@@ -88,6 +89,9 @@ export class ProjectService {
           default: this.labelService.multiLabelTask.choices,
         }
         : null,
+      has_text_description: this.hasTextDescription,
+      text_names: this.labelService.listTextLabels.map((label) => label.name),
+
     };
 
     saveProjectConfigFile(this.projectFolder, projectConfig);

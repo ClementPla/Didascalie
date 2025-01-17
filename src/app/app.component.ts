@@ -7,7 +7,7 @@ import {
 import { ToolbarModule } from 'primeng/toolbar';
 
 import { ViewService } from './Services/UI/view.service';
-import { LoadingComponent } from './Components/Interface/loading/loading.component';
+import { LoadingComponent } from './Components/pages/loading/loading.component';
 import { RouterOutlet } from '@angular/router';
 import { NgIf } from '@angular/common';
 import { ProjectService } from './Services/Project/project.service';
@@ -18,7 +18,7 @@ import { LabelsService } from './Services/Project/labels.service';
 import { EditorService } from './Services/UI/editor.service';
 import { path } from '@tauri-apps/api';
 import { CLIService } from './Services/cli.service';
-import { IOService } from './Services/io.service';
+import { IOService } from './Services/Project/io.service';
 import { ImageFromCLI } from './Core/interface';
 import { PostProcessOption } from './Core/tools';
 import { PrimeNG } from 'primeng/config';

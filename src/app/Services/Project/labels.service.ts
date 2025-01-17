@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { SegInstance, SegLabel } from '../../Core/interface';
+import { SegInstance, SegLabel, TextLabel } from '../../Core/interface';
 import { constructLabelTreeNode } from './labelTreeNode';
 import { TreeNode } from 'primeng/api';
 import { MulticlassTask, MultilabelTask } from '../../Core/task';
@@ -11,6 +11,8 @@ export class LabelsService {
 
   listClassificationTasks: MulticlassTask[] = [];
 
+  listTextLabels: TextLabel[] = [];
+
   multiLabelTask: MultilabelTask | null = null;
 
   private _treeNode: TreeNode[] | null = null;
@@ -19,11 +21,9 @@ export class LabelsService {
   activeSegInstance: SegInstance | null = null;
   showAllLabels: boolean = true;
 
-  constructor() {}
+  constructor() { }
 
   addClassificationTask(task: MulticlassTask) {
-    // Check if task already exists
-
     if (
       this.listClassificationTasks.find((t) => t.taskName === task.taskName)
     ) {
@@ -34,10 +34,7 @@ export class LabelsService {
   }
 
   addMultilabelTask(task: MultilabelTask) {
-    // Check if task already exists
-
     if (this.multiLabelTask) {
-      // Merge the labels
       task.taskLabels.forEach((label) => {
         if (!this.multiLabelTask!.taskLabels.find((l) => l === label)) {
           this.multiLabelTask!.taskLabels.push(label);
@@ -66,7 +63,6 @@ export class LabelsService {
 
   addSegLabel(label: SegLabel) {
     // Only add label if it does not already exist in the list
-
     if (this.listSegmentationLabels.find((l) => l.label === label.label)) {
       return;
     }

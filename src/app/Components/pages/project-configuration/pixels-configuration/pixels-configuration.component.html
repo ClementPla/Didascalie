@@ -1,0 +1,15 @@
+<div class="flex flex-col gap-4 items-center">
+    <div *ngFor="
+          let label of labelService.listSegmentationLabels;
+          let i = index
+        " class="flex flex-row gap-4 items-center">
+        <label [for]="label.label">Class {{ i }}:</label>
+        <input pInputText [id]="label.label" aria-describedby="inputPath-help" [(ngModel)]="label.label" />
+
+        <div #colorPicker class="aspect-auto w-12"></div>
+        <p-colorPicker [(ngModel)]="label.color" [appendTo]="colorPicker" />
+        <p-button icon="pi pi-times" [rounded]="true" [text]="true" severity="danger"
+            (onClick)="deleteSegmentationClass(label)"></p-button>
+    </div>
+    <p-button class="flex items-center" label="Add class" (click)="addSegmentationClass()"></p-button>
+</div>

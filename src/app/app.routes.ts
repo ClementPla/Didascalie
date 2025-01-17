@@ -1,8 +1,8 @@
 import { Routes } from '@angular/router';
-import { ProjectConfigurationComponent } from './Components/Interface/project-configuration/project-configuration.component';
-import { GalleryComponent } from './Components/Interface/gallery/gallery.component';
+import { ProjectConfigurationComponent } from './Components/pages/project-configuration/project-configuration.component';
+import { GalleryComponent } from './Components/pages/gallery/gallery.component';
 import { projectStartedGuard } from './Guards/project-started.guard';
-import { EditorComponent } from './Components/Interface/editor/editor.component';
+import { EditorComponent } from './Components/pages/editor/editor.component';
 
 export const routes: Routes = [
   {
