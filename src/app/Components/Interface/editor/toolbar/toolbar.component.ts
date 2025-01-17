@@ -2,17 +2,15 @@ import { AfterViewInit, ChangeDetectorRef, Component } from '@angular/core';
 import { ToolbarModule } from 'primeng/toolbar';
 import { ButtonModule } from 'primeng/button';
 import { SelectButtonModule } from 'primeng/selectbutton';
-import { Tools } from '../../../../Core/canvases/tools';
+import { Tools } from '../../../../Core/tools';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EditorService } from '../../../../Services/UI/editor.service';
 import { SliderModule } from 'primeng/slider';
 import { InputSwitchModule } from 'primeng/inputswitch';
-import { LabelledSwitchComponent } from '../../../Core/labelled-switch/labelled-switch.component';
 import { BlockUIModule } from 'primeng/blockui';
 import { PanelModule } from 'primeng/panel';
-import { BlockableP } from '../../../Core/Blockable/p/p.component';
-import { BlockableDiv } from "../../../Core/Blockable/div/div.component";
+import { GenericsModule } from '../../../../generics/generics.module';
 
 @Component({
   selector: 'app-toolbar',
@@ -27,9 +25,7 @@ import { BlockableDiv } from "../../../Core/Blockable/div/div.component";
     FormsModule,
     SliderModule,
     InputSwitchModule,
-    BlockableP,
-    LabelledSwitchComponent,
-    BlockableDiv
+    GenericsModule,
 ],
   templateUrl: './toolbar.component.html',
   styleUrl: './toolbar.component.scss',

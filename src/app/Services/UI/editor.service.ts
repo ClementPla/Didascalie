@@ -1,6 +1,6 @@
 import { Subject } from 'rxjs';
 import { Injectable } from '@angular/core';
-import { Tool, Tools } from '../../Core/canvases/tools';
+import { Tool, Tools } from '../../Core/tools';
 
 @Injectable({
   providedIn: 'root'

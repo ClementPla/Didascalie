@@ -422,8 +422,8 @@
 
                     <tr>
                         <td class="col-md-4">
-                            <div class="io-line">Defined in <a href="" data-line="74"
-                                    class="link-to-prism">src/app/app.component.ts:74</a></div>
+                            <div class="io-line">Defined in <a href="" data-line="79"
+                                    class="link-to-prism">src/app/app.component.ts:79</a></div>
                         </td>
                     </tr>
 
@@ -461,8 +461,8 @@
 
                     <tr>
                         <td class="col-md-4">
-                            <div class="io-line">Defined in <a href="" data-line="98"
-                                    class="link-to-prism">src/app/app.component.ts:98</a></div>
+                            <div class="io-line">Defined in <a href="" data-line="103"
+                                    class="link-to-prism">src/app/app.component.ts:103</a></div>
                         </td>
                     </tr>
 
@@ -498,8 +498,8 @@
 
                     <tr>
                         <td class="col-md-4">
-                            <div class="io-line">Defined in <a href="" data-line="156"
-                                    class="link-to-prism">src/app/app.component.ts:156</a></div>
+                            <div class="io-line">Defined in <a href="" data-line="161"
+                                    class="link-to-prism">src/app/app.component.ts:161</a></div>
                         </td>
                     </tr>
 
@@ -537,8 +537,8 @@
 
                     <tr>
                         <td class="col-md-4">
-                            <div class="io-line">Defined in <a href="" data-line="140"
-                                    class="link-to-prism">src/app/app.component.ts:140</a></div>
+                            <div class="io-line">Defined in <a href="" data-line="145"
+                                    class="link-to-prism">src/app/app.component.ts:145</a></div>
                         </td>
                     </tr>
 
@@ -604,8 +604,8 @@
 
                     <tr>
                         <td class="col-md-4">
-                            <div class="io-line">Defined in <a href="" data-line="94"
-                                    class="link-to-prism">src/app/app.component.ts:94</a></div>
+                            <div class="io-line">Defined in <a href="" data-line="99"
+                                    class="link-to-prism">src/app/app.component.ts:99</a></div>
                         </td>
                     </tr>
 
@@ -767,7 +767,7 @@ import { path } from &#x27;@tauri-apps/api&#x27;;
 import { CLIService } from &#x27;./Services/cli.service&#x27;;
 import { IOService } from &#x27;./Services/io.service&#x27;;
 import { ImageFromCLI } from &#x27;./Core/interface&#x27;;
-import { PostProcessOption } from &#x27;./Core/canvases/tools&#x27;;
+import { PostProcessOption } from &#x27;./Core/tools&#x27;;
 import { PrimeNG } from &#x27;primeng/config&#x27;;
 import Aura from &#x27;@primeng/themes/aura&#x27;;
 import Material from &#x27;@primeng/themes/material&#x27;;
@@ -806,7 +806,7 @@ export class AppComponent implements AfterViewInit {
     private primeNG: PrimeNG
   ) {
     this.primeNG.theme.set({
-      preset: Nora,
+      preset: Aura,
       options: {
         darkModeSelector: &#x27;.darkTheme&#x27;,
         cssLayer: {
@@ -817,7 +817,12 @@ export class AppComponent implements AfterViewInit {
     });
     this.createCLISubscription();
   }
-
+  /*
+  * Create the subscriptions to CLI events.
+  * The chain of calls is as followed: Tauri (via ZMQ.REP) listens to the localhost port. 
+  * If a message is received, an event is sent to the application. Event is then processed by the CLI service.
+  * The CLI service calls a Subject.next() to emit the payload to the application.
+  */
   createCLISubscription() {
     // Not sure if this is the right way to do or even needed
     this.cli.commandProcessed.subscribe((value) &#x3D;&gt; {

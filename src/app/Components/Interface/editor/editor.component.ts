@@ -15,7 +15,7 @@ import { ProjectService } from '../../../Services/Project/project.service';
 import { NgIf } from '@angular/common';
 import { HostListener } from '@angular/core';
 import { EditorService } from '../../../Services/UI/editor.service';
-import { Tools } from '../../../Core/canvases/tools';
+import { Tools } from '../../../Core/tools';
 import { ToolSettingComponent } from './tool-setting/tool-setting.component';
 import { LabelsService } from '../../../Services/Project/labels.service';
 import { PanelModule } from 'primeng/panel';
@@ -23,7 +23,6 @@ import { ButtonModule } from 'primeng/button';
 import { IOService } from '../../../Services/io.service';
 import { Subscription } from 'rxjs';
 import { DrawService } from '../../Core/drawable-canvas/service/draw.service';
-import { CanvasManagerService } from '../../Core/drawable-canvas/service/canvas-manager.service';
 import { StateManagerService } from '../../Core/drawable-canvas/service/state-manager.service';
 
 @Component({

@@ -3,8 +3,6 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
-  EventEmitter,
-  HostListener,
   ViewChild,
 } from '@angular/core';
 
@@ -25,6 +23,15 @@ import { StateManagerService } from '../service/state-manager.service';
 import { DrawService } from '../service/draw.service';
 import { UndoRedoService } from '../service/undo-redo.service';
 import { PostProcessService } from '../service/post-process.service';
+
+/**
+ * 
+ * DrawableCanvasComponent is a component that allows the user to draw on a canvas.
+ * It is tightly coupled with the EditorService, ViewService, LabelsService, ImageProcessingService, OpenCVService, ProjectService, ZoomPanService, CanvasManagerService, StateManagerService, DrawService, UndoRedoService, and PostProcessService.
+ * Refactoring idea: create an NgModule containing the ImageProcessingService, ZoomPanService, CanvasManagerService, StateManagerService, DrawService, UndoRedoService, and PostProcessService, and import it in the DrawableCanvasComponent.
+ * 
+ */
+
 
 @Component({
   selector: 'app-drawable-canvas',

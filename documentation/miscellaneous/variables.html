@@ -124,25 +124,16 @@
                             <a href="#environment" title="src/environments/environment.ts" ><b>environment</b>&nbsp;&nbsp;&nbsp;(src/.../environment.ts)</a>
                         </li>
                         <li>
-                            <a href="#HexPattern" title="src/app/Core/canvases/stampmaker.ts" ><b>HexPattern</b>&nbsp;&nbsp;&nbsp;(src/.../stampmaker.ts)</a>
-                        </li>
-                        <li>
                             <a href="#openCVConfig" title="src/main.ts" ><b>openCVConfig</b>&nbsp;&nbsp;&nbsp;(src/.../main.ts)</a>
                         </li>
                         <li>
                             <a href="#openCVConfig" title="src/app/app.config.ts" ><b>openCVConfig</b>&nbsp;&nbsp;&nbsp;(src/.../app.config.ts)</a>
                         </li>
                         <li>
-                            <a href="#postProcessingOptions" title="src/app/Core/canvases/tools.ts" ><b>postProcessingOptions</b>&nbsp;&nbsp;&nbsp;(src/.../tools.ts)</a>
+                            <a href="#postProcessingOptions" title="src/app/Core/tools.ts" ><b>postProcessingOptions</b>&nbsp;&nbsp;&nbsp;(src/.../tools.ts)</a>
                         </li>
                         <li>
                             <a href="#projectStartedGuard" title="src/app/Guards/project-started.guard.ts" ><b>projectStartedGuard</b>&nbsp;&nbsp;&nbsp;(src/.../project-started.guard.ts)</a>
-                        </li>
-                        <li>
-                            <a href="#RGBPattern" title="src/app/Core/canvases/stampmaker.ts" ><b>RGBPattern</b>&nbsp;&nbsp;&nbsp;(src/.../stampmaker.ts)</a>
-                        </li>
-                        <li>
-                            <a href="#stampMaker" title="src/app/Core/canvases/bresenham.ts" ><b>stampMaker</b>&nbsp;&nbsp;&nbsp;(src/.../bresenham.ts)</a>
                         </li>
                         <li>
                             <a href="#UndoRedo" title="src/app/Core/misc/undoRedo.ts" ><b>UndoRedo</b>&nbsp;&nbsp;&nbsp;(src/.../undoRedo.ts)</a>
@@ -176,7 +167,11 @@
                 <tr>
                     <td class="col-md-4">
                         <i>Default value : </i><code>{
-  providers: [provideRouter(routes), provideAnimationsAsync(), importProvidersFrom(NgxOpenCVModule.forRoot(openCVConfig))],
+  providers: [
+    provideRouter(routes),
+    provideAnimationsAsync(),
+    importProvidersFrom(NgxOpenCVModule.forRoot(openCVConfig)),
+  ],
 }</code>
                     </td>
                 </tr>
@@ -305,49 +300,6 @@
         </tbody>
     </table>
 </section>
-    <h3>src/app/Core/canvases/stampmaker.ts</h3>
-    <section data-compodoc="block-properties">
-    <h3></h3>    <table class="table table-sm table-bordered">
-        <tbody>
-            <tr>
-                <td class="col-md-4">
-                    <a name="HexPattern"></a>
-                    <span class="name">
-                        <span ><b>HexPattern</b></span>
-                        <a href="#HexPattern"><span class="icon ion-ios-link"></span></a>
-                    </span>
-                </td>
-            </tr>
-                <tr>
-                    <td class="col-md-4">
-                        <i>Default value : </i><code>/^#?[0-9A-Fa-f]{1,2}[0-9A-Fa-f]{1,2}[0-9A-Fa-f]{1,2}$/</code>
-                    </td>
-                </tr>
-
-
-        </tbody>
-    </table>
-    <table class="table table-sm table-bordered">
-        <tbody>
-            <tr>
-                <td class="col-md-4">
-                    <a name="RGBPattern"></a>
-                    <span class="name">
-                        <span ><b>RGBPattern</b></span>
-                        <a href="#RGBPattern"><span class="icon ion-ios-link"></span></a>
-                    </span>
-                </td>
-            </tr>
-                <tr>
-                    <td class="col-md-4">
-                        <i>Default value : </i><code>/^rgb\((\s+)?[0-9]{1,3},(\s+)?[0-9]{1,3},(\s+)?[0-9]{1,3}(\s+)?\)$/</code>
-                    </td>
-                </tr>
-
-
-        </tbody>
-    </table>
-</section>
     <h3>src/main.ts</h3>
     <section data-compodoc="block-properties">
     <h3></h3>    <table class="table table-sm table-bordered">
@@ -379,7 +331,7 @@
         </tbody>
     </table>
 </section>
-    <h3>src/app/Core/canvases/tools.ts</h3>
+    <h3>src/app/Core/tools.ts</h3>
     <section data-compodoc="block-properties">
     <h3></h3>    <table class="table table-sm table-bordered">
         <tbody>
@@ -440,29 +392,6 @@
   
   return projectService.isProjectStarted;
 }</code>
-                    </td>
-                </tr>
-
-
-        </tbody>
-    </table>
-</section>
-    <h3>src/app/Core/canvases/bresenham.ts</h3>
-    <section data-compodoc="block-properties">
-    <h3></h3>    <table class="table table-sm table-bordered">
-        <tbody>
-            <tr>
-                <td class="col-md-4">
-                    <a name="stampMaker"></a>
-                    <span class="name">
-                        <span ><b>stampMaker</b></span>
-                        <a href="#stampMaker"><span class="icon ion-ios-link"></span></a>
-                    </span>
-                </td>
-            </tr>
-                <tr>
-                    <td class="col-md-4">
-                        <i>Default value : </i><code>new StampMaker()</code>
                     </td>
                 </tr>
 

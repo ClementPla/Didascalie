@@ -130,9 +130,6 @@ customElements.define('compodoc-menu', class extends HTMLElement {
                                 <a href="classes/MultilabelTask.html" data-type="entity-link" >MultilabelTask</a>
                             </li>
                             <li class="link">
-                                <a href="classes/StampMaker.html" data-type="entity-link" >StampMaker</a>
-                            </li>
-                            <li class="link">
                                 <a href="classes/Tool.html" data-type="entity-link" >Tool</a>
                             </li>
                             <li class="link">
@@ -211,9 +208,6 @@ customElements.define('compodoc-menu', class extends HTMLElement {
                         <ul class="links collapse " ${ isNormalMode ? ' id="interfaces-links"' : 'id="xs-interfaces-links"' }>
                             <li class="link">
                                 <a href="interfaces/BboxLabel.html" data-type="entity-link" >BboxLabel</a>
-                            </li>
-                            <li class="link">
-                                <a href="interfaces/Color.html" data-type="entity-link" >Color</a>
                             </li>
                             <li class="link">
                                 <a href="interfaces/EventPayload.html" data-type="entity-link" >EventPayload</a>

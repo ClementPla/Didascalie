@@ -20,7 +20,7 @@ import { path } from '@tauri-apps/api';
 import { CLIService } from './Services/cli.service';
 import { IOService } from './Services/io.service';
 import { ImageFromCLI } from './Core/interface';
-import { PostProcessOption } from './Core/canvases/tools';
+import { PostProcessOption } from './Core/tools';
 import { PrimeNG } from 'primeng/config';
 import Aura from '@primeng/themes/aura';
 import Material from '@primeng/themes/material';
@@ -59,7 +59,7 @@ export class AppComponent implements AfterViewInit {
     private primeNG: PrimeNG
   ) {
     this.primeNG.theme.set({
-      preset: Nora,
+      preset: Aura,
       options: {
         darkModeSelector: '.darkTheme',
         cssLayer: {
@@ -70,7 +70,12 @@ export class AppComponent implements AfterViewInit {
     });
     this.createCLISubscription();
   }
-
+  /*
+  * Create the subscriptions to CLI events.
+  * The chain of calls is as followed: Tauri (via ZMQ.REP) listens to the localhost port. 
+  * If a message is received, an event is sent to the application. Event is then processed by the CLI service.
+  * The CLI service calls a Subject.next() to emit the payload to the application.
+  */
   createCLISubscription() {
     // Not sure if this is the right way to do or even needed
     this.cli.commandProcessed.subscribe((value) => {

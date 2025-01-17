@@ -45,3 +45,14 @@ parking_lot = "0.12.3"
 tracing-subscriber = { version = "0.3.19", features = [ "env-filter", "fmt" ] }
 bitvec = "1.0.1"
 skeletonize = "0.2.0"
+
+[profile.dev]
+incremental = true # Compile your binary in smaller steps.
+
+
+[profile.release]
+codegen-units = 1 # Allows LLVM to perform better optimization.
+lto = true # Enables link-time-optimizations.
+opt-level = 3 # Prioritizes speed over binary size. Use `z` if you prefer smaller binary or `s` for in between.
+panic = "abort" # Higher performance by disabling panic handlers.
+strip = true # Ensures debug symbols are removed.

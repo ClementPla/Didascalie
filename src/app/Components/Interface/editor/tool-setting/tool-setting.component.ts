@@ -5,14 +5,15 @@ import { InputSwitchModule } from 'primeng/inputswitch';
 import { EditorService } from '../../../../Services/UI/editor.service';
 import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
-import { LabelledSwitchComponent } from '../../../Core/labelled-switch/labelled-switch.component';
 import { FieldsetModule } from 'primeng/fieldset';
 import { SliderModule } from 'primeng/slider';
 import { ProjectService } from '../../../../Services/Project/project.service';
 import { ImageProcessingService } from '../../../Core/drawable-canvas/service/image-processing.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
-import { PostProcessOption } from '../../../../Core/canvases/tools';
-import { postProcessingOptions } from '../../../../Core/canvases/tools';
+import { PostProcessOption } from '../../../../Core/tools';
+import { postProcessingOptions } from '../../../../Core/tools';
+import { GenericsModule } from '../../../../generics/generics.module';
+
 @Component({
   selector: 'app-tool-setting',
   standalone: true,
@@ -26,7 +27,7 @@ import { postProcessingOptions } from '../../../../Core/canvases/tools';
     SelectButtonModule,
     FormsModule,
     CardModule,
-    LabelledSwitchComponent,
+    GenericsModule,
     FieldsetModule,
   ],
   templateUrl: './tool-setting.component.html',

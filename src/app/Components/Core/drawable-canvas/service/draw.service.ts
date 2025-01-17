@@ -4,7 +4,7 @@ import { LabelsService } from '../../../../Services/Project/labels.service';
 import { OpenCVService } from '../../../../Services/open-cv.service';
 import { ProjectService } from '../../../../Services/Project/project.service';
 import { ZoomPanService } from './zoom-pan.service';
-import { Tools } from '../../../../Core/canvases/tools';
+import { Tools } from '../../../../Core/tools';
 import { EditorService } from '../../../../Services/UI/editor.service';
 import { StateManagerService } from './state-manager.service';
 import { Subject } from 'rxjs';
@@ -12,7 +12,7 @@ import { CanvasManagerService } from './canvas-manager.service';
 import { UndoRedoService } from './undo-redo.service';
 import { PostProcessService } from './post-process.service';
 import { SVGUIService } from './svgui.service';
-import { PostProcessOption } from '../../../../Core/canvases/tools';
+import { PostProcessOption } from '../../../../Core/tools';
 
 @Injectable({
   providedIn: 'root',

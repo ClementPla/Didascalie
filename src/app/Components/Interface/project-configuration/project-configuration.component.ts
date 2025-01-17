@@ -13,7 +13,6 @@ import { ButtonModule } from 'primeng/button';
 import { environment } from '../../../../environments/environment';
 import { ProjectService } from '../../../Services/Project/project.service';
 import { LabelsService } from '../../../Services/Project/labels.service';
-import { LabelledSwitchComponent } from '../../Core/labelled-switch/labelled-switch.component';
 import { getDefaultColor } from '../../../Core/misc/colors';
 import { ColorPickerModule } from 'primeng/colorpicker';
 import { CheckboxModule } from 'primeng/checkbox';
@@ -23,6 +22,7 @@ import { ClassificationConfigurationComponent } from './classification-configura
 import { TableModule } from 'primeng/table';
 import { CommonModule } from '@angular/common';
 import { path } from '@tauri-apps/api';
+import { GenericsModule } from '../../../generics/generics.module';
 
 @Component({
   selector: 'app-project-configuration',
@@ -45,8 +45,8 @@ import { path } from '@tauri-apps/api';
     InputSwitchModule,
     InputTextModule,
     FieldsetModule,
-    LabelledSwitchComponent,
     ClassificationConfigurationComponent,
+    GenericsModule,
   ],
   templateUrl: './project-configuration.component.html',
   styleUrl: './project-configuration.component.scss',
