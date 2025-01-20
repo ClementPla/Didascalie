@@ -46,9 +46,11 @@ pub struct ProjectConfig {
     is_segmentation: bool,
     is_classification: bool,
     is_instance_segmentation: bool,
+    has_text_description: bool,
     segmentation_classes: Option<Vec<String>>,
     classification_classes: Option<Vec<MulticlassConfig>>,
     classification_multilabel: Option<MultilabelConfig>,
+    text_names: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -58,6 +60,7 @@ pub struct ImageConfig {
     segmentation_classes: Option<Vec<String>>,
     classification_classes: Option<Vec<String>>,
     classification_multilabel: Option<Vec<String>>,
+    texts: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

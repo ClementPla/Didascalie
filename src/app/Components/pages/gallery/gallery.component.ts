@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ProjectService } from '../../../Services/Project/project.service';
 import { CommonModule } from '@angular/common';
 import { GalleryElementComponent } from './gallery-element/gallery-element.component';
@@ -23,7 +23,7 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './gallery.component.html',
   styleUrl: './gallery.component.scss',
 })
-export class GalleryComponent implements OnInit {
+export class GalleryComponent implements OnInit, OnDestroy {
   refreshInterval: number = 3000;
   percentageBeforeRefresh: number = 0;
   intervalFunction: NodeJS.Timeout | undefined;
@@ -31,6 +31,12 @@ export class GalleryComponent implements OnInit {
 
   ngOnInit(): void {
     this.intervalFunction = this.getInterval();
+  }
+
+  ngOnDestroy(): void {
+    if (this.intervalFunction) {
+      clearInterval(this.intervalFunction);
+    }
   }
   async refresh() {
     this.percentageBeforeRefresh = 0;
@@ -45,7 +51,6 @@ export class GalleryComponent implements OnInit {
     let interval = 50;
     return setInterval(() => {
       this.percentageBeforeRefresh += 100 * (interval / this.refreshInterval);
-      console.log(this.percentageBeforeRefresh);
       if (this.percentageBeforeRefresh >= 100) {
         this.refresh();
         this.percentageBeforeRefresh = 0;

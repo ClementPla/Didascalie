@@ -132,6 +132,13 @@ export class IOService {
         this.labelService.multiLabelTask.choices = [];
       }
     }
+    if (this.labelService.listTextLabels.length > 0) {
+      if (data.texts && data.texts.length === this.labelService.listTextLabels.length) {
+        data.texts.forEach((text, index) => {
+          this.labelService.listTextLabels[index].text = text;
+        });
+      }
+    }
     if (this.labelService.listClassificationTasks.length > 0) {
       if (data.multiclass && data.multiclass.length === this.labelService.listClassificationTasks.length) {
 

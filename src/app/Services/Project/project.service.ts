@@ -201,6 +201,7 @@ export class ProjectService {
     this.isSegmentation = config.is_segmentation;
     this.isInstanceSegmentation = config.is_instance_segmentation;
     this.isBoundingBoxDetection = config.is_bbox_detection;
+    this.hasTextDescription = config.has_text_description
     this.projectName = config.project_name;
     this.inputFolder = config.input_dir;
     this.outputFolder = config.output_dir;
@@ -239,7 +240,11 @@ export class ProjectService {
         )
       );
     }
-
+    if (config.text_names) {
+      config.text_names.forEach((name) => {
+        this.labelService.addTextLabel({'name': name, "text": ""});
+      });
+    }
     this.labelService.rebuildTreeNodes();
     this.startProject();
   }

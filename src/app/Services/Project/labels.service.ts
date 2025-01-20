@@ -21,7 +21,7 @@ export class LabelsService {
   activeSegInstance: SegInstance | null = null;
   showAllLabels: boolean = true;
 
-  constructor() { }
+  constructor() {}
 
   addClassificationTask(task: MulticlassTask) {
     if (
@@ -72,6 +72,21 @@ export class LabelsService {
       this.activeLabel = label;
     }
   }
+
+  addTextLabel(label: TextLabel) {
+    if (this.listTextLabels.find((l) => l.name === label.name)) {
+      return;
+    }
+
+    this.listTextLabels.push(label);
+  }
+
+  removeTextLabel(label: TextLabel) {
+    this.listTextLabels = this.listTextLabels.filter(
+      (l) => l.name !== label.name
+    );
+  }
+  
   setActiveIndex(index: number) {
     if (index >= 0 && index < this.listSegmentationLabels.length) {
       this.activeLabel = this.listSegmentationLabels[index];

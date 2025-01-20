@@ -15,6 +15,7 @@ import { InstanceLabelComponent } from './instance-label/instance-label.componen
 import { ProjectService } from '../../../../Services/Project/project.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { DividerModule } from 'primeng/divider';
+import { TextareaModule } from 'primeng/textarea';
 
 @Component({
   selector: 'app-labels',
@@ -31,6 +32,7 @@ import { DividerModule } from 'primeng/divider';
     FieldsetModule,
     DividerModule,
     InstanceLabelComponent,
+    TextareaModule
   ],
   templateUrl: './labels.component.html',
   styleUrl: './labels.component.scss',

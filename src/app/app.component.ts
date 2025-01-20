@@ -148,8 +148,6 @@ export class AppComponent implements AfterViewInit {
     // i.e image_path = projectService.inputFolder / image_name
     // The idea is to get not just the filename, but the path relative to the input folder
     let image_name = image_path.split(this.projectService.inputFolder)[1];
-
-    console.log('Image name:', image_name);
     if (this.projectService.imagesName.includes(image_name)) {
     }
     else {
