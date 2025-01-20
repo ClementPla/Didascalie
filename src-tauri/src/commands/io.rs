@@ -1,7 +1,50 @@
 use tauri::command;
+use std;
+
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
+
+use regex::Regex;
+
+// This command will return the list of files in a folder that match a regex
+// It should implement the recursive search #TODO
+
+#[tauri::command]
+pub fn list_files_in_folder(folder: &str, regexfilter: &str, recursive: bool) -> Vec<String> {
+    let mut files = Vec::new();
+    if !std::path::Path::new(folder).exists() {
+        return files;
+    }
+    println!("Listing files in folder: {}", folder);
+    let paths = std::fs::read_dir(folder).unwrap();
+    match Regex::new(&format!(r"(?i){}", regexfilter)) {
+        Ok(re) => {
+            for path in paths {
+                let path = path.unwrap().path();
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+                if file_name.starts_with(".") {
+                    continue;
+                }
+                if path.is_file() && re.is_match(path.to_str().unwrap()) {
+                    files.push(path.display().to_string());
+                }
+                if path.is_dir() && recursive {
+                    files.append(
+                        list_files_in_folder(path.to_str().unwrap(), regexfilter, recursive)
+                            .as_mut(),
+                    );
+                }
+            }
+        }
+        Err(_) => {
+            // Return an empty list if the regex is invalid
+            return files;
+        }
+    }
+    files
+}
+
 
 #[command]
 pub fn save_xml_file(filepath: String, xml_content: String) -> Result<(), String> {
@@ -36,6 +79,8 @@ pub fn save_json_file(filepath: String, json_content: String) -> Result<(), Stri
             .map_err(|e| format!("Failed to create directory: {}", e))?;
     }
     
+    println!("Creating file: {:?}", path);
+
     // Open the file for writing
     let mut file = File::create(&path)
         .map_err(|e| format!("Failed to create file: {}", e))?;

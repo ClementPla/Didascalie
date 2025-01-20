@@ -104,20 +104,7 @@ export class ProjectConfigurationComponent implements OnInit {
     }
   }
 
-  addSegmentationClass() {
-    let color = getDefaultColor(
-      this.labelService.listSegmentationLabels.length + 1
-    );
-    this.labelService.addSegLabel({
-      label: 'Class ' + this.labelService.listSegmentationLabels.length,
-      color: color,
-      isVisible: true,
-      shades: null,
-    });
-  }
-  deleteSegmentationClass(segLabel: SegLabel) {
-    this.labelService.removeSegLabel(segLabel);
-  }
+
 
   async loadProjectFromFilepath(filepath: string) {
     filepath = await path.join(filepath, 'project_config.json')

@@ -61,6 +61,8 @@ pub struct ImageConfig {
     classification_classes: Option<Vec<String>>,
     classification_multilabel: Option<Vec<String>>,
     texts: Option<Vec<String>>,
+    width: u32,
+    height: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

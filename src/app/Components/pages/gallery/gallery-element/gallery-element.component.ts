@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
@@ -8,18 +8,19 @@ import { ProjectService } from '../../../../Services/Project/project.service';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
 import { loadImageFile } from '../../../../Core/save_load';
-
+import { NgStyle } from '@angular/common';
 
 @Component({
   selector: 'app-gallery-element',
   standalone: true,
-  imports: [CommonModule, CardModule, PanelModule],
+  imports: [CommonModule, CardModule, PanelModule, NgStyle],
   templateUrl: './gallery-element.component.html',
   styleUrl: './gallery-element.component.scss'
 })
 export class GalleryElementComponent implements OnInit {
   @Input() imageName: string;
   @Input() id: number;
+  @Input() status: string;
   imagePath: string = '';
 
   constructor(private projectService: ProjectService) {
@@ -31,6 +32,17 @@ export class GalleryElementComponent implements OnInit {
     });
   }
 
+  getStyle() {
+    if (this.status === 'annotated') {
+      return { border: "4px solid #FFA500" };
+    } else if (this.status === 'reviewed') {
+      return { border: '4px solid rgb(0, 255, 0)' };
+    } else {
+      return {
+        border: '4px solid rgb(255, 0, 0)'
+      };
+    }
+  }
 
 
   openEditor() {

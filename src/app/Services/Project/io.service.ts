@@ -272,7 +272,7 @@ export class IOService {
       savefile.textsNames.push(label.name);
     }
     );
-    return this.writeSave(savefile, 512, 512, imageName);
+    return this.writeSave(savefile, data.width, data.height, imageName);
   }
 
   async writeSave(labelFormat: LabelFormat, width: number, height: number, imageName: string | null = null) {
@@ -332,8 +332,6 @@ export class IOService {
       .slice(0, -1)
       .join('.');
     const svgName = imageNameWithoutExtension + '.svg';
-    console.log('SVG name:', svgName);
-    console.log('Project folder:', this.projectService.projectFolder);
     return path.join(this.projectService.projectFolder, 'annotations', svgName);
   }
 

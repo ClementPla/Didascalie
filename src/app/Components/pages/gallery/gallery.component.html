@@ -1,19 +1,30 @@
 <div class="card m-auto w-3/4">
-    <p-dataview #dv [value]="projectService.imagesName" [layout]="'grid'" [rows]="16" [paginator]="true">
+
+    <p-dataview #dv [value]="items" [layout]="'grid'" [rows]="16" [paginator]="true" filterBy="status">
         <ng-template #header>
-            <div class="flex justify-end">
+            <div class="flex justify-end gap-8 items-center">
+
+                <p-selectbutton [options]="filterOptions" optionLabel="label" [ngModel]="filterOptions[0]"
+                    (onChange)="toggleFilter($event.value)"></p-selectbutton>
+
+                <app-labelled-switch [(checked)]="autoRefresh" (checkedChange)="setupAutoRefresh()">
+                    Auto-refresh</app-labelled-switch>
+
                 <button pButton type="button" label="Refresh" icon="pi pi-sync" class="p-button-success"
                     (click)="refresh()">
 
-                    <p-knob [(ngModel)]="percentageBeforeRefresh" [size]="15" [valueTemplate]="''" />
-                
+
+                    <p-knob *ngIf="autoRefresh" [(ngModel)]="percentageBeforeRefresh" [size]="15"
+                        [valueTemplate]="''" />
+
                 </button>
             </div>
         </ng-template>
         <ng-template #grid let-items let-rowIndexValue="rowIndex">
             <div class="gap-4 grid grid-cols-8">
-                <div *ngFor="let items of items ; let index = index; let first=first" class="p-2">
-                    <app-gallery-element [imageName]="items" [id]="projectService.imagesName.indexOf(items)">
+                <div *ngFor="let item of items as GalleryItem ; let index = index; let first=first" class="p-2">
+                    <app-gallery-element [imageName]="item.src" [status]="item.status"
+                        [id]="projectService.imagesName.indexOf(item.title)">
                     </app-gallery-element>
                 </div>
             </div>

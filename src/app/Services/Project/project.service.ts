@@ -6,7 +6,7 @@ import { ViewService } from '../UI/view.service';
 import { path } from '@tauri-apps/api';
 import { ProjectConfig, ProjectFile, SegLabel, Thumbnail } from '../../Core/interface';
 
-import { loadImageFile } from '../../Core/save_load';
+import { invokeSaveJsonFile, loadImageFile } from '../../Core/save_load';
 import { LabelsService } from './labels.service';
 import { getDefaultColor } from '../../Core/misc/colors';
 import { MulticlassTask, MultilabelTask } from '../../Core/task';
@@ -34,6 +34,9 @@ export class ProjectService {
 
   projectFolder: string = '';
   imagesName: string[] = [];
+  annotationsName: string[] = [];
+
+  imagesHasBeenOpened: string[] = [];
 
   localStoragesProjectsFilepaths: ProjectFile[] = [];
 
@@ -91,7 +94,7 @@ export class ProjectService {
         : null,
       has_text_description: this.hasTextDescription,
       text_names: this.labelService.listTextLabels.map((label) => label.name),
-
+      default_colors: this.isSegmentation ? this.labelService.listSegmentationLabels.map((label) => label.color) : null,
     };
 
     saveProjectConfigFile(this.projectFolder, projectConfig);
@@ -110,6 +113,9 @@ export class ProjectService {
     }
 
     await this.listFiles();
+    await this.update_reviewed();
+    this.isProjectStarted = true;
+
     this.viewService.navigateToGallery();
 
   }
@@ -144,8 +150,19 @@ export class ProjectService {
       recursive: this.recursive,
     });
     this.extractImagesName(fileList);
-    this.isProjectStarted = true;
+  }
 
+  async listAnnotations() {
+    const inputPath = await path.join(this.projectFolder, 'annotations');
+    let fileList = await invoke<string[]>('list_files_in_folder', {
+      folder: inputPath,
+      regexfilter: '.*.svg$',
+      recursive: true,
+    });
+    this.annotationsName = fileList.map((file) => {
+      let filename = file.split(inputPath + path.sep())[1];
+      return filename;
+    });
   }
 
   extractImagesName(files: string[]) {
@@ -210,6 +227,14 @@ export class ProjectService {
     if (config.segmentation_classes) {
       this.labelService.listSegmentationLabels =
         config.segmentation_classes.map((label, index) => {
+          if (config.default_colors) {
+            return {
+              label,
+              color: config.default_colors[index],
+              isVisible: true,
+              shades: null,
+            } as SegLabel;
+          }
           return {
             label,
             color: getDefaultColor(index + 1),
@@ -242,10 +267,45 @@ export class ProjectService {
     }
     if (config.text_names) {
       config.text_names.forEach((name) => {
-        this.labelService.addTextLabel({'name': name, "text": ""});
+        this.labelService.addTextLabel({ 'name': name, "text": "" });
       });
     }
     this.labelService.rebuildTreeNodes();
     this.startProject();
+  }
+  async update_reviewed() {
+    // Read the revision file and update the reviewed status
+    const currentImage = this.imagesName[this.activeIndex!];
+
+    if (!this.imagesHasBeenOpened.includes(currentImage)) {
+      this.imagesHasBeenOpened.push(currentImage);
+    }
+    const revisionPath = await path.join(this.projectFolder, '.revisions.json');
+    let revision;
+    try {
+      revision = await invokeLoadJsonFile(revisionPath).then((revisions: any) => {
+        if (revisions) {
+          revisions = JSON.parse(revisions).images;
+          // Add the images that have been opened to the list if they are not already there
+          this.imagesHasBeenOpened.forEach((image) => {
+            if (!revisions.includes(image)) {
+              revisions.push(image);
+            }
+          });
+          return revisions;
+        }
+        else {
+          return this.imagesHasBeenOpened;
+        }
+      });
+    }
+    catch (error) {
+      revision = this.imagesHasBeenOpened;
+    }
+    this.imagesHasBeenOpened = revision;
+    const revisionString = JSON.stringify({ images: this.imagesHasBeenOpened }, null, 2);
+    invokeSaveJsonFile(revisionPath, revisionString);
+
+
   }
 }

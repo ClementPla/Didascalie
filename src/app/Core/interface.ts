@@ -75,6 +75,7 @@ export interface ProjectConfig {
   classification_classes: null | MulticlassInterface[];
   classification_multilabel: null | MultilabelInterface;
   text_names: null | string[];
+  default_colors: null | string[];
 }
 
 export interface ImageFromCLI {
@@ -84,6 +85,8 @@ export interface ImageFromCLI {
   classification_classes: string[] | null;
   classification_multilabel: string[] | null;
   texts: string[] | null;
+  width: number;
+  height: number;
 }
 
 

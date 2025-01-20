@@ -19,7 +19,6 @@ pub fn run() {
     })
     .invoke_handler(
       tauri::generate_handler![
-        commands::system_infos::list_files_in_folder,
         commands::images::create_thumbnail,
         commands::images::load_image_as_base64,
         commands::images::process_image_blob,
@@ -35,6 +34,7 @@ pub fn run() {
         commands::io::load_json_file,
         commands::io::save_xml_file,
         commands::io::load_xml_file,
+        commands::io::list_files_in_folder,
         commands::io::check_file_exists,
       ]
     )

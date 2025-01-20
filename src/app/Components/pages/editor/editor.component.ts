@@ -97,10 +97,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Finally reload the canvas and wait for the next frame
       await new Promise<void>((resolve) => {
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           this.canvas.redrawAllCanvas();
           resolve();
-        }, 100);
+        });
       });
     } catch (error) {
       console.error('Error in loadCanvas sequence:', error);
@@ -181,7 +181,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   @HostListener('window:keydown.control.s', ['$event'])
-  save() {
+  async save() {
+    await this.projectService.update_reviewed();
     return this.IOService.save();
   }
 

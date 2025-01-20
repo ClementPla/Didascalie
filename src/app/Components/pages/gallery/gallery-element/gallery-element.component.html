@@ -1,8 +1,8 @@
 <p-card (click)="openEditor()">
     <ng-template pTemplate="header">
         <div class="m-1">
-            <img class="flex flex-col hover:brightness-125 hover:scale-110 rounded-md" [src]="imagePath" [width]="128"
-                [height]="128" loading="lazy" />
+            <img class="flex flex-col hover:brightness-125 hover:scale-110 rounded-md" [ngStyle]="getStyle()"
+                [src]=" imagePath" [width]="128" [height]="128" loading="lazy" />
         </div>
     </ng-template>
     <p>
