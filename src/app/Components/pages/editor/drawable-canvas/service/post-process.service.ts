@@ -19,9 +19,9 @@ export class PostProcessService {
     private bboxManager: BboxManagerService,
     private stateService: StateManagerService,
     private svgUIService: SVGUIService
-  ) { }
+  ) {}
 
-  postProcess() { }
+  postProcess() {}
 
   async crf_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
@@ -36,13 +36,7 @@ export class PostProcessService {
     const imgData = this.imageProcessingService
       .getCurrentCanvas()
       .getContext('2d', { alpha: false })!
-      .getImageData(
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height
-
-      ).data;
+      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
     let timer = performance.now();
     return invoke<ArrayBufferLike>('crf_refine', {
       mask: maskData.buffer,
@@ -170,37 +164,51 @@ export class PostProcessService {
 
   async eraseAll_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
+    let rect = {
+      x: 0,
+      y: 0,
+      width: this.stateService.width,
+      height: this.stateService.height,
+    };
 
-    const inputCtx = this.editorService.eraseAll
-      ? this.canvasManagerService.getCombinedCtx()
-      : this.canvasManagerService.getActiveCtx();
+    let inputCtx;
+    if (this.editorService.eraseAll) {
+      if (this.editorService.edgesOnly) {
+        this.editorService.edgesOnly = false;
+        this.canvasManagerService.computeCombinedCanvas();
+        this.editorService.edgesOnly = true;
+      }
+
+      inputCtx = this.canvasManagerService.getCombinedCtx();
+    } else {
+      inputCtx = this.canvasManagerService.getActiveCtx();
+    }
 
     const maskData = bufferCtx.getImageData(
-      0,
-      0,
-      this.stateService.width,
-      this.stateService.height
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height
     ).data;
     const labelData = inputCtx.getImageData(
-      0,
-      0,
-      this.stateService.width,
-      this.stateService.height
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height
     ).data;
 
     const activeIndex = this.canvasManagerService.getActiveIndex();
-    let start = performance.now();
     return invoke<ArrayBufferLike>('get_overlapping_region_with_mask', {
       label: labelData.buffer,
       mask: maskData.buffer,
-      width: this.stateService.width,
-      height: this.stateService.height
+      width: rect.width,
+      height: rect.height,
     }).then((mask: ArrayBufferLike) => {
       this.svgUIService.resetPath();
       const newMAsk = new ImageData(
         new Uint8ClampedArray(mask),
-        this.stateService.width,
-        this.stateService.height
+        rect.width,
+        rect.height
       );
       bufferCtx.putImageData(newMAsk, 0, 0);
       this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
@@ -208,10 +216,10 @@ export class PostProcessService {
         ctx.globalCompositeOperation = 'destination-out';
         ctx.drawImage(
           bufferCtx.canvas,
-          0,
-          0,
-          this.stateService.width,
-          this.stateService.height
+          rect.x,
+          rect.y,
+          rect.width,
+          rect.height
         );
         ctx.globalCompositeOperation = 'source-over';
       });

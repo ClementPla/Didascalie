@@ -12,7 +12,7 @@ use imageproc::distance_transform::Norm;
 use image::{ GrayImage, ImageBuffer, Luma, GenericImageView };
 use imageproc::region_labelling::{ connected_components, Connectivity };
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use crate::tools;
 use std::collections::HashSet;
 use rayon::prelude::*; // for .into_par_iter()
@@ -314,83 +314,120 @@ pub async fn find_overlapping_region(
 
 #[tauri::command]
 pub async fn get_overlapping_region_with_mask(
-  label: Vec<u8>,
-  mask: Vec<u8>,
+    label: Vec<u8>,
+    mask: Vec<u8>,
+    width: usize,
+    height: usize
+) -> Result<Response, String> {
+    // 1) Combine label + mask in one pass, track first non-zero pixel
+    //    Note: We'll only store a single-channel "combined_mask" 
+    //    (0 => no overlap, 255 => overlap).
+    let mut combined_mask = vec![false; width * height];
+    let mut first_nonzero_index = None;
+
+    for i in 0..(width * height) {
+        let label_r = label[4 * i + 3]; // 'R' channel if RGBA
+        let mask_r = mask[4 * i + 3];
+        if mask_r >0 {
+          if first_nonzero_index.is_none() {
+                first_nonzero_index = Some(i);
+            }
+        }
+        if label_r > 0 || mask_r > 0 {
+            combined_mask[i] = true;
+            
+        }
+    }
+    
+    // If there's no overlap at all, short-circuit with an empty/zero output
+    let Some(first_idx) = first_nonzero_index else {
+        // Return all-zero RGBA
+        return Ok(Response::new(vec![0u8; width * height * 4]));
+    };
+
+    // Convert that linear index into (x, y)
+    let first_x = first_idx % width;
+    let first_y = first_idx / width;
+
+    // 2) Flood fill (BFS) from (first_x, first_y) to find the connected region
+    let mut visited = vec![false; width * height];
+    visited[first_idx] = true;
+
+    let mut queue = VecDeque::new();
+    queue.push_back((first_x, first_y));
+
+    // We'll collect all the (x, y) pixels that are in the same connected region
+    // as the first non-zero overlap we found.
+    let mut region_pixels = Vec::new();
+
+    while let Some((x, y)) = queue.pop_front() {
+        region_pixels.push((x, y));
+
+        for (nx, ny) in neighbors_8(x, y, width, height) {
+            let n_idx = ny * width + nx;
+            if !visited[n_idx] && combined_mask[n_idx] {
+                visited[n_idx] = true;
+                queue.push_back((nx, ny));
+            }
+        }
+    }
+    println!("Found {} connected pixels", region_pixels.len());
+
+    // 3) Prepare the final RGBA output, marking the connected region in white
+    let mut output = vec![0_u8; width * height * 4];
+    for (x, y) in region_pixels {
+        let i = (y * width + x) * 4;
+        output[i + 3] = 255; // A
+    }
+
+    Ok(Response::new(output))
+}
+
+// A simple helper to get 4-connected neighbors
+fn neighbors_4(
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+) -> impl Iterator<Item = (usize, usize)> {
+    // Offsets for up, right, down, left
+    const OFFSETS: [(isize, isize); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+
+    OFFSETS.into_iter().filter_map(move |(dx, dy)| {
+        let nx = x as isize + dx;
+        let ny = y as isize + dy;
+        if nx >= 0 && (nx as usize) < width && ny >= 0 && (ny as usize) < height {
+            Some((nx as usize, ny as usize))
+        } else {
+            None
+        }
+    })
+}
+
+fn neighbors_8(
+  x: usize,
+  y: usize,
   width: usize,
   height: usize
-) -> Result<Response, String> {
-  // 1. Load label and mask
-  let start_time = std::time::Instant::now();
+) -> impl Iterator<Item = (usize, usize)>{
+  // Offsets for up, right, down, left
+  const OFFSETS: [(isize, isize); 8] = [
+    (-1, -1), (0, -1), (1, -1),
+    (-1, 0), (1, 0),
+    (-1, 1), (0, 1), (1, 1)
+  ];
 
-  let load_time: std::time::Instant = std::time::Instant::now();
-  let mut label = image::DynamicImage::ImageRgba8(
-    image::RgbaImage::from_raw(width as u32, height as u32, label).unwrap()
-  ).to_luma8();
-  for p in label.pixels_mut() {
-    p.0[0] = if p.0[0] > 0 { 255 } else { 0 };
-  }
-  println!("Label image loading took: {:?}", load_time.elapsed());
-
-  let load_time: std::time::Instant = std::time::Instant::now();
-  let mask = image::DynamicImage::ImageRgba8(
-    image::RgbaImage::from_raw(width as u32, height as u32, mask).unwrap()
-  ).to_luma8();
-  println!("Mask image loading took: {:?}", load_time.elapsed());
-
-
-  // 2. Find connected components in the label image
-  let connected_components = connected_components(&label, Connectivity::Four, Luma([0]));
-  println!("Connected components computation took: {:?}", start_time.elapsed());
-
-  let cc_time = std::time::Instant::now();
-  // --- First pass: Collect IDs of components that overlap with `mask` ---
-  let connected_components = std::sync::Arc::new(connected_components);
-  let mask = std::sync::Arc::new(mask);
-  let overlap_labels = (0..height as u32)
-    .into_par_iter()
-    .map(|y| {
-      let mut local_labels = HashSet::new();
-
-      for x in 0..width as u32 {
-        let label_value = connected_components.get_pixel(x, y)[0];
-        let mask_val = mask.get_pixel(x, y)[0];
-        if label_value != 0 && mask_val != 0 {
-          local_labels.insert(label_value);
-        }
-      }
-      local_labels
-    })
-    .reduce(
-      || HashSet::new(),
-      |mut set_a, set_b| {
-        set_a.extend(set_b);
-        set_a
-      }
-    );
-  println!("Overlap labels computation took: {:?}", cc_time.elapsed());
-
-  let overlap_labels = overlap_labels;
-
-  let output_time = std::time::Instant::now();
-  let background_pixel: image::Rgba<u8> = image::Rgba([0, 0, 0, 0]);
-  let foreground_pixel: image::Rgba<u8> = image::Rgba([255, 255, 255, 255]);
-
-  // 3. Convert refined mask back to blob  
-  let output_mask_image: image::DynamicImage = image::DynamicImage::ImageRgba8(
-    image::ImageBuffer::from_fn(width as u32, height as u32, |x, y| {
-      let label_value = connected_components.get_pixel(x, y)[0];
-      if overlap_labels.contains(&label_value) {
-        foreground_pixel
-      } else {
-        background_pixel
-      }
-    })
-  );
-  println!("Output image generation took: {:?}", output_time.elapsed());
-  println!("Total time: {:?}", start_time.elapsed());
-
-  Ok(Response::new(output_mask_image.to_rgba8().into_vec()))
+  OFFSETS.into_iter().filter_map(move |(dx, dy)| {
+    let nx = x as isize + dx;
+    let ny = y as isize + dy;
+    if nx >= 0 && (nx as usize) < width && ny >= 0 && (ny as usize) < height {
+      Some((nx as usize, ny as usize))
+    } else {
+      None
+    }
+  })
 }
+
 
 #[tauri::command]
 pub async fn edge_detection(mask: Vec<u8>) -> Result<Response, String> {

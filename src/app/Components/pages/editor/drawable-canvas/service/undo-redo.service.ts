@@ -34,7 +34,7 @@ export class UndoRedoService {
   undo() {
     const element = UndoRedo.undo();
     if (element) {
-      this.canvasManagerService.getAllCanvas().forEach(async (classCanvas, index) => {
+      this.canvasManagerService.getAllCanvasCtx().forEach(async (ctx, index) => {
         let data: Blob;
         if (Array.isArray(element.data)) {
           data = element.data[index];
@@ -45,7 +45,6 @@ export class UndoRedoService {
         }
         const imageBitmap = createImageBitmap(data);
         await imageBitmap.then((img) => {
-          const ctx = classCanvas.getContext('2d', { alpha: true })!;
           ctx?.clearRect(0, 0, this.stateService.width, this.stateService.height);
           ctx?.drawImage(img, 0, 0, this.stateService.width, this.stateService.height);
           if (ctx) {
@@ -58,7 +57,7 @@ export class UndoRedoService {
   redo() {
     const element = UndoRedo.redo();
     if (element) {
-      this.canvasManagerService.getAllCanvas().forEach((classCanvas, index) => {
+      this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
         let data: Blob;
         if (Array.isArray(element.data)) {
           data = element.data[index];
@@ -70,7 +69,6 @@ export class UndoRedoService {
 
         const imageBitmap = createImageBitmap(data);
         imageBitmap.then((img) => {
-          const ctx = classCanvas.getContext('2d', { alpha: true })!;
           ctx?.clearRect(
             0,
             0,

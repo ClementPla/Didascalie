@@ -128,10 +128,10 @@ export class DrawService {
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     color: string
   ) {
-    let bbox = this.stateService.getBoundingBox();
-    if (!this.projectService.isInstanceSegmentation) {
-      this.openCVService.binarizeCanvas(ctx, color, bbox);
-    }
+    // let bbox = this.stateService.getBoundingBox();
+    // if (!this.projectService.isInstanceSegmentation) {
+    //   this.openCVService.binarizeCanvas(ctx, color, bbox);
+    // }
   }
 
   public clearCanvas(
@@ -244,7 +244,10 @@ export class DrawService {
         this.applyLasso();
         break;
       case Tools.LASSO_ERASER:
-        if (this.editorService.eraseAll) {
+        if(this.editorService.autoPostProcess){
+          this.applyLasso();
+        }
+        else if (this.editorService.eraseAll) {
           this.canvasManagerService.getAllCanvasCtx().forEach((ctx) => {
             this.applyLassoEraser(ctx);
           });
