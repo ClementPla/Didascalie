@@ -7,8 +7,9 @@ import { Point2D } from '../models';
 export class SVGUIService {
 
   eraserPath: Point2D[] = [];
+  linePath: Point2D[] = [];
 
-  constructor() { 
+  constructor() {
 
   }
   getEraserPathasSVG(): string {
@@ -25,8 +26,23 @@ export class SVGUIService {
     return path;
   }
 
+  getLinePathasSVG(): string {
+    let path = '';
+
+    if (this.linePath.length < 2) {
+      return path;
+    }
+
+    path += `M${this.linePath[0].x} ${this.linePath[0].y} `;
+    for (let i = 1; i < this.linePath.length; i += 1) {
+      path += `L${this.linePath[i].x} ${this.linePath[i].y} `;
+    }
+    return path;
+  }
+
   resetPath() {
     this.eraserPath = [];
+    this.linePath = [];
   }
 
   addPoint(point: Point2D) {

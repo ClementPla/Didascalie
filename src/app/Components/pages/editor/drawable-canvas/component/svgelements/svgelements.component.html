@@ -1,25 +1,13 @@
 <svg #svg class="absolute min-w-[128px] pointer-events-none w-full z-50">
-    <polygon
-      class="lassoPolygon"
-      [attr.points]="UIPoints"
-      [attr.fill]="labelService.activeLabel?.color + '20'"
-      [attr.stroke]="labelService.activeLabel?.color"
-      [attr.stroke-width]="2"
-    />
-    <rect *ngFor="let rectLabel of bboxManager.listBbox"
-      class="lassoRect"
-      [attr.x]="rectLabel.bbox.x"
-      [attr.y]="rectLabel.bbox.y"
-      [attr.width]="rectLabel.bbox.width"
-      [attr.height]="rectLabel.bbox.height"
-      [attr.fill]="rectLabel.label.color + '55'"
-      [attr.stroke]="rectLabel.label.color"
-      [attr.stroke-width]="2"></rect>
+  <polygon class="lassoPolygon" [attr.points]="UIPoints" [attr.fill]="labelService.activeLabel?.color + '20'"
+    [attr.stroke]="labelService.activeLabel?.color" [attr.stroke-width]="2" />
+  <rect *ngFor="let rectLabel of bboxManager.listBbox" class="lassoRect" [attr.x]="rectLabel.bbox.x"
+    [attr.y]="rectLabel.bbox.y" [attr.width]="rectLabel.bbox.width" [attr.height]="rectLabel.bbox.height"
+    [attr.fill]="rectLabel.label.color + '55'" [attr.stroke]="rectLabel.label.color" [attr.stroke-width]="2"></rect>
 
-    <path [attr.d]="svgUIService.getEraserPathasSVG()" 
-    class="eraserPath lassoRect"
-    stroke-linecap="round"
-    fill="transparent" 
-    [attr.stroke-width]="editorService.lineWidth"
-    [attr.stroke]="labelService.activeLabel?.color"/>
-  </svg>
+  <path [attr.d]="svgUIService.getEraserPathasSVG()" class="eraserPath lassoRect" stroke-linecap="round"
+    fill="transparent" [attr.stroke-width]="editorService.lineWidth" [attr.stroke]="labelService.activeLabel?.color" />
+
+  <path [attr.d]="svgUIService.getLinePathasSVG()" class="eraserPath lassoRect" stroke-linecap="round"
+    fill="transparent" [attr.stroke-width]="editorService.lineWidth" [attr.stroke]="labelService.activeLabel?.color" />
+</svg>

@@ -32,7 +32,7 @@ export class EditorService {
 
   public incrementAfterStroke: boolean = false;
   constructor() { }
-  
+
   public activatePanMode() {
     this._lastTool = this.selectedTool;
     this.selectedTool = Tools.PAN;
@@ -47,7 +47,7 @@ export class EditorService {
   }
 
   public isDrawingTool(): boolean {
-    return this.selectedTool === Tools.PEN || this.selectedTool === Tools.LASSO;
+    return this.selectedTool === Tools.PEN || this.selectedTool === Tools.LASSO || this.selectedTool === Tools.LINE;
   }
 
   public isEraser(): boolean {
@@ -55,7 +55,7 @@ export class EditorService {
   }
 
   public isToolWithBrushSize(): boolean {
-    return this.selectedTool === Tools.PEN || this.selectedTool === Tools.ERASER;
+    return this.selectedTool === Tools.PEN || this.selectedTool === Tools.ERASER || this.selectedTool === Tools.LINE;
   }
 
 

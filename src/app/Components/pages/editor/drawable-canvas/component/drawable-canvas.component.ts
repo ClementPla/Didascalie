@@ -201,7 +201,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
       this.zoomPanService.startDrag();
     } else {
       this.stateService.recomputeCanvasSum = true;
-      this.drawService.startDraw().then(() => {
+      this.drawService.startDraw(event).then(() => {
         this.drawService.draw(event);
       });
     }

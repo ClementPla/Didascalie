@@ -188,7 +188,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown.ArrowRight', ['$event'])
   async loadNext() {
-    this.save()
+    await this.save()
       .then((hasSaved) => {
         if (!hasSaved) {
           return Promise.reject('Could not save');
@@ -205,7 +205,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown.ArrowLeft', ['$event'])
   async loadPrevious() {
-    this.save()
+    await this.save()
       .then((hasSaved) => {
         if (!hasSaved) {
           return Promise.reject('Could not save');

@@ -4,7 +4,7 @@ import { LabelsService } from '../../../../../Services/Project/labels.service';
 import { OpenCVService } from '../../../../../Services/open-cv.service';
 import { ProjectService } from '../../../../../Services/Project/project.service';
 import { ZoomPanService } from './zoom-pan.service';
-import { Tools } from '../../../../../Core/tools';
+import { Tool, Tools } from '../../../../../Core/tools';
 import { EditorService } from '../../../../../Services/UI/editor.service';
 import { StateManagerService } from './state-manager.service';
 import { Subject } from 'rxjs';
@@ -124,15 +124,6 @@ export class DrawService {
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  public binarizeCanvas(
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-    color: string
-  ) {
-    // let bbox = this.stateService.getBoundingBox();
-    // if (!this.projectService.isInstanceSegmentation) {
-    //   this.openCVService.binarizeCanvas(ctx, color, bbox);
-    // }
-  }
 
   public clearCanvas(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
@@ -181,6 +172,13 @@ export class DrawService {
       case Tools.LASSO_ERASER:
         this.updateLasso(event);
         break;
+      case Tools.LINE:
+        if (this.svgUIService.linePath.length > 1) {
+          this.svgUIService.linePath.pop();
+        }
+        this.svgUIService.linePath.push(imageCoord);
+
+
     }
     this.stateService.updatePreviousPoint(imageCoord);
   }
@@ -202,7 +200,6 @@ export class DrawService {
     );
     ctx.stroke();
 
-    // this.binarizeCanvas(ctx, this.getFillColor());
 
     // Update previous point
     this.finalizeDraw(ctx);
@@ -215,7 +212,6 @@ export class DrawService {
     this.stateService.recomputeCanvasSum = true;
     let bufferCtx = this.canvasManagerService.bufferCtx;
     let activeCtx = this.canvasManagerService.getActiveCtx();
-    this.binarizeCanvas(bufferCtx, this.getFillColor());
     this.stateService.recomputeCanvasSum = true;
     switch (this.editorService.selectedTool) {
       case Tools.PEN:
@@ -243,8 +239,11 @@ export class DrawService {
       case Tools.LASSO:
         this.applyLasso();
         break;
+      case Tools.LINE:
+        this.drawLine();
+        break;
       case Tools.LASSO_ERASER:
-        if(this.editorService.autoPostProcess){
+        if (this.editorService.autoPostProcess) {
           this.applyLasso();
         }
         else if (this.editorService.eraseAll) {
@@ -297,7 +296,6 @@ export class DrawService {
     );
     ctx.stroke();
 
-    this.binarizeCanvas(ctx, this.getFillColor());
     let bbox = this.stateService.getBoundingBox();
 
     if (!this.editorService.autoPostProcess) {
@@ -417,10 +415,15 @@ export class DrawService {
     });
   }
 
-  public startDraw() {
+  public startDraw(event: MouseEvent) {
     this.stateService.reset();
     this.stateService.isDrawing = true;
     this.lassoPoints = [];
+    if (this.editorService.selectedTool === Tools.LINE) {
+      const canvasCoord = this.zoomPanService.getImageCoordinates(event);
+      this.svgUIService.linePath = [canvasCoord];
+    }
+
     this.clearCanvas(this.canvasManagerService.bufferCtx);
     return this.undoRedoService.update_undo_redo();
   }
@@ -490,5 +493,47 @@ export class DrawService {
     } else {
       this.zoomPanService.wheel(event);
     }
+  }
+
+  drawLine() {
+    let bufferCtx = this.canvasManagerService.bufferCtx;
+    let activeCtx = this.canvasManagerService.getActiveCtx();
+    let bbox = this.stateService.getBoundingBox();
+    bufferCtx.strokeStyle = this.getFillColor();
+    bufferCtx.lineWidth = this.editorService.lineWidth;
+    bufferCtx.globalCompositeOperation = 'source-over';
+    bufferCtx.imageSmoothingEnabled = true;
+    bufferCtx.lineCap = 'round';
+    bufferCtx.beginPath();
+    bufferCtx.moveTo(
+      this.svgUIService.linePath[0].x,
+      this.svgUIService.linePath[0].y
+    );
+    bufferCtx.lineTo(
+      this.svgUIService.linePath[1].x,
+      this.svgUIService.linePath[1].y
+    );
+    bufferCtx.stroke();
+
+    this.svgUIService.linePath = [];
+
+    if (!this.editorService.autoPostProcess) {
+      if (this.editorService.swapMarkers) {
+        this.swapMarkers();
+      } else {
+        activeCtx.drawImage(
+          this.canvasManagerService.getBufferCanvas(),
+          bbox.x,
+          bbox.y,
+          bbox.width,
+          bbox.height,
+          bbox.x,
+          bbox.y,
+          bbox.width,
+          bbox.height
+        );
+      }
+    }
+
   }
 }
