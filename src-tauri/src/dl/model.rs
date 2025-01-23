@@ -14,12 +14,12 @@ lazy_static! {
   static ref MODEL_SESSION_DECODER: OnceLock<Session> = OnceLock::new();
 }
 
-pub fn get_encoder(app: &tauri::AppHandle) -> Result<&'static Session, ort::Error> {
+pub fn get_encoder(app: &tauri::AppHandle, path:&str) -> Result<&'static Session, ort::Error> {
   Ok(
     MODEL_SESSION_ENCODER.get_or_init(|| {
       let resource_path = app
         .path()
-        .resolve("resources/medsam_encoder.onnx", BaseDirectory::Resource)
+        .resolve(path, BaseDirectory::Resource)
         .unwrap();
       println!("Cuda execution provider is available: {:?}", CUDAExecutionProvider::default().is_available());
       Session::builder()
@@ -31,7 +31,6 @@ pub fn get_encoder(app: &tauri::AppHandle) -> Result<&'static Session, ort::Erro
         .with_execution_providers([
           // Prefer TensorRT over CUDA.
           CUDAExecutionProvider::default().build(),
-
           TensorRTExecutionProvider::default().build(),
           // Use DirectML on Windows if NVIDIA EPs are not available
           DirectMLExecutionProvider::default().build(),
@@ -44,12 +43,12 @@ pub fn get_encoder(app: &tauri::AppHandle) -> Result<&'static Session, ort::Erro
   )
 }
 
-pub fn get_decoder(app: &tauri::AppHandle) -> Result<&'static Session, ort::Error> {
+pub fn get_decoder(app: &tauri::AppHandle, path:&str) -> Result<&'static Session, ort::Error> {
   Ok(
     MODEL_SESSION_DECODER.get_or_init(|| {
       let resource_path = app
         .path()
-        .resolve("resources/medsam_decoder.onnx", BaseDirectory::Resource)
+        .resolve(path, BaseDirectory::Resource)
         .unwrap();
       Session::builder()
         .unwrap()

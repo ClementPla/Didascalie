@@ -30,6 +30,7 @@ pub fn run() {
         commands::crf::crf_refine,
         commands::segmentation::get_quad_tree_bbox,
         commands::dl::sam_segment,
+        commands::dl::mask_sam_segment,
         commands::io::save_json_file,
         commands::io::load_json_file,
         commands::io::save_xml_file,

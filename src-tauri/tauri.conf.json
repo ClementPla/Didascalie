@@ -19,7 +19,6 @@
         "fullscreen": false
       }
     ],
-
     "security": {
       "csp": null
     }
@@ -34,6 +33,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["resources/**/*.onnx"]
+    "resources": [
+      "resources/**/*.onnx",
+      "resources/maskedMedSAM/**/*.onnx"
+    ]
   }
 }

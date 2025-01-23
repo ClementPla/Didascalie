@@ -19,9 +19,9 @@ export class PostProcessService {
     private bboxManager: BboxManagerService,
     private stateService: StateManagerService,
     private svgUIService: SVGUIService
-  ) {}
+  ) { }
 
-  postProcess() {}
+  postProcess() { }
 
   async crf_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
@@ -65,6 +65,7 @@ export class PostProcessService {
 
   async sam_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
+    let bbox = this.stateService.getBoundingBox();
     let rect = {
       x: 0,
       y: 0,
@@ -77,8 +78,6 @@ export class PostProcessService {
       rect.width,
       rect.height
     ).data;
-    const maxDepth = 4;
-    const minSize = 16;
     const imgData = this.imageProcessingService
       .getCurrentCanvas()
       .getContext('2d', { alpha: false })!
@@ -88,17 +87,17 @@ export class PostProcessService {
         this.stateService.width,
         this.stateService.height
       ).data;
-    await this.drawQuadTreeBbox(maskData, minSize, maxDepth);
-    return invoke<ArrayBufferLike>('sam_segment', {
+    let timer = performance.now();
+    return invoke<ArrayBufferLike>('mask_sam_segment', {
       coarseMask: maskData.buffer,
       image: imgData.buffer,
       threshold: this.editorService.samThreshold,
       width: this.stateService.width,
       height: this.stateService.height,
       extractFeatures: !this.featuresExtracted,
-      maxDepth: maxDepth,
-      minSize: minSize,
     }).then((imageBitmap: ArrayBufferLike) => {
+      console.log('SAM took', performance.now() - timer, 'ms');
+      timer = performance.now();
       this.featuresExtracted = true;
       let activeCtx = this.canvasManagerService.getActiveCtx();
       let bufferCanvas = this.canvasManagerService.getBufferCanvas();
@@ -111,7 +110,14 @@ export class PostProcessService {
         rect.x,
         rect.y
       );
+      // Clear everything outside the bounding box
+
+      bufferCtx.globalCompositeOperation = 'destination-in';
+      bufferCtx.fillStyle = 'white';
+      bufferCtx.fillRect(bbox.x, bbox.y, bbox.width, bbox.height);
+      bufferCtx.globalCompositeOperation = 'source-over';
       activeCtx.drawImage(bufferCanvas, 0, 0);
+      console.log('Drawing took', performance.now() - timer);
     });
   }
 
