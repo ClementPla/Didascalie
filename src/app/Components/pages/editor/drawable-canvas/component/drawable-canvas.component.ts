@@ -25,13 +25,12 @@ import { UndoRedoService } from '../service/undo-redo.service';
 import { PostProcessService } from '../service/post-process.service';
 
 /**
- * 
+ *
  * DrawableCanvasComponent is a component that allows the user to draw on a canvas.
  * It is tightly coupled with the EditorService, ViewService, LabelsService, ImageProcessingService, OpenCVService, ProjectService, ZoomPanService, CanvasManagerService, StateManagerService, DrawService, UndoRedoService, and PostProcessService.
  * Refactoring idea: create an NgModule containing the ImageProcessingService, ZoomPanService, CanvasManagerService, StateManagerService, DrawService, UndoRedoService, and PostProcessService, and import it in the DrawableCanvasComponent.
- * 
+ *
  */
-
 
 @Component({
   selector: 'app-drawable-canvas',
@@ -41,7 +40,6 @@ import { PostProcessService } from '../service/post-process.service';
   styleUrl: './drawable-canvas.component.scss',
 })
 export class DrawableCanvasComponent implements AfterViewInit {
-
   public cursor: Point2D = { x: 25, y: 25 };
   public currentPixel: Point2D = { x: 0, y: 0 };
   public viewBox: Viewbox = { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
@@ -112,10 +110,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
   public async ngAfterViewInit() {
     this.ctxImage = this.imgCanvas.nativeElement.getContext('2d', {
-      alpha: false, desynchronized: true
+      alpha: false,
     })!;
     this.ctxLabel = this.labelCanvas.nativeElement.getContext('2d', {
-      alpha: true, desynchronized: true
+      alpha: true,
     })!;
 
     this.zoomPanService.setContext(this.imgCanvas.nativeElement);
@@ -174,7 +172,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
       this.srcImg = img;
       this.reload();
       this.cdr.detectChanges();
-
     });
   }
   public wheel(event: WheelEvent): void {
@@ -192,24 +189,23 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.viewBox = this.zoomPanService.getViewBox();
   }
 
-  public mouseDown(event: MouseEvent) {
+  public async mouseDown(event: MouseEvent) {
     if (event.button == 1) {
       this.editorService.activatePanMode();
     }
     if (this.editorService.canPan()) {
       this.stateService.recomputeCanvasSum = false;
-      this.zoomPanService.startDrag();
+      this.zoomPanService.startDrag(event);
     } else {
       this.stateService.recomputeCanvasSum = true;
-      this.drawService.startDraw(event).then(() => {
-        this.drawService.draw(event);
-      });
+      await this.drawService.startDraw(event);
+      this.drawService.draw(event);
     }
   }
 
   public mouseMove(event: MouseEvent) {
     const rect = this.ctxLabel.canvas.getBoundingClientRect();
-    // Transform mouse coordinates to canvas coordinates
+
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
@@ -230,9 +226,9 @@ export class DrawableCanvasComponent implements AfterViewInit {
     if ($event.button == 1) {
       this.editorService.restoreLastTool();
     }
+    this.zoomPanService.endDrag();
 
     if (this.editorService.canPan()) {
-      this.zoomPanService.endDrag();
     } else {
       await this.drawService.endDraw();
     }
@@ -248,16 +244,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
       return;
     }
 
-    // Redraw the main image
-    if (this.ctxImage == null) {
-      this.ctxImage = this.imgCanvas.nativeElement.getContext('2d', {
-        alpha: false,
-      })!;
-    }
     if (!this.ctxImage) {
-      console.error('Failed to get 2D context');
       return;
     }
+
     const scale = this.zoomPanService.getScale();
     const offset = this.zoomPanService.getOffset();
     // This is the canvas with the main image
@@ -280,25 +270,22 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.ctxLabel.translate(Math.floor(offset.x), Math.floor(offset.y));
     this.ctxLabel.scale(scale, scale);
 
-    this.ctxLabel.imageSmoothingEnabled = false;
-    this.ctxLabel.filter = 'url(#remove-alpha)';
     if (this.stateService.recomputeCanvasSum) {
       this.canvasManagerService.computeCombinedCanvas();
       this.stateService.recomputeCanvasSum = false;
     }
 
-    this.ctxLabel.imageSmoothingEnabled = false;
     this.ctxLabel.drawImage(
       this.canvasManagerService.getCombinedCanvas(),
       0,
       0
     );
-
-    this.ctxLabel.globalAlpha = 1;
   }
 
   public reload(): void {
     this.image.src = this.srcImg;
+    this.ctxLabel.imageSmoothingEnabled = false;
+    this.ctxLabel.filter = 'url(#remove-alpha)';
 
     this.image.onload = () => {
       this.stateService.recomputeCanvasSum = true;

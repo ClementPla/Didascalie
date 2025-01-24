@@ -195,8 +195,8 @@ export class DrawService {
       this.stateService.previousPoint.y
     );
     ctx.lineTo(
-      this.stateService.currentPoint.x,
-      this.stateService.currentPoint.y
+      this.stateService.currentPoint.x + 0.1, // +0.1 to draw a point if the mouse is not moved
+      this.stateService.currentPoint.y + 0.1
     );
     ctx.stroke();
 
