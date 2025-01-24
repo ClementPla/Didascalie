@@ -18,20 +18,12 @@ export class ZoomPanService {
   private canPan = true;
   private canvasRef: HTMLCanvasElement;
 
+  private prevPoint: Point2D | null = null;
   public redrawRequest = new Subject<boolean>();
-
   constructor(private stateService: StateManagerService) {}
 
   public setContext(canvasRef: HTMLCanvasElement) {
     this.canvasRef = canvasRef;
-  }
-
-  enableDrag() {
-    this.isDragging = true;
-  }
-
-  disableDrag() {
-    this.isDragging = false;
   }
 
   getViewBox(): Viewbox {
@@ -54,7 +46,6 @@ export class ZoomPanService {
     let ymax = ymin + this.stateService.height * this.scale * canvasScale;
 
     return { xmin: xmin, ymin: ymin, xmax: xmax, ymax: ymax };
-
   }
 
   getSVGViewBox(): Rect {
@@ -62,7 +53,12 @@ export class ZoomPanService {
     const viewBoxY = -this.offset.y / this.scale;
     const viewBoxWidth = this.stateService.width / this.scale;
     const viewBoxHeight = this.stateService.width / this.scale;
-    return {x: viewBoxX, y: viewBoxY, width: viewBoxWidth, height: viewBoxHeight};
+    return {
+      x: viewBoxX,
+      y: viewBoxY,
+      width: viewBoxWidth,
+      height: viewBoxHeight,
+    };
   }
 
   public drag(event: MouseEvent) {
@@ -70,24 +66,33 @@ export class ZoomPanService {
       return;
     }
     if (this.isDragging) {
+      if (!this.prevPoint) {
+        return;
+      }
+
       const canvas = this.canvasRef;
       const rect = canvas.getBoundingClientRect();
+
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
 
-      const dx = event.movementX * scaleX;
-      const dy = event.movementY * scaleY;
+      const dx = (event.clientX - this.prevPoint.x) * scaleX;
+      const dy = (event.clientY - this.prevPoint.y) * scaleY;
 
       this.targetOffset.x += dx;
       this.targetOffset.y += dy;
       this.offset.x += dx;
       this.offset.y += dy;
-      this.redrawRequest.next(true);
+      requestAnimationFrame(() => {
+        this.redrawRequest.next(true);
+      });
+      this.prevPoint = { x: event.clientX, y: event.clientY };
     }
   }
 
   public endDrag() {
     this.isDragging = false;
+    this.prevPoint = null;
   }
 
   public fromCanvasToImageCoordinates(point: Point2D): Point2D {
@@ -183,12 +188,13 @@ export class ZoomPanService {
   }
 
   public smoothUpdateTransform() {
-    const easeFactor = 0.1;
-    const newScale = this.scale + (this.targetScale - this.scale) * easeFactor;
+    const easeFactorZoom = 0.3;
+    const newScale =
+      this.scale + (this.targetScale - this.scale) * easeFactorZoom;
     const newOffsetX =
-      this.offset.x + (this.targetOffset.x - this.offset.x) * easeFactor;
+      this.offset.x + (this.targetOffset.x - this.offset.x) * easeFactorZoom;
     const newOffsetY =
-      this.offset.y + (this.targetOffset.y - this.offset.y) * easeFactor;
+      this.offset.y + (this.targetOffset.y - this.offset.y) * easeFactorZoom;
 
     if (
       Math.abs(this.targetScale - newScale) > 0.05 ||
@@ -206,7 +212,8 @@ export class ZoomPanService {
     }
   }
 
-  public startDrag() {
+  public startDrag(event: MouseEvent) {
+    this.prevPoint = { x: event.clientX, y: event.clientY };
     this.isDragging = true;
   }
 
@@ -237,5 +244,4 @@ export class ZoomPanService {
   getOffset() {
     return this.offset;
   }
-
 }

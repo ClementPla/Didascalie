@@ -1,81 +1,74 @@
-import { UndoRedoCanvasElement } from "../interface";
+import { UndoRedoCanvasElement } from '../interface';
 
+export class _UndoStack {
+  stack: UndoRedoCanvasElement[] = [];
 
-export class _UndoStack{
+  isEmpty(): boolean {
+    return this.stack.length === 0;
+  }
 
-    stack: UndoRedoCanvasElement[] =  []
+  push(element: UndoRedoCanvasElement) {
+    this.stack.push(element);
+  }
 
-    isEmpty():boolean{
-        return this.stack.length === 0 
-    }
+  pop(): UndoRedoCanvasElement | undefined {
+    return this.stack.pop();
+  }
 
-    push(element: UndoRedoCanvasElement){
-        this.stack.push(element)
-    }
-
-    pop(): UndoRedoCanvasElement | undefined{
-        return this.stack.pop()
-    }
-
-    empty(){
-        this.stack = []
-    }
+  empty() {
+    this.stack = [];
+  }
 }
 
-export class _RedoStack{
+export class _RedoStack {
+  stack: UndoRedoCanvasElement[] = [];
 
-    stack: UndoRedoCanvasElement[] =  []
+  isEmpty(): boolean {
+    return this.stack.length === 0;
+  }
 
-    isEmpty():boolean{
-        return this.stack.length === 0 
-    }
+  push(element: UndoRedoCanvasElement) {
+    this.stack.push(element);
+  }
 
-    push(element: UndoRedoCanvasElement){
-        this.stack.push(element)
-    }
+  pop(): UndoRedoCanvasElement | undefined {
+    return this.stack.pop();
+  }
 
-    pop(): UndoRedoCanvasElement | undefined{
-        return this.stack.pop()
-    }
-
-    empty(){
-        this.stack = []
-    }
+  empty() {
+    this.stack = [];
+  }
 }
 
-class UndoRedoStack{
-    undoStack: _UndoStack = new _UndoStack()
-    redoStack: _RedoStack = new _RedoStack()
+class UndoRedoStack {
+  undoStack: _UndoStack = new _UndoStack();
+  redoStack: _RedoStack = new _RedoStack();
 
-    undo(){
-        console.log("Undoing")
-        const element = this.undoStack.pop()
-        if(element){
-            this.redoStack.push(element)
-        }
-        return element
+  undo() {
+    const element = this.undoStack.pop();
+    if (element) {
+      this.redoStack.push(element);
     }
+    return element;
+  }
 
-    redo(){
-        console.log("Redoing")
-        const element = this.redoStack.pop()
-        if(element){
-            this.undoStack.push(element)
-        }
-        return element
+  redo() {
+    const element = this.redoStack.pop();
+    if (element) {
+      this.undoStack.push(element);
     }
+    return element;
+  }
 
-    push(element: UndoRedoCanvasElement){
-        console.log("Pushing element")
-        this.undoStack.push(element)
-        this.redoStack.empty()
-    }
+  push(element: UndoRedoCanvasElement) {
+    this.undoStack.push(element);
+    this.redoStack.empty();
+  }
 
-    empty(){
-        this.undoStack.empty()
-        this.redoStack.empty()
-    }
-
+  empty() {
+    this.undoStack.empty();
+    this.redoStack.empty();
+  }
 }
 
-export const UndoRedo = new UndoRedoStack()
+export const UndoRedo = new UndoRedoStack();

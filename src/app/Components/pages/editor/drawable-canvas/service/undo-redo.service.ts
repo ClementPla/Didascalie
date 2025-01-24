@@ -9,8 +9,9 @@ import { BehaviorSubject } from 'rxjs';
   providedIn: 'root',
 })
 export class UndoRedoService {
-
-  public redrawRequest: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
+  public redrawRequest: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(
+    false
+  );
   constructor(
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService,
@@ -34,60 +35,75 @@ export class UndoRedoService {
   undo() {
     const element = UndoRedo.undo();
     if (element) {
-      this.canvasManagerService.getAllCanvasCtx().forEach(async (ctx, index) => {
-        let data: Blob;
-        if (Array.isArray(element.data)) {
-          data = element.data[index];
-        } else if (element.index != index) {
-          return;
-        } else {
-          data = element.data as Blob;
-        }
-        const imageBitmap = createImageBitmap(data);
-        await imageBitmap.then((img) => {
-          ctx?.clearRect(0, 0, this.stateService.width, this.stateService.height);
-          ctx?.drawImage(img, 0, 0, this.stateService.width, this.stateService.height);
-          if (ctx) {
-            this.redrawRequest.next(true);
+      this.canvasManagerService
+        .getAllCanvasCtx()
+        .forEach(async (ctx, index) => {
+          let data: Blob;
+          if (Array.isArray(element.data)) {
+            data = element.data[index];
+          } else if (element.index != index) {
+            return;
+          } else {
+            data = element.data as Blob;
           }
+          const imageBitmap = createImageBitmap(data);
+          await imageBitmap.then((img) => {
+            ctx?.clearRect(
+              0,
+              0,
+              this.stateService.width,
+              this.stateService.height
+            );
+            ctx?.drawImage(
+              img,
+              0,
+              0,
+              this.stateService.width,
+              this.stateService.height
+            );
+            if (ctx) {
+              this.redrawRequest.next(true);
+            }
+          });
         });
-      });
     }
   }
   redo() {
     const element = UndoRedo.redo();
     if (element) {
-      this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
-        let data: Blob;
-        if (Array.isArray(element.data)) {
-          data = element.data[index];
-        } else if (element.index != index) {
-          return;
-        } else {
-          data = element.data as Blob;
-        }
-
-        const imageBitmap = createImageBitmap(data);
-        imageBitmap.then((img) => {
-          ctx?.clearRect(
-            0,
-            0,
-            this.stateService.width,
-            this.stateService.height
-          );
-          ctx?.drawImage(
-            img,
-            0,
-            0,
-            this.stateService.width,
-            this.stateService.height
-          );
-
-          if (ctx) {
-            this.redrawRequest.next(true);
+      this.canvasManagerService
+        .getAllCanvasCtx()
+        .forEach(async (ctx, index) => {
+          let data: Blob;
+          if (Array.isArray(element.data)) {
+            data = element.data[index];
+          } else if (element.index != index) {
+            return;
+          } else {
+            data = element.data as Blob;
           }
+
+          const imageBitmap = createImageBitmap(data);
+          await imageBitmap.then((img) => {
+            ctx?.clearRect(
+              0,
+              0,
+              this.stateService.width,
+              this.stateService.height
+            );
+            ctx?.drawImage(
+              img,
+              0,
+              0,
+              this.stateService.width,
+              this.stateService.height
+            );
+
+            if (ctx) {
+              this.redrawRequest.next(true);
+            }
+          });
         });
-      });
     }
   }
 
@@ -106,7 +122,9 @@ export class UndoRedoService {
         UndoRedo.push({ data: blobs, index: -1 });
       });
     } else {
-      const blob$ = this.canvasManagerService.getActiveCanvas().convertToBlob({ type: 'image/png' });
+      const blob$ = this.canvasManagerService
+        .getActiveCanvas()
+        .convertToBlob({ type: 'image/png' });
       return blob$.then((blob) => {
         UndoRedo.push({
           data: blob,

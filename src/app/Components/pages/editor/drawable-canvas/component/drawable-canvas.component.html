@@ -33,13 +33,10 @@
         'fixed h-full max-w-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black box-shadow z-50':
           isFullscreen
       }">
-      <canvas #imageCanvas id="image" class="absolute cursor-crosshair min-w-[128px] w-full" [ngClass]="{
-          'cursor-grab': editorService.canPan(),
-          'cursor-none': editorService.isToolWithBrushSize(),
-          'cursor-crosshair': !(
-            editorService.isToolWithBrushSize() || editorService.canPan()
-          )
-        }" (wheel)="wheel($event)" (mousedown)="mouseDown($event)" (mouseup)="mouseUp($event)"
+      <canvas #imageCanvas id="image" class="absolute cursor-crosshair min-w-[128px] w-full bg-black" [ngClass]="
+        { 'cursor-grab' : editorService.canPan(), 'cursor-none' :
+        editorService.isToolWithBrushSize(), 'cursor-crosshair' : !( editorService.isToolWithBrushSize() ||
+        editorService.canPan() ) }" (wheel)="wheel($event)" (mousedown)="mouseDown($event)" (mouseup)="mouseUp($event)"
         (mousemove)="mouseMove($event)" (mouseleave)="mouseUp($event)" [width]="stateService.width"
         [height]="stateService.height" [attr.passive]="true">
       </canvas>
