@@ -34,12 +34,12 @@ export class CanvasManagerService {
     this.labelService.listSegmentationLabels.forEach((label) => {
       const canvas = new OffscreenCanvas(this.stateService.width, this.stateService.height);
       this.labelCanvas.push(canvas);
-      this.canvasCtx.push(canvas.getContext('2d', { alpha: true })!);
+      this.canvasCtx.push(canvas.getContext('2d', { alpha: true, desynchronized: true })!);
     });
     this.combinedCanvas = new OffscreenCanvas(this.stateService.width, this.stateService.height);
-    this.combinedCtx = this.combinedCanvas.getContext('2d', { alpha: true })!;
+    this.combinedCtx = this.combinedCanvas.getContext('2d', { alpha: true, desynchronized: true })!;
     this.bufferCanvas = new OffscreenCanvas(this.stateService.width, this.stateService.height);
-    this.bufferCtx = this.bufferCanvas.getContext('2d', { alpha: true })!;
+    this.bufferCtx = this.bufferCanvas.getContext('2d', { alpha: true, desynchronized: true })!;
 
     this.bufferCtx.filter = 'url(#remove-alpha)';
   }

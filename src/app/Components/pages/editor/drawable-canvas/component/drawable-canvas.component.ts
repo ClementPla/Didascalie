@@ -112,10 +112,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
   public async ngAfterViewInit() {
     this.ctxImage = this.imgCanvas.nativeElement.getContext('2d', {
-      alpha: false,
+      alpha: false, desynchronized: true
     })!;
     this.ctxLabel = this.labelCanvas.nativeElement.getContext('2d', {
-      alpha: true,
+      alpha: true, desynchronized: true
     })!;
 
     this.zoomPanService.setContext(this.imgCanvas.nativeElement);

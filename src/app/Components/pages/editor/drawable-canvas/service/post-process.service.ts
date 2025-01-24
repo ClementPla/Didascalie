@@ -78,6 +78,20 @@ export class PostProcessService {
       rect.width,
       rect.height
     ).data;
+
+    // Binary mask
+    let currentColor = [0, 0, 0, 0];
+    let binaryMask = new Array<boolean>(maskData.length / 4);
+    for (let i = 0; i < maskData.length; i += 4) {
+      if (maskData[i] > 0 || maskData[i + 1] > 0 || maskData[i + 2] > 0) {
+        binaryMask[i / 4] = true;
+        currentColor = [maskData[i], maskData[i + 1], maskData[i + 2], maskData[i + 3]];
+      }
+      else {
+        binaryMask[i / 4] = false;
+      }
+
+    }
     const imgData = this.imageProcessingService
       .getCurrentCanvas()
       .getContext('2d', { alpha: false })!
@@ -88,37 +102,65 @@ export class PostProcessService {
         this.stateService.height
       ).data;
     let timer = performance.now();
-    return invoke<ArrayBufferLike>('mask_sam_segment', {
-      coarseMask: maskData.buffer,
-      image: imgData.buffer,
-      threshold: this.editorService.samThreshold,
-      width: this.stateService.width,
-      height: this.stateService.height,
-      extractFeatures: !this.featuresExtracted,
-    }).then((imageBitmap: ArrayBufferLike) => {
-      console.log('SAM took', performance.now() - timer, 'ms');
-      timer = performance.now();
-      this.featuresExtracted = true;
-      let activeCtx = this.canvasManagerService.getActiveCtx();
-      let bufferCanvas = this.canvasManagerService.getBufferCanvas();
-      bufferCtx.putImageData(
-        new ImageData(
-          new Uint8ClampedArray(imageBitmap),
-          rect.width,
-          rect.height
-        ),
-        rect.x,
-        rect.y
-      );
-      // Clear everything outside the bounding box
+    let imageBitmap: ArrayBufferLike;
+    if (!this.featuresExtracted) {
+      imageBitmap = await invoke<ArrayBufferLike>('mask_sam_segment', {
+        coarseMask: binaryMask,
+        image: imgData.buffer,
+        threshold: this.editorService.samThreshold,
+        width: this.stateService.width,
+        height: this.stateService.height,
+        extractFeatures: true,
+      })
+    }
+    else {
+      imageBitmap = await invoke<ArrayBufferLike>('mask_sam_segment', {
+        coarseMask: binaryMask,
+        image: [],
+        threshold: this.editorService.samThreshold,
+        width: this.stateService.width,
+        height: this.stateService.height,
+        extractFeatures: false,
+      })
+    }
+    let outBuffer = new Uint8ClampedArray(imageBitmap);
+    // imageBitmap is a grayscale image with the same size as the input image.
+    let outData = new Uint8ClampedArray(rect.width * rect.height * 4);
 
-      bufferCtx.globalCompositeOperation = 'destination-in';
-      bufferCtx.fillStyle = 'white';
-      bufferCtx.fillRect(bbox.x, bbox.y, bbox.width, bbox.height);
-      bufferCtx.globalCompositeOperation = 'source-over';
-      activeCtx.drawImage(bufferCanvas, 0, 0);
-      console.log('Drawing took', performance.now() - timer);
-    });
+    // Fill the output data with the outBuffer values.
+
+    for (let i = 0; i < outData.length; i += 4) {
+      if (outBuffer[i / 4] > 0) {
+        outData[i] = currentColor[0];
+        outData[i + 1] = currentColor[1];
+        outData[i + 2] = currentColor[2];
+        outData[i + 3] = 255;
+      }
+      else {
+        outData[i + 3] = 0;
+      }
+
+    }
+
+    this.featuresExtracted = true;
+    let activeCtx = this.canvasManagerService.getActiveCtx();
+    let bufferCanvas = this.canvasManagerService.getBufferCanvas();
+    bufferCtx.putImageData(
+      new ImageData(
+        outData,
+        rect.width,
+        rect.height
+      ),
+      rect.x,
+      rect.y
+    );
+    bufferCtx.globalCompositeOperation = 'destination-in';
+    bufferCtx.fillStyle = 'white';
+    bufferCtx.fillRect(bbox.x, bbox.y, bbox.width, bbox.height);
+    bufferCtx.globalCompositeOperation = 'source-over';
+    activeCtx.drawImage(bufferCanvas, 0, 0);
+    console.log('Drawing took', performance.now() - timer);
+
   }
 
   async otsu_post_process() {

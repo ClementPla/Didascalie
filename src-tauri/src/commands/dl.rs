@@ -126,7 +126,7 @@ fn rgba_to_gray_parallel(rgba: &RgbaImage) -> GrayImage {
 #[tauri::command]
 pub fn mask_sam_segment<'a>(
     image: Vec<u8>,
-    coarse_mask: Vec<u8>,
+    coarse_mask: Vec<bool>,
     threshold: f32,
     width: usize,
     height: usize,
@@ -152,35 +152,16 @@ pub fn mask_sam_segment<'a>(
         println!("Feature extraction took: {:?}", encode_start.elapsed());
     }
 
-    let mask_prep_start = std::time::Instant::now();
-    let mut mask = RgbaImage::from_raw(width as u32, height as u32, coarse_mask)
-        .ok_or("Failed to create RgbaImage")?;
-
-    // Convert to grayscale and resize
-    let graymask = rgba_to_gray_parallel(&mask);
-    let resized_graymask =
-        image::imageops::resize(&graymask, 256, 256, image::imageops::FilterType::Nearest);
-
-    // Sequentially find the first pixel with a non-zero red channel
-    let color = mask
-        .pixels()
-        .find(|pixel| pixel[0] > 0)
-        .map(|pixel| [pixel[0], pixel[1], pixel[2], 255])
-        .unwrap_or([0, 0, 0, 0]);
-
     // Create data vector using parallel iteration
-    let data: Vec<f32> = resized_graymask
-        .as_raw()
+    let data: Vec<f32> = coarse_mask
         .par_iter()
-        .map(|&pixel: &u8| if pixel > 0 { 1.0f32 } else { 0.0f32 })
+        .map(|&pixel: &bool| if pixel { 1.0f32 } else { 0.0f32 })
         .collect();
 
     let mask_tensor = Tensor::from_array(
-        Array4::from_shape_vec((1, 1, 256, 256), data).map_err(|e| e.to_string())?,
+        Array4::from_shape_vec((1, 1, 1024, 1024), data).map_err(|e| e.to_string())?,
     )
     .unwrap();
-
-    println!("Mask preparation took: {:?}", mask_prep_start.elapsed());
 
     let decoder_start = std::time::Instant::now();
     let decoder: &ort::session::Session = get_decoder(&app, "resources/maskedMedSAM/decoder.onnx")
@@ -208,26 +189,15 @@ pub fn mask_sam_segment<'a>(
     let output = binding
         .try_extract_tensor::<f32>()
         .map_err(|e| e.to_string())?;
-    let postprocess_start = std::time::Instant::now();
 
     // Ensure output tensor has the correct shape
     let output = output.view();
 
-    // Parallelize the iteration over pixels
-    mask.par_chunks_mut(4).enumerate().for_each(|(i, pixel)| {
-        let x = (i % width) as usize;
-        let y = (i / width) as usize;
-        if output[[y, x]] > threshold {
-            pixel.copy_from_slice(&color);
-        } else {
-            pixel.copy_from_slice(&[0, 0, 0, 0]);
-        }
-    });
+    let binary = output.mapv(|x| (x > threshold) as u8);
+    let binary_vec: Vec<u8> = binary.into_raw_vec_and_offset().0;
 
     // No need to convert back to DynamicImage
 
-    println!("Post-processing took: {:?}", postprocess_start.elapsed());
-
     println!("Total execution time: {:?}", start_time.elapsed());
-    Ok(Response::new(mask.into_vec()))
+    Ok(Response::new(binary_vec))
 }
