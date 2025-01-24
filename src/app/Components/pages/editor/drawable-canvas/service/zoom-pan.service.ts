@@ -20,12 +20,11 @@ export class ZoomPanService {
 
   private prevPoint: Point2D | null = null;
   public redrawRequest = new Subject<boolean>();
-  constructor(private stateService: StateManagerService) { }
+  constructor(private stateService: StateManagerService) {}
 
   public setContext(canvasRef: HTMLCanvasElement) {
     this.canvasRef = canvasRef;
   }
-
 
   getViewBox(): Viewbox {
     if (!this.canvasRef) {
@@ -47,7 +46,6 @@ export class ZoomPanService {
     let ymax = ymin + this.stateService.height * this.scale * canvasScale;
 
     return { xmin: xmin, ymin: ymin, xmax: xmax, ymax: ymax };
-
   }
 
   getSVGViewBox(): Rect {
@@ -55,7 +53,12 @@ export class ZoomPanService {
     const viewBoxY = -this.offset.y / this.scale;
     const viewBoxWidth = this.stateService.width / this.scale;
     const viewBoxHeight = this.stateService.width / this.scale;
-    return { x: viewBoxX, y: viewBoxY, width: viewBoxWidth, height: viewBoxHeight };
+    return {
+      x: viewBoxX,
+      y: viewBoxY,
+      width: viewBoxWidth,
+      height: viewBoxHeight,
+    };
   }
 
   public drag(event: MouseEvent) {
@@ -84,8 +87,6 @@ export class ZoomPanService {
         this.redrawRequest.next(true);
       });
       this.prevPoint = { x: event.clientX, y: event.clientY };
-
-
     }
   }
 
@@ -188,7 +189,8 @@ export class ZoomPanService {
 
   public smoothUpdateTransform() {
     const easeFactorZoom = 0.3;
-    const newScale = this.scale + (this.targetScale - this.scale) * easeFactorZoom;
+    const newScale =
+      this.scale + (this.targetScale - this.scale) * easeFactorZoom;
     const newOffsetX =
       this.offset.x + (this.targetOffset.x - this.offset.x) * easeFactorZoom;
     const newOffsetY =
@@ -242,5 +244,4 @@ export class ZoomPanService {
   getOffset() {
     return this.offset;
   }
-
 }
