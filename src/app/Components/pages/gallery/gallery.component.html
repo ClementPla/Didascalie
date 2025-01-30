@@ -1,9 +1,9 @@
 <div class="card m-auto w-3/4">
 
-    <p-dataview #dv [value]="items" [layout]="'grid'" [rows]="16" [paginator]="true" filterBy="status">
+    <p-dataview #dv [value]="items" [layout]="'grid'" [rows]="16" [paginator]="true" filterBy="status,title">
         <ng-template #header>
             <div class="flex justify-end gap-8 items-center">
-
+                <input type="search" pInputText placeholder="Filter by Name" [(ngModel)]="filterTitle" (input)="addTitleFilter()"/>
                 <p-selectbutton [options]="filterOptions" optionLabel="label" [ngModel]="filterOptions[0]"
                     (onChange)="toggleFilter($event.value)"></p-selectbutton>
 

@@ -23,7 +23,7 @@ export class IOService {
     private viewService: ViewService,
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService
-  ) { }
+  ) {}
 
   requestReload() {
     this.requestedReload.next(true);
@@ -58,7 +58,7 @@ export class IOService {
       multilabel: null,
       shades: null,
       texts: [],
-      textsNames: []
+      textsNames: [],
     } as LabelFormat;
 
     // Get the image elements and their data
@@ -84,24 +84,24 @@ export class IOService {
     // Get the multiclass elements
     const multiclassElements = doc.getElementsByTagName('multiclass');
     if (multiclassElements.length > 0) {
-      labels.multiclass = multiclassElements[0]
-        .getAttribute('classes')!
-        .split(',');
+      let attributes = multiclassElements[0].getAttribute('classes');
+      if (attributes) {
+        labels.multiclass = attributes.split(',');
+      }
     }
 
     // Get the multilabel elements
     const multilabelElements = doc.getElementsByTagName('multilabel');
     if (multilabelElements.length > 0) {
-      labels.multilabel = multilabelElements[0]
-        .getAttribute('classes')!
-        .split(',');
+      let attributes = multilabelElements[0].getAttribute('classes');
+      if (attributes) {
+        labels.multilabel = attributes.split(',');
+      }
     }
 
     const textElements = doc.getElementsByTagName('text');
     if (textElements.length > 0) {
-      labels.textsNames = textElements[0]
-        .getAttribute('names')!
-        .split(',');
+      labels.textsNames = textElements[0].getAttribute('names')!.split(',');
     }
     return labels;
   }
@@ -123,35 +123,39 @@ export class IOService {
       this.labelService.addSegLabel(segLabel);
     });
     this.labelService.rebuildTreeNodes();
-
     if (this.labelService.multiLabelTask) {
       if (data.multilabel) {
+        console.log('Setting multilabel choices');
+        console.log(data.multilabel);
         this.labelService.multiLabelTask.choices = data.multilabel;
-      }
-      else {
+      } else {
         this.labelService.multiLabelTask.choices = [];
       }
     }
     if (this.labelService.listTextLabels.length > 0) {
-      if (data.texts && data.texts.length === this.labelService.listTextLabels.length) {
+      if (
+        data.texts &&
+        data.texts.length === this.labelService.listTextLabels.length
+      ) {
         data.texts.forEach((text, index) => {
           this.labelService.listTextLabels[index].text = text;
         });
       }
     }
     if (this.labelService.listClassificationTasks.length > 0) {
-      if (data.multiclass && data.multiclass.length === this.labelService.listClassificationTasks.length) {
-
+      if (
+        data.multiclass &&
+        data.multiclass.length ===
+          this.labelService.listClassificationTasks.length
+      ) {
         data.multiclass.forEach((choice, index) => {
           this.labelService.listClassificationTasks[index].choice = choice;
         });
-      }
-      else if (!data.multiclass) {
+      } else if (!data.multiclass) {
         this.labelService.listClassificationTasks.forEach((task) => {
           task.choice = '';
         });
       }
-
     }
 
     this.labelService.activeLabel = this.labelService.listSegmentationLabels[0];
@@ -160,7 +164,7 @@ export class IOService {
     await this.canvasManagerService.loadAllCanvas(data.masks as string[]);
   }
 
-  save() {
+  async save() {
     this.viewService.setLoading(true, 'Saving annotations');
     let savefile = {
       masksName: [],
@@ -175,18 +179,19 @@ export class IOService {
     } as LabelFormat;
 
     let allPromises$: Promise<void>[] = [];
-    this.labelService.listSegmentationLabels.forEach((label, index) => {
+    for (let i = 0; i < this.labelService.listSegmentationLabels.length; i++) {
+      const label = this.labelService.listSegmentationLabels[i];
       if (label.shades) {
         if (!savefile.shades) {
           savefile.shades = [];
         }
         savefile.shades.push(label.shades);
       }
-
       savefile.labels.push(label.label);
       savefile.masksName.push(label.label);
-      let canvas = this.canvasManagerService.labelCanvas[index];
-      let blob$ = canvas
+      let canvas = this.canvasManagerService.labelCanvas[i];
+      savefile.colors.push(label.color);
+      await canvas
         .convertToBlob({ type: 'image/png' })
         .then((blob) => {
           return blobToDataURL(blob);
@@ -194,12 +199,9 @@ export class IOService {
         .then((blob) => {
           savefile.masks.push(blob);
         });
-      allPromises$.push(blob$);
-      savefile.colors.push(label.color);
-    });
-
+    }
     if (this.labelService.multiLabelTask) {
-      savefile.multiclass = this.labelService.multiLabelTask.choices;
+      savefile.multilabel = this.labelService.multiLabelTask.choices;
     }
     this.labelService.listClassificationTasks.forEach((task) => {
       if (task.choice) {
@@ -210,8 +212,7 @@ export class IOService {
     this.labelService.listTextLabels.forEach((label) => {
       savefile.textsNames.push(label.name);
       savefile.texts!.push(label.text);
-    }
-    );
+    });
 
     let finished = Promise.all(allPromises$)
       .then(() => {
@@ -270,12 +271,16 @@ export class IOService {
 
     this.labelService.listTextLabels.forEach((label) => {
       savefile.textsNames.push(label.name);
-    }
-    );
+    });
     return this.writeSave(savefile, data.width, data.height, imageName);
   }
 
-  async writeSave(labelFormat: LabelFormat, width: number, height: number, imageName: string | null = null) {
+  async writeSave(
+    labelFormat: LabelFormat,
+    width: number,
+    height: number,
+    imageName: string | null = null
+  ) {
     let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
     svg.setAttribute('height', `${height}`);
@@ -325,7 +330,8 @@ export class IOService {
 
   async getActiveSavePath(imageName: string | null = null) {
     if (!imageName) {
-      imageName = this.projectService.imagesName[this.projectService.activeIndex!];
+      imageName =
+        this.projectService.imagesName[this.projectService.activeIndex!];
     }
     const imageNameWithoutExtension = imageName
       .split('.')
@@ -334,5 +340,4 @@ export class IOService {
     const svgName = imageNameWithoutExtension + '.svg';
     return path.join(this.projectService.projectFolder, 'annotations', svgName);
   }
-
 }

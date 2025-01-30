@@ -26,6 +26,27 @@
           [multiple]="true"
           [(ngModel)]="labelsService.multiLabelTask.choices"
         ></p-select-button>
+
+        <ng-container
+        *ngFor="
+          let label of labelsService.multiLabelTask.choices;
+          let i = index
+        "
+      >
+        <p-tag severity="info" class="m-1" [rounded]="true">
+          <span class="text-base">
+            {{ label }}
+          </span>
+
+          <i
+            class="hover:outline hover:outline-1 outline-white pi pi-times rounded-full"
+            style="font-size: 0.75rem"
+            (click)="removeChoiceFromMultilabel(label)"
+          ></i>
+         
+        </p-tag>
+      </ng-container>
+
       </ng-container>
     </p-fieldset>
 

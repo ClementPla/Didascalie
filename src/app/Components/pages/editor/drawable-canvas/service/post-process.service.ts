@@ -6,6 +6,10 @@ import { ImageProcessingService } from './image-processing.service';
 import { invoke } from '@tauri-apps/api/core';
 import { BboxManagerService } from './bbox-manager.service';
 import { SVGUIService } from './svgui.service';
+import {
+  binarizeArray,
+  colorizeArray,
+} from '../../../../../Core/misc/binarize';
 
 @Injectable({
   providedIn: 'root',
@@ -19,9 +23,9 @@ export class PostProcessService {
     private bboxManager: BboxManagerService,
     private stateService: StateManagerService,
     private svgUIService: SVGUIService
-  ) { }
+  ) {}
 
-  postProcess() { }
+  postProcess() {}
 
   async crf_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
@@ -79,19 +83,12 @@ export class PostProcessService {
       rect.height
     ).data;
 
-    // Binary mask
-    let currentColor = [0, 0, 0, 0];
-    let binaryMask = new Array<boolean>(maskData.length / 4);
-    for (let i = 0; i < maskData.length; i += 4) {
-      if (maskData[i] > 0 || maskData[i + 1] > 0 || maskData[i + 2] > 0) {
-        binaryMask[i / 4] = true;
-        currentColor = [maskData[i], maskData[i + 1], maskData[i + 2], maskData[i + 3]];
-      }
-      else {
-        binaryMask[i / 4] = false;
-      }
+    let out = binarizeArray(maskData);
 
-    }
+    // Binary mask
+    let currentColor = out.color;
+    let binaryMask = out.data;
+
     const imgData = this.imageProcessingService
       .getCurrentCanvas()
       .getContext('2d', { alpha: false })!
@@ -101,7 +98,6 @@ export class PostProcessService {
         this.stateService.width,
         this.stateService.height
       ).data;
-    let timer = performance.now();
     let imageBitmap: ArrayBufferLike;
     if (!this.featuresExtracted) {
       imageBitmap = await invoke<ArrayBufferLike>('mask_sam_segment', {
@@ -111,9 +107,8 @@ export class PostProcessService {
         width: this.stateService.width,
         height: this.stateService.height,
         extractFeatures: true,
-      })
-    }
-    else {
+      });
+    } else {
       imageBitmap = await invoke<ArrayBufferLike>('mask_sam_segment', {
         coarseMask: binaryMask,
         image: [],
@@ -121,36 +116,22 @@ export class PostProcessService {
         width: this.stateService.width,
         height: this.stateService.height,
         extractFeatures: false,
-      })
+      });
     }
     let outBuffer = new Uint8ClampedArray(imageBitmap);
     // imageBitmap is a grayscale image with the same size as the input image.
-    let outData = new Uint8ClampedArray(rect.width * rect.height * 4);
-
-    // Fill the output data with the outBuffer values.
-
-    for (let i = 0; i < outData.length; i += 4) {
-      if (outBuffer[i / 4] > 0) {
-        outData[i] = currentColor[0];
-        outData[i + 1] = currentColor[1];
-        outData[i + 2] = currentColor[2];
-        outData[i + 3] = 255;
-      }
-      else {
-        outData[i + 3] = 0;
-      }
-
-    }
+    let outData = colorizeArray(outBuffer, [
+      currentColor[0],
+      currentColor[1],
+      currentColor[2],
+      255,
+    ]);
 
     this.featuresExtracted = true;
     let activeCtx = this.canvasManagerService.getActiveCtx();
     let bufferCanvas = this.canvasManagerService.getBufferCanvas();
     bufferCtx.putImageData(
-      new ImageData(
-        outData,
-        rect.width,
-        rect.height
-      ),
+      new ImageData(outData, rect.width, rect.height),
       rect.x,
       rect.y
     );
@@ -159,8 +140,6 @@ export class PostProcessService {
     bufferCtx.fillRect(bbox.x, bbox.y, bbox.width, bbox.height);
     bufferCtx.globalCompositeOperation = 'source-over';
     activeCtx.drawImage(bufferCanvas, 0, 0);
-    console.log('Drawing took', performance.now() - timer);
-
   }
 
   async otsu_post_process() {
@@ -238,6 +217,7 @@ export class PostProcessService {
       rect.width,
       rect.height
     ).data;
+
     const labelData = inputCtx.getImageData(
       rect.x,
       rect.y,
@@ -245,19 +225,20 @@ export class PostProcessService {
       rect.height
     ).data;
 
+    const maskOut = binarizeArray(maskData);
+    const labelOut = binarizeArray(labelData);
+
     const activeIndex = this.canvasManagerService.getActiveIndex();
     return invoke<ArrayBufferLike>('get_overlapping_region_with_mask', {
-      label: labelData.buffer,
-      mask: maskData.buffer,
+      label: labelOut.data,
+      mask: maskOut.data,
       width: rect.width,
       height: rect.height,
     }).then((mask: ArrayBufferLike) => {
       this.svgUIService.resetPath();
-      const newMAsk = new ImageData(
-        new Uint8ClampedArray(mask),
-        rect.width,
-        rect.height
-      );
+
+      let array = colorizeArray(new Uint8ClampedArray(mask), [0, 0, 0, 255]);
+      const newMAsk = new ImageData(array, rect.width, rect.height);
       bufferCtx.putImageData(newMAsk, 0, 0);
       this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
         if (index !== activeIndex && !this.editorService.eraseAll) return;
@@ -272,57 +253,5 @@ export class PostProcessService {
         ctx.globalCompositeOperation = 'source-over';
       });
     });
-  }
-
-  async drawQuadTreeBbox(
-    maskData: Uint8ClampedArray,
-    minSize: number,
-    maxDepth: number
-  ) {
-    const w = this.stateService.width;
-    const h = this.stateService.height;
-    return invoke('get_quad_tree_bbox', {
-      mask: maskData.buffer,
-      width: this.stateService.width,
-      height: this.stateService.height,
-      newWidth: 256,
-      newHeight: 256,
-      maxDepth: maxDepth,
-      minSize: minSize,
-    })
-      .then((bboxes: any) => {
-        let N = bboxes.length;
-        this.bboxManager.listBbox = [];
-        for (let i = 0; i < N; i++) {
-          const bbox = bboxes[i];
-          const xmin = (w / 256) * bbox[0];
-          const ymin = (h / 256) * bbox[1];
-          const xmax = (w / 256) * bbox[2];
-          const ymax = (h / 256) * bbox[3];
-          // xmin, xmax are in [0, 1024], ymin, ymax are in [0, 1024].
-
-          const b = {
-            x: xmin,
-            y: ymin,
-            width: xmax - xmin,
-            height: ymax - ymin,
-          };
-          this.bboxManager.listBbox.push({
-            label: {
-              label: 'bbox' + i,
-              color: '#FF0000',
-              isVisible: true,
-              shades: null,
-            },
-            bbox: b,
-            instance: i,
-          });
-        }
-      })
-      .then(() => {
-        setTimeout(() => {
-          this.bboxManager.listBbox = [];
-        }, 2000);
-      });
   }
 }
