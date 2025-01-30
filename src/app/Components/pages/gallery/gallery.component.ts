@@ -7,15 +7,16 @@ import { DataViewModule, DataView } from 'primeng/dataview';
 import { ButtonModule } from 'primeng/button';
 import { KnobModule } from 'primeng/knob';
 import { FormsModule } from '@angular/forms';
-import { GenericsModule } from "../../../generics/generics.module";
+import { GenericsModule } from '../../../generics/generics.module';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { InputTextModule } from 'primeng/inputtext';
+import { event } from '@tauri-apps/api';
 
 interface GalleryItem {
   title: string;
   src: string;
   status: string;
 }
-
 
 @Component({
   selector: 'app-gallery',
@@ -28,7 +29,8 @@ interface GalleryItem {
     KnobModule,
     FormsModule,
     GenericsModule,
-    SelectButtonModule
+    SelectButtonModule,
+    InputTextModule,
   ],
   standalone: true,
   templateUrl: './gallery.component.html',
@@ -40,20 +42,21 @@ export class GalleryComponent implements OnInit, OnDestroy {
   percentageBeforeRefresh: number = 0;
   intervalFunction: NodeJS.Timeout | undefined;
   items: GalleryItem[] = [];
+  filterTitle: string = '';
 
-  filterOptions = [{ label: 'All', value: 0 },
-  { label: 'Images w. annotations', value: 1 },
-  { label: 'Images w.o annotations', value: 2 },
-  { label: 'Images reviewed', value: 3 },
+  filterOptions = [
+    { label: 'All', value: 0 },
+    { label: 'Images w. annotations', value: 1 },
+    { label: 'Images w.o annotations', value: 2 },
+    { label: 'Images reviewed', value: 3 },
   ];
 
   @ViewChild('dv') dataView: DataView;
 
-  constructor(public projectService: ProjectService) {
-  }
+  constructor(public projectService: ProjectService) {}
 
   async ngOnInit(): Promise<void> {
-    await this.refresh()
+    await this.refresh();
   }
 
   ngOnDestroy(): void {
@@ -72,8 +75,8 @@ export class GalleryComponent implements OnInit, OnDestroy {
       this.items = newItems;
     }
     if (this.autoRefresh) {
-      this.intervalFunction = this.getInterval()
-    };
+      this.intervalFunction = this.getInterval();
+    }
   }
 
   getInterval() {
@@ -127,12 +130,13 @@ export class GalleryComponent implements OnInit, OnDestroy {
       this.dataView.filter('annotated');
     } else if (event.value == 2) {
       this.dataView.filter('empty');
-    }
-    else {
+    } else {
       this.dataView.filter('reviewed');
     }
-
-
   }
 
+  addTitleFilter() {
+    console.log(this.filterTitle);
+    this.dataView.filter(this.filterTitle);
+  }
 }

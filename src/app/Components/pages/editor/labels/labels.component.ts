@@ -16,7 +16,7 @@ import { ProjectService } from '../../../../Services/Project/project.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { DividerModule } from 'primeng/divider';
 import { TextareaModule } from 'primeng/textarea';
-
+import { TagModule } from 'primeng/tag';
 @Component({
   selector: 'app-labels',
   standalone: true,
@@ -32,7 +32,8 @@ import { TextareaModule } from 'primeng/textarea';
     FieldsetModule,
     DividerModule,
     InstanceLabelComponent,
-    TextareaModule
+    TextareaModule,
+    TagModule,
   ],
   templateUrl: './labels.component.html',
   styleUrl: './labels.component.scss',
@@ -97,4 +98,6 @@ export class LabelsComponent implements OnInit {
   updateOpacity() {
     this.drawService.requestCanvasRedraw();
   }
+
+  removeChoiceFromMultilabel(choice: string) {}
 }

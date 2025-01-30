@@ -316,8 +316,8 @@ pub async fn find_overlapping_region(
 
 #[tauri::command]
 pub async fn get_overlapping_region_with_mask(
-    label: Vec<u8>,
-    mask: Vec<u8>,
+    label: Vec<bool>,
+    mask: Vec<bool>,
     width: usize,
     height: usize,
 ) -> Result<Response, String> {
@@ -328,14 +328,14 @@ pub async fn get_overlapping_region_with_mask(
     let mut first_nonzero_index = None;
 
     for i in 0..(width * height) {
-        let label_r = label[4 * i + 3]; // 'R' channel if RGBA
-        let mask_r = mask[4 * i + 3];
-        if mask_r > 0 {
+        let label_r = label[i]; // 'R' channel if RGBA
+        let mask_r = mask[i];
+        if mask_r {
             if first_nonzero_index.is_none() {
                 first_nonzero_index = Some(i);
             }
         }
-        if label_r > 0 || mask_r > 0 {
+        if label_r || mask_r {
             combined_mask[i] = true;
         }
     }
@@ -375,34 +375,13 @@ pub async fn get_overlapping_region_with_mask(
     println!("Found {} connected pixels", region_pixels.len());
 
     // 3) Prepare the final RGBA output, marking the connected region in white
-    let mut output = vec![0_u8; width * height * 4];
+    let mut output = vec![0_u8; width * height];
     for (x, y) in region_pixels {
-        let i = (y * width + x) * 4;
-        output[i + 3] = 255; // A
+        let i: usize = y * width + x;
+        output[i] = 255; // A
     }
 
     Ok(Response::new(output))
-}
-
-// A simple helper to get 4-connected neighbors
-fn neighbors_4(
-    x: usize,
-    y: usize,
-    width: usize,
-    height: usize,
-) -> impl Iterator<Item = (usize, usize)> {
-    // Offsets for up, right, down, left
-    const OFFSETS: [(isize, isize); 4] = [(0, -1), (1, 0), (0, 1), (-1, 0)];
-
-    OFFSETS.into_iter().filter_map(move |(dx, dy)| {
-        let nx = x as isize + dx;
-        let ny = y as isize + dy;
-        if nx >= 0 && (nx as usize) < width && ny >= 0 && (ny as usize) < height {
-            Some((nx as usize, ny as usize))
-        } else {
-            None
-        }
-    })
 }
 
 fn neighbors_8(
