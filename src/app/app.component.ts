@@ -1,8 +1,4 @@
-import {
-  AfterViewInit,
-  ChangeDetectorRef,
-  Component,
-} from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component } from '@angular/core';
 
 import { ToolbarModule } from 'primeng/toolbar';
 
@@ -28,7 +24,7 @@ import Lara from '@primeng/themes/lara';
 import Nora from '@primeng/themes/nora';
 import { MulticlassTask, MultilabelTask } from './Core/task';
 import { BlockUIModule } from 'primeng/blockui';
-
+import { DividerModule } from 'primeng/divider';
 
 @Component({
   selector: 'app-root',
@@ -40,7 +36,8 @@ import { BlockUIModule } from 'primeng/blockui';
     RouterOutlet,
     Button,
     RouterModule,
-    BlockUIModule
+    BlockUIModule,
+    DividerModule,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
@@ -71,11 +68,11 @@ export class AppComponent implements AfterViewInit {
     this.createCLISubscription();
   }
   /*
-  * Create the subscriptions to CLI events.
-  * The chain of calls is as followed: Tauri (via ZMQ.REP) listens to the localhost port. 
-  * If a message is received, an event is sent to the application. Event is then processed by the CLI service.
-  * The CLI service calls a Subject.next() to emit the payload to the application.
-  */
+   * Create the subscriptions to CLI events.
+   * The chain of calls is as followed: Tauri (via ZMQ.REP) listens to the localhost port.
+   * If a message is received, an event is sent to the application. Event is then processed by the CLI service.
+   * The CLI service calls a Subject.next() to emit the payload to the application.
+   */
   createCLISubscription() {
     // Not sure if this is the right way to do or even needed
     this.cli.commandProcessed.subscribe((value) => {
@@ -87,7 +84,6 @@ export class AppComponent implements AfterViewInit {
       if (config) {
         this.projectService.create_project(config);
         this.projectService.isProjectStarted = true;
-
       }
     });
     this.cli.imageLoaded.subscribe((imageConfig) => {
@@ -127,10 +123,19 @@ export class AppComponent implements AfterViewInit {
       shades: null,
     });
     this.projectService.isClassification = true;
-    this.labelService.addClassificationTask(new MulticlassTask('DR Grading',
-      ['Absent', 'Mild', 'Moderate', 'Severe', 'Proliferative'], 'Absent'));
-    this.labelService.addClassificationTask(new MulticlassTask('Quality', ['Good', 'Readable', 'Ungradable']));
-    this.labelService.addMultilabelTask(new MultilabelTask('Misc', ['AMD', 'Glaucoma', 'Catract', 'Hypertension']));
+    this.labelService.addClassificationTask(
+      new MulticlassTask(
+        'DR Grading',
+        ['Absent', 'Mild', 'Moderate', 'Severe', 'Proliferative'],
+        'Absent'
+      )
+    );
+    this.labelService.addClassificationTask(
+      new MulticlassTask('Quality', ['Good', 'Readable', 'Ungradable'])
+    );
+    this.labelService.addMultilabelTask(
+      new MultilabelTask('Misc', ['AMD', 'Glaucoma', 'Catract', 'Hypertension'])
+    );
     this.projectService.isSegmentation = true;
     this.editorService.autoPostProcess = true;
     this.editorService.postProcessOption = PostProcessOption.CRF;
@@ -149,8 +154,7 @@ export class AppComponent implements AfterViewInit {
     // The idea is to get not just the filename, but the path relative to the input folder
     let image_name = image_path.split(this.projectService.inputFolder)[1];
     if (this.projectService.imagesName.includes(image_name)) {
-    }
-    else {
+    } else {
       this.projectService.imagesName.push(image_name);
     }
     await this.IOService.saveFromCLI(imageConfig, image_name);

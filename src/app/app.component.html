@@ -1,6 +1,11 @@
 <p-toolbar>
   <ng-template #start>
     <span class="toolbar"> Annotator </span>
+    <ng-container *ngIf="projectService.isProjectStarted">
+      <p-divider layout="vertical" />
+      <span class="toolbar" *ngIf="projectService.isProjectStarted"> {{ projectService.projectName }} </span>
+    </ng-container>
+    
   </ng-template>
   <ng-template #center>
     <p class="flex gap-8">
