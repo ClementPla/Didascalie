@@ -1,34 +1,97 @@
-<div class="card m-auto w-3/4">
+<div class="flex flex-row gap-4 items-center justify-center">
+  <p-panel *ngIf="batchAnnotate">
+    <ng-template #header>
+      <b>Batch annotate</b>
+    </ng-template>
+    <div class="flex flex-col gap-4 justify-center">
+    <div *ngFor="let task of labelsService.listClassificationTasks; let i = index">
 
-    <p-dataview #dv [value]="items" [layout]="'grid'" [rows]="16" [paginator]="true" filterBy="status,title">
-        <ng-template #header>
-            <div class="flex justify-end gap-8 items-center">
-                <input type="search" pInputText placeholder="Filter by Name" [(ngModel)]="filterTitle" (input)="addTitleFilter()"/>
-                <p-selectbutton [options]="filterOptions" optionLabel="label" [ngModel]="filterOptions[0]"
-                    (onChange)="toggleFilter($event.value)"></p-selectbutton>
-
-                <app-labelled-switch [(checked)]="autoRefresh" (checkedChange)="setupAutoRefresh()">
-                    Auto-refresh</app-labelled-switch>
-
-                <button pButton type="button" label="Refresh" icon="pi pi-sync" class="p-button-success"
-                    (click)="refresh()">
+        <h4>{{ task.taskName }}</h4>
+        <p-selectButton #batchChoices [options]="task.classLabels" [size]="'small'"></p-selectButton> 
 
 
-                    <p-knob *ngIf="autoRefresh" [(ngModel)]="percentageBeforeRefresh" [size]="15"
-                        [valueTemplate]="''" />
+    </div>
+    <button pButton type="button" label="Apply to selected" (click)="annotateBatch()"></button>
+    </div>
+  </p-panel>
 
-                </button>
-            </div>
-        </ng-template>
-        <ng-template #grid let-items let-rowIndexValue="rowIndex">
-            <div class="gap-4 grid grid-cols-8">
-                <div *ngFor="let item of items as GalleryItem ; let index = index; let first=first" class="p-2">
-                    <app-gallery-element [imageName]="item.src" [status]="item.status"
-                        [id]="projectService.imagesName.indexOf(item.title)">
-                    </app-gallery-element>
-                </div>
-            </div>
-        </ng-template>
+  <p-dataview
+    #dv
+    [value]="items"
+    [layout]="'grid'"
+    [rows]="24"
+    [paginator]="true"
+    filterBy="status,title"
+    [paginatorPosition]="'both'"
+  >
+    <ng-template #header>
+      <div class="flex gap-8 items-center justify-end">
+        <p class="mr-auto">
+          <app-labelled-switch [(checked)]="batchAnnotate">
+            Batch annotate</app-labelled-switch
+          >
+        </p>
+        <input
+          type="search"
+          pInputText
+          placeholder="Filter by Name"
+          [(ngModel)]="filterTitle"
+          (input)="addTitleFilter()"
+        />
+        <p-selectbutton
+          [options]="filterOptions"
+          optionLabel="label"
+          [ngModel]="filterOptions[0]"
+          (onChange)="toggleFilter($event.value)"
+        ></p-selectbutton>
 
-    </p-dataview>
+        <app-labelled-switch
+          [(checked)]="autoRefresh"
+          (checkedChange)="setupAutoRefresh()"
+        >
+          Auto-refresh</app-labelled-switch
+        >
+
+        <button
+          pButton
+          type="button"
+          label="Refresh"
+          icon="pi pi-sync"
+          class="p-button-success"
+          (click)="refresh()"
+        >
+          <p-knob
+            *ngIf="autoRefresh"
+            [(ngModel)]="percentageBeforeRefresh"
+            [size]="15"
+            [valueTemplate]="''"
+          />
+        </button>
+      </div>
+    </ng-template>
+    <ng-template #grid let-items let-rowIndexValue="rowIndex">
+      <div class="gap-2 grid grid-cols-8">
+        <div
+          *ngFor="
+            let item of items as GalleryItem;
+            let index = index;
+            let first = first
+          "
+        >
+          <app-gallery-element
+            [imageName]="item.src"
+            [status]="item.status"
+            [selected]="
+              selectedItems.includes(
+                projectService.imagesName.indexOf(item.title)
+              )
+            "
+            (thumbnailSelected)="handleSelect($event)"
+            [id]="projectService.imagesName.indexOf(item.title)"
+          >
+          </app-gallery-element>
+        </div>
+      </div>
+    </ng-template>
+  </p-dataview>
 </div>

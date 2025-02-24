@@ -2,12 +2,12 @@
 
 export class MulticlassTask{
 
-    constructor(public taskName: string, public classLabels: string[], public choice: string = ''){
+    constructor(public taskName: string, public classLabels: string[]){
     }
 }
 
 export class MultilabelTask{
-    constructor(public taskName: string, public taskLabels: string[], public choices: string[] = []){
+    constructor(public taskName: string, public taskLabels: string[]){
     }
 
     addLabel(label: string){

@@ -1,4 +1,10 @@
-import { ChangeDetectorRef, Component, OnInit, output } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectorRef,
+  Component,
+  OnInit,
+  output,
+} from '@angular/core';
 import { DividerModule } from 'primeng/divider';
 import { PanelModule } from 'primeng/panel';
 import { FloatLabelModule } from 'primeng/floatlabel';
@@ -13,10 +19,8 @@ import { ButtonModule } from 'primeng/button';
 import { environment } from '../../../../environments/environment';
 import { ProjectService } from '../../../Services/Project/project.service';
 import { LabelsService } from '../../../Services/Project/labels.service';
-import { getDefaultColor } from '../../../Core/misc/colors';
 import { ColorPickerModule } from 'primeng/colorpicker';
 import { CheckboxModule } from 'primeng/checkbox';
-import { SegLabel } from '../../../Core/interface';
 import { CLIService } from '../../../Services/cli.service';
 import { ClassificationConfigurationComponent } from './classification-configuration/classification-configuration.component';
 import { TableModule } from 'primeng/table';
@@ -25,6 +29,7 @@ import { path } from '@tauri-apps/api';
 import { GenericsModule } from '../../../generics/generics.module';
 import { TextConfigurationComponent } from './text-configuration/text-configuration.component';
 import { PixelsConfigurationComponent } from './pixels-configuration/pixels-configuration.component';
+import { ViewService } from '../../../Services/UI/view.service';
 
 @Component({
   selector: 'app-project-configuration',
@@ -54,7 +59,7 @@ import { PixelsConfigurationComponent } from './pixels-configuration/pixels-conf
   templateUrl: './project-configuration.component.html',
   styleUrl: './project-configuration.component.scss',
 })
-export class ProjectConfigurationComponent implements OnInit {
+export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   generateThumbnails: boolean = true;
 
   isInputValid: boolean = true;
@@ -64,13 +69,13 @@ export class ProjectConfigurationComponent implements OnInit {
     public projectService: ProjectService,
     public labelService: LabelsService,
     private cli: CLIService,
-    private cdr: ChangeDetectorRef
-  ) { }
+    private cdr: ChangeDetectorRef,
+    private viewService: ViewService
+  ) {}
 
   ngOnInit(): void {
     this.cli.commandProcessed.subscribe((value) => {
       if (value) {
-        console.log('Command processed from Project Configuration');
         this.cdr.detectChanges();
       }
     });
@@ -101,14 +106,16 @@ export class ProjectConfigurationComponent implements OnInit {
     this.isNameValid = this.projectService.projectName !== '';
     if (this.isInputValid && this.isOutputValid) {
       this.projectService.startProject();
+      this.viewService.navigateToGallery();
     }
   }
 
-
-
-  async loadProjectFromFilepath(filepath: string) {
-    filepath = await path.join(filepath, 'project_config.json')
-    this.projectService.loadProjectFile(filepath);
+  async loadProjectFromFilepath(filepath: string, start: boolean) {
+    filepath = await path.join(filepath, 'project_config.json');
+    await this.projectService.loadProjectFile(filepath, start);
+    if (start) {
+      await this.viewService.navigateToGallery();
+    }
   }
 
   findAndLoadProjectFile() {
@@ -124,4 +131,18 @@ export class ProjectConfigurationComponent implements OnInit {
     this.projectService.removeProjectFile(filepath);
   }
 
+  ngAfterViewInit(): void {
+    
+  }
+
+  debug() {
+    this.projectService
+      .loadProjectFile(
+        'c:/Users/cleme/Documents/tmp/output/Fundus/project_config.json',
+        true
+      )
+      .then(() => {
+        this.viewService.navigateToGallery();
+        });
+  }
 }

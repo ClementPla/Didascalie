@@ -1,14 +1,32 @@
-<p-card (click)="openEditor()">
-    <ng-template pTemplate="header">
-        <div class="m-1">
-            <img class="flex flex-col hover:brightness-125 hover:scale-110 rounded-md" [ngStyle]="getStyle()"
-                [src]=" imagePath" [width]="128" [height]="128" loading="lazy" />
-        </div>
-    </ng-template>
-    <p>
-        <b>
-            {{id}}
-        </b>
-        {{imageName}}
-    </p>
+<p-card
+  (dblclick)="openEditor()"
+  [ngClass]="{ panel_selected: true }"
+  (click)="select()"
+  [styleClass]="getCardStyleClass()"
+>
+  <div class="align-middle flex justify-center m-1">
+    <img
+      class="aspect-auto flex flex-col hover:brightness-125 hover:scale-110 rounded-md"
+      [ngStyle]="getStyle()"
+      [src]="imagePath"
+      [width]="128"
+      loading="lazy"
+    />
+  </div>
+  <p class="text-center">
+    <b>
+      {{ id }}
+    </b>
+    {{ imageName }}
+  </p>
+  <div *ngIf="projectService.isClassification">
+    <ng-container
+      *ngFor="let task of labelsService.listClassificationTasks; let i = index"
+    >
+      <small *ngIf="classificatorService.multiclassChoices.get(imageName)![i]">
+        <b>{{ task.taskName }}: </b>
+        {{ classificatorService.multiclassChoices.get(imageName)![i] }}
+      </small>
+    </ng-container>
+  </div>
 </p-card>

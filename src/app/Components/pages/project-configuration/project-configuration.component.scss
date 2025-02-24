@@ -1,3 +1,11 @@
 .table-row:hover{
     background: var(--p-button-text-primary-hover-background);
 }
+
+.long-row-cut{
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 40ch;
+    direction: rtl;
+}

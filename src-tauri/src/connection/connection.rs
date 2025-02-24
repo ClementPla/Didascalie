@@ -8,7 +8,6 @@ use tokio::sync::oneshot;
 use uuid::Uuid;
 use std::time::Duration;
 use serde::{ Deserialize, Serialize };
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EventPayload<T: Clone> {
   event_id: Uuid,

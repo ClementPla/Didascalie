@@ -7,7 +7,7 @@ import { BlockableUI } from 'primeng/api';
     standalone: true,
     imports: [NgStyle, NgClass],
     template: `        
-        <p [ngStyle]="style" [ngClass]="class" ><ng-content></ng-content></p>
+        <ng-container [ngStyle]="style" [ngClass]="class" ><ng-content></ng-content></ng-container>
     `
 })
 export class BlockableP implements BlockableUI {

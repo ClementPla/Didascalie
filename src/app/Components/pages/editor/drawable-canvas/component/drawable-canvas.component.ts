@@ -119,8 +119,9 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.zoomPanService.setContext(this.imgCanvas.nativeElement);
     this.undoRedoService.empty();
     if (this.projectService.activeImage) {
-      await this.loadImage(this.projectService.activeImage);
+      this.loadImage(this.projectService.activeImage);
     }
+    console.log('Drawable canvas initialized'); 
   }
 
   public initializeDimensions() {
@@ -166,13 +167,12 @@ export class DrawableCanvasComponent implements AfterViewInit {
     return points;
   }
 
-  public loadImage(image: Promise<string>) {
+  public loadImage(image: string) {
     this.isImageLoaded = false;
-    return image.then((img) => {
-      this.srcImg = img;
-      this.reload();
-      this.cdr.detectChanges();
-    });
+    this.srcImg = image;
+    this.reload();
+    this.cdr.detectChanges(); // This might not be needed
+
   }
   public wheel(event: WheelEvent): void {
     event.preventDefault();
@@ -302,10 +302,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
       this.undoRedoService.empty();
       this.viewService.endLoading();
       this.redrawAllCanvas();
-
-      requestAnimationFrame(() => {
-        this.isImageLoaded = true;
-      });
+      this.isImageLoaded = true;
     };
   }
 

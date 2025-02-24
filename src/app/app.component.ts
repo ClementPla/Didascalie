@@ -25,7 +25,7 @@ import Nora from '@primeng/themes/nora';
 import { MulticlassTask, MultilabelTask } from './Core/task';
 import { BlockUIModule } from 'primeng/blockui';
 import { DividerModule } from 'primeng/divider';
-
+import { BlockableP } from './generics/blockable/p/p.component';
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -38,11 +38,12 @@ import { DividerModule } from 'primeng/divider';
     RouterModule,
     BlockUIModule,
     DividerModule,
+    BlockableP,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent implements AfterViewInit {
+export class AppComponent  {
   title = 'Client';
 
   constructor(
@@ -90,60 +91,6 @@ export class AppComponent implements AfterViewInit {
       if (imageConfig) {
         this.load_image(imageConfig);
       }
-    });
-  }
-  ngAfterViewInit() {
-    // this.debug();
-  }
-
-  async debug() {
-    this.projectService.isClassification = true;
-    this.labelService.addSegLabel({
-      label: 'Foreground',
-      color: '#209fb5',
-      isVisible: true,
-      shades: null,
-    });
-    this.labelService.addSegLabel({
-      label: 'Example1/Class 1',
-      color: '#df8e1d',
-      isVisible: true,
-      shades: null,
-    });
-    this.labelService.addSegLabel({
-      label: 'Example1/Class 2',
-      color: '#8839ef',
-      isVisible: true,
-      shades: null,
-    });
-    this.labelService.addSegLabel({
-      label: 'Example2/Class 3',
-      color: '#d20f39',
-      isVisible: true,
-      shades: null,
-    });
-    this.projectService.isClassification = true;
-    this.labelService.addClassificationTask(
-      new MulticlassTask(
-        'DR Grading',
-        ['Absent', 'Mild', 'Moderate', 'Severe', 'Proliferative'],
-        'Absent'
-      )
-    );
-    this.labelService.addClassificationTask(
-      new MulticlassTask('Quality', ['Good', 'Readable', 'Ungradable'])
-    );
-    this.labelService.addMultilabelTask(
-      new MultilabelTask('Misc', ['AMD', 'Glaucoma', 'Catract', 'Hypertension'])
-    );
-    this.projectService.isSegmentation = true;
-    this.editorService.autoPostProcess = true;
-    this.editorService.postProcessOption = PostProcessOption.CRF;
-    this.editorService.lineWidth = 40;
-
-    let isStarted$ = this.projectService.startProject();
-    isStarted$.then(() => {
-      this.projectService.openEditor(0);
     });
   }
 

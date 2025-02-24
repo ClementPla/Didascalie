@@ -4,7 +4,12 @@ import { environment } from '../../../environments/environment';
 import { ViewService } from '../UI/view.service';
 
 import { path } from '@tauri-apps/api';
-import { ProjectConfig, ProjectFile, SegLabel, Thumbnail } from '../../Core/interface';
+import {
+  ProjectConfig,
+  ProjectFile,
+  SegLabel,
+  Thumbnail,
+} from '../../Core/interface';
 
 import { invokeSaveJsonFile, loadImageFile } from '../../Core/save_load';
 import { LabelsService } from './labels.service';
@@ -14,6 +19,7 @@ import {
   invokeLoadJsonFile,
   saveProjectConfigFile,
 } from '../../Core/save_load';
+import { ClassificationService } from './classification.service';
 
 @Injectable({
   providedIn: 'root',
@@ -41,21 +47,18 @@ export class ProjectService {
   localStoragesProjectsFilepaths: ProjectFile[] = [];
 
   activeIndex: number | null = null;
-  activeImage: Promise<string> | null = null;
-
+  activeImage: string | null = null;
   maxInstances: number = 100;
 
   constructor(
-    private viewService: ViewService,
-    private labelService: LabelsService
+    private labelService: LabelsService,
+    private classificationService: ClassificationService
   ) {
-
     this.localStoragesProjectsFilepaths = JSON.parse(
       localStorage.getItem('projects') || '[]'
     );
-
   }
-  async startProject(): Promise<void> {
+  async startProject() {
     this.inputFolder = await path.resolve(this.inputFolder);
     let sep = path.sep();
     if (!this.inputFolder.endsWith(sep)) {
@@ -81,28 +84,33 @@ export class ProjectService {
           return {
             name: task.taskName,
             classes: task.classLabels,
-            default: task.choice,
           };
         }
       ),
       classification_multilabel: this.labelService.multiLabelTask
         ? {
-          name: this.labelService.multiLabelTask.taskName,
-          classes: this.labelService.multiLabelTask.taskLabels,
-          default: this.labelService.multiLabelTask.choices,
-        }
+            name: this.labelService.multiLabelTask.taskName,
+            classes: this.labelService.multiLabelTask.taskLabels,
+          }
         : null,
       has_text_description: this.hasTextDescription,
       text_names: this.labelService.listTextLabels.map((label) => label.name),
-      default_colors: this.isSegmentation ? this.labelService.listSegmentationLabels.map((label) => label.color) : null,
+      default_colors: this.isSegmentation
+        ? this.labelService.listSegmentationLabels.map((label) => label.color)
+        : null,
     };
 
     saveProjectConfigFile(this.projectFolder, projectConfig);
 
     // Save ProjectName/config file path to localStorage
     // Check if the projectFolder is already in the list, if so remove it
-    const projectFile = { 'project_name': this.projectName, 'root': await path.join(this.outputFolder, this.projectName) };
-    const existingRoots = this.localStoragesProjectsFilepaths.map((projectFile) => projectFile.root);
+    const projectFile = {
+      project_name: this.projectName,
+      root: await path.join(this.outputFolder, this.projectName),
+    };
+    const existingRoots = this.localStoragesProjectsFilepaths.map(
+      (projectFile) => projectFile.root
+    );
 
     if (!existingRoots.includes(projectFile.root)) {
       this.localStoragesProjectsFilepaths.push(projectFile);
@@ -116,27 +124,25 @@ export class ProjectService {
     await this.update_reviewed();
     this.isProjectStarted = true;
 
-    this.viewService.navigateToGallery();
-
   }
 
-  async loadProjectFile(filepath: string) {
+  async loadProjectFile(filepath: string, start: boolean = true) {
     return invokeLoadJsonFile(filepath).then((projectConfig: any) => {
-
       if (projectConfig) {
         // Convert JSON string to ProjectConfig
-
         projectConfig = JSON.parse(projectConfig);
-
-        this.create_project(projectConfig as ProjectConfig);
+        return this.create_project(projectConfig as ProjectConfig, start);
       }
+
+      return Promise.resolve(false);
     });
   }
 
   async removeProjectFile(filepath: string) {
-    this.localStoragesProjectsFilepaths = this.localStoragesProjectsFilepaths.filter(
-      (projectFile) => projectFile.root !== filepath
-    );
+    this.localStoragesProjectsFilepaths =
+      this.localStoragesProjectsFilepaths.filter(
+        (projectFile) => projectFile.root !== filepath
+      );
     localStorage.setItem(
       'projects',
       JSON.stringify(this.localStoragesProjectsFilepaths)
@@ -150,6 +156,9 @@ export class ProjectService {
       recursive: this.recursive,
     });
     this.extractImagesName(fileList);
+    if(this.isClassification){
+      this.classificationService.initMaps(this.imagesName);
+    }
   }
 
   async listAnnotations() {
@@ -172,53 +181,19 @@ export class ProjectService {
     });
   }
 
-  async openEditor(index: number) {
-    this.viewService.setLoading(true, 'Loading editor');
-    this.activeIndex = index;
-    const openPromise$ = path
-      .join(this.inputFolder, this.imagesName[index])
-      .then((filepath) => {
-        this.activeImage = loadImageFile(filepath);
 
-        return this.activeImage.then((image) => {
-          return this.viewService.navigateToEditor()?.then(() => {
-            this.viewService.endLoading();
-          });
-        });
-      });
-
-    return openPromise$;
-  }
-
-  async goNext() {
-    if (
-      this.activeIndex != null &&
-      this.activeIndex < this.imagesName.length - 1
-    ) {
-      return this.openEditor(this.activeIndex + 1);
-    }
-    return Promise.resolve('No more images');
-  }
-
-  async goPrevious() {
-    if (this.activeIndex != null && this.activeIndex > 0) {
-      return this.openEditor(this.activeIndex - 1);
-    }
-    return Promise.resolve('No more images');
-  }
   resetProject() {
     this.isProjectStarted = false;
     this.imagesName = [];
     this.activeIndex = null;
-    this.activeImage = null;
   }
 
-  async create_project(config: ProjectConfig) {
+  async create_project(config: ProjectConfig, start: boolean = true) {
     this.isClassification = config.is_classification;
     this.isSegmentation = config.is_segmentation;
     this.isInstanceSegmentation = config.is_instance_segmentation;
     this.isBoundingBoxDetection = config.is_bbox_detection;
-    this.hasTextDescription = config.has_text_description
+    this.hasTextDescription = config.has_text_description;
     this.projectName = config.project_name;
     this.inputFolder = config.input_dir;
     this.outputFolder = config.output_dir;
@@ -246,11 +221,7 @@ export class ProjectService {
     if (config.classification_classes) {
       config.classification_classes.forEach((task) => {
         this.labelService.addClassificationTask(
-          new MulticlassTask(
-            task.name,
-            task.classes,
-            task.default ? task.default : undefined
-          )
+          new MulticlassTask(task.name, task.classes)
         );
       });
     }
@@ -258,20 +229,19 @@ export class ProjectService {
       this.labelService.addMultilabelTask(
         new MultilabelTask(
           config.classification_multilabel.name,
-          config.classification_multilabel.classes,
-          config.classification_multilabel.default
-            ? config.classification_multilabel.default
-            : undefined
+          config.classification_multilabel.classes
         )
       );
     }
     if (config.text_names) {
       config.text_names.forEach((name) => {
-        this.labelService.addTextLabel({ 'name': name, "text": "" });
+        this.labelService.addTextLabel({ name: name, text: '' });
       });
     }
     this.labelService.rebuildTreeNodes();
-    this.startProject();
+    if (start) return this.startProject();
+
+    return Promise.resolve(true);
   }
   async update_reviewed() {
     // Read the revision file and update the reviewed status
@@ -283,29 +253,31 @@ export class ProjectService {
     const revisionPath = await path.join(this.projectFolder, '.revisions.json');
     let revision;
     try {
-      revision = await invokeLoadJsonFile(revisionPath).then((revisions: any) => {
-        if (revisions) {
-          revisions = JSON.parse(revisions).images;
-          // Add the images that have been opened to the list if they are not already there
-          this.imagesHasBeenOpened.forEach((image) => {
-            if (!revisions.includes(image)) {
-              revisions.push(image);
-            }
-          });
-          return revisions;
+      revision = await invokeLoadJsonFile(revisionPath).then(
+        (revisions: any) => {
+          if (revisions) {
+            revisions = JSON.parse(revisions).images;
+            // Add the images that have been opened to the list if they are not already there
+            this.imagesHasBeenOpened.forEach((image) => {
+              if (!revisions.includes(image)) {
+                revisions.push(image);
+              }
+            });
+            return revisions;
+          } else {
+            return this.imagesHasBeenOpened;
+          }
         }
-        else {
-          return this.imagesHasBeenOpened;
-        }
-      });
-    }
-    catch (error) {
+      );
+    } catch (error) {
       revision = this.imagesHasBeenOpened;
     }
     this.imagesHasBeenOpened = revision;
-    const revisionString = JSON.stringify({ images: this.imagesHasBeenOpened }, null, 2);
+    const revisionString = JSON.stringify(
+      { images: this.imagesHasBeenOpened },
+      null,
+      2
+    );
     invokeSaveJsonFile(revisionPath, revisionString);
-
-
   }
 }

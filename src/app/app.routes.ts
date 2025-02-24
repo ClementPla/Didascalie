@@ -3,6 +3,7 @@ import { ProjectConfigurationComponent } from './Components/pages/project-config
 import { GalleryComponent } from './Components/pages/gallery/gallery.component';
 import { projectStartedGuard } from './Guards/project-started.guard';
 import { EditorComponent } from './Components/pages/editor/editor.component';
+import { ExportComponent } from './Components/pages/export/export.component';
 
 export const routes: Routes = [
   {
@@ -22,6 +23,11 @@ export const routes: Routes = [
   {
     path: 'editor',
     component: EditorComponent,
+    canActivate: [projectStartedGuard]
+  },
+  {
+    path: 'export',
+    component: ExportComponent,
     canActivate: [projectStartedGuard]
   }
 ];

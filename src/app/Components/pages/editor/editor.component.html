@@ -3,10 +3,16 @@
 <div
   class="editor flex gap-8 justify-around max-screen-available min-h-0 w-full"
 >
-  <app-labels *ngIf="projectService.isSegmentation"></app-labels>
-  <app-drawable-canvas
-    (imageLoaded)="initSize()"
-  ></app-drawable-canvas>
+  <app-labels
+    *ngIf="
+      projectService.isSegmentation ||
+      projectService.isInstanceSegmentation ||
+      projectService.isClassification ||
+      projectService.hasTextDescription
+    "
+    class="max-w-128"
+  ></app-labels>
+  <app-drawable-canvas (imageLoaded)="initSize()"></app-drawable-canvas>
 
   <div class="flex flex-col gap-4 min-w-96 overflow-y-auto">
     <app-tool-setting></app-tool-setting>

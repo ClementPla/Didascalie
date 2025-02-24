@@ -9,7 +9,13 @@ import { ImageFromCLI } from '../../Core/interface';
 import { Subject } from 'rxjs';
 import { CanvasManagerService } from '../../Components/pages/editor/drawable-canvas/service/canvas-manager.service';
 import { StateManagerService } from '../../Components/pages/editor/drawable-canvas/service/state-manager.service';
-import { blobToDataURL, invokeSaveXmlFile } from '../../Core/save_load';
+import {
+  blobToDataURL,
+  invokeSaveCSVFile,
+  invokeSaveXmlFile,
+  invokeLoadCsvFile
+} from '../../Core/save_load';
+import { ClassificationService } from './classification.service';
 
 @Injectable({
   providedIn: 'root',
@@ -22,15 +28,20 @@ export class IOService {
     private labelService: LabelsService,
     private viewService: ViewService,
     private canvasManagerService: CanvasManagerService,
-    private stateService: StateManagerService
-  ) {}
+    private stateService: StateManagerService,
+    private classificationService: ClassificationService
+  ) {
+    this.classificationService.requestReload.subscribe(() => {
+      this.loadClassification();
+    });
+
+  }
 
   requestReload() {
     this.requestedReload.next(true);
   }
 
-  checkIfDataExists(): Promise<boolean> {
-    return this.getActiveSavePath().then((filepath) => {
+  checkIfDataExists(filepath: string): Promise<boolean> {
       return invoke<boolean>('check_file_exists', { filepath })
         .then((response) => {
           return response ? true : false;
@@ -38,11 +49,10 @@ export class IOService {
         .catch((error) => {
           return false;
         });
-    });
   }
 
   async loadExistingAnnotations(): Promise<LabelFormat> {
-    const filepath = await this.getActiveSavePath();
+    const filepath = await this.getMaskSavePath();
     const response = await invoke<string>('load_xml_file', { filepath });
 
     // Parse the XML file and load the annotations
@@ -52,7 +62,6 @@ export class IOService {
     let labels = {
       masksName: [],
       masks: [],
-      labels: [],
       colors: [],
       multiclass: null,
       multilabel: null,
@@ -81,24 +90,6 @@ export class IOService {
       labels.masks.push(href);
     }
 
-    // Get the multiclass elements
-    const multiclassElements = doc.getElementsByTagName('multiclass');
-    if (multiclassElements.length > 0) {
-      let attributes = multiclassElements[0].getAttribute('classes');
-      if (attributes) {
-        labels.multiclass = attributes.split(',');
-      }
-    }
-
-    // Get the multilabel elements
-    const multilabelElements = doc.getElementsByTagName('multilabel');
-    if (multilabelElements.length > 0) {
-      let attributes = multilabelElements[0].getAttribute('classes');
-      if (attributes) {
-        labels.multilabel = attributes.split(',');
-      }
-    }
-
     const textElements = doc.getElementsByTagName('text');
     if (textElements.length > 0) {
       labels.textsNames = textElements[0].getAttribute('names')!.split(',');
@@ -107,7 +98,7 @@ export class IOService {
   }
 
   async load() {
-    let exists = await this.checkIfDataExists();
+    let exists = await this.checkIfDataExists(await this.getMaskSavePath());
     if (!exists) {
       return;
     }
@@ -123,45 +114,21 @@ export class IOService {
       this.labelService.addSegLabel(segLabel);
     });
     this.labelService.rebuildTreeNodes();
-    if (this.labelService.multiLabelTask) {
-      if (data.multilabel) {
-        console.log('Setting multilabel choices');
-        console.log(data.multilabel);
-        this.labelService.multiLabelTask.choices = data.multilabel;
-      } else {
-        this.labelService.multiLabelTask.choices = [];
-      }
-    }
-    if (this.labelService.listTextLabels.length > 0) {
-      if (
-        data.texts &&
-        data.texts.length === this.labelService.listTextLabels.length
-      ) {
-        data.texts.forEach((text, index) => {
-          this.labelService.listTextLabels[index].text = text;
-        });
-      }
-    }
-    if (this.labelService.listClassificationTasks.length > 0) {
-      if (
-        data.multiclass &&
-        data.multiclass.length ===
-          this.labelService.listClassificationTasks.length
-      ) {
-        data.multiclass.forEach((choice, index) => {
-          this.labelService.listClassificationTasks[index].choice = choice;
-        });
-      } else if (!data.multiclass) {
-        this.labelService.listClassificationTasks.forEach((task) => {
-          task.choice = '';
-        });
-      }
-    }
-
     this.labelService.activeLabel = this.labelService.listSegmentationLabels[0];
 
     this.canvasManagerService.initCanvas();
     await this.canvasManagerService.loadAllCanvas(data.masks as string[]);
+    this.loadClassification();
+  }
+
+  async loadClassification() {
+    let exists = await this.checkIfDataExists(await this.getGlobalSavePath());
+    if (!exists) {
+      return;
+    }
+    const csv = await invokeLoadCsvFile(await this.getGlobalSavePath());
+    this.classificationService.loadCSV(csv);
+
   }
 
   async save() {
@@ -169,7 +136,6 @@ export class IOService {
     let savefile = {
       masksName: [],
       masks: [],
-      labels: [],
       colors: [],
       shades: null,
       multiclass: [],
@@ -187,7 +153,6 @@ export class IOService {
         }
         savefile.shades.push(label.shades);
       }
-      savefile.labels.push(label.label);
       savefile.masksName.push(label.label);
       let canvas = this.canvasManagerService.labelCanvas[i];
       savefile.colors.push(label.color);
@@ -200,14 +165,6 @@ export class IOService {
           savefile.masks.push(blob);
         });
     }
-    if (this.labelService.multiLabelTask) {
-      savefile.multilabel = this.labelService.multiLabelTask.choices;
-    }
-    this.labelService.listClassificationTasks.forEach((task) => {
-      if (task.choice) {
-        savefile.multiclass?.push(task.choice);
-      }
-    });
 
     this.labelService.listTextLabels.forEach((label) => {
       savefile.textsNames.push(label.name);
@@ -233,10 +190,7 @@ export class IOService {
     let savefile = {
       masksName: [],
       masks: [],
-      labels: [],
       colors: [],
-      multiclass: null,
-      multilabel: null,
       shades: null,
       textsNames: [],
       texts: [],
@@ -250,21 +204,14 @@ export class IOService {
         savefile.shades.push(label.shades);
       }
 
-      savefile.labels.push(label.label);
       savefile.masksName.push(label.label);
       if (data.mask_data) {
         savefile.masks.push(data.mask_data[index]);
       }
       savefile.colors.push(label.color);
     });
+    // TODO: Add multiclass and multilabel support
 
-    if (data.classification_classes) {
-      savefile.multiclass = data.classification_classes;
-    }
-
-    if (data.classification_multilabel) {
-      savefile.multilabel = data.classification_multilabel;
-    }
     if (data.texts) {
       savefile.texts = data.texts;
     }
@@ -306,29 +253,24 @@ export class IOService {
       }
       svg.appendChild(svgMask);
     }
-    if (labelFormat.multiclass) {
-      let multiclass = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'multiclass'
-      );
-      multiclass.setAttribute('classes', labelFormat.multiclass.join(','));
-      svg.appendChild(multiclass);
-    }
-    if (labelFormat.multilabel) {
-      let multilabel = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'multilabel'
-      );
-      multilabel.setAttribute('classes', labelFormat.multilabel.join(','));
-      svg.appendChild(multilabel);
-    }
-    return invokeSaveXmlFile(
-      await this.getActiveSavePath(imageName),
+    const maskSavePath = await this.getMaskSavePath(imageName);
+
+    await invokeSaveXmlFile(
+      maskSavePath,
       new XMLSerializer().serializeToString(svg)
     );
+
+    await this.saveClassification();
+
   }
 
-  async getActiveSavePath(imageName: string | null = null) {
+  async saveClassification() {
+    const classificationSavePath = await this.getGlobalSavePath();
+    let classificationData = this.classificationService.generateCSV();
+    await invokeSaveCSVFile(classificationSavePath, classificationData);
+  }
+
+  async getMaskSavePath(imageName: string | null = null) {
     if (!imageName) {
       imageName =
         this.projectService.imagesName[this.projectService.activeIndex!];
@@ -338,6 +280,16 @@ export class IOService {
       .slice(0, -1)
       .join('.');
     const svgName = imageNameWithoutExtension + '.svg';
-    return path.join(this.projectService.projectFolder, 'annotations', svgName);
+    return path.join(
+      this.projectService.projectFolder,
+      'annotations',
+      'local',
+      svgName
+    );
+  }
+
+  async getGlobalSavePath() {
+    const csvName = 'classification.csv';
+    return path.join(this.projectService.projectFolder, 'annotations', csvName);
   }
 }
