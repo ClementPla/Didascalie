@@ -1,19 +1,22 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
 
-
+import { SelectButtonModule } from 'primeng/selectbutton';
 import { ProjectService } from '../../../../Services/Project/project.service';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
 import { loadImageFile } from '../../../../Core/save_load';
 import { NgStyle } from '@angular/common';
+import { LabelsService } from '../../../../Services/Project/labels.service';
+import { ViewService } from '../../../../Services/UI/view.service';
+import { ClassificationService } from '../../../../Services/Project/classification.service';
 
 @Component({
   selector: 'app-gallery-element',
   standalone: true,
-  imports: [CommonModule, CardModule, PanelModule, NgStyle],
+  imports: [CommonModule, CardModule, PanelModule, NgStyle, SelectButtonModule],
   templateUrl: './gallery-element.component.html',
   styleUrl: './gallery-element.component.scss'
 })
@@ -21,15 +24,20 @@ export class GalleryElementComponent implements OnInit {
   @Input() imageName: string;
   @Input() id: number;
   @Input() status: string;
+  @Output() thumbnailSelected = new EventEmitter<[number, boolean]>();
   imagePath: string = '';
-
-  constructor(private projectService: ProjectService) {
+  @Input() selected: boolean = false;
+  constructor(public projectService: ProjectService, 
+    public labelsService: LabelsService, 
+    public classificatorService: ClassificationService,
+    private viewService: ViewService) {
   }
 
   ngOnInit(): void {
     this.getThumbnail().then((path) => {
       this.imagePath = path;
     });
+
   }
 
   getStyle() {
@@ -44,11 +52,21 @@ export class GalleryElementComponent implements OnInit {
     }
   }
 
-
+  getCardStyleClass(){
+    if(this.selected){
+      return 'bg-primary';
+    }
+    return ''
+  }
   openEditor() {
     let id = this.projectService.imagesName.indexOf(this.imageName);
-    this.projectService.openEditor(id);
+    this.viewService.openEditor(id);
   }
+  select() {
+    this.selected = !this.selected;
+    this.thumbnailSelected.emit([this.id, this.selected]);
+  }
+  
 
   async getThumbnail(): Promise<string> {
     let imageInput = await path.resolve(this.projectService.inputFolder, this.imageName);

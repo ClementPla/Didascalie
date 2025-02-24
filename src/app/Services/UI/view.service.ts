@@ -1,22 +1,25 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
+import { ProjectService } from '../Project/project.service';
+import { path } from '@tauri-apps/api';
+import { loadImageFile } from '../../Core/save_load';
+import { BehaviorSubject, Subject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ViewService {
- 
-
   isLoading: boolean = false;
   loadingStatus: string = '';
   thumbnailsSize: number = 128;
 
-  constructor(private router: Router) {}
+  updatedImage: Subject<boolean> = new Subject<boolean>();
+
+  constructor(private router: Router, private projectService: ProjectService) {}
 
   setLoading(status: boolean, message: string) {
     this.isLoading = status;
     this.loadingStatus = message;
-
   }
 
   endLoading() {
@@ -25,13 +28,51 @@ export class ViewService {
   }
 
   navigateToGallery() {
-    this.router.navigate(['/gallery']);
+    return this.router.navigate(['/gallery']);
   }
 
   navigateToEditor() {
-    if (this.router.url === '/editor') {
-      return;
+    return this.router.navigate(['/editor']);
+  }
+
+  navigateToExport() {
+    this.router.navigate(['/export']);
+  }
+
+  async goNext() {
+    if (
+      this.projectService.activeIndex != null &&
+      this.projectService.activeIndex <
+        this.projectService.imagesName.length - 1
+    ) {
+      await this.openEditor(this.projectService.activeIndex + 1);
     }
-      return this.router.navigate(['/editor']);
+  }
+
+  async goPrevious() {
+    if (
+      this.projectService.activeIndex != null &&
+      this.projectService.activeIndex > 0
+    ) {
+      await this.openEditor(this.projectService.activeIndex - 1);
+    }
+  }
+
+  async openEditor(index: number) {
+    this.projectService.activeIndex = index;
+    const openPromise$ = path
+      .join(
+        this.projectService.inputFolder,
+        this.projectService.imagesName[index]
+      )
+      .then(async (filepath) => {
+        this.projectService.activeImage = await loadImageFile(filepath);
+        this.navigateToEditor()?.then(() => {
+          this.endLoading();
+        });
+      });
+    await openPromise$;
+    this.updatedImage.next(true);
+
   }
 }

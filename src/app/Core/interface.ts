@@ -50,16 +50,14 @@ export interface UndoRedoCanvasElement {
   index: number;
 }
 
+// This interface is used to store the setup of classification and multilabel classes in the project_config.json file
 export interface MulticlassInterface {
   name: string;
   classes: string[];
-  default: string | null;
 }
-
 export interface MultilabelInterface {
   name: string;
   classes: string[];
-  default: string[] | null;
 }
 
 export interface ProjectConfig {
@@ -99,11 +97,8 @@ export interface ProjectFile {
 export interface LabelFormat {
   masksName: string[];
   masks: (Blob | string)[]; // Saved as Blob, loaded as string
-  labels: string[];
   colors: string[];
   shades: string[][] | null;
-  multiclass: string[] | null;
-  multilabel: string[] | null;
   textsNames: string[];
   texts: string[] | null;
 }

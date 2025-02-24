@@ -45,8 +45,11 @@ pub fn run() {
             commands::io::load_json_file,
             commands::io::save_xml_file,
             commands::io::load_xml_file,
+            commands::io::save_csv_file,
+            commands::io::load_csv_file,
             commands::io::list_files_in_folder,
             commands::io::check_file_exists,
+            commands::io::export,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

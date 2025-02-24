@@ -24,6 +24,7 @@ import { IOService } from '../../../Services/Project/io.service';
 import { Subscription } from 'rxjs';
 import { DrawService } from './drawable-canvas/service/draw.service';
 import { StateManagerService } from './drawable-canvas/service/state-manager.service';
+import { ViewService } from '../../../Services/UI/view.service';
 
 @Component({
   selector: 'app-editor',
@@ -51,16 +52,19 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private stateService: StateManagerService,
     private editorService: EditorService,
     private labelService: LabelsService,
-    public IOService: IOService
+    public IOService: IOService,
+    private viewService: ViewService
   ) {
-    this.initializeSubscriptions();
   }
 
   ngOnInit() {
+    this.initializeSubscriptions();
+    console.log('Editor component initialized');
   }
 
   ngAfterViewInit() {
     this.loadCanvas();
+    console.log('Editor component view initialized');
   }
 
   ngOnDestroy(): void {
@@ -193,15 +197,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         if (!hasSaved) {
           return Promise.reject('Could not save');
         }
-        return this.projectService.goNext();
+        return this.viewService.goNext();
       })
       .then(() => {
         this.loadCanvas();
       });
   }
-
-
-
 
   @HostListener('window:keydown.ArrowLeft', ['$event'])
   async loadPrevious() {
@@ -210,7 +211,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         if (!hasSaved) {
           return Promise.reject('Could not save');
         }
-        return this.projectService.goPrevious();
+        return this.viewService.goPrevious();
       })
       .then(() => {
         this.loadCanvas();

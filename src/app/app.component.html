@@ -7,8 +7,11 @@
     </ng-container>
     
   </ng-template>
+
   <ng-template #center>
+
     <p class="flex gap-8">
+
       <p-button
         routerLink="project-configuration/"
         icon="pi pi-home"
@@ -17,13 +20,13 @@
         [raised]="true"
       >
       </p-button>
-
       <p-button
         #galleryButton
         routerLink="gallery/"
         icon="pi pi-list"
         [rounded]="true"
         [text]="true"
+        [disabled]="!projectService.isProjectStarted"
         [raised]="true"
       >
       </p-button>
@@ -33,10 +36,21 @@
         icon="pi pi-pencil"
         [rounded]="true"
         [text]="true"
+        [disabled]="!projectService.isProjectStarted"
+        [raised]="true"
+      >
+      </p-button>
+      <p-button
+        routerLink="export/"
+        icon="pi pi-file-export"
+        [rounded]="true"
+        [text]="true"
+        [disabled]="!projectService.isProjectStarted"
         [raised]="true"
       >
       </p-button>
     </p>
+
   </ng-template>
   <ng-template pTemplate="end"> </ng-template>
 </p-toolbar>

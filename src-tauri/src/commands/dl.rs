@@ -39,11 +39,31 @@ pub fn mask_sam_segment<'a>(
         println!("Feature extraction took: {:?}", encode_start.elapsed());
     }
 
-    // Create data vector using parallel iteration
-    let data: Vec<f32> = coarse_mask
-        .par_iter()
-        .map(|&pixel: &bool| if pixel { 1.0f32 } else { 0.0f32 })
-        .collect();
+    // Convert coarse mask to image, resize to 1024x1024
+    let gray_image = image::GrayImage::from_raw(
+        width as u32,
+        height as u32,
+        coarse_mask
+            .clone()
+            .into_iter()
+            .map(|b| if b { 255u8 } else { 0u8 })
+            .collect::<Vec<u8>>()
+    )
+    .unwrap();
+
+    let resized_image = image::imageops::resize(
+        &gray_image,
+        1024,
+        1024,
+        image::imageops::FilterType::CatmullRom,
+    );
+
+    let mask = image::DynamicImage::ImageLuma8(resized_image);
+
+    // Convert image to data vector
+    let mask = mask.to_luma32f();
+    let data = mask.into_raw();
+    
 
     let mask_tensor = Tensor::from_array(
         Array4::from_shape_vec((1, 1, 1024, 1024), data).map_err(|e| e.to_string())?,
@@ -80,10 +100,18 @@ pub fn mask_sam_segment<'a>(
     // Ensure output tensor has the correct shape
     let output = output.view();
 
-    let binary = output.mapv(|x| (x > threshold) as u8);
-    let binary_vec: Vec<u8> = binary.into_raw_vec_and_offset().0;
 
-    // No need to convert back to DynamicImage
+    let binary = output.mapv(|x| (x > threshold) as u8);
+
+    // Resize binary mask to original size
+    let binary = image::imageops::resize(
+        &image::GrayImage::from_raw(1024, 1024, binary.into_raw_vec_and_offset().0).unwrap(),
+        width as u32,
+        height as u32,
+        image::imageops::FilterType::Nearest,
+    );
+
+    let binary_vec: Vec<u8> = binary.into_raw();
 
     println!("Total execution time: {:?}", start_time.elapsed());
     Ok(Response::new(binary_vec))

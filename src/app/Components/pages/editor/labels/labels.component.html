@@ -1,19 +1,26 @@
 <p-panel header="Classes">
-  <div class="flex flex-col gap-4 h-full">
+  <div class="gap-4 grid grid-cols-1">
     <p-fieldset
       legend="Classification"
       *ngIf="projectService.isClassification"
       [toggleable]="true"
-      class="m-0"
       [collapsed]="true"
     >
-      <ng-container *ngFor="let task of labelsService.listClassificationTasks">
+      <ng-container
+        *ngFor="
+          let task of labelsService.listClassificationTasks;
+          let i = index
+        "
+      >
         <p-divider align="left" type="solid">
           <b>{{ task.taskName }}</b>
         </p-divider>
         <p-selectButton
           [options]="task.classLabels"
-          [(ngModel)]="task.choice"
+          [(ngModel)]="classificationChoices[i]!"
+          (onOptionClick)="setMulticlassValues(i, $event.option)"
+          size="small"
+          style="display: flex; flex-wrap: wrap"
         ></p-selectButton>
       </ng-container>
 
@@ -24,29 +31,29 @@
         <p-select-button
           [options]="labelsService.multiLabelTask.taskLabels"
           [multiple]="true"
-          [(ngModel)]="labelsService.multiLabelTask.choices"
+          [(ngModel)]="multilabelValues"
+          size="small"
+          style="display: flex; flex-wrap: wrap"
         ></p-select-button>
 
-        <ng-container
-        *ngFor="
-          let label of labelsService.multiLabelTask.choices;
-          let i = index
-        "
-      >
-        <p-tag severity="info" class="m-1" [rounded]="true">
-          <span class="text-base">
-            {{ label }}
-          </span>
+        <div class="grid grid-cols-3">
+          <p-tag
+            severity="info"
+            class="m-1"
+            [rounded]="true"
+            *ngFor="let label of multilabelValues; let i = index"
+          >
+            <span class="text-base">
+              {{ label }}
+            </span>
 
-          <i
-            class="hover:outline hover:outline-1 outline-white pi pi-times rounded-full"
-            style="font-size: 0.75rem"
-            (click)="removeChoiceFromMultilabel(label)"
-          ></i>
-         
-        </p-tag>
-      </ng-container>
-
+            <i
+              class="hover:outline hover:outline-1 outline-white pi pi-times rounded-full"
+              style="font-size: 0.75rem"
+              (click)="removeChoiceFromMultilabel(label)"
+            ></i>
+          </p-tag>
+        </div>
       </ng-container>
     </p-fieldset>
 

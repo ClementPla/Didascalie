@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { LabelsService } from '../../../../Services/Project/labels.service';
 import { TreeModule } from 'primeng/tree';
 import { ColorPickerModule } from 'primeng/colorpicker';
@@ -17,6 +17,8 @@ import { SelectButtonModule } from 'primeng/selectbutton';
 import { DividerModule } from 'primeng/divider';
 import { TextareaModule } from 'primeng/textarea';
 import { TagModule } from 'primeng/tag';
+import { ClassificationService } from '../../../../Services/Project/classification.service';
+import { ViewService } from '../../../../Services/UI/view.service';
 @Component({
   selector: 'app-labels',
   standalone: true,
@@ -39,13 +41,27 @@ import { TagModule } from 'primeng/tag';
   styleUrl: './labels.component.scss',
 })
 export class LabelsComponent implements OnInit {
+  classificationChoices: Array<string | null> = [];
   constructor(
     public labelsService: LabelsService,
     public drawService: EditorService,
-    public projectService: ProjectService
+    public projectService: ProjectService,
+    public classificationService: ClassificationService,
+    private viewService: ViewService,
+    private cdr: ChangeDetectorRef
   ) {}
 
+  bindCurrentClassificationChoices() {
+    this.classificationChoices = this.getMulticlassValues();
+    console.log(this.classificationChoices);
+    this.cdr.detectChanges();
+  }
+
   ngOnInit(): void {
+    this.viewService.updatedImage.subscribe(() => {
+      this.bindCurrentClassificationChoices();
+    });
+
     this.labelsService.activeLabel =
       this.labelsService.listSegmentationLabels[0];
   }
@@ -99,5 +115,47 @@ export class LabelsComponent implements OnInit {
     this.drawService.requestCanvasRedraw();
   }
 
-  removeChoiceFromMultilabel(choice: string) {}
+  removeChoiceFromMultilabel(choice: string) {
+    this.multilabelValues = this.multilabelValues.filter(
+      (value) => value !== choice
+    );
+  }
+
+  set multilabelValues(values: string[]) {
+    if (!this.projectService.activeIndex) {
+      return;
+    }
+    this.classificationService.multilabelChoices.set(
+      this.projectService.imagesName[this.projectService.activeIndex],
+      values
+    );
+  }
+
+  get multilabelValues(): string[] {
+    if (!this.projectService.activeIndex) {
+      return [];
+    }
+    return (
+      this.classificationService.multilabelChoices.get(
+        this.projectService.imagesName[this.projectService.activeIndex]
+      )!
+    );
+  }
+
+  getMulticlassValues(): Array<string | null> {
+    if (!this.projectService.activeIndex) {
+      return [];
+    }
+    return this.classificationService.multiclassChoices.get(
+      this.projectService.imagesName[this.projectService.activeIndex]
+    )!;
+  }
+  setMulticlassValues(taskIndex: number, value: string) {
+    if (!this.projectService.activeIndex) {
+      return;
+    }
+    this.classificationService.multiclassChoices.get(
+      this.projectService.imagesName[this.projectService.activeIndex]
+    )![taskIndex] = value;
+  }
 }

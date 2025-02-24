@@ -1,39 +1,33 @@
-import { ProjectConfig } from "./interface";
+import { ProjectConfig } from './interface';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
 
-
-export async function saveProjectConfigFile(root: string, projectConfig: ProjectConfig) {
-  const projectConfigPath = path.join(
-    root,
-    'project_config.json'
-  );
+export async function saveProjectConfigFile(
+  root: string,
+  projectConfig: ProjectConfig
+) {
+  const projectConfigPath = path.join(root, 'project_config.json');
   // Convert the projectConfig object to a JSON string
 
   const projectConfigString = JSON.stringify(projectConfig, null, 2);
 
-  return invokeSaveJsonFile(await projectConfigPath, projectConfigString);
-
+  invokeSaveJsonFile(await projectConfigPath, projectConfigString);
 }
-export function invokeSaveXmlFile(filepath: string, xmlContent: string) {
-  try {
-    invoke('save_xml_file', { filepath, xmlContent }).then((response) => {
-      console.log('XML file saved successfully');
-    });
-  } catch (error) {
-    console.error('Error saving XML file:', error);
-  }
+export async function invokeSaveXmlFile(filepath: string, xmlContent: string) {
+  await invoke('save_xml_file', { filepath, xmlContent })
+}
+export async function invokeSaveCSVFile(filepath: string, csvContent: string) {
+    await invoke('save_csv_file', { filepath, csvContent })
 }
 
-export function invokeSaveJsonFile(filepath: string, jsonContent: string) {
-  try {
-    // 
-    invoke('save_json_file', { filepath, jsonContent }).then((response) => {
-      console.log('JSON file saved successfully');
-    });
-  } catch (error) {
-    console.error('Error saving JSON file:', error);
-  }
+export async function invokeLoadCsvFile(filepath: string): Promise<string> {
+  return invoke('load_csv_file', { filepath });
+}
+
+export async function invokeSaveJsonFile(filepath: string, jsonContent: string) {
+    //
+    await invoke('save_json_file', { filepath, jsonContent })
+  
 }
 
 export function invokeLoadJsonFile(filepath: string) {
@@ -49,20 +43,20 @@ export function blobToDataURL(blob: Blob): Promise<string> {
   });
 }
 
-
 export function loadImageFile(filepath: string): Promise<string> {
-  return invoke<ArrayBuffer>('load_image_as_base64', { filepath: filepath })
-    .then((value) => {
-      return new Promise<string>((resolve, reject) => {
-        const blob = new Blob([value], { type: 'image/png' });
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          resolve(reader.result as string);
-        };
-        reader.onerror = (error) => {
-          reject(error);
-        };
-        reader.readAsDataURL(blob);
-      });
+  return invoke<ArrayBuffer>('load_image_as_base64', {
+    filepath: filepath,
+  }).then((value) => {
+    return new Promise<string>((resolve, reject) => {
+      const blob = new Blob([value], { type: 'image/png' });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = (error) => {
+        reject(error);
+      };
+      reader.readAsDataURL(blob);
     });
+  });
 }

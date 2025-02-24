@@ -1,4 +1,11 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  QueryList,
+  ViewChild,
+  ViewChildren,
+} from '@angular/core';
 import { ProjectService } from '../../../Services/Project/project.service';
 import { CommonModule } from '@angular/common';
 import { GalleryElementComponent } from './gallery-element/gallery-element.component';
@@ -8,9 +15,12 @@ import { ButtonModule } from 'primeng/button';
 import { KnobModule } from 'primeng/knob';
 import { FormsModule } from '@angular/forms';
 import { GenericsModule } from '../../../generics/generics.module';
-import { SelectButtonModule } from 'primeng/selectbutton';
+import { SelectButton, SelectButtonModule } from 'primeng/selectbutton';
 import { InputTextModule } from 'primeng/inputtext';
-import { event } from '@tauri-apps/api';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
+import { LabelsService } from '../../../Services/Project/labels.service';
+import { ClassificationService } from '../../../Services/Project/classification.service';
+import { IOService } from '../../../Services/Project/io.service';
 
 interface GalleryItem {
   title: string;
@@ -31,6 +41,7 @@ interface GalleryItem {
     GenericsModule,
     SelectButtonModule,
     InputTextModule,
+    ToggleSwitchModule,
   ],
   standalone: true,
   templateUrl: './gallery.component.html',
@@ -38,22 +49,30 @@ interface GalleryItem {
 })
 export class GalleryComponent implements OnInit, OnDestroy {
   autoRefresh: boolean = true;
+  batchAnnotate: boolean = true;
   refreshInterval: number = 3000;
   percentageBeforeRefresh: number = 0;
   intervalFunction: NodeJS.Timeout | undefined;
   items: GalleryItem[] = [];
   filterTitle: string = '';
+  selectedItems: number[] = [];
+  @ViewChildren('batchChoices') batchChoices: QueryList<SelectButton>;
 
   filterOptions = [
     { label: 'All', value: 0 },
-    { label: 'Images w. annotations', value: 1 },
+    { label: 'Images w. pre-annotations', value: 1 },
     { label: 'Images w.o annotations', value: 2 },
     { label: 'Images reviewed', value: 3 },
   ];
 
   @ViewChild('dv') dataView: DataView;
 
-  constructor(public projectService: ProjectService) {}
+  constructor(
+    public projectService: ProjectService,
+    public labelsService: LabelsService,
+    public classificationService: ClassificationService,
+    private IOService: IOService
+  ) {}
 
   async ngOnInit(): Promise<void> {
     await this.refresh();
@@ -64,6 +83,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
       clearInterval(this.intervalFunction);
     }
   }
+  
   async refresh() {
     this.percentageBeforeRefresh = 0;
     if (this.intervalFunction) {
@@ -139,4 +159,31 @@ export class GalleryComponent implements OnInit, OnDestroy {
     console.log(this.filterTitle);
     this.dataView.filter(this.filterTitle);
   }
+
+  handleSelect(event: any) {
+    let id = event[0];
+    let selected = event[1];
+    if (selected) {
+      if (!this.selectedItems.includes(id)) {
+        this.selectedItems.push(id);
+      }
+    } else {
+      this.selectedItems = this.selectedItems.filter((i) => i !== id);
+    }
+  }
+
+  annotateBatch() {
+    let choices = this.batchChoices.toArray().map((item) => item.value);
+
+    this.selectedItems.forEach((id) => {
+      let filename = this.items[id].title;
+      for (let i = 0; i < choices.length; i++) {
+        this.classificationService.multiclassChoices.get(filename)![i] =
+          choices[i];
+      }
+    });
+    this.IOService.saveClassification();
+  }
+  
+
 }
