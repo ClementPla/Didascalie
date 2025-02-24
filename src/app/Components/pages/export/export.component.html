@@ -1,0 +1,56 @@
+<div class="flex flex-row items-stretch justify-around my-14">
+  <p-panel header="Export options" class="flex flex-col items-stretch w-1/2">
+    <p-divider> General </p-divider>
+    <div class="flex flex-col gap-2 items-center">
+      <p>Results with be saved in the following folder:</p>
+      <p-floatLabel variant="on">
+        <input
+          id="outputPath"
+          pInputText
+          [(ngModel)]="projectService.outputFolder"
+        />
+        <label for="outputPath">Output path</label>
+      </p-floatLabel>
+    </div>
+    <p-divider> Segmentation </p-divider>
+    <div class="flex flex-row gap-2 items-center justify-center">
+      <div class="flex flex-row gap-1 items-start">
+        <p-toggleswitch
+          inputId="individualMask"
+          [(ngModel)]="exportIndividualMask"
+        ></p-toggleswitch>
+        <label for="individualMask"><small>Individual mask</small></label>
+      </div>
+      <div class="flex flex-row gap-1 items-start">
+        <p-toggleswitch
+          inputId="combinedMask"
+          [(ngModel)]="exportCombinedMask"
+        ></p-toggleswitch>
+        <label for="combinedMask"><small>Combined mask</small></label>
+      </div>
+      <div class="flex flex-row gap-1 items-start">
+        <p-toggleswitch
+          inputId="colorMap"
+          [(ngModel)]="exportColorMap"
+        ></p-toggleswitch>
+        <label for="colorMap"><small>Color mask</small></label>
+      </div>
+    </div>
+    <p-divider> Classification </p-divider>
+
+    <p-divider> Bounding boxes </p-divider>
+    <p-divider></p-divider>
+
+    <p-button class="flex justify-center" (click)="export()">
+      Start export
+    </p-button>
+    <p-divider></p-divider>
+    <p-knob class="flex justify-center"
+      [(ngModel)]="filesExported"
+      [showValue]="true"
+      [min]="0"
+      [max]="totalFiles"
+    ></p-knob>
+    
+  </p-panel>
+</div>
