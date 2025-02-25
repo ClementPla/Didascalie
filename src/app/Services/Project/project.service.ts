@@ -49,6 +49,7 @@ export class ProjectService {
   activeIndex: number | null = null;
   activeImage: string | null = null;
   maxInstances: number = 100;
+  generateThumbnails: boolean = true;
 
   constructor(
     private labelService: LabelsService,
@@ -123,7 +124,6 @@ export class ProjectService {
     await this.listFiles();
     await this.update_reviewed();
     this.isProjectStarted = true;
-
   }
 
   async loadProjectFile(filepath: string, start: boolean = true) {
@@ -156,7 +156,7 @@ export class ProjectService {
       recursive: this.recursive,
     });
     this.extractImagesName(fileList);
-    if(this.isClassification){
+    if (this.isClassification) {
       this.classificationService.initMaps(this.imagesName);
     }
   }
@@ -180,7 +180,6 @@ export class ProjectService {
       return filename;
     });
   }
-
 
   resetProject() {
     this.isProjectStarted = false;

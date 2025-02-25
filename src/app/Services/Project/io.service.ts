@@ -13,7 +13,7 @@ import {
   blobToDataURL,
   invokeSaveCSVFile,
   invokeSaveXmlFile,
-  invokeLoadCsvFile
+  invokeLoadCsvFile,
 } from '../../Core/save_load';
 import { ClassificationService } from './classification.service';
 
@@ -34,7 +34,6 @@ export class IOService {
     this.classificationService.requestReload.subscribe(() => {
       this.loadClassification();
     });
-
   }
 
   requestReload() {
@@ -42,13 +41,13 @@ export class IOService {
   }
 
   checkIfDataExists(filepath: string): Promise<boolean> {
-      return invoke<boolean>('check_file_exists', { filepath })
-        .then((response) => {
-          return response ? true : false;
-        })
-        .catch((error) => {
-          return false;
-        });
+    return invoke<boolean>('check_file_exists', { filepath })
+      .then((response) => {
+        return response ? true : false;
+      })
+      .catch((error) => {
+        return false;
+      });
   }
 
   async loadExistingAnnotations(): Promise<LabelFormat> {
@@ -128,7 +127,6 @@ export class IOService {
     }
     const csv = await invokeLoadCsvFile(await this.getGlobalSavePath());
     this.classificationService.loadCSV(csv);
-
   }
 
   async save() {
@@ -228,40 +226,41 @@ export class IOService {
     height: number,
     imageName: string | null = null
   ) {
-    let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-    svg.setAttribute('height', `${height}`);
-    svg.setAttribute('width', `${width}`);
+    if (this.projectService.isSegmentation) {
+      let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+      svg.setAttribute('height', `${height}`);
+      svg.setAttribute('width', `${width}`);
 
-    const nElements = labelFormat.masks.length;
-    for (let i = 0; i < nElements; i++) {
-      var svgMask = document.createElementNS(
-        'http://www.w3.org/2000/svg',
-        'image'
-      );
+      const nElements = labelFormat.masks.length;
+      for (let i = 0; i < nElements; i++) {
+        var svgMask = document.createElementNS(
+          'http://www.w3.org/2000/svg',
+          'image'
+        );
 
-      let maskValue = labelFormat.masks[i] as string; // This is the blob, we need to convert it to a string to be able to use it in the href attribute
-      svgMask.setAttribute('x', '0');
-      svgMask.setAttribute('y', '0');
-      svgMask.setAttribute('width', `${width}`);
-      svgMask.setAttribute('height', `${height}`);
-      svgMask.setAttribute('href', maskValue);
-      svgMask.setAttribute('id', labelFormat.masksName[i]);
-      svgMask.setAttribute('color', labelFormat.colors[i]);
-      if (labelFormat.shades) {
-        svgMask.setAttribute('shades', labelFormat.shades[i].join(','));
+        let maskValue = labelFormat.masks[i] as string; // This is the blob, we need to convert it to a string to be able to use it in the href attribute
+        svgMask.setAttribute('x', '0');
+        svgMask.setAttribute('y', '0');
+        svgMask.setAttribute('width', `${width}`);
+        svgMask.setAttribute('height', `${height}`);
+        svgMask.setAttribute('href', maskValue);
+        svgMask.setAttribute('id', labelFormat.masksName[i]);
+        svgMask.setAttribute('color', labelFormat.colors[i]);
+        if (labelFormat.shades) {
+          svgMask.setAttribute('shades', labelFormat.shades[i].join(','));
+        }
+        svg.appendChild(svgMask);
       }
-      svg.appendChild(svgMask);
-    }
-    const maskSavePath = await this.getMaskSavePath(imageName);
+      const maskSavePath = await this.getMaskSavePath(imageName);
 
-    await invokeSaveXmlFile(
-      maskSavePath,
-      new XMLSerializer().serializeToString(svg)
-    );
+      await invokeSaveXmlFile(
+        maskSavePath,
+        new XMLSerializer().serializeToString(svg)
+      );
+    }
 
     await this.saveClassification();
-
   }
 
   async saveClassification() {

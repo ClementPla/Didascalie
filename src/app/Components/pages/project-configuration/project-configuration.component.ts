@@ -60,8 +60,6 @@ import { ViewService } from '../../../Services/UI/view.service';
   styleUrl: './project-configuration.component.scss',
 })
 export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
-  generateThumbnails: boolean = true;
-
   isInputValid: boolean = true;
   isOutputValid: boolean = true;
   isNameValid: boolean = true;
@@ -131,9 +129,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     this.projectService.removeProjectFile(filepath);
   }
 
-  ngAfterViewInit(): void {
-    
-  }
+  ngAfterViewInit(): void {}
 
   debug() {
     this.projectService
@@ -143,6 +139,6 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
       )
       .then(() => {
         this.viewService.navigateToGallery();
-        });
+      });
   }
 }
