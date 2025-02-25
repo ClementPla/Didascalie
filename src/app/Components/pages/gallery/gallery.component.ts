@@ -21,6 +21,7 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { LabelsService } from '../../../Services/Project/labels.service';
 import { ClassificationService } from '../../../Services/Project/classification.service';
 import { IOService } from '../../../Services/Project/io.service';
+import { SliderModule } from 'primeng/slider';
 
 interface GalleryItem {
   title: string;
@@ -42,14 +43,18 @@ interface GalleryItem {
     SelectButtonModule,
     InputTextModule,
     ToggleSwitchModule,
+    SliderModule,
   ],
   standalone: true,
   templateUrl: './gallery.component.html',
   styleUrl: './gallery.component.scss',
 })
 export class GalleryComponent implements OnInit, OnDestroy {
-  autoRefresh: boolean = true;
+  autoRefresh: boolean = false;
   batchAnnotate: boolean = true;
+  showAdvancedFilters: boolean = false;
+
+  imgSize: number = 128;
   refreshInterval: number = 3000;
   percentageBeforeRefresh: number = 0;
   intervalFunction: NodeJS.Timeout | undefined;
@@ -83,7 +88,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
       clearInterval(this.intervalFunction);
     }
   }
-  
+
   async refresh() {
     this.percentageBeforeRefresh = 0;
     if (this.intervalFunction) {
@@ -163,9 +168,19 @@ export class GalleryComponent implements OnInit, OnDestroy {
   handleSelect(event: any) {
     let id = event[0];
     let selected = event[1];
+    let isShift = event[2];
     if (selected) {
-      if (!this.selectedItems.includes(id)) {
-        this.selectedItems.push(id);
+      if (isShift) {
+        let last = this.selectedItems[this.selectedItems.length - 1];
+        for (let i = last + 1; i <= id; i++) {
+          if (!this.selectedItems.includes(i)) {
+            this.selectedItems.push(i);
+          }
+        }
+      } else {
+        if (!this.selectedItems.includes(id)) {
+          this.selectedItems.push(id);
+        }
       }
     } else {
       this.selectedItems = this.selectedItems.filter((i) => i !== id);
@@ -183,7 +198,10 @@ export class GalleryComponent implements OnInit, OnDestroy {
       }
     });
     this.IOService.saveClassification();
+    this.deselectAll();
   }
-  
 
+  deselectAll() {
+    this.selectedItems = [];
+  }
 }

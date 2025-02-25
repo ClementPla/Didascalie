@@ -24,7 +24,8 @@ export class GalleryElementComponent implements OnInit {
   @Input() imageName: string;
   @Input() id: number;
   @Input() status: string;
-  @Output() thumbnailSelected = new EventEmitter<[number, boolean]>();
+  @Input() imgSize: number;
+  @Output() thumbnailSelected = new EventEmitter<[number, boolean, boolean]>();
   imagePath: string = '';
   @Input() selected: boolean = false;
   constructor(
@@ -62,9 +63,13 @@ export class GalleryElementComponent implements OnInit {
     let id = this.projectService.imagesName.indexOf(this.imageName);
     this.viewService.openEditor(id);
   }
-  select() {
+  select(event: MouseEvent) {
     this.selected = !this.selected;
-    this.thumbnailSelected.emit([this.id, this.selected]);
+    if (event.shiftKey) {
+      this.thumbnailSelected.emit([this.id, this.selected, true]);
+    } else {
+      this.thumbnailSelected.emit([this.id, this.selected, false]);
+    }
   }
 
   async getThumbnail(): Promise<string> {

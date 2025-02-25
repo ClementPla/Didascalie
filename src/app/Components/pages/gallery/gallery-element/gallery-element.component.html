@@ -1,15 +1,15 @@
 <p-card
   (dblclick)="openEditor()"
   [ngClass]="{ panel_selected: true }"
-  (click)="select()"
+  (click)="select($event)"
   [styleClass]="getCardStyleClass()"
 >
   <div class="align-middle flex justify-center m-1">
     <img
-      class="aspect-auto flex flex-col hover:brightness-125 hover:scale-110 rounded-md"
+      class="aspect-auto flex flex-col hover:brightness-150 hover:contrast-75 hover:scale-110 rounded-md"
       [ngStyle]="getStyle()"
       [src]="imagePath"
-      [width]="256"
+      [width]="imgSize"
       loading="lazy"
     />
   </div>

@@ -129,12 +129,14 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     this.projectService.removeProjectFile(filepath);
   }
 
-  ngAfterViewInit(): void {}
+  ngAfterViewInit(): void {
+    // this.debug();
+  }
 
   debug() {
     this.projectService
       .loadProjectFile(
-        'c:/Users/cleme/Documents/tmp/output/Fundus/project_config.json',
+        '/home/clement/Documents/Annotations/UWF/project_config.json',
         true
       )
       .then(() => {
