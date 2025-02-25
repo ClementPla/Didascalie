@@ -30,6 +30,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::images::create_cache_thumbnail,
             commands::images::create_thumbnail,
             commands::images::load_image_as_base64,
             commands::images::process_image_blob,

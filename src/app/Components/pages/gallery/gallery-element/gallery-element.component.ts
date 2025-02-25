@@ -18,7 +18,7 @@ import { ClassificationService } from '../../../../Services/Project/classificati
   standalone: true,
   imports: [CommonModule, CardModule, PanelModule, NgStyle, SelectButtonModule],
   templateUrl: './gallery-element.component.html',
-  styleUrl: './gallery-element.component.scss'
+  styleUrl: './gallery-element.component.scss',
 })
 export class GalleryElementComponent implements OnInit {
   @Input() imageName: string;
@@ -27,36 +27,36 @@ export class GalleryElementComponent implements OnInit {
   @Output() thumbnailSelected = new EventEmitter<[number, boolean]>();
   imagePath: string = '';
   @Input() selected: boolean = false;
-  constructor(public projectService: ProjectService, 
-    public labelsService: LabelsService, 
+  constructor(
+    public projectService: ProjectService,
+    public labelsService: LabelsService,
     public classificatorService: ClassificationService,
-    private viewService: ViewService) {
-  }
+    private viewService: ViewService
+  ) {}
 
   ngOnInit(): void {
     this.getThumbnail().then((path) => {
       this.imagePath = path;
     });
-
   }
 
   getStyle() {
     if (this.status === 'annotated') {
-      return { border: "4px solid #FFA500" };
+      return { border: '4px solid #FFA500' };
     } else if (this.status === 'reviewed') {
       return { border: '4px solid rgb(0, 255, 0)' };
     } else {
       return {
-        border: '4px solid rgb(255, 0, 0)'
+        border: '4px solid rgb(255, 0, 0)',
       };
     }
   }
 
-  getCardStyleClass(){
-    if(this.selected){
+  getCardStyleClass() {
+    if (this.selected) {
       return 'bg-primary';
     }
-    return ''
+    return '';
   }
   openEditor() {
     let id = this.projectService.imagesName.indexOf(this.imageName);
@@ -66,12 +66,33 @@ export class GalleryElementComponent implements OnInit {
     this.selected = !this.selected;
     this.thumbnailSelected.emit([this.id, this.selected]);
   }
-  
 
   async getThumbnail(): Promise<string> {
-    let imageInput = await path.resolve(this.projectService.inputFolder, this.imageName);
-    let thumbnailPath = await path.resolve(this.projectService.inputFolder, '.thumbnails', this.imageName);
-    await invoke('create_thumbnail', { imagePath: imageInput, thumbnailPath: thumbnailPath, width: 128, height: 128 })
-    return loadImageFile(thumbnailPath);
+    let imageInput = await path.resolve(
+      this.projectService.inputFolder,
+      this.imageName
+    );
+    if (this.projectService.generateThumbnails) {
+      let thumbnailPath = await path.resolve(
+        this.projectService.inputFolder,
+        '.thumbnails',
+        this.imageName
+      );
+      await invoke('create_cache_thumbnail', {
+        imagePath: imageInput,
+        thumbnailPath: thumbnailPath,
+        width: 256,
+        height: 256,
+      });
+      return loadImageFile(thumbnailPath);
+    } else {
+      let data = await invoke('create_thumbnail', {
+        imagePath: imageInput,
+        width: 256,
+        height: 256,
+      });
+
+      return 'data:image/png;base64,' + data;
+    }
   }
 }
