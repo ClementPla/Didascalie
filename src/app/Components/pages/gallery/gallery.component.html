@@ -4,14 +4,25 @@
       <b>Batch annotate</b>
     </ng-template>
     <div class="flex flex-col gap-4 justify-center">
-    <div *ngFor="let task of labelsService.listClassificationTasks; let i = index">
-
+      <div
+        *ngFor="
+          let task of labelsService.listClassificationTasks;
+          let i = index
+        "
+      >
         <h4>{{ task.taskName }}</h4>
-        <p-selectButton #batchChoices [options]="task.classLabels" [size]="'small'"></p-selectButton> 
-
-
-    </div>
-    <button pButton type="button" label="Apply to selected" (click)="annotateBatch()"></button>
+        <p-selectButton
+          #batchChoices
+          [options]="task.classLabels"
+          [size]="'small'"
+        ></p-selectButton>
+      </div>
+      <button
+        pButton
+        type="button"
+        label="Apply to selected"
+        (click)="annotateBatch()"
+      ></button>
     </div>
   </p-panel>
 
@@ -19,18 +30,36 @@
     #dv
     [value]="items"
     [layout]="'grid'"
-    [rows]="24"
+    [rows]="32"
     [paginator]="true"
+    [showJumpToPageDropdown]="true"
     filterBy="status,title"
     [paginatorPosition]="'both'"
   >
     <ng-template #header>
       <div class="flex gap-8 items-center justify-end">
-        <p class="mr-auto">
+        <p class="mr-auto flex flex-row justify-center items-center gap-4">
           <app-labelled-switch [(checked)]="batchAnnotate">
             Batch annotate</app-labelled-switch
           >
+          <button
+            pButton
+            type="button"
+            label="Deselect all"
+            (click)="deselectAll()"
+          ></button>
+
+          <p-slider
+            [(ngModel)]="imgSize"
+            [min]="64"
+            [max]="400"
+            styleClass="w-56"
+          />
         </p>
+        <app-labelled-switch [(checked)]="showAdvancedFilters">
+          Advanced filters</app-labelled-switch
+        >
+
         <input
           type="search"
           pInputText
@@ -70,13 +99,14 @@
       </div>
     </ng-template>
     <ng-template #grid let-items let-rowIndexValue="rowIndex">
-      <div class="gap-2 grid grid-cols-8">
+      <div class="gap-2 flex flex-row flex-wrap justify-left">
         <div
           *ngFor="
             let item of items as GalleryItem;
             let index = index;
             let first = first
           "
+          [style.width.px]="imgSize"
         >
           <app-gallery-element
             [imageName]="item.src"
@@ -88,6 +118,7 @@
             "
             (thumbnailSelected)="handleSelect($event)"
             [id]="projectService.imagesName.indexOf(item.title)"
+            [imgSize]="imgSize"
           >
           </app-gallery-element>
         </div>

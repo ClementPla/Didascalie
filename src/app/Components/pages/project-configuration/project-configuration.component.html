@@ -75,7 +75,7 @@
             />
             <label for="projectName">Project name</label>
           </p-floatLabel>
-          <div class="flex gap-16 items-center">
+          <div class="flex gap-8 items-center flex-wrap">
             <app-labelled-switch [(checked)]="projectService.isClassification"
               >Classification</app-labelled-switch
             >
@@ -131,67 +131,59 @@
     <p-panel header="Input/Output" class="flex flex-col items-stretch">
       <div>
         <p-fieldset legend="Input" [toggleable]="true">
-          <div class="flex gap-24 items-center justify-center">
-            <div class="flex flex-col gap-4 items-center">
-              <p-floatLabel>
-                <input
-                  pInputText
-                  id="inputPath"
-                  aria-describedby="inputPath-help"
-                  [(ngModel)]="projectService.inputFolder"
-                  [ngClass]="{ 'ng-invalid ng-dirty': !isInputValid }"
-                />
-                <label for="inputPath">Input path</label>
-              </p-floatLabel>
+          <div class="flex flex-row gap-8 justify-center flex-wrap mt-4">
+            <p-floatLabel>
+              <input
+                pInputText
+                id="inputPath"
+                aria-describedby="inputPath-help"
+                [(ngModel)]="projectService.inputFolder"
+                [ngClass]="{ 'ng-invalid ng-dirty': !isInputValid }"
+              />
+              <label for="inputPath">Input path</label>
+            </p-floatLabel>
 
-              <p-button (click)="openInputFolder()">Choose folder</p-button>
-              <small id="inputPath-help">
-                Enter the path manually or open the explorer.
+            <p-button (click)="openInputFolder()">Choose folder</p-button>
+
+            <div class="flex flex-col items-center gap-2">
+              <p-inputSwitch
+                id="recursiveLoad"
+                ariaLabelledBy="recursiveLoad"
+                [(ngModel)]="projectService.recursive"
+              />
+              <small>
+                <label for="recursiveLoad" id="recursiveLoad"
+                  >Recursive loading</label
+                >
               </small>
             </div>
-            <div class="flex flex-col gap-4 items-center">
-              <div class="flex flex-col">
-                <p-inputSwitch
-                  id="recursiveLoad"
-                  ariaLabelledBy="recursiveLoad"
-                  [(ngModel)]="projectService.recursive"
-                />
-                <small>
-                  <label for="recursiveLoad" id="recursiveLoad"
-                    >Recursive loading</label
-                  >
-                </small>
-              </div>
-              <p-floatLabel>
-                <input
-                  pInputText
-                  id="fileExtension"
-                  aria-describedby="fileExtension-help"
-                  [(ngModel)]="projectService.inputRegex"
-                />
-                <label for="fileExtension">regex</label>
-              </p-floatLabel>
-            </div>
+            <p-floatLabel>
+              <input
+                pInputText
+                id="fileExtension"
+                aria-describedby="fileExtension-help"
+                [(ngModel)]="projectService.inputRegex"
+              />
+              <label for="fileExtension">regex</label>
+            </p-floatLabel>
           </div>
         </p-fieldset>
 
         <p-fieldset legend="Output" [toggleable]="true" [collapsed]="false">
-          <div class="flex flex-col gap-2 items-center">
-            <p-floatLabel>
+          <div class="flex flex-col gap-2 items-center mt-4">
+            <p-floatLabel class="w-full">
               <input
                 pInputText
                 id="outputPath"
                 aria-describedby="outputPath-help"
                 [(ngModel)]="projectService.outputFolder"
+                class="w-full"
                 [ngClass]="{ 'ng-invalid ng-dirty': !isOutputValid }"
               />
               <label for="outputPath">Output path</label>
             </p-floatLabel>
 
             <p-button (click)="openOutputFolder()">Choose folder</p-button>
-            <small id="outputPath-help">
-              Enter the path manually or open the explorer.
-            </small>
           </div>
         </p-fieldset>
       </div>
