@@ -117,6 +117,7 @@ export class IOService {
 
     this.canvasManagerService.initCanvas();
     await this.canvasManagerService.loadAllCanvas(data.masks as string[]);
+
     this.loadClassification();
   }
 
