@@ -1,4 +1,4 @@
-<div class="flex flex-row gap-4 items-center justify-center">
+<div class="flex flex-row gap-4 items-start justify-center">
   <p-panel *ngIf="batchAnnotate">
     <ng-template #header>
       <b>Batch annotate</b>
@@ -26,103 +26,103 @@
     </div>
   </p-panel>
 
-  <p-dataview
-    #dv
-    [value]="items"
-    [layout]="'grid'"
-    [rows]="32"
-    [paginator]="true"
-    [showJumpToPageDropdown]="true"
-    filterBy="status,title"
-    [paginatorPosition]="'both'"
-  >
-    <ng-template #header>
-      <div class="flex gap-8 items-center justify-end">
-        <p class="mr-auto flex flex-row justify-center items-center gap-4">
-          <app-labelled-switch [(checked)]="batchAnnotate">
-            Batch annotate</app-labelled-switch
+    <p-dataview
+      #dv
+      [value]="items"
+      [layout]="'grid'"
+      [rows]="32"
+      [paginator]="true"
+      [showJumpToPageDropdown]="true"
+      filterBy="status,title"
+      [paginatorPosition]="'both'"
+    >
+      <ng-template #header>
+        <div class="flex gap-8 items-center justify-end">
+          <p class="flex flex-row gap-4 items-center justify-center mr-auto">
+            <app-labelled-switch [(checked)]="batchAnnotate">
+              Batch annotate</app-labelled-switch
+            >
+            <button
+              pButton
+              type="button"
+              label="Deselect all"
+              (click)="deselectAll()"
+            ></button>
+
+            <p-slider
+              [(ngModel)]="imgSize"
+              [min]="64"
+              [max]="400"
+              styleClass="w-56"
+            />
+          </p>
+          <app-labelled-switch [(checked)]="showAdvancedFilters">
+            Advanced filters</app-labelled-switch
           >
+
+          <input
+            type="search"
+            pInputText
+            placeholder="Filter by Name"
+            [(ngModel)]="filterTitle"
+            (input)="addTitleFilter()"
+          />
+          <p-selectbutton
+            [options]="filterOptions"
+            optionLabel="label"
+            [ngModel]="filterOptions[0]"
+            (onChange)="toggleFilter($event.value)"
+          ></p-selectbutton>
+
+          <app-labelled-switch
+            [(checked)]="autoRefresh"
+            (checkedChange)="setupAutoRefresh()"
+          >
+            Auto-refresh</app-labelled-switch
+          >
+
           <button
             pButton
             type="button"
-            label="Deselect all"
-            (click)="deselectAll()"
-          ></button>
-
-          <p-slider
-            [(ngModel)]="imgSize"
-            [min]="64"
-            [max]="400"
-            styleClass="w-56"
-          />
-        </p>
-        <app-labelled-switch [(checked)]="showAdvancedFilters">
-          Advanced filters</app-labelled-switch
-        >
-
-        <input
-          type="search"
-          pInputText
-          placeholder="Filter by Name"
-          [(ngModel)]="filterTitle"
-          (input)="addTitleFilter()"
-        />
-        <p-selectbutton
-          [options]="filterOptions"
-          optionLabel="label"
-          [ngModel]="filterOptions[0]"
-          (onChange)="toggleFilter($event.value)"
-        ></p-selectbutton>
-
-        <app-labelled-switch
-          [(checked)]="autoRefresh"
-          (checkedChange)="setupAutoRefresh()"
-        >
-          Auto-refresh</app-labelled-switch
-        >
-
-        <button
-          pButton
-          type="button"
-          label="Refresh"
-          icon="pi pi-sync"
-          class="p-button-success"
-          (click)="refresh()"
-        >
-          <p-knob
-            *ngIf="autoRefresh"
-            [(ngModel)]="percentageBeforeRefresh"
-            [size]="15"
-            [valueTemplate]="''"
-          />
-        </button>
-      </div>
-    </ng-template>
-    <ng-template #grid let-items let-rowIndexValue="rowIndex">
-      <div class="gap-2 flex flex-row flex-wrap justify-left">
-        <div
-          *ngFor="
-            let item of items as GalleryItem;
-            let index = index;
-            let first = first
-          "
-          [style.width.px]="imgSize"
-        >
-          <app-gallery-element
-            [imageName]="item.src"
-            [status]="item.status"
-            [selected]="
-              selectedItems.includes(
-                projectService.imagesName.indexOf(item.title)
-              )
-            "
-            (thumbnailSelected)="handleSelect($event)"
-            [id]="projectService.imagesName.indexOf(item.title)"
-            [imgSize]="imgSize"
+            label="Refresh"
+            icon="pi pi-sync"
+            class="p-button-success"
+            (click)="refresh()"
           >
-          </app-gallery-element>
+            <p-knob
+              *ngIf="autoRefresh"
+              [(ngModel)]="percentageBeforeRefresh"
+              [size]="15"
+              [valueTemplate]="''"
+            />
+          </button>
         </div>
-      </div>
-    </ng-template>
-  </p-dataview>
+      </ng-template>
+      <ng-template #grid let-items let-rowIndexValue="rowIndex">
+        <div class="flex flex-row flex-wrap gap-2 justify-left max-h-[70vh] overflow-y-scroll">
+          <div
+            *ngFor="
+              let item of items as GalleryItem;
+              let index = index;
+              let first = first
+            "
+            [style.width.px]="imgSize"
+          >
+            <app-gallery-element
+              [imageName]="item.src"
+              [status]="item.status"
+              [selected]="
+                selectedItems.includes(
+                  projectService.imagesName.indexOf(item.title)
+                )
+              "
+              (thumbnailSelected)="handleSelect($event)"
+              [id]="projectService.imagesName.indexOf(item.title)"
+              [imgSize]="imgSize"
+            >
+            </app-gallery-element>
+          </div>
+        </div>
+      </ng-template>
+    </p-dataview>
 </div>

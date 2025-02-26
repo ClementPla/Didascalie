@@ -130,13 +130,13 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    // this.debug();
+    this.debug();
   }
 
   debug() {
     this.projectService
       .loadProjectFile(
-        '/home/clement/Documents/Annotations/UWF/project_config.json',
+        'c:/Users/cleme/Documents/tmp/output/Fundus/project_config.json',
         true
       )
       .then(() => {
