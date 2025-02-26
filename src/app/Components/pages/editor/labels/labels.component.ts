@@ -53,7 +53,6 @@ export class LabelsComponent implements OnInit {
 
   bindCurrentClassificationChoices() {
     this.classificationChoices = this.getMulticlassValues();
-    console.log(this.classificationChoices);
     this.cdr.detectChanges();
   }
 
@@ -122,7 +121,7 @@ export class LabelsComponent implements OnInit {
   }
 
   set multilabelValues(values: string[]) {
-    if (!this.projectService.activeIndex) {
+    if (this.projectService.activeIndex===null) {
       return;
     }
     this.classificationService.multilabelChoices.set(
@@ -132,7 +131,7 @@ export class LabelsComponent implements OnInit {
   }
 
   get multilabelValues(): string[] {
-    if (!this.projectService.activeIndex) {
+    if (this.projectService.activeIndex===null) {
       return [];
     }
     return (
@@ -143,7 +142,7 @@ export class LabelsComponent implements OnInit {
   }
 
   getMulticlassValues(): Array<string | null> {
-    if (!this.projectService.activeIndex) {
+    if (this.projectService.activeIndex===null) {
       return [];
     }
     return this.classificationService.multiclassChoices.get(
@@ -151,7 +150,7 @@ export class LabelsComponent implements OnInit {
     )!;
   }
   setMulticlassValues(taskIndex: number, value: string) {
-    if (!this.projectService.activeIndex) {
+    if (this.projectService.activeIndex===null) {
       return;
     }
     this.classificationService.multiclassChoices.get(
