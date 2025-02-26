@@ -54,7 +54,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
   batchAnnotate: boolean = true;
   showAdvancedFilters: boolean = false;
 
-  imgSize: number = 128;
+  imgSize: number = 256;
   refreshInterval: number = 3000;
   percentageBeforeRefresh: number = 0;
   intervalFunction: NodeJS.Timeout | undefined;
@@ -161,7 +161,6 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   addTitleFilter() {
-    console.log(this.filterTitle);
     this.dataView.filter(this.filterTitle);
   }
 
@@ -169,12 +168,22 @@ export class GalleryComponent implements OnInit, OnDestroy {
     let id = event[0];
     let selected = event[1];
     let isShift = event[2];
+
     if (selected) {
       if (isShift) {
         let last = this.selectedItems[this.selectedItems.length - 1];
+
         for (let i = last + 1; i <= id; i++) {
-          if (!this.selectedItems.includes(i)) {
-            this.selectedItems.push(i);
+          if (this.dataView.filteredValue) {
+            if (this.dataView.filteredValue.includes(this.dataView.value![i])) {
+              if (!this.selectedItems.includes(i)) {
+                this.selectedItems.push(i);
+              }
+            }
+          } else {
+            if (!this.selectedItems.includes(i)) {
+              this.selectedItems.push(i);
+            }
           }
         }
       } else {
