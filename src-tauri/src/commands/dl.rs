@@ -8,7 +8,7 @@ use tauri::State;
 use tauri::{self, ipc::Response};
 
 use ndarray::Array4;
-use rayon::prelude::*;
+
 
 #[tauri::command]
 pub fn mask_sam_segment<'a>(
