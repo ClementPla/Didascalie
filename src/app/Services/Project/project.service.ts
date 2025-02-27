@@ -177,6 +177,8 @@ export class ProjectService {
   extractImagesName(files: string[]) {
     this.imagesName = files.map((file) => {
       let filename = file.split(this.inputFolder)[1];
+      // Replace the backslash with a forward slash
+      filename = filename.replace(/\\/g, '/');
       return filename;
     });
   }
