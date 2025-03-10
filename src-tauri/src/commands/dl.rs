@@ -9,7 +9,6 @@ use tauri::{self, ipc::Response};
 
 use ndarray::Array4;
 
-
 #[tauri::command]
 pub fn mask_sam_segment<'a>(
     image: Vec<u8>,

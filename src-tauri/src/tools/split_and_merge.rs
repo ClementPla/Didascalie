@@ -256,19 +256,3 @@ fn reduce_bbox_to_fit_mask_content(mask: &GrayImage, boxes: &Vec<[u32; 4]>) -> V
   };
   output
 }
-
-pub fn format_bounding_boxes(boxes: &Vec<[u32; 4]>) -> Array3<f32> {
-  // 5. Put results into Array3 of shape (N, 1, 4)
-  let n = boxes.len();
-  let mut arr: ndarray::ArrayBase<
-    ndarray::OwnedRepr<f32>,
-    ndarray::Dim<[usize; 3]>
-  > = Array3::zeros((n, 1, 4));
-  for (i, b) in boxes.iter().enumerate() {
-    arr[[i, 0, 0]] = b[0] as f32;
-    arr[[i, 0, 1]] = b[1] as f32;
-    arr[[i, 0, 2]] = b[2] as f32;
-    arr[[i, 0, 3]] = b[3] as f32;
-  }
-  arr
-}

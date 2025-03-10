@@ -41,7 +41,6 @@ export class CanvasManagerService {
     this.bufferCanvas = new OffscreenCanvas(this.stateService.width, this.stateService.height);
     this.bufferCtx = this.bufferCanvas.getContext('2d', { alpha: true, desynchronized: true })!;
 
-    this.bufferCtx.filter = 'url(#remove-alpha)';
   }
 
   computeCombinedCanvas() {

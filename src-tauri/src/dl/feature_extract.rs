@@ -68,5 +68,8 @@ impl FeaturesExtractor {
   pub fn get_features(&self) -> &Value {
     &self.features
   }
+<<<<<<< HEAD
 
+=======
+>>>>>>> MaskMedSAM
 }

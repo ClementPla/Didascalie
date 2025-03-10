@@ -30,15 +30,12 @@ import { GenericsModule } from '../../../../generics/generics.module';
   templateUrl: './toolbar.component.html',
   styleUrl: './toolbar.component.scss',
 })
-export class ToolbarComponent implements AfterViewInit {
+export class ToolbarComponent {
   tools = Tools.ALL_TOOLS;
 
   constructor(
     public editorService: EditorService,
-    private cdr: ChangeDetectorRef
   ) {}
 
-  ngAfterViewInit(): void {
-    this.cdr.detectChanges();
-  }
+
 }
