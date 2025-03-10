@@ -35,7 +35,9 @@ export class StateManagerService {
     this.width = width;
     this.height = height;
   }
-
+  hasMoved() {
+    return this.currentPoint.x !== this.previousPoint.x || this.currentPoint.y !== this.previousPoint.y;
+  }
   resetMinMaxPoints() {
     this.minPoint = { x: Number.MAX_VALUE, y: Number.MAX_VALUE };
     this.maxPoint = { x: 0, y: 0 };
