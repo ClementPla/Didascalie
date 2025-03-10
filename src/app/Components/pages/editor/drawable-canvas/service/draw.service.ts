@@ -1,10 +1,9 @@
 import { Injectable } from '@angular/core';
 import { Point2D } from '../models';
 import { LabelsService } from '../../../../../Services/Project/labels.service';
-import { OpenCVService } from '../../../../../Services/open-cv.service';
 import { ProjectService } from '../../../../../Services/Project/project.service';
 import { ZoomPanService } from './zoom-pan.service';
-import { Tool, Tools } from '../../../../../Core/tools';
+import { Tools } from '../../../../../Core/tools';
 import { EditorService } from '../../../../../Services/UI/editor.service';
 import { StateManagerService } from './state-manager.service';
 import { Subject } from 'rxjs';
@@ -25,7 +24,6 @@ export class DrawService {
 
   constructor(
     private labelService: LabelsService,
-    private openCVService: OpenCVService,
     private projectService: ProjectService,
     private zoomPanService: ZoomPanService,
     private editorService: EditorService,
@@ -81,7 +79,7 @@ export class DrawService {
       this.swapMarkers();
     }
 
-    if (!this.editorService.autoPostProcess) {
+    if (!this.editorService.penPostProcess) {
       let bbox = this.stateService.getBoundingBox();
       this.canvasManagerService
         .getActiveCtx()
@@ -177,8 +175,6 @@ export class DrawService {
           this.svgUIService.linePath.pop();
         }
         this.svgUIService.linePath.push(imageCoord);
-
-
     }
     this.stateService.updatePreviousPoint(imageCoord);
   }
@@ -190,14 +186,33 @@ export class DrawService {
     ctx.imageSmoothingEnabled = false;
 
     ctx.beginPath();
-    ctx.moveTo(
-      this.stateService.previousPoint.x,
-      this.stateService.previousPoint.y
-    );
-    ctx.lineTo(
-      this.stateService.currentPoint.x + 0.1, // +0.1 to draw a point if the mouse is not moved
-      this.stateService.currentPoint.y + 0.1
-    );
+
+    if(!this.stateService.hasMoved()) {
+      // Lets draw a point if the mouse is not moved
+      ctx.moveTo(
+        this.stateService.previousPoint.x,
+        this.stateService.previousPoint.y
+      );
+      ctx.lineTo(
+        this.stateService.currentPoint.x + 0.1, // This might be slow, but called only once
+        this.stateService.currentPoint.y + 0.1
+      );
+
+
+    }
+    else{
+      ctx.moveTo(
+        this.stateService.previousPoint.x,
+        this.stateService.previousPoint.y
+      );
+      ctx.lineTo(
+        this.stateService.currentPoint.x,
+        this.stateService.currentPoint.y 
+      );
+
+    }
+
+    
     ctx.stroke();
 
 
@@ -210,13 +225,12 @@ export class DrawService {
       return;
     }
     this.stateService.recomputeCanvasSum = true;
-    let bufferCtx = this.canvasManagerService.bufferCtx;
     let activeCtx = this.canvasManagerService.getActiveCtx();
     this.stateService.recomputeCanvasSum = true;
     switch (this.editorService.selectedTool) {
       case Tools.PEN:
         let bbox = this.stateService.getBoundingBox();
-        if (!this.editorService.autoPostProcess) {
+        if (!this.editorService.penPostProcess) {
           if (this.editorService.swapMarkers) {
             this.swapMarkers();
           } else {
@@ -243,7 +257,7 @@ export class DrawService {
         this.drawLine();
         break;
       case Tools.LASSO_ERASER:
-        if (this.editorService.autoPostProcess) {
+        if (this.editorService.eraserPostProcess) {
           this.applyLasso();
         }
         else if (this.editorService.eraseAll) {
@@ -257,20 +271,17 @@ export class DrawService {
         break;
     }
     this.stateService.isDrawing = false;
+    let postProcessCallback: Promise<void> = Promise.resolve();
 
-    let postProcessCallback = new Promise<void>((resolve) => {
-      resolve();
-    });
-    if (this.editorService.autoPostProcess) {
-      if (this.editorService.isEraser()) {
-        postProcessCallback = this.postProcessErase();
-      } else if (this.editorService.isDrawingTool()) {
-        postProcessCallback = this.postProcessDraw();
-      }
+    if (this.editorService.penPostProcess && this.editorService.isDrawingTool()) {
+      postProcessCallback = this.postProcessDraw();
     }
-    await postProcessCallback?.then(() => {
-      this.redrawRequest.next(true);
-    });
+    else if (this.editorService.eraserPostProcess && this.editorService.isEraser()) { 
+      postProcessCallback = this.postProcessErase();
+    }
+    await postProcessCallback;
+
+    this.redrawRequest.next(true);
 
     if (this.projectService.isInstanceSegmentation) {
       if (this.editorService.incrementAfterStroke) {
@@ -298,7 +309,7 @@ export class DrawService {
 
     let bbox = this.stateService.getBoundingBox();
 
-    if (!this.editorService.autoPostProcess) {
+    if (!this.editorService.eraserPostProcess) {
       this.canvasManagerService.getAllCanvasCtx().forEach((ctxClass, index) => {
         if (
           index != this.labelService.getActiveIndex() &&
@@ -415,7 +426,7 @@ export class DrawService {
     });
   }
 
-  public startDraw(event: MouseEvent) {
+  public async startDraw(event: MouseEvent) {
     this.stateService.reset();
     this.stateService.isDrawing = true;
     this.lassoPoints = [];
@@ -425,7 +436,7 @@ export class DrawService {
     }
 
     this.clearCanvas(this.canvasManagerService.bufferCtx);
-    return this.undoRedoService.update_undo_redo();
+    await this.undoRedoService.update_undo_redo();
   }
 
   public swapMarkers() {
@@ -517,7 +528,7 @@ export class DrawService {
 
     this.svgUIService.linePath = [];
 
-    if (!this.editorService.autoPostProcess) {
+    if (!this.editorService.penPostProcess) {
       if (this.editorService.swapMarkers) {
         this.swapMarkers();
       } else {

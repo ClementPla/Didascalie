@@ -19,21 +19,27 @@
         [blocked]="!editorService.isToolWithBrushSize()"
       />
       <blockable-p #linewidth>
-          <input
-            type="text"
-            pInputText
-            [(ngModel)]="editorService.lineWidth"
-            class="mb-3 w-full"
-          />
-          <p-slider [(ngModel)]="editorService.lineWidth" class="w-full" />
+        <input
+          type="text"
+          pInputText
+          [(ngModel)]="editorService.lineWidth"
+          class="mb-3 w-full"
+        />
+        <p-slider [(ngModel)]="editorService.lineWidth" class="w-full" />
       </blockable-p>
-    
-      <p-block-ui [target]="swapToggle" [blocked]="!editorService.isDrawingTool()" />
+
+      <p-block-ui
+        [target]="swapToggle"
+        [blocked]="!editorService.isDrawingTool()"
+      />
       <app-labelled-switch #swapToggle [(checked)]="editorService.swapMarkers">
         Swap existing markers</app-labelled-switch
       >
-    
-      <p-block-ui [target]="eraseAllToggle" [blocked]="!editorService.isEraser()" />
+
+      <p-block-ui
+        [target]="eraseAllToggle"
+        [blocked]="!editorService.isEraser()"
+      />
       <app-labelled-switch #eraseAllToggle [(checked)]="editorService.eraseAll">
         Erase all labels</app-labelled-switch
       >
@@ -59,8 +65,17 @@
       >
         Image processing</app-labelled-switch
       >
-      <app-labelled-switch [(checked)]="editorService.autoPostProcess">
+      <app-labelled-switch
+        [(checked)]="editorService.penPostProcess"
+        *ngIf="editorService.isDrawingTool()"
+      >
         Post-process drawing</app-labelled-switch
+      >
+      <app-labelled-switch
+        [(checked)]="editorService.eraserPostProcess"
+        *ngIf="editorService.isEraser()"
+      >
+        Post-process erasing</app-labelled-switch
       >
     </div>
   </ng-template>

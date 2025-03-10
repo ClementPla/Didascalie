@@ -18,9 +18,9 @@
   height: calc(100vh - 2 * var(--toolbar-height) - 8rem);
 }
 
-.noAntialiasing {
-  image-rendering: pixelated;
-}
+// .noAntialiasing {
+//   image-rendering: pixelated;
+// }
 
 .cursor::before {
   content: "";

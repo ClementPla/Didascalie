@@ -36,7 +36,7 @@ export class OpenCVService {
     });
   }
 
-  edgeDetection(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
+  edgeDetection_v2(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
 
     // Given a canvas with multiple colors, detect the edges of the different colors
 
@@ -73,7 +73,7 @@ export class OpenCVService {
 
   }
 
-  edgeDetection_v2(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
+  edgeDetection(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
     const width = ctx.canvas.width;
     const height = ctx.canvas.height;
     const imageData = ctx.getImageData(0, 0, width, height);
