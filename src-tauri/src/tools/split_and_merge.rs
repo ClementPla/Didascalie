@@ -1,5 +1,5 @@
 use image::GrayImage;
-use ndarray::Array3;
+
 
 #[derive(Debug)]
 enum QuadNode {

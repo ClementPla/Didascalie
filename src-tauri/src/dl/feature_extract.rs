@@ -1,11 +1,9 @@
 use image::GenericImageView;
-use ndarray::{ Array4, Array3 };
+use ndarray::Array4;
 use ort::{
   memory::Allocator, value::{Tensor, Value}
 
 };
-
-use crate::tools;
 
 pub struct FeaturesExtractor {
   expected_size: u32,
