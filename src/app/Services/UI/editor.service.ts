@@ -8,7 +8,8 @@ import { Tool, Tools } from '../../Core/tools';
 export class EditorService {
 
   public _lastTool: Tool;
-  public autoPostProcess: boolean = false;
+  public penPostProcess: boolean = false;
+  public eraserPostProcess: boolean = false;
   public autoPostProcessOpening: boolean = false;
   public canvasClear: Subject<number> = new Subject<number>();
   public canvasRedraw: Subject<boolean> = new Subject<boolean>();

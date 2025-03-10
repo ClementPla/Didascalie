@@ -10,8 +10,8 @@ export class ZoomPanService {
   public isDragging = false;
   public scale = 1;
   public offset: Point2D = { x: 0, y: 0 };
-  public maxScale = 10;
-  public minScale = 0.01;
+  public maxScale = 30;
+  public minScale = 0.1;
   private targetScale = 1;
   private targetOffset: Point2D = { x: 0, y: 0 };
   private canZoom = true;

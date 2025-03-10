@@ -21,13 +21,13 @@
         >
         </p-slider>
       </p>
-      <app-labelled-switch [(checked)]="drawService.incrementAfterStroke">
+      <app-labelled-switch [(checked)]="editorService.incrementAfterStroke">
         Increment after stroke
       </app-labelled-switch>
     </p-fieldset>
 
     <p-fieldset
-      *ngIf="drawService.useProcessing"
+      *ngIf="editorService.useProcessing"
       legend="Image processsing"
       [toggleable]="true"
     >
@@ -152,43 +152,44 @@
     <p-fieldset
       legend="Auto-postprocessing"
       [toggleable]="true"
-      *ngIf="drawService.autoPostProcess"
+      *ngIf="editorService.penPostProcess || editorService.eraserPostProcess"
     >
       <div class="flex flex-wrap gap-2 justify-center">
-        <ng-container *ngIf="drawService.isDrawingTool()">
+        <ng-container *ngIf="editorService.isDrawingTool()">
           <p-selectButton
             [options]="postProcessingOptions"
-            [(ngModel)]="drawService.postProcessOption"
+            [(ngModel)]="editorService.postProcessOption"
           ></p-selectButton>
-          <ng-container [ngSwitch]="drawService.postProcessOption">
+          <ng-container [ngSwitch]="editorService.postProcessOption">
             <ng-container *ngSwitchCase="ppOption.OTSU">
               <small
                 >Automatically snap to the extrema by thresholding the area
                 covered by the brush stroke
               </small>
-              <app-labelled-switch [(checked)]="drawService.useInverse"
+              <app-labelled-switch [(checked)]="editorService.useInverse"
                 >Use inverse image</app-labelled-switch
               >
               <app-labelled-switch
-                [(checked)]="drawService.autoPostProcessOpening"
+                [(checked)]="editorService.autoPostProcessOpening"
                 >Smooth</app-labelled-switch
               >
-              <p *ngIf="drawService.autoPostProcessOpening">
+              <p *ngIf="editorService.autoPostProcessOpening">
                 <input
                   type="number"
                   pInputText
-                  [(ngModel)]="drawService.morphoSize"
+                  [(ngModel)]="editorService.morphoSize"
                   class="mb-3 w-full"
                 />
 
                 <p-slider
-                  [(ngModel)]="drawService.morphoSize"
+                  [(ngModel)]="editorService.morphoSize"
                   [min]="1"
                   [max]="15"
                   [step]="2"
                 />
               </p>
-              <app-labelled-switch [(checked)]="drawService.enforceConnectivity"
+              <app-labelled-switch
+                [(checked)]="editorService.enforceConnectivity"
                 >Force connectivity</app-labelled-switch
               >
             </ng-container>
@@ -201,11 +202,11 @@
                 <input
                   type="number"
                   pInputText
-                  [(ngModel)]="drawService.samThreshold"
+                  [(ngModel)]="editorService.samThreshold"
                   class="mb-3 w-full"
                 />
                 <p-slider
-                  [(ngModel)]="drawService.samThreshold"
+                  [(ngModel)]="editorService.samThreshold"
                   [min]="0"
                   [max]="1"
                   [step]="0.01"
@@ -213,12 +214,13 @@
               </div>
             </ng-container>
             <ng-container *ngSwitchCase="ppOption.CRF">
-              <small>Use Conditional Random Field to refine the segmentation
+              <small
+                >Use Conditional Random Field to refine the segmentation
               </small>
             </ng-container>
           </ng-container>
         </ng-container>
-        <div class="flex" *ngIf="drawService.isEraser()">
+        <div class="flex" *ngIf="editorService.isEraser()">
           <small>
             Automatically remove all connected pixels that were covered by the
             brush stroke</small

@@ -37,7 +37,7 @@ export class ToolSettingComponent {
   postProcessingOptions = postProcessingOptions;
   ppOption = PostProcessOption;
   constructor(
-    public drawService: EditorService,
+    public editorService: EditorService,
     public projectService: ProjectService,
     public imageProcess: ImageProcessingService
   ) { }

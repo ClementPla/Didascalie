@@ -54,8 +54,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private labelService: LabelsService,
     public IOService: IOService,
     private viewService: ViewService
-  ) {
-  }
+  ) {}
 
   ngOnInit() {
     this.initializeSubscriptions();
@@ -164,12 +163,19 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('window:keydown.control.tab', ['$event'])
   nextLabel() {
     const currentIndex = this.labelService.getActiveIndex();
-    const nextIndex = (currentIndex + 1) % this.labelService.listSegmentationLabels.length;
-    this.labelService.activeLabel = this.labelService.listSegmentationLabels[nextIndex];
+    const nextIndex =
+      (currentIndex + 1) % this.labelService.listSegmentationLabels.length;
+    this.labelService.activeLabel =
+      this.labelService.listSegmentationLabels[nextIndex];
   }
   @HostListener('window:keydown.space', ['$event'])
   togglePostProcessing() {
-    this.editorService.autoPostProcess = !this.editorService.autoPostProcess;
+    if (this.editorService.isDrawingTool()) {
+      this.editorService.penPostProcess = !this.editorService.penPostProcess;
+    }
+    if (this.editorService.isEraser()) {
+      this.editorService.eraserPostProcess = !this.editorService.eraserPostProcess;
+    }
   }
 
   @HostListener('window:keydown.q', ['$event'])

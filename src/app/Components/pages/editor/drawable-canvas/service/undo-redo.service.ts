@@ -111,21 +111,22 @@ export class UndoRedoService {
     UndoRedo.empty();
   }
 
-  public update_undo_redo(): Promise<void> {
+  public async update_undo_redo(): Promise<void> {
     if (this.editorService.affectsMultipleLabels()) {
       let allPromises: Promise<Blob>[] = [];
       this.canvasManagerService.getAllCanvas().forEach((classCanvas) => {
         const blob$ = classCanvas.convertToBlob({ type: 'image/png' });
         allPromises.push(blob$);
       });
-      return Promise.all(allPromises).then((blobs) => {
+      await Promise.all(allPromises).then((blobs) => {
         UndoRedo.push({ data: blobs, index: -1 });
       });
-    } else {
+    } 
+    else {
       const blob$ = this.canvasManagerService
         .getActiveCanvas()
         .convertToBlob({ type: 'image/png' });
-      return blob$.then((blob) => {
+      await blob$.then((blob) => {
         UndoRedo.push({
           data: blob,
           index: this.labelService.getActiveIndex(),

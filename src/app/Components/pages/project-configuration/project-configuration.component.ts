@@ -129,18 +129,18 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     this.projectService.removeProjectFile(filepath);
   }
 
-  ngAfterViewInit(): void {
-    // this.debug();
+  async ngAfterViewInit(){
+    // await this.debug();
   }
 
-  debug() {
-    this.projectService
+  async debug() {
+    await this.projectService
       .loadProjectFile(
-        'c:/Users/cleme/Documents/tmp/output/Fundus/project_config.json',
+        'C:/Users/cleme/Documents/data/test/output/Test/project_config.json',
         true
       )
       .then(() => {
-        this.viewService.navigateToGallery();
+        this.viewService.openEditor(0);
       });
   }
 }

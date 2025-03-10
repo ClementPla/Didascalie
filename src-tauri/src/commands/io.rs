@@ -169,7 +169,7 @@ pub async fn export(
     app.emit("export", all_files.len()).unwrap();
     // Iterate through the SVG files
 
-    all_files.par_iter().enumerate().for_each(|(i, file)| {
+    all_files.par_iter().enumerate().for_each(|(_i, file)| {
         app.emit("export-progress", 1).unwrap();
         println!("Processing file: {}", file);
         // Load the SVG file as XML
@@ -206,7 +206,6 @@ fn read_mask_and_save(
 ) {
     let mut masks: Vec<ImageBuffer<image::Rgb<u8>, Vec<u8>>> = Vec::new();
     let mut mask_names: Vec<String> = Vec::new();
-    let mut colors: Vec<Vec<u8>> = Vec::new();
     // Gather all the images in the SVG file
 
     let images = svg
@@ -244,7 +243,7 @@ fn read_mask_and_save(
             masks.iter().map(|mask| from_rgb_to_binary(mask)).collect();
 
         if individual_mask {
-            let mut output_path = Path::new(&output_folder).to_path_buf().join("multilabel");
+            let output_path = Path::new(&output_folder).to_path_buf().join("multilabel");
             if !output_path.exists() {
                 std::fs::create_dir_all(output_path.clone()).unwrap();
             }

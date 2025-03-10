@@ -121,7 +121,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
     if (this.projectService.activeImage) {
       this.loadImage(this.projectService.activeImage);
     }
-    console.log('Drawable canvas initialized'); 
   }
 
   public initializeDimensions() {
@@ -189,16 +188,17 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.viewBox = this.zoomPanService.getViewBox();
   }
 
-  public async mouseDown(event: MouseEvent) {
+  public mouseDown(event: MouseEvent) {
     if (event.button == 1) {
       this.editorService.activatePanMode();
     }
     if (this.editorService.canPan()) {
       this.stateService.recomputeCanvasSum = false;
       this.zoomPanService.startDrag(event);
-    } else {
+    } 
+    else {
       this.stateService.recomputeCanvasSum = true;
-      await this.drawService.startDraw(event);
+      this.drawService.startDraw(event);
       this.drawService.draw(event);
     }
   }
@@ -216,7 +216,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
       this.stateService.recomputeCanvasSum = false;
       this.zoomPanService.drag(event);
       this.viewBox = this.zoomPanService.getViewBox();
-    } else {
+    } 
+    else {
       this.stateService.recomputeCanvasSum = true;
       this.drawService.draw(event);
     }
@@ -229,7 +230,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.zoomPanService.endDrag();
 
     if (this.editorService.canPan()) {
-    } else {
+    } 
+    else {
       await this.drawService.endDraw();
     }
   }
@@ -285,7 +287,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
   public reload(): void {
     this.image.src = this.srcImg;
     this.ctxLabel.imageSmoothingEnabled = false;
-    this.ctxLabel.filter = 'url(#remove-alpha)';
 
     this.image.onload = () => {
       this.stateService.recomputeCanvasSum = true;
