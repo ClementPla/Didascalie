@@ -30,10 +30,37 @@ export class OpenCVService {
 
         // Apply morphological gradient
     
-        this.M = cv.Mat.ones(3, 3, cv.CV_8U);
+        this.M = cv.Mat.ones(5, 5, cv.CV_8U);
     
       }
     });
+  }
+
+  quantifyToTwo(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D){
+    // Get the canvas context and image data
+    const imgData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    // Convert the image data to OpenCV format
+    let output = new cv.Mat.zeros(ctx.canvas.height, ctx.canvas.width, cv.CV_8UC4);
+    const src = cv.matFromImageData(imgData);
+    const channels = new cv.MatVector();
+    cv.split(src, channels);
+
+    for (let i = 0; i < channels.size(); i++) {
+      let max_value = cv.minMaxLoc(channels.get(i)).maxVal;
+      cv.threshold(channels.get(i), channels.get(i), 1, max_value, cv.THRESH_BINARY);
+      // Binarize the gradient image to remove anti-aliasing
+    }
+    cv.merge(channels, output);
+    channels.delete();
+    src.delete();
+    // Convert the output to an image data format
+    const processedImageData = new ImageData(new Uint8ClampedArray(output.data), ctx.canvas.width, ctx.canvas.height);
+
+    ctx.putImageData(processedImageData, 0, 0);
+    // Clean up
+    output.delete();
+    return ctx
   }
 
   edgeDetection_v2(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D): OffscreenCanvas | HTMLCanvasElement {
@@ -47,17 +74,28 @@ export class OpenCVService {
 
     const imgData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
 
+
     const src = cv.matFromImageData(imgData);
 
-    // Convert the image to grayscale
+    // Apply morphological gradient to the three channels of the image separately
+    const channels = new cv.MatVector();
+    cv.split(src, channels);
+    for (let i = 0; i < channels.size(); i++) {
+      let max_value = cv.minMaxLoc(channels.get(i)).maxVal;
+      cv.morphologyEx(channels.get(i), channels.get(i), cv.MORPH_GRADIENT, this.M);
+      cv.threshold(channels.get(i), channels.get(i), 1, max_value, cv.THRESH_BINARY);
 
-    cv.morphologyEx(src, this.gradient, cv.MORPH_GRADIENT, this.M);
+      // Binarize the gradient image to remove anti-aliasing
+    }
 
+    cv.merge(channels, this.gradient);
+
+    channels.delete();
+    src.delete();
 
     // Convert the output to an image data format
     const processedImageData = new ImageData(new Uint8ClampedArray(this.gradient.data), ctx.canvas.width, ctx.canvas.height);
     this.outputCtx!.putImageData(processedImageData, 0, 0);
-    src.delete();
 
     return this.outputCanvas;
   }

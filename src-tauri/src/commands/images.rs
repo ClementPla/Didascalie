@@ -220,7 +220,7 @@ pub fn merge_multiple_images(
     for y in 0..images[0].height() {
         for x in 0..images[0].width() {
             let mut new_pixel = Rgb([0, 0, 0]);
-            for image in images.iter().rev() {
+            for image in images.iter() {
                 let pixel = image.get_pixel(x, y);
                 if (pixel[0] != 0) || (pixel[1] != 0) || (pixel[2] != 0) {
                     new_pixel[0] = pixel[0];

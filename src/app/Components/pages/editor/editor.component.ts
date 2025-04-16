@@ -46,6 +46,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public viewPortSize: number = 800;
   private subscriptions = new Subscription();
 
+  private _spaceDown: boolean = false
   constructor(
     public projectService: ProjectService,
     private drawService: DrawService,
@@ -134,11 +135,16 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.editorService.selectedTool = Tools.ERASER;
   }
   @HostListener('window:keydown.l')
+  changeToLine() {
+    this.editorService.selectedTool = Tools.LINE;
+  }
+
+  @HostListener('window:keydown.shift.l')
   changeToLasso() {
     this.editorService.selectedTool = Tools.LASSO;
   }
 
-  @HostListener('window:keydown.shift.l')
+  @HostListener('window:keydown.shift.control.e')
   changeToLassoEraser() {
     this.editorService.selectedTool = Tools.LASSO_ERASER;
   }
@@ -147,6 +153,22 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   changeToPan() {
     this.editorService.selectedTool = Tools.PAN;
   }
+
+  @HostListener('window:keydown.space')
+  togglePanOn(){
+    if(!this._spaceDown){
+
+      this.editorService.activatePanMode()
+      this._spaceDown = true
+    }
+  }
+
+  @HostListener('window:keyup.space')
+  togglePanOff(){
+    this.editorService.restoreLastTool()
+    this._spaceDown = false
+  }
+
 
   @HostListener('window:keydown.p')
   changeToPencil() {
@@ -168,7 +190,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.labelService.activeLabel =
       this.labelService.listSegmentationLabels[nextIndex];
   }
-  @HostListener('window:keydown.space', ['$event'])
+  @HostListener('window:keydown.d', ['$event'])
   togglePostProcessing() {
     if (this.editorService.isDrawingTool()) {
       this.editorService.penPostProcess = !this.editorService.penPostProcess;

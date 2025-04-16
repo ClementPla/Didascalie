@@ -42,7 +42,6 @@ export class ExportComponent {
       combinedMask: this.exportCombinedMask,
       colormap: this.exportColorMap
     }).then(() => {
-      console.log('Exported');
     }).catch((e) => {
       console.error(e);
     });

@@ -22,7 +22,6 @@ pub fn list_files_in_folder(folder: &str, regexfilter: &str, recursive: bool) ->
     if !std::path::Path::new(folder).exists() {
         return files;
     }
-    println!("Listing files in folder: {}", folder);
     let paths = std::fs::read_dir(folder).unwrap();
     match Regex::new(&format!(r"(?i){}", regexfilter)) {
         Ok(re) => {
@@ -171,13 +170,15 @@ pub async fn export(
 
     all_files.par_iter().enumerate().for_each(|(_i, file)| {
         app.emit("export-progress", 1).unwrap();
-        println!("Processing file: {}", file);
         // Load the SVG file as XML
         let xml_content = load_xml_file(file.clone()).unwrap();
-        let xml = roxmltree::Document::parse(&xml_content).unwrap();
-        let filename = Path::new(file).file_name().unwrap();
+        let xml: roxmltree::Document<'_> = roxmltree::Document::parse(&xml_content).unwrap();
+        let filename = Path::new(file); 
+        // Strip the input folder from the filename
+        let filename = filename.strip_prefix(&input_folder).unwrap();
         let filename = filename.to_str().unwrap();
         let filename = filename.replace(".svg", ".png");
+        
         // Check if the SVG file has a mask
         let has_mask = xml
             .descendants()
@@ -231,11 +232,14 @@ fn read_mask_and_save(
     // let mut combined_mask = ImageBuffer::new(dims.0, dims.1);
     if colormap {
         let mut output_path = Path::new(&output_folder).to_path_buf().join("colormaps");
-        if !output_path.exists() {
-            std::fs::create_dir_all(output_path.clone()).unwrap();
-        }
+        
         output_path = output_path.join(filename.clone());
+        if !output_path.exists() {
+            let output_folder = output_path.parent().unwrap();
+            std::fs::create_dir_all(output_folder).unwrap();
+        }
         let mask = merge_multiple_images(&masks);
+        println!("Saving colormap: {:?}", output_path);
         mask.save(output_path).unwrap();
     }
     if combined_mask || individual_mask {
@@ -244,26 +248,29 @@ fn read_mask_and_save(
 
         if individual_mask {
             let output_path = Path::new(&output_folder).to_path_buf().join("multilabel");
-            if !output_path.exists() {
-                std::fs::create_dir_all(output_path.clone()).unwrap();
-            }
             binary_masks.iter().enumerate().for_each(|(i, mask)| {
                 let mut output_path = output_path.clone();
                 output_path = output_path.join(mask_names[i].clone());
-                if !output_path.exists() {
-                    std::fs::create_dir_all(output_path.clone()).unwrap();
-                }
+                
                 output_path = output_path.join(filename.clone());
+                if !output_path.exists() {
+                    // We separate the filename from the folder
+                    let output_folder = output_path.parent().unwrap();
+                    std::fs::create_dir_all(output_folder).unwrap();
+                }
 
                 mask.save(output_path).unwrap();
             });
         }
         if combined_mask {
             let mut output_path = Path::new(&output_folder).to_path_buf().join("multiclass");
-            if !output_path.exists() {
-                std::fs::create_dir_all(output_path.clone()).unwrap();
-            }
+            
             output_path = output_path.join(filename.clone());
+            if !output_path.exists() {
+                let output_folder = output_path.parent().unwrap();
+
+                std::fs::create_dir_all(output_folder).unwrap();
+            }
             let mask = from_multiples_masks_to_multiclass(&binary_masks);
             mask.save(output_path).unwrap();
         }
