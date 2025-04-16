@@ -236,6 +236,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
     }
   }
 
+  
+
   public redrawAllCanvas() {
     // Redraw the main image
     this.viewBox = this.zoomPanService.getViewBox();
@@ -258,6 +260,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.ctxImage.translate(Math.floor(offset.x), Math.floor(offset.y));
     this.ctxImage.scale(scale, scale);
     let image = this.imageProcessingService.getCurrentCanvas();
+    // Remove antialiasing from ctxLabel
+    this.ctxImage.imageSmoothingEnabled = false;
     this.ctxImage.drawImage(
       image,
       0,
@@ -271,12 +275,13 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.ctxLabel.resetTransform();
     this.ctxLabel.translate(Math.floor(offset.x), Math.floor(offset.y));
     this.ctxLabel.scale(scale, scale);
+    this.canvasManagerService.ensurePixelPerfectDrawing(this.ctxLabel);
 
     if (this.stateService.recomputeCanvasSum) {
       this.canvasManagerService.computeCombinedCanvas();
       this.stateService.recomputeCanvasSum = false;
     }
-
+    // Ensure pixel-perfect alignment
     this.ctxLabel.drawImage(
       this.canvasManagerService.getCombinedCanvas(),
       0,
@@ -321,5 +326,9 @@ export class DrawableCanvasComponent implements AfterViewInit {
     } else {
       this.zoomPanService.resetZoomAndPan(true, true);
     }
+  }
+  public getCSSFilterEdge(): string{
+    return this.editorService.edgesOnly ? 'drop-shadow( 1px  0px 0px black) drop-shadow(-1px  0px 0px black) drop-shadow( 0px  1px 0px black) drop-shadow( 0px -1px 0px black)' : '';
+   
   }
 }

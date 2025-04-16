@@ -136,7 +136,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   async debug() {
     await this.projectService
       .loadProjectFile(
-        'C:/Users/cleme/Documents/data/test/output/Test/project_config.json',
+        'c:/Users/cleme/Documents/tmp/output/Fundus/project_config.json',
         true
       )
       .then(() => {
