@@ -11,7 +11,7 @@ import { InputSwitchModule } from 'primeng/inputswitch';
 import { BlockUIModule } from 'primeng/blockui';
 import { PanelModule } from 'primeng/panel';
 import { GenericsModule } from '../../../../generics/generics.module';
-
+import { TooltipModule } from 'primeng/tooltip';
 @Component({
   selector: 'app-toolbar',
   standalone: true,
@@ -26,6 +26,7 @@ import { GenericsModule } from '../../../../generics/generics.module';
     SliderModule,
     InputSwitchModule,
     GenericsModule,
+    TooltipModule
 ],
   templateUrl: './toolbar.component.html',
   styleUrl: './toolbar.component.scss',

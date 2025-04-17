@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Host, HostListener, Injectable } from '@angular/core';
 import { Point2D, Rect, Viewbox } from '../models';
 import { Subject } from 'rxjs';
 import { StateManagerService } from './state-manager.service';
@@ -14,6 +14,7 @@ export class ZoomPanService {
   public minScale = 0.1;
   private targetScale = 1;
   private targetOffset: Point2D = { x: 0, y: 0 };
+  public currentPixel: Point2D = { x: 0, y: 0 };
   private canZoom = true;
   private canPan = true;
   private canvasRef: HTMLCanvasElement;
@@ -244,4 +245,23 @@ export class ZoomPanService {
   getOffset() {
     return this.offset;
   }
+
+  zoomIn(factor: number) {
+    this.targetScale *= factor;
+    this.targetScale = Math.min(this.targetScale, this.maxScale);
+    this.targetOffset.x = this.currentPixel.x - this.currentPixel.x * this.targetScale;
+    this.targetOffset.y = this.currentPixel.y - this.currentPixel.y * this.targetScale;
+
+
+    this.smoothUpdateTransform();
+  }
+
+  zoomOut(factor: number) {
+    this.targetScale /= factor;
+    this.targetScale = Math.max(this.targetScale, this.minScale);
+    this.targetOffset.x = this.currentPixel.x - this.currentPixel.x * this.targetScale;
+    this.targetOffset.y = this.currentPixel.y - this.currentPixel.y * this.targetScale;
+    this.smoothUpdateTransform();
+  }
+
 }

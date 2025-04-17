@@ -25,7 +25,8 @@ import { Subscription } from 'rxjs';
 import { DrawService } from './drawable-canvas/service/draw.service';
 import { StateManagerService } from './drawable-canvas/service/state-manager.service';
 import { ViewService } from '../../../Services/UI/view.service';
-
+import { ZoomPanService } from './drawable-canvas/service/zoom-pan.service';
+import { TooltipModule } from 'primeng/tooltip';
 @Component({
   selector: 'app-editor',
   standalone: true,
@@ -37,6 +38,7 @@ import { ViewService } from '../../../Services/UI/view.service';
     NgIf,
     PanelModule,
     ToolSettingComponent,
+    TooltipModule
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
@@ -54,7 +56,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private editorService: EditorService,
     private labelService: LabelsService,
     public IOService: IOService,
-    private viewService: ViewService
+    private viewService: ViewService,
+    private zoomPanService: ZoomPanService
   ) {}
 
   ngOnInit() {
@@ -231,6 +234,24 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.loadCanvas();
       });
   }
+  @HostListener('window:keydown.=', ['$event'])
+  @HostListener('window:keydown.shift.+', ['$event'])
+  @HostListener('window:keydown.+', ['$event'])
+  zoomIn() {    
+    this.zoomPanService.zoomIn(1.2);
+  }
+  @HostListener('window:keydown.shift._', ['$event'])
+  @HostListener('window:keydown.-', ['$event'])
+  @HostListener('window:keydown._', ['$event'])
+  zoomOut() {
+    this.zoomPanService.zoomOut(1.2);
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  test(event: KeyboardEvent) {
+    console.log(event.key);
+  }
+
 
   @HostListener('window:keydown.ArrowLeft', ['$event'])
   async loadPrevious() {
