@@ -25,47 +25,6 @@ export class PostProcessService {
     private svgUIService: SVGUIService
   ) {}
 
-  postProcess() {}
-
-  async crf_post_process() {
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
-    let rect = this.stateService.getBoundingBox();
-    const maskData = bufferCtx.getImageData(
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height
-    ).data;
-
-    const imgData = this.imageProcessingService
-      .getCurrentCanvas()
-      .getContext('2d', { alpha: false })!
-      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
-    let timer = performance.now();
-    return invoke<ArrayBufferLike>('crf_refine', {
-      mask: maskData.buffer,
-      image: imgData.buffer,
-      width: rect.width,
-      height: rect.height,
-      spatialWeight: 0.25,
-      bilateralWeight: 2.0,
-      numIterations: 50,
-    }).then((imageBitmap: ArrayBufferLike) => {
-      console.log('CRF took', performance.now() - timer);
-      let activeCtx = this.canvasManagerService.getActiveCtx();
-      let bufferCanvas = this.canvasManagerService.getBufferCanvas();
-      bufferCtx.putImageData(
-        new ImageData(
-          new Uint8ClampedArray(imageBitmap),
-          rect.width,
-          rect.height
-        ),
-        rect.x,
-        rect.y
-      );
-      activeCtx.drawImage(bufferCanvas, 0, 0);
-    });
-  }
 
   async sam_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();

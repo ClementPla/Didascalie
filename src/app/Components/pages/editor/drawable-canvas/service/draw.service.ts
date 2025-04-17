@@ -362,8 +362,6 @@ export class DrawService {
         return this.postProcessService.otsu_post_process();
       case PostProcessOption.MEDSAM:
         return this.postProcessService.sam_post_process();
-      case PostProcessOption.CRF:
-        return this.postProcessService.crf_post_process();
     }
     return new Promise<void>((resolve) => {
       resolve();

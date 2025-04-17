@@ -210,6 +210,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
     const mouseY = event.clientY - rect.top;
 
     this.currentPixel = this.zoomPanService.getImageCoordinates(event);
+    // We store the current pixel in the zoomPanService
+    this.zoomPanService.currentPixel = this.currentPixel;
 
     this.cursor = { x: mouseX, y: mouseY };
     if (this.editorService.canPan()) {

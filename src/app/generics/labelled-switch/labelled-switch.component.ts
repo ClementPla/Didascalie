@@ -3,11 +3,11 @@ import { InputSwitchModule } from 'primeng/inputswitch';
 import { FormsModule } from '@angular/forms';
 import { EventEmitter } from '@angular/core';
 import { BlockableUI } from 'primeng/api';
-
+import { TooltipModule } from 'primeng/tooltip';
 @Component({
   selector: 'app-labelled-switch',
   standalone: true,
-  imports: [InputSwitchModule, FormsModule],
+  imports: [InputSwitchModule, FormsModule, TooltipModule],
   templateUrl: './labelled-switch.component.html',
   styleUrl: './labelled-switch.component.scss'
 })
@@ -15,6 +15,7 @@ export class LabelledSwitchComponent implements BlockableUI {
 
   @Input() checked: boolean;
   @Output() checkedChange = new EventEmitter<boolean>();
+  @Input() tooltipLabel: string | null = null;
 
   updateCheck(){
     this.checkedChange.emit(this.checked);
