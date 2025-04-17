@@ -9,10 +9,15 @@
         [(ngModel)]="editorService.selectedTool"
         optionLabel="name"
       >
-        <ng-template let-tool>
-          <span pTooltip="{{ tool.shortcut }}">
-          <i [class]="tool.icon"></i>
-        </span>
+        <ng-template #item let-item>
+          <span
+            pTooltip="{{ item.shortcut }}"
+            tooltipPosition="bottom"
+            [autoHide]="false"
+          >
+            <i [class]="item.icon"> </i>
+            {{ item.name }}
+          </span>
         </ng-template>
       </p-selectButton>
 
@@ -27,7 +32,11 @@
           [(ngModel)]="editorService.lineWidth"
           class="mb-3 w-full"
         />
-        <p-slider [(ngModel)]="editorService.lineWidth" class="w-full" />
+        <p-slider
+          [(ngModel)]="editorService.lineWidth"
+          class="w-full"
+          pTooltip="Ctrl+Wheel"
+        />
       </blockable-p>
 
       <p-block-ui
