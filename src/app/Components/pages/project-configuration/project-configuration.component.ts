@@ -130,7 +130,6 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit(){
-    await this.debug();
   }
 
   async debug() {
