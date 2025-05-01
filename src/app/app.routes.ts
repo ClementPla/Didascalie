@@ -4,7 +4,7 @@ import { GalleryComponent } from './Components/pages/gallery/gallery.component';
 import { projectStartedGuard } from './Guards/project-started.guard';
 import { EditorComponent } from './Components/pages/editor/editor.component';
 import { ExportComponent } from './Components/pages/export/export.component';
-
+import { TestingZoneComponent } from './Components/pages/testing-zone/testing-zone.component';
 export const routes: Routes = [
   {
     path: '',
@@ -29,5 +29,9 @@ export const routes: Routes = [
     path: 'export',
     component: ExportComponent,
     canActivate: [projectStartedGuard]
+  },
+  {
+    path: 'testing-zone',
+    component: TestingZoneComponent,
   }
 ];

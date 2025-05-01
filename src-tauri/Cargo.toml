@@ -60,3 +60,7 @@ lto = true # Enables link-time-optimizations.
 opt-level = 3 # Prioritizes speed over binary size. Use `z` if you prefer smaller binary or `s` for in between.
 panic = "abort" # Higher performance by disabling panic handlers.
 strip = true # Ensures debug symbols are removed.
+incremental = true
+
+[build]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]

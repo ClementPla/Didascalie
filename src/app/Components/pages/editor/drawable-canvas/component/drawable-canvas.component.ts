@@ -97,6 +97,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
     this.drawService.singleDrawRequest.subscribe((ctx) => {
       if (ctx) {
+
         this.ctxLabel.drawImage(ctx.canvas, 0, 0);
       }
     });
@@ -188,7 +189,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.viewBox = this.zoomPanService.getViewBox();
   }
 
-  public mouseDown(event: MouseEvent) {
+  public mouseDown(event: MouseEvent | TouchEvent) {
+    if (event instanceof TouchEvent) {
+      event = this.convertTouchEvent(event);
+    }
     if (event.button == 1) {
       this.editorService.activatePanMode();
     }
@@ -203,7 +207,55 @@ export class DrawableCanvasComponent implements AfterViewInit {
     }
   }
 
-  public mouseMove(event: MouseEvent) {
+  convertTouchEvent(event: TouchEvent): MouseEvent {
+    event.preventDefault();
+    event.stopPropagation();
+    let touch: Touch | null = null;
+    if (event.type == 'touchend') {
+      touch = event.changedTouches[0];
+    }
+    else{
+      touch = event.touches[0];
+    }
+     
+    if (!touch) {
+      throw new Error('No touch event found');
+    }
+
+    let type: string = 'mousemove';
+    
+    switch (event.type) {
+      case 'touchstart':
+        type = 'mousedown';
+        break;
+      case 'touchmove':
+        type = 'mousemove';
+        break;
+      case 'touchend':
+        type = 'mouseup';
+        break;
+      case 'touchcancel':
+        type = 'mouseup';
+        break;
+    }
+
+
+    return new MouseEvent(type, {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      screenX: touch.screenX,
+      screenY: touch.screenY,
+      bubbles: true,
+      cancelable: true,
+      button: undefined
+    });
+  }
+
+  public mouseMove(event: MouseEvent | TouchEvent) {
+    if (event instanceof TouchEvent) {
+      event = this.convertTouchEvent(event);
+    }
+    event.preventDefault();
     const rect = this.ctxLabel.canvas.getBoundingClientRect();
 
     const mouseX = event.clientX - rect.left;
@@ -225,17 +277,23 @@ export class DrawableCanvasComponent implements AfterViewInit {
     }
   }
 
-  public async mouseUp($event: MouseEvent) {
-    if ($event.button == 1) {
+  public async mouseUp(event: MouseEvent | TouchEvent) {
+    
+    if (event instanceof TouchEvent) {
+      event = this.convertTouchEvent(event);
+    }
+    if (event.button == 1) {
       this.editorService.restoreLastTool();
     }
     this.zoomPanService.endDrag();
 
     if (this.editorService.canPan()) {
+      return;
     } 
-    else {
-      await this.drawService.endDraw();
-    }
+    
+    
+    await this.drawService.endDraw();
+    
   }
 
   
@@ -263,7 +321,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.ctxImage.scale(scale, scale);
     let image = this.imageProcessingService.getCurrentCanvas();
     // Remove antialiasing from ctxLabel
-    this.ctxImage.imageSmoothingEnabled = false;
+    // this.ctxImage.imageSmoothingEnabled = false;
     this.ctxImage.drawImage(
       image,
       0,

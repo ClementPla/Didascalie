@@ -30,6 +30,8 @@ import { GenericsModule } from '../../../generics/generics.module';
 import { TextConfigurationComponent } from './text-configuration/text-configuration.component';
 import { PixelsConfigurationComponent } from './pixels-configuration/pixels-configuration.component';
 import { ViewService } from '../../../Services/UI/view.service';
+import { EditorService } from '../../../Services/UI/editor.service';
+import { Tool, Tools } from '../../../Core/tools';
 
 @Component({
   selector: 'app-project-configuration',
@@ -68,7 +70,8 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     public labelService: LabelsService,
     private cli: CLIService,
     private cdr: ChangeDetectorRef,
-    private viewService: ViewService
+    private viewService: ViewService,
+    private editorService: EditorService
   ) {}
 
   ngOnInit(): void {
@@ -130,6 +133,8 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit(){
+    // this.debug();
+    
   }
 
   async debug() {
@@ -140,6 +145,8 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
       )
       .then(() => {
         this.viewService.openEditor(0);
+        this.editorService.selectedTool = Tools.ERASER;
+        this.editorService.eraserPostProcess = true;
       });
   }
 }

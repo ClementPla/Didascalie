@@ -12,6 +12,8 @@ import { UndoRedoService } from './undo-redo.service';
 import { PostProcessService } from './post-process.service';
 import { SVGUIService } from './svgui.service';
 import { PostProcessOption } from '../../../../../Core/tools';
+import { OpenCVService } from '../../../../../Services/open-cv.service';
+import { BboxLabel } from '../../../../../Core/interface';
 
 @Injectable({
   providedIn: 'root',
@@ -31,7 +33,8 @@ export class DrawService {
     private canvasManagerService: CanvasManagerService,
     private undoRedoService: UndoRedoService,
     private postProcessService: PostProcessService,
-    private svgUIService: SVGUIService
+    private svgUIService: SVGUIService,
+    private openCVService: OpenCVService
   ) {
     this.editorService.canvasSumRefresh.subscribe((value) => {
       this.canvasManagerService.computeCombinedCanvas();
@@ -71,10 +74,10 @@ export class DrawService {
       ctx.lineTo(canvasCoord.x, canvasCoord.y);
     }
     ctx.closePath();
-    for (let i = 0; i < 20; i++) {
-      ctx.fill();
-    }
+    ctx.fill();
+    
 
+    this.openCVService.binarizeCanvasAlphaBased(ctx, this.stateService.getBoundingBox(), this.getFillColor());
     if (this.editorService.swapMarkers) {
       this.swapMarkers();
     }
@@ -94,6 +97,7 @@ export class DrawService {
           bbox.width,
           bbox.height
         );
+      
     }
 
     this.lassoPoints = [];
@@ -119,9 +123,9 @@ export class DrawService {
     }
     ctx.closePath();
     ctx.fill();
+    this.openCVService.binarizeCanvasAlphaBased(ctx, this.stateService.getBoundingBox(), this.getFillColor());
     ctx.globalCompositeOperation = 'source-over';
   }
-
 
   public clearCanvas(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
@@ -150,8 +154,6 @@ export class DrawService {
     ctx.fillStyle = this.getFillColor();
     ctx.strokeStyle = this.getFillColor();
     ctx.lineWidth = this.editorService.lineWidth;
-    // Deactivate anti-aliasing
-    ctx.imageSmoothingEnabled = false;
     ctx.lineCap = 'round';
     if (this.stateService.isFirstStroke()) {
       this.stateService.updatePreviousPoint(imageCoord);
@@ -183,11 +185,11 @@ export class DrawService {
     // Initialize previous point if not set
 
     ctx.globalCompositeOperation = 'source-over';
-    ctx.imageSmoothingEnabled = false;
+    // ctx.imageSmoothingEnabled = false;
 
     ctx.beginPath();
 
-    if(!this.stateService.hasMoved()) {
+    if (!this.stateService.hasMoved()) {
       // Lets draw a point if the mouse is not moved
       ctx.moveTo(
         this.stateService.previousPoint.x,
@@ -197,24 +199,18 @@ export class DrawService {
         this.stateService.currentPoint.x + 0.1, // This might be slow, but called only once
         this.stateService.currentPoint.y + 0.1
       );
-
-
-    }
-    else{
+    } else {
       ctx.moveTo(
         this.stateService.previousPoint.x,
         this.stateService.previousPoint.y
       );
       ctx.lineTo(
         this.stateService.currentPoint.x,
-        this.stateService.currentPoint.y 
+        this.stateService.currentPoint.y
       );
-
     }
 
-    
     ctx.stroke();
-
 
     // Update previous point
     this.finalizeDraw(ctx);
@@ -224,9 +220,11 @@ export class DrawService {
     if (!this.stateService.isDrawing) {
       return;
     }
-    this.stateService.recomputeCanvasSum = true;
+
     let activeCtx = this.canvasManagerService.getActiveCtx();
     this.stateService.recomputeCanvasSum = true;
+    this.openCVService.binarizeCanvasAlphaBased(this.canvasManagerService.getBufferCtx(), this.stateService.getBoundingBox(), this.getFillColor());
+
     switch (this.editorService.selectedTool) {
       case Tools.PEN:
         let bbox = this.stateService.getBoundingBox();
@@ -259,8 +257,7 @@ export class DrawService {
       case Tools.LASSO_ERASER:
         if (this.editorService.eraserPostProcess) {
           this.applyLasso();
-        }
-        else if (this.editorService.eraseAll) {
+        } else if (this.editorService.eraseAll) {
           this.canvasManagerService.getAllCanvasCtx().forEach((ctx) => {
             this.applyLassoEraser(ctx);
           });
@@ -273,10 +270,15 @@ export class DrawService {
     this.stateService.isDrawing = false;
     let postProcessCallback: Promise<void> = Promise.resolve();
 
-    if (this.editorService.penPostProcess && this.editorService.isDrawingTool()) {
+    if (
+      this.editorService.penPostProcess &&
+      this.editorService.isDrawingTool()
+    ) {
       postProcessCallback = this.postProcessDraw();
-    }
-    else if (this.editorService.eraserPostProcess && this.editorService.isEraser()) { 
+    } else if (
+      this.editorService.eraserPostProcess &&
+      this.editorService.isEraser()
+    ) {
       postProcessCallback = this.postProcessErase();
     }
     await postProcessCallback;
@@ -308,6 +310,7 @@ export class DrawService {
     ctx.stroke();
 
     let bbox = this.stateService.getBoundingBox();
+    this.openCVService.binarizeCanvasAlphaBased(ctx, bbox, this.getFillColor());
 
     if (!this.editorService.eraserPostProcess) {
       this.canvasManagerService.getAllCanvasCtx().forEach((ctxClass, index) => {
@@ -331,15 +334,14 @@ export class DrawService {
         );
         ctxClass.globalCompositeOperation = 'source-over';
       });
-    }
-    else {
+    } else {
       this.svgUIService.addPoint(this.stateService.currentPoint);
     }
-
     this.redrawRequest.next(true);
   }
 
   public finalizeDraw(ctx: OffscreenCanvasRenderingContext2D) {
+   
     this.singleDrawRequest.next(ctx);
   }
 
@@ -393,11 +395,11 @@ export class DrawService {
     if (!ctx) {
       ctx =
         this.canvasManagerService.canvasCtx[
-        this.canvasManagerService.canvasCtx.length - 1
+          this.canvasManagerService.canvasCtx.length - 1
         ];
       this.labelService.activeLabel =
         this.labelService.listSegmentationLabels[
-        this.labelService.listSegmentationLabels.length - 1
+          this.labelService.listSegmentationLabels.length - 1
         ];
     }
     if (!ctx) {
@@ -463,7 +465,6 @@ export class DrawService {
       rect.height
     );
 
-
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     ctx.globalCompositeOperation = 'source-over';
 
@@ -523,6 +524,7 @@ export class DrawService {
       this.svgUIService.linePath[1].y
     );
     bufferCtx.stroke();
+    this.openCVService.binarizeCanvasAlphaBased(bufferCtx, this.stateService.getBoundingBox(), this.getFillColor());
 
     this.svgUIService.linePath = [];
 
@@ -543,6 +545,61 @@ export class DrawService {
         );
       }
     }
-
   }
+
+  eraseOnBboxClick(bbox: BboxLabel) {
+    let id = bbox.instance;
+
+    if (this.editorService.labelledCombinedBoundingBox){
+
+      if (this.editorService.edgesOnly) {
+        this.editorService.edgesOnly = false;
+        this.canvasManagerService.computeCombinedCanvas();
+        this.editorService.edgesOnly = true;
+      }
+      
+      let maskCanvas = this.openCVService.getMaskOfConnectedComponentsById(this.canvasManagerService.getCombinedCtx(), id);
+      this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.drawImage(
+          maskCanvas,
+          bbox.bbox.x,
+          bbox.bbox.y,
+          bbox.bbox.width,
+          bbox.bbox.height,
+          bbox.bbox.x,
+          bbox.bbox.y,
+          bbox.bbox.width,
+          bbox.bbox.height
+        );
+        ctx.globalCompositeOperation = 'source-over';
+      });
+      
+    }
+    else{
+      this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
+        if (this.labelService.listSegmentationLabels[index].label !== bbox.label.label){
+          return;
+        }
+        let maskCanvas = this.openCVService.getMaskOfConnectedComponentsById(ctx, id);
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.drawImage(
+          maskCanvas,
+          bbox.bbox.x,
+          bbox.bbox.y,
+          bbox.bbox.width,
+          bbox.bbox.height,
+          bbox.bbox.x,
+          bbox.bbox.y,
+          bbox.bbox.width,
+          bbox.bbox.height
+        );
+        ctx.globalCompositeOperation = 'source-over';
+      });
+    }
+  
+    this.stateService.recomputeCanvasSum = true;
+    this.redrawRequest.next(true);
+  }
+  
 }

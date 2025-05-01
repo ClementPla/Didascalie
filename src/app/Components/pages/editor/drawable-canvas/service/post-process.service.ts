@@ -10,6 +10,7 @@ import {
   binarizeArray,
   colorizeArray,
 } from '../../../../../Core/misc/binarize';
+import { OpenCVService } from '../../../../../Services/open-cv.service';
 
 @Injectable({
   providedIn: 'root',
@@ -22,9 +23,9 @@ export class PostProcessService {
     private canvasManagerService: CanvasManagerService,
     private bboxManager: BboxManagerService,
     private stateService: StateManagerService,
-    private svgUIService: SVGUIService
+    private svgUIService: SVGUIService,
+    private openCVService: OpenCVService
   ) {}
-
 
   async sam_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
@@ -150,12 +151,6 @@ export class PostProcessService {
 
   async eraseAll_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
-    let rect = {
-      x: 0,
-      y: 0,
-      width: this.stateService.width,
-      height: this.stateService.height,
-    };
 
     let inputCtx;
     if (this.editorService.eraseAll) {
@@ -170,47 +165,21 @@ export class PostProcessService {
       inputCtx = this.canvasManagerService.getActiveCtx();
     }
 
-    const maskData = bufferCtx.getImageData(
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height
-    ).data;
-
-    const labelData = inputCtx.getImageData(
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height
-    ).data;
-
-    const maskOut = binarizeArray(maskData);
-    const labelOut = binarizeArray(labelData);
-
+    let bbox = this.stateService.getBoundingBox();
+    const maskCanvas = this.openCVService.getMaskOfConnectedComponentsInRegion(
+      inputCtx,
+      bufferCtx,
+      bbox
+    );
     const activeIndex = this.canvasManagerService.getActiveIndex();
-    return invoke<ArrayBufferLike>('get_overlapping_region_with_mask', {
-      label: labelOut.data,
-      mask: maskOut.data,
-      width: rect.width,
-      height: rect.height,
-    }).then((mask: ArrayBufferLike) => {
-      this.svgUIService.resetPath();
+    this.svgUIService.resetPath();
 
-      let array = colorizeArray(new Uint8ClampedArray(mask), [0, 0, 0, 255]);
-      const newMAsk = new ImageData(array, rect.width, rect.height);
-      bufferCtx.putImageData(newMAsk, 0, 0);
-      this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
-        if (index !== activeIndex && !this.editorService.eraseAll) return;
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.drawImage(
-          bufferCtx.canvas,
-          rect.x,
-          rect.y,
-          rect.width,
-          rect.height
-        );
-        ctx.globalCompositeOperation = 'source-over';
-      });
+    this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
+      if (index !== activeIndex && !this.editorService.eraseAll) return;
+      // ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.drawImage(maskCanvas, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
     });
   }
 }

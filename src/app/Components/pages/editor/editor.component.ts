@@ -247,10 +247,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.zoomPanService.zoomOut(1.2);
   }
 
-  @HostListener('window:keydown', ['$event'])
-  test(event: KeyboardEvent) {
-    console.log(event.key);
-  }
+  // @HostListener('window:keydown', ['$event'])
+  // test(event: KeyboardEvent) {
+  //   console.log(event.key);
+  // }
 
 
   @HostListener('window:keydown.ArrowLeft', ['$event'])

@@ -5,6 +5,13 @@ export interface SegLabel {
   shades: string[] | null;
 }
 
+export const CombinedLabel = {
+  label: 'Combined',
+  color: '#ffffff',
+  isVisible: true,
+  shades: null,
+}
+
 export interface SegInstance {
   label: SegLabel;
   instance: number;

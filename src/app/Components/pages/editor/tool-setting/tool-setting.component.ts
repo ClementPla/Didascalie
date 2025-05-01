@@ -13,6 +13,7 @@ import { SelectButtonModule } from 'primeng/selectbutton';
 import { PostProcessOption } from '../../../../Core/tools';
 import { postProcessingOptions } from '../../../../Core/tools';
 import { GenericsModule } from '../../../../generics/generics.module';
+import {MessageModule} from 'primeng/message';
 
 @Component({
   selector: 'app-tool-setting',
@@ -29,6 +30,7 @@ import { GenericsModule } from '../../../../generics/generics.module';
     CardModule,
     GenericsModule,
     FieldsetModule,
+    MessageModule
   ],
   templateUrl: './tool-setting.component.html',
   styleUrl: './tool-setting.component.scss',
