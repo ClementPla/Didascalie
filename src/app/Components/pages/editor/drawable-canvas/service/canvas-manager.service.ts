@@ -4,6 +4,8 @@ import { LabelsService } from '../../../../../Services/Project/labels.service';
 import { OpenCVService } from '../../../../../Services/open-cv.service';
 import { EditorService } from '../../../../../Services/UI/editor.service';
 import { Subject } from 'rxjs';
+import { BboxManagerService } from './bbox-manager.service';
+import { CombinedLabel } from '../../../../../Core/interface';
 
 @Injectable({
   providedIn: 'root',
@@ -24,7 +26,8 @@ export class CanvasManagerService {
     private stateService: StateManagerService,
     private labelService: LabelsService,
     private openCVService: OpenCVService,
-    private editorService: EditorService
+    private editorService: EditorService,
+    private bboxManager: BboxManagerService
   ) {}
 
   initCanvas() {
@@ -36,9 +39,7 @@ export class CanvasManagerService {
         this.stateService.height
       );
       this.labelCanvas.push(canvas);
-      this.canvasCtx.push(
-        canvas.getContext('2d', { alpha: true })!
-      );
+      this.canvasCtx.push(canvas.getContext('2d', { alpha: true })!);
     });
     this.combinedCanvas = new OffscreenCanvas(
       this.stateService.width,
@@ -65,19 +66,37 @@ export class CanvasManagerService {
       this.stateService.width,
       this.stateService.height
     );
-    if (this.combinedCanvas instanceof HTMLCanvasElement) {
-      this.combinedCanvas.style.imageRendering = 'pixelated';
-    }
-    this.ensurePixelPerfectDrawing(this.combinedCtx);
+    this.bboxManager.clear();
 
+    this.ensurePixelPerfectDrawing(this.combinedCtx);
     this.labelCanvas.forEach((canvas, index) => {
       if (!this.labelService.listSegmentationLabels[index].isVisible) {
         return;
       }
 
-    this.drawCanvasToCanvas(this.canvasCtx[index], this.combinedCtx);
+      this.drawCanvasToCanvas(this.canvasCtx[index], this.combinedCtx);
+      if (this.editorService.showBoundingBox && !this.editorService.labelledCombinedBoundingBox) {
 
+        let boundingBox = this.openCVService.findBoundingBox(
+          this.canvasCtx[index]
+        );
+        this.bboxManager.addBboxes(
+          boundingBox,
+          this.labelService.listSegmentationLabels[index]
+        );
+
+        
+      }
     });
+    if (this.editorService.showBoundingBox && this.editorService.labelledCombinedBoundingBox) {
+      let boundingBox = this.openCVService.findBoundingBox(this.combinedCtx);
+      this.bboxManager.addBboxes(
+        boundingBox,
+        CombinedLabel
+      );
+
+    }
+
     if (this.editorService.edgesOnly) {
       let edge = this.openCVService.edgeDetection_v2(this.combinedCtx);
       this.combinedCtx.clearRect(
@@ -86,54 +105,58 @@ export class CanvasManagerService {
         this.stateService.width,
         this.stateService.height
       );
-      const edgeCtx = edge.getContext('2d') as OffscreenCanvasRenderingContext2D;
+      const edgeCtx = edge.getContext(
+        '2d'
+      ) as OffscreenCanvasRenderingContext2D;
 
       this.drawCanvasToCanvas(edgeCtx, this.combinedCtx);
     }
   }
   public drawCanvasToCanvas(
-    sourceCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, 
+    sourceCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     targetCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-    x = 0, y = 0
+    x = 0,
+    y = 0
   ) {
     // Check if source canvas has any content
-    const sourceData = sourceCtx.getImageData(0, 0, sourceCtx.canvas.width, sourceCtx.canvas.height);
+    const sourceData = sourceCtx.getImageData(
+      0,
+      0,
+      sourceCtx.canvas.width,
+      sourceCtx.canvas.height
+    );
     let hasContent = false;
-    
+
     // Quick check for non-transparent pixels
     for (let i = 3; i < sourceData.data.length; i += 4) {
       if (sourceData.data[i] > 0) {
         hasContent = true;
         break;
       }
-     
     }
-    
+
     if (!hasContent) {
       // Canvas is empty, no need to draw
       return;
     }
-  
+
     // Save current transform
     const currentTransform = targetCtx.getTransform();
-    
+
     // Reset transform for 1:1 pixel mapping
     targetCtx.resetTransform();
-    
+
     // Ensure both source and target have anti-aliasing disabled
     sourceCtx.imageSmoothingEnabled = false;
     targetCtx.imageSmoothingEnabled = false;
-    
+
     // Use regular drawImage (faster and sufficient when combined with the other fixes)
     targetCtx.drawImage(sourceCtx.canvas, x, y);
-    
+
     // Restore transform
     targetCtx.setTransform(currentTransform);
-    // targetCtx = this.openCVService.quantifyToTwo(targetCtx)
-
-
-
   }
+  
   public ensurePixelPerfectDrawing(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
   ) {
@@ -164,6 +187,7 @@ export class CanvasManagerService {
       }
     }
   }
+  
   clearCanvasAtIndex(index: number) {
     this.clearCanvas(this.canvasCtx[index]);
   }

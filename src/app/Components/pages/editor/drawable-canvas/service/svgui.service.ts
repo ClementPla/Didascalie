@@ -39,7 +39,6 @@ export class SVGUIService {
     }
     return path;
   }
-
   resetPath() {
     this.eraserPath = [];
     this.linePath = [];

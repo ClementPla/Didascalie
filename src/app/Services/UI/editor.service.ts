@@ -27,6 +27,12 @@ export class EditorService {
   public useInverse: boolean = false;
   public useProcessing: boolean = false;
 
+  public showBoundingBox: boolean = false;
+  public labelledCombinedBoundingBox: boolean = false;
+  public bbxOpacity: number = 0.4;
+  public eraseOnClick: boolean = false;
+
+
   public samThreshold: number = 0.5;
 
   public postProcessOption: string = "otsu"
