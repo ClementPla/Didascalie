@@ -86,7 +86,7 @@ export class LabelsService {
       (l) => l.name !== label.name
     );
   }
-  
+
   setActiveIndex(index: number) {
     if (index >= 0 && index < this.listSegmentationLabels.length) {
       this.activeLabel = this.listSegmentationLabels[index];
@@ -155,5 +155,16 @@ export class LabelsService {
         shade: new_shade,
       };
     }
+  }
+
+  resetAll() {
+    this.listSegmentationLabels = [];
+    this.listClassificationTasks = [];
+    this.listTextLabels = [];
+    this.multiLabelTask = null;
+    this._treeNode = null;
+    this.activeLabel = null;
+    this.activeSegInstance = null;
+    this.showAllLabels = true;
   }
 }

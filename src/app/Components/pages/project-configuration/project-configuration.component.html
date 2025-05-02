@@ -190,12 +190,16 @@
     </p-panel>
   </div>
 
-  <p-panel header="Advanced settings" class="flex flex-col items-stretch">
+  <p-panel
+    header="Advanced settings"
+    class="flex flex-col items-stretch"
+    class="max-w-sm"
+  >
     <div>
       <p-fieldset
         legend="Advanced options"
         [toggleable]="true"
-        [collapsed]="true"
+        [collapsed]="false"
       >
         <div class="flex flex-col gap-2 items-center">
           <p-inputSwitch
@@ -208,6 +212,32 @@
               >Create thumbnails</label
             >
           </small>
+          <div class="flex flex-col gap-2 items-center">
+            <p-inputSwitch
+              id="autoResizeImages"
+              ariaLabelledBy="autoResizeImages"
+              [(ngModel)]="editorService.autoResize"
+            />
+            <small>
+              <label for="autoResizeImages" id="autoResizeImages"
+                >Optimize performances by resizing the canvas to a maximum
+                dimension along either axis.</label
+              ></small
+            >
+            <p-selectbutton
+              *ngIf="editorService.autoResize"
+              [options]="defaultPotentialSizes"
+              [(ngModel)]="editorService.maxDimension"
+              optionLabel="justify"
+              optionLabel="name"
+              optionValue="value"
+            >
+            </p-selectbutton>
+            <small
+              >Image ratio is preserved and exported labels are resized to the
+              original size</small
+            >
+          </div>
         </div>
       </p-fieldset>
     </div>

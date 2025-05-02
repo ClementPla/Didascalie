@@ -3,10 +3,9 @@ import { Injectable } from '@angular/core';
 import { Tool, Tools } from '../../Core/tools';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class EditorService {
-
   public _lastTool: Tool;
   public penPostProcess: boolean = false;
   public eraserPostProcess: boolean = false;
@@ -32,13 +31,15 @@ export class EditorService {
   public bbxOpacity: number = 0.4;
   public eraseOnClick: boolean = false;
 
+  public autoResize: boolean = false;
+  public maxDimension: number = 2048;
 
   public samThreshold: number = 0.5;
 
-  public postProcessOption: string = "otsu"
+  public postProcessOption: string = 'otsu';
 
   public incrementAfterStroke: boolean = false;
-  constructor() { }
+  constructor() {}
 
   public activatePanMode() {
     this._lastTool = this.selectedTool;
@@ -54,17 +55,27 @@ export class EditorService {
   }
 
   public isDrawingTool(): boolean {
-    return this.selectedTool === Tools.PEN || this.selectedTool === Tools.LASSO || this.selectedTool === Tools.LINE;
+    return (
+      this.selectedTool === Tools.PEN ||
+      this.selectedTool === Tools.LASSO ||
+      this.selectedTool === Tools.LINE
+    );
   }
 
   public isEraser(): boolean {
-    return this.selectedTool === Tools.ERASER || this.selectedTool === Tools.LASSO_ERASER;
+    return (
+      this.selectedTool === Tools.ERASER ||
+      this.selectedTool === Tools.LASSO_ERASER
+    );
   }
 
   public isToolWithBrushSize(): boolean {
-    return this.selectedTool === Tools.PEN || this.selectedTool === Tools.ERASER || this.selectedTool === Tools.LINE;
+    return (
+      this.selectedTool === Tools.PEN ||
+      this.selectedTool === Tools.ERASER ||
+      this.selectedTool === Tools.LINE
+    );
   }
-
 
   public requestCanvasClear(index: number = -1) {
     this.canvasClear.next(index);
@@ -85,5 +96,4 @@ export class EditorService {
   public restoreLastTool() {
     this.selectedTool = this._lastTool;
   }
-
 }

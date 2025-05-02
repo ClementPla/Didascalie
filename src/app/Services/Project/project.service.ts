@@ -190,6 +190,7 @@ export class ProjectService {
   }
 
   async create_project(config: ProjectConfig, start: boolean = true) {
+    this.labelService.resetAll();
     this.isClassification = config.is_classification;
     this.isSegmentation = config.is_segmentation;
     this.isInstanceSegmentation = config.is_instance_segmentation;
