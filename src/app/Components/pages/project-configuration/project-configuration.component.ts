@@ -31,7 +31,8 @@ import { TextConfigurationComponent } from './text-configuration/text-configurat
 import { PixelsConfigurationComponent } from './pixels-configuration/pixels-configuration.component';
 import { ViewService } from '../../../Services/UI/view.service';
 import { EditorService } from '../../../Services/UI/editor.service';
-import { Tool, Tools } from '../../../Core/tools';
+import { Tools } from '../../../Core/tools';
+import { SelectButtonModule } from 'primeng/selectbutton';
 
 @Component({
   selector: 'app-project-configuration',
@@ -57,6 +58,7 @@ import { Tool, Tools } from '../../../Core/tools';
     ClassificationConfigurationComponent,
     PixelsConfigurationComponent,
     GenericsModule,
+    SelectButtonModule,
   ],
   templateUrl: './project-configuration.component.html',
   styleUrl: './project-configuration.component.scss',
@@ -65,13 +67,28 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   isInputValid: boolean = true;
   isOutputValid: boolean = true;
   isNameValid: boolean = true;
+
+  defaultPotentialSizes: any[] = [
+    {
+      name: '512',
+      value: 512,
+    },
+    {
+      name: '1024',
+      value: 1024,
+    },
+    {
+      name: '2048',
+      value: 2048,
+    },
+  ];
   constructor(
     public projectService: ProjectService,
     public labelService: LabelsService,
     private cli: CLIService,
     private cdr: ChangeDetectorRef,
     private viewService: ViewService,
-    private editorService: EditorService
+    public editorService: EditorService
   ) {}
 
   ngOnInit(): void {
@@ -132,9 +149,8 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     this.projectService.removeProjectFile(filepath);
   }
 
-  async ngAfterViewInit(){
+  async ngAfterViewInit() {
     // this.debug();
-    
   }
 
   async debug() {
