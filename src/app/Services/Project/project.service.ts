@@ -1,15 +1,10 @@
 import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { environment } from '../../../environments/environment';
-import { ViewService } from '../UI/view.service';
+import { isAbsolute, resolve } from '@tauri-apps/api/path';
 
 import { path } from '@tauri-apps/api';
-import {
-  ProjectConfig,
-  ProjectFile,
-  SegLabel,
-  Thumbnail,
-} from '../../Core/interface';
+import { ProjectConfig, ProjectFile, SegLabel } from '../../Core/interface';
 
 import { invokeSaveJsonFile, loadImageFile } from '../../Core/save_load';
 import { LabelsService } from './labels.service';
@@ -127,10 +122,36 @@ export class ProjectService {
   }
 
   async loadProjectFile(filepath: string, start: boolean = true) {
-    return invokeLoadJsonFile(filepath).then((projectConfig: any) => {
+    return invokeLoadJsonFile(filepath).then(async (projectConfig: any) => {
       if (projectConfig) {
         // Convert JSON string to ProjectConfig
         projectConfig = JSON.parse(projectConfig);
+        // Check if the path are relative or absolute
+        console.log(await resolve(projectConfig.input_dir));
+        const isAbsoluteInputDir: boolean = !projectConfig.input_dir.startsWith(".")
+        const isAbsoluteOutputDir: boolean = !projectConfig.input_dir.startsWith(".")
+
+        if (!isAbsoluteInputDir) {
+          projectConfig.input_dir = await path
+            .join(
+              filepath.split('project_config.json')[0],
+              projectConfig.input_dir
+            )
+            .then((filepath) => {
+              return resolve(filepath);
+            });
+        }
+        if (!isAbsoluteOutputDir) {
+          projectConfig.output_dir = await path
+            .join(
+              filepath.split('project_config.json')[0],
+              projectConfig.output_dir
+            )
+            .then((filepath) => {
+              return resolve(filepath);
+            });
+        }
+
         return this.create_project(projectConfig as ProjectConfig, start);
       }
 
@@ -162,7 +183,7 @@ export class ProjectService {
   }
 
   async listAnnotations() {
-    const inputPath = await path.join(this.projectFolder, 'annotations');
+    const inputPath = await path.join(this.projectFolder, 'annotations', 'local');
     let fileList = await invoke<string[]>('list_files_in_folder', {
       folder: inputPath,
       regexfilter: '.*.svg$',
@@ -272,6 +293,7 @@ export class ProjectService {
         }
       );
     } catch (error) {
+      console.error('Error loading revisions:', error);
       revision = this.imagesHasBeenOpened;
     }
     this.imagesHasBeenOpened = revision;

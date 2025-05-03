@@ -101,8 +101,10 @@
           />
         </button>
       </div>
+
     </ng-template>
     <ng-template #grid let-items let-rowIndexValue="rowIndex">
+
       <div
         class="flex flex-row flex-wrap gap-2 justify-left max-h-[70vh] overflow-y-scroll"
       >
@@ -129,6 +131,13 @@
           </app-gallery-element>
         </div>
       </div>
+    </ng-template>
+
+    <ng-template #footer>
+      <div class="flex justify-between w-full">
+        <small>{{ items?.length || 0 }} images</small>
+      </div>
+
     </ng-template>
   </p-dataview>
 </div>
