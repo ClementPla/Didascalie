@@ -19,8 +19,8 @@
     [attr.fill]="rectLabel.label.color + getBboxOpacityAsString()"
     [attr.stroke]="rectLabel.label.color"
     [attr.stroke-width]="2"
-    [attr.pointer-events]="this.isBboxClickable() ? 'visiblePainted' : 'none'"
-    (mousedown)="boundingBoxClick(rectLabel)"
+    [attr.pointer-events]="this.isBboxClickable() ? 'fill' : 'none'"
+    (mousedown)="boundingBoxClick($event, rectLabel)"
   ></rect>
 
   <path
