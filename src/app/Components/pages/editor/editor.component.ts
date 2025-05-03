@@ -38,7 +38,7 @@ import { TooltipModule } from 'primeng/tooltip';
     NgIf,
     PanelModule,
     ToolSettingComponent,
-    TooltipModule
+    TooltipModule,
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
@@ -48,7 +48,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public viewPortSize: number = 800;
   private subscriptions = new Subscription();
 
-  private _spaceDown: boolean = false
+  private _spaceDown: boolean = false;
   constructor(
     public projectService: ProjectService,
     private drawService: DrawService,
@@ -158,20 +158,18 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   @HostListener('window:keydown.space')
-  togglePanOn(){
-    if(!this._spaceDown){
-
-      this.editorService.activatePanMode()
-      this._spaceDown = true
+  togglePanOn() {
+    if (!this._spaceDown) {
+      this.editorService.activatePanMode();
+      this._spaceDown = true;
     }
   }
 
   @HostListener('window:keyup.space')
-  togglePanOff(){
-    this.editorService.restoreLastTool()
-    this._spaceDown = false
+  togglePanOff() {
+    this.editorService.restoreLastTool();
+    this._spaceDown = false;
   }
-
 
   @HostListener('window:keydown.p')
   changeToPencil() {
@@ -199,7 +197,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.editorService.penPostProcess = !this.editorService.penPostProcess;
     }
     if (this.editorService.isEraser()) {
-      this.editorService.eraserPostProcess = !this.editorService.eraserPostProcess;
+      this.editorService.eraserPostProcess =
+        !this.editorService.eraserPostProcess;
     }
   }
 
@@ -237,7 +236,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('window:keydown.=', ['$event'])
   @HostListener('window:keydown.shift.+', ['$event'])
   @HostListener('window:keydown.+', ['$event'])
-  zoomIn() {    
+  zoomIn() {
     this.zoomPanService.zoomIn(1.2);
   }
   @HostListener('window:keydown.shift._', ['$event'])
@@ -246,12 +245,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   zoomOut() {
     this.zoomPanService.zoomOut(1.2);
   }
-
-  // @HostListener('window:keydown', ['$event'])
-  // test(event: KeyboardEvent) {
-  //   console.log(event.key);
-  // }
-
 
   @HostListener('window:keydown.ArrowLeft', ['$event'])
   async loadPrevious() {
