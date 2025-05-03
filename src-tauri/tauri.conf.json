@@ -20,7 +20,8 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": ["default"]
     }
   },
   "bundle": {
@@ -33,6 +34,5 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
-
   }
 }
