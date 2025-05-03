@@ -44,8 +44,8 @@ export class SVGElementsComponent {
     return hex;
   }
 
-  boundingBoxClick(bbox: BboxLabel) {
-    if (this.isBboxClickable()) {
+  boundingBoxClick(event: MouseEvent, bbox: BboxLabel) {
+    if (this.isBboxClickable() && event.button === 0) {
       this.drawService.eraseOnBboxClick(bbox);
     }
 
