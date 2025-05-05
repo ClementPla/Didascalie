@@ -188,9 +188,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
   }
 
   public mouseDown(event: MouseEvent | TouchEvent) {
-    if (event instanceof TouchEvent) {
+    if ('TouchEvent' in window && event instanceof TouchEvent) {
       event = this.convertTouchEvent(event);
     }
+    event = event as MouseEvent;
     if (event.button == 1) {
       this.editorService.activatePanMode();
     }
@@ -247,9 +248,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
   }
 
   public mouseMove(event: MouseEvent | TouchEvent) {
-    if (event instanceof TouchEvent) {
+    if ('TouchEvent' in window && event instanceof TouchEvent) {
       event = this.convertTouchEvent(event);
     }
+    event = event as MouseEvent;
     event.preventDefault();
     const rect = this.ctxLabel.canvas.getBoundingClientRect();
 
@@ -272,9 +274,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
   }
 
   public async mouseUp(event: MouseEvent | TouchEvent) {
-    if (event instanceof TouchEvent) {
+    if ('TouchEvent' in window && event instanceof TouchEvent) {
       event = this.convertTouchEvent(event);
     }
+    event = event as MouseEvent;
     if (event.button == 1) {
       this.editorService.restoreLastTool();
     }
