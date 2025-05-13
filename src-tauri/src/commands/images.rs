@@ -229,7 +229,7 @@ pub fn from_multiples_masks_to_multiclass(
       for (i, mask) in masks.iter().enumerate().rev() {
         let pixel = mask.get_pixel(x, y);
         if pixel[0] != 0 {
-          new_pixel = Luma([i as u8]);
+          new_pixel = Luma([(i+1) as u8]);
         }
       }
       mask_data.put_pixel(x, y, new_pixel);
