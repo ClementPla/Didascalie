@@ -169,7 +169,6 @@ pub async fn export(
     // Iterate through the SVG files
 
     all_files.par_iter().enumerate().for_each(|(_i, file)| {
-        app.emit("export-progress", 1).unwrap();
         // Load the SVG file as XML
         let xml_content = load_xml_file(file.clone()).unwrap();
         let xml: roxmltree::Document<'_> = roxmltree::Document::parse(&xml_content).unwrap();
@@ -194,6 +193,8 @@ pub async fn export(
                 colormap,
             );
         }
+        app.emit("export-progress", 1).unwrap();
+
     });
 }
 
