@@ -20,16 +20,7 @@ export class ViewService {
     private router: Router,
     private projectService: ProjectService,
     private multiframeService: MultiframesService
-  ) {
-
-
-    this.multiframeService.requestLoadingStatus.subscribe((status) => {
-      this.setLoading(status, 'Loading frames...');
-    });
-    this.multiframeService.requestEndLoadingStatus.subscribe(() => {
-      this.endLoading();
-    });
-  }
+  ) {}
 
   setLoading(status: boolean, message: string) {
     this.isLoading = status;
