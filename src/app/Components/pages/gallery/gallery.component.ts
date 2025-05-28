@@ -22,10 +22,11 @@ import { LabelsService } from '../../../Services/Project/labels.service';
 import { ClassificationService } from '../../../Services/Project/classification.service';
 import { IOService } from '../../../Services/Project/io.service';
 import { SliderModule } from 'primeng/slider';
+import { MultiframesService } from '../../../Services/Project/multiframes.service';
+import { path } from '@tauri-apps/api';
 
 interface GalleryItem {
-  title: string;
-  src: string;
+  img: string[];
   status: string;
 }
 
@@ -76,7 +77,8 @@ export class GalleryComponent implements OnInit, OnDestroy {
     public projectService: ProjectService,
     public labelsService: LabelsService,
     public classificationService: ClassificationService,
-    private IOService: IOService
+    private IOService: IOService,
+    private multiframesService: MultiframesService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -127,23 +129,46 @@ export class GalleryComponent implements OnInit, OnDestroy {
     await this.projectService.listAnnotations();
 
     let items = [];
-    for (let i = 0; i < this.projectService.imagesName.length; i++) {
-      let imgName = this.projectService.imagesName[i];
-      // Get name without extension
-      let name = imgName.split('.').slice(0, -1).join('.');
-      let status = 'empty';
-      if (this.projectService.annotationsName.includes(name + '.svg')) {
-        status = 'annotated';
+    if (this.projectService.folderAsMultiframes) {
+      for (const key of this.multiframesService.groupedFrames.keys()) {
+        let frames = this.multiframesService.groupedFrames.get(key)!;
+        let status = 'empty';
+        if (
+          this.projectService.annotationsName.includes(
+            frames[0].split('.').slice(0, -1).join('.') + '.svg'
+          )
+        ) {
+          status = 'annotated';
+        }
+        if (this.projectService.imagesHasBeenOpened.includes(frames[0])) {
+          status = 'reviewed';
+        }
+        // Get name without extension
+        let names = this.projectService.extractImagesName(frames);
+        items.push({
+          img: names,
+          status: status,
+        } as GalleryItem);
       }
-      if (this.projectService.imagesHasBeenOpened.includes(imgName)) {
-        status = 'reviewed';
-      }
+    }
+    else {
+      for (let i = 0; i < this.projectService.imagesName.length; i++) {
+        let imgName = this.projectService.imagesName[i];
+        // Get name without extension
+        let name = imgName.split('.').slice(0, -1).join('.');
+        let status = 'empty';
+        if (this.projectService.annotationsName.includes(name + '.svg')) {
+          status = 'annotated';
+        }
+        if (this.projectService.imagesHasBeenOpened.includes(imgName)) {
+          status = 'reviewed';
+        }
 
-      items.push({
-        title: this.projectService.imagesName[i],
-        src: this.projectService.imagesName[i],
-        status: status,
-      } as GalleryItem);
+        items.push({
+          img: [this.projectService.imagesName[i]],
+          status: status,
+        } as GalleryItem);
+      }
     }
     return items;
   }
@@ -200,9 +225,10 @@ export class GalleryComponent implements OnInit, OnDestroy {
     let choices = this.batchChoices.toArray().map((item) => item.value);
 
     this.selectedItems.forEach((id) => {
-      let filename = this.items[id].title;
+      let filename = this.items[id].img;
+     
       for (let i = 0; i < choices.length; i++) {
-        this.classificationService.multiclassChoices.get(filename)![i] =
+        this.classificationService.multiclassChoices.get(filename[0])![i] =
           choices[i];
       }
     });

@@ -16,7 +16,6 @@ import { InputTextModule } from 'primeng/inputtext';
 import { open } from '@tauri-apps/plugin-dialog';
 import { FieldsetModule } from 'primeng/fieldset';
 import { ButtonModule } from 'primeng/button';
-import { environment } from '../../../../environments/environment';
 import { ProjectService } from '../../../Services/Project/project.service';
 import { LabelsService } from '../../../Services/Project/labels.service';
 import { ColorPickerModule } from 'primeng/colorpicker';
@@ -31,7 +30,6 @@ import { TextConfigurationComponent } from './text-configuration/text-configurat
 import { PixelsConfigurationComponent } from './pixels-configuration/pixels-configuration.component';
 import { ViewService } from '../../../Services/UI/view.service';
 import { EditorService } from '../../../Services/UI/editor.service';
-import { Tools } from '../../../Core/tools';
 import { SelectButtonModule } from 'primeng/selectbutton';
 
 @Component({
@@ -156,13 +154,11 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   async debug() {
     await this.projectService
       .loadProjectFile(
-        'c:/Users/cleme/Documents/tmp/output/Fundus/project_config.json',
+        'c:/Users/cleme/Documents/data/multiImageTest/Multi-ImageTest/project_config.json',
         true
       )
       .then(() => {
-        this.viewService.openEditor(0);
-        this.editorService.selectedTool = Tools.ERASER;
-        this.editorService.eraserPostProcess = true;
+        this.viewService.navigateToGallery();
       });
   }
 }

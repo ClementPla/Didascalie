@@ -1,6 +1,6 @@
 export const environment = {
-    defaultProjectName: 'Demo',
-    defaultInputFolder: "/home/clement/Documents/data/HMRFormationRD/",
-    defaultOutputFolder: "/home/clement/Documents/tmp/",
+    defaultProjectName: '',
+    defaultInputFolder: "",
+    defaultOutputFolder: "",
     defaultRegex: '.(gif|jpe?g|tiff?|png|webp|bmp)$',
 };

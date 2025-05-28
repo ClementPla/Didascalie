@@ -23,7 +23,8 @@ pub fn list_files_in_folder(folder: &str, regexfilter: &str, recursive: bool) ->
         return files;
     }
     let paths = std::fs::read_dir(folder).unwrap();
-    match Regex::new(&format!(r"(?i){}", regexfilter)) {
+    let formatted_regex = format!(r"(?i){}", regexfilter);
+    match Regex::new(&formatted_regex) {
         Ok(re) => {
             for path in paths {
                 let path = path.unwrap().path();
