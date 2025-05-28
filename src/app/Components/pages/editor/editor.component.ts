@@ -8,6 +8,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { DrawableCanvasComponent } from './drawable-canvas/component/drawable-canvas.component';
+import { ToolbarModule } from 'primeng/toolbar';
 
 import { ToolbarComponent } from './toolbar/toolbar.component';
 import { LabelsComponent } from './labels/labels.component';
@@ -27,18 +28,27 @@ import { StateManagerService } from './drawable-canvas/service/state-manager.ser
 import { ViewService } from '../../../Services/UI/view.service';
 import { ZoomPanService } from './drawable-canvas/service/zoom-pan.service';
 import { TooltipModule } from 'primeng/tooltip';
+import { FormsModule } from '@angular/forms';
+import { MultiframesService } from '../../../Services/Project/multiframes.service';
+import { SliderModule } from 'primeng/slider';
+import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.service';
+import { InputSwitchModule } from 'primeng/inputswitch';
 @Component({
   selector: 'app-editor',
   standalone: true,
   imports: [
+    SliderModule,
     DrawableCanvasComponent,
+    FormsModule,
     ButtonModule,
     ToolbarComponent,
+    ToolbarModule,
     LabelsComponent,
     NgIf,
     PanelModule,
     ToolSettingComponent,
     TooltipModule,
+    InputSwitchModule,
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
@@ -47,8 +57,11 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(DrawableCanvasComponent) canvas: DrawableCanvasComponent;
   public viewPortSize: number = 800;
   private subscriptions = new Subscription();
-
+  private _isLoaded: boolean = false;
   private _spaceDown: boolean = false;
+
+  currentFrame: number = 0;
+
   constructor(
     public projectService: ProjectService,
     private drawService: DrawService,
@@ -57,17 +70,19 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private labelService: LabelsService,
     public IOService: IOService,
     private viewService: ViewService,
-    private zoomPanService: ZoomPanService
+    private zoomPanService: ZoomPanService,
+    public multiframeService: MultiframesService,
+    private canvasManagerService: CanvasManagerService
   ) {}
 
   ngOnInit() {
     this.initializeSubscriptions();
-    console.log('Editor component initialized');
   }
 
   ngAfterViewInit() {
-    this.loadCanvas();
-    console.log('Editor component view initialized');
+    this.canvasManagerService.initCanvas();
+    this.loadCanvas(true);
+    this._isLoaded = true;
   }
 
   ngOnDestroy(): void {
@@ -89,7 +104,36 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  public async loadCanvas() {
+  async multiFrameChanged() {
+    if (!this._isLoaded) {
+      return;
+    }
+    await this.save();
+    if (this.multiframeService.activeGroup) {
+      const currentFramePath = this.multiframeService.getFrameNameInActiveGroup(
+        this.currentFrame
+      );
+      console.log(currentFramePath);
+      if (!currentFramePath) {
+        console.warn('Current frame path is not available');
+        return;
+      }
+      const currentFrameName = this.projectService.extractImagesName([
+        currentFramePath,
+      ])[0];
+      const index = this.projectService.imagesName.indexOf(currentFrameName);
+
+      this.projectService.activeIndex = index;
+      this.projectService.activeImage =
+        await this.multiframeService.getFrameInActiveGroup(this.currentFrame);
+    } else {
+      this.projectService.activeImage = null;
+      this.currentFrame = 0;
+    }
+    await this.loadCanvas(!this.projectService.groupLabels);
+  }
+
+  public async loadCanvas(reload: boolean = true) {
     if (!this.canvas || !this.projectService.activeImage) {
       console.warn('Canvas or active image not available');
       return;
@@ -97,22 +141,29 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     try {
       await this.canvas.loadImage(this.projectService.activeImage);
-      await this.IOService.load();
-
-      this.drawService.refreshAllColors();
-      this.stateService.recomputeCanvasSum = true;
-
-      // Finally reload the canvas and wait for the next frame
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          this.canvas.redrawAllCanvas();
-          resolve();
-        });
-      });
     } catch (error) {
       console.error('Error in loadCanvas sequence:', error);
       throw error; // Re-throw to handle at caller level if needed
     }
+    if (reload) {
+      try {
+        await this.IOService.load();
+      } catch (error) {
+        console.error('Error loading annotations:', error);
+        throw error; // Re-throw to handle at caller level if needed
+      }
+    }
+    this.drawService.refreshAllColors();
+    this.stateService.recomputeCanvasSum = true;
+
+    // Finally reload the canvas and wait for the next frame
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        this.canvas.redrawAllCanvas();
+        resolve();
+      });
+    });
+    this.initSize();
   }
 
   initSize() {
@@ -229,8 +280,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         return this.viewService.goNext();
       })
-      .then(() => {
-        this.loadCanvas();
+      .then((success) => {
+        if (!success) {
+          return Promise.reject('Could not load next frame');
+        }
+        this.currentFrame = 0; // Reset current frame when loading a new image
+        return this.loadCanvas();
       });
   }
   @HostListener('window:keydown.=', ['$event'])
@@ -255,8 +310,43 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         return this.viewService.goPrevious();
       })
-      .then(() => {
-        this.loadCanvas();
+      .then((success) => {
+        if (!success) {
+          return Promise.reject('Could not load previous frame');
+        }
+        this.currentFrame = 0; // Reset current frame when loading a new image
+        return this.loadCanvas();
       });
+  }
+
+  @HostListener('window:keydown.ArrowUp', ['$event'])
+  nextFrame() {
+    if (this.multiframeService.activeGroup) {
+      if (
+        this.currentFrame + 1 >=
+        this.multiframeService.getLengthOfActiveGroup()
+      ) {
+        this.currentFrame = 0;
+      } else {
+        this.currentFrame++;
+      }
+      this.multiFrameChanged();
+    }
+  }
+  @HostListener('window:keydown.ArrowDown', ['$event'])
+  previousFrame() {
+    if (this.multiframeService.activeGroup) {
+      if (this.currentFrame - 1 < 0) {
+        this.currentFrame = this.multiframeService.getLengthOfActiveGroup() - 1;
+      } else {
+        this.currentFrame--;
+      }
+      this.multiFrameChanged();
+    }
+  }
+  preload(){
+    this.viewService.setLoading(true, 'Preloading frames');
+    this.multiframeService.cacheActivegroupFrames();
+    this.viewService.endLoading();
   }
 }

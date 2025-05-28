@@ -15,6 +15,7 @@ import {
   saveProjectConfigFile,
 } from '../../Core/save_load';
 import { ClassificationService } from './classification.service';
+import { MultiframesService } from './multiframes.service';
 
 @Injectable({
   providedIn: 'root',
@@ -32,6 +33,8 @@ export class ProjectService {
   projectName: string = environment.defaultProjectName;
   outputFolder: string = environment.defaultOutputFolder;
   inputFolder: string = environment.defaultInputFolder;
+  folderAsMultiframes: boolean = false;
+  groupLabels: boolean = false;
 
   projectFolder: string = '';
   imagesName: string[] = [];
@@ -46,9 +49,12 @@ export class ProjectService {
   maxInstances: number = 100;
   generateThumbnails: boolean = true;
 
+  
+
   constructor(
     private labelService: LabelsService,
-    private classificationService: ClassificationService
+    private classificationService: ClassificationService,
+    private multiframesService: MultiframesService
   ) {
     this.localStoragesProjectsFilepaths = JSON.parse(
       localStorage.getItem('projects') || '[]'
@@ -72,6 +78,8 @@ export class ProjectService {
       is_segmentation: this.isSegmentation,
       is_instance_segmentation: this.isInstanceSegmentation,
       is_bbox_detection: this.isBoundingBoxDetection,
+      is_multiframes: this.folderAsMultiframes,
+      group_labels: this.groupLabels,
       segmentation_classes: this.labelService.listSegmentationLabels.map(
         (label) => label.label
       ),
@@ -127,7 +135,6 @@ export class ProjectService {
         // Convert JSON string to ProjectConfig
         projectConfig = JSON.parse(projectConfig);
         // Check if the path are relative or absolute
-        console.log(await resolve(projectConfig.input_dir));
         const isAbsoluteInputDir: boolean = !projectConfig.input_dir.startsWith(".")
         const isAbsoluteOutputDir: boolean = !projectConfig.input_dir.startsWith(".")
 
@@ -176,7 +183,10 @@ export class ProjectService {
       regexfilter: this.inputRegex,
       recursive: this.recursive,
     });
-    this.extractImagesName(fileList);
+    if(this.folderAsMultiframes) {
+      this.multiframesService.groupFrames(this.inputFolder, fileList)
+    }
+    this.imagesName = this.extractImagesName(fileList);
     if (this.isClassification) {
       this.classificationService.initMaps(this.imagesName);
     }
@@ -196,10 +206,16 @@ export class ProjectService {
   }
 
   extractImagesName(files: string[]) {
-    this.imagesName = files.map((file) => {
+    return files.map((file) => {
       let filename = file.split(this.inputFolder)[1];
       // Replace the backslash with a forward slash
-      filename = filename.replace(/\\/g, '/');
+      
+      if (filename) {
+          filename = filename.replace(/\\/g, '/');
+        } else {
+          // filenamef input filename is not found in the path, use the full directory
+          filename = file;
+        }
       return filename;
     });
   }
@@ -220,8 +236,9 @@ export class ProjectService {
     this.projectName = config.project_name;
     this.inputFolder = config.input_dir;
     this.outputFolder = config.output_dir;
+    this.groupLabels = config.group_labels;
     this.projectFolder = await path.join(this.outputFolder, this.projectName);
-
+    this.folderAsMultiframes = config.is_multiframes;
     if (config.segmentation_classes) {
       this.labelService.listSegmentationLabels =
         config.segmentation_classes.map((label, index) => {
@@ -266,6 +283,7 @@ export class ProjectService {
 
     return Promise.resolve(true);
   }
+
   async update_reviewed() {
     // Read the revision file and update the reviewed status
     const currentImage = this.imagesName[this.activeIndex!];

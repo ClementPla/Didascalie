@@ -2,7 +2,7 @@ import { Component, Input, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
-
+import { NgOptimizedImage } from '@angular/common';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { ProjectService } from '../../../../Services/Project/project.service';
 import { invoke } from '@tauri-apps/api/core';
@@ -12,16 +12,17 @@ import { NgStyle } from '@angular/common';
 import { LabelsService } from '../../../../Services/Project/labels.service';
 import { ViewService } from '../../../../Services/UI/view.service';
 import { ClassificationService } from '../../../../Services/Project/classification.service';
-
+import { MultiframesService } from '../../../../Services/Project/multiframes.service';
+import { NgClass } from '@angular/common';
 @Component({
   selector: 'app-gallery-element',
   standalone: true,
-  imports: [CommonModule, CardModule, PanelModule, NgStyle, SelectButtonModule],
+  imports: [CommonModule, CardModule, PanelModule, NgStyle, SelectButtonModule, NgClass],
   templateUrl: './gallery-element.component.html',
   styleUrl: './gallery-element.component.scss',
 })
 export class GalleryElementComponent implements OnInit {
-  @Input() imageName: string;
+  @Input() img: string[];
   @Input() id: number;
   @Input() status: string;
   @Input() imgSize: number;
@@ -32,7 +33,8 @@ export class GalleryElementComponent implements OnInit {
     public projectService: ProjectService,
     public labelsService: LabelsService,
     public classificatorService: ClassificationService,
-    private viewService: ViewService
+    private viewService: ViewService,
+    private multiframeService: MultiframesService
   ) {}
 
   ngOnInit(): void {
@@ -59,8 +61,9 @@ export class GalleryElementComponent implements OnInit {
     }
     return '';
   }
-  openEditor() {
-    let id = this.projectService.imagesName.indexOf(this.imageName);
+  async openEditor() {
+    let id = this.projectService.imagesName.indexOf(this.getImageName());
+
     this.viewService.openEditor(id);
   }
   select(event: MouseEvent) {
@@ -72,16 +75,21 @@ export class GalleryElementComponent implements OnInit {
     }
   }
 
+  getImageName() {
+    return this.img[0];
+  }
+
   async getThumbnail(): Promise<string> {
+    let imageName = this.getImageName();
     let imageInput = await path.resolve(
       this.projectService.inputFolder,
-      this.imageName
+      imageName
     );
     if (this.projectService.generateThumbnails) {
       let thumbnailPath = await path.resolve(
         this.projectService.inputFolder,
         '.thumbnails',
-        this.imageName
+        imageName
       );
       await invoke('create_cache_thumbnail', {
         imagePath: imageInput,

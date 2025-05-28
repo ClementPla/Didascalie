@@ -19,6 +19,10 @@ pub async fn create_cache_thumbnail(
 ) -> Result<bool, String> {
   let image_path = Path::new(&image_path).to_path_buf();
   let thumbnail_path = Path::new(&thumbnail_path).to_path_buf();
+  if thumbnail_path.exists() {
+    // If the thumbnail already exists, return true
+    return Ok(true);
+  }
   Ok(generate_thumbnail(&image_path, &thumbnail_path, width, height))
 }
 

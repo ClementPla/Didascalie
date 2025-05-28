@@ -1,3 +1,4 @@
+
 <div class="flex flex-row gap-4 items-start justify-center">
   <p-panel *ngIf="projectService.isClassification">
     <ng-template #header>
@@ -117,15 +118,15 @@
           [style.width.px]="imgSize"
         >
           <app-gallery-element
-            [imageName]="item.src"
+            [img]="item.img"
             [status]="item.status"
             [selected]="
               selectedItems.includes(
-                projectService.imagesName.indexOf(item.title)
+                projectService.imagesName.indexOf(item.img[0])
               )
             "
             (thumbnailSelected)="handleSelect($event)"
-            [id]="projectService.imagesName.indexOf(item.title)"
+            [id]="projectService.imagesName.indexOf(item.img[0])"
             [imgSize]="imgSize"
           >
           </app-gallery-element>

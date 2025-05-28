@@ -75,7 +75,7 @@
             />
             <label for="projectName">Project name</label>
           </p-floatLabel>
-          <div class="flex gap-8 items-center flex-wrap">
+          <div class="flex flex-wrap gap-8 items-center">
             <app-labelled-switch [(checked)]="projectService.isClassification"
               >Classification</app-labelled-switch
             >
@@ -131,7 +131,7 @@
     <p-panel header="Input/Output" class="flex flex-col items-stretch">
       <div>
         <p-fieldset legend="Input" [toggleable]="true">
-          <div class="flex flex-row gap-8 justify-center flex-wrap mt-4">
+          <div class="flex flex-row flex-wrap gap-8 justify-center mt-4">
             <p-floatLabel>
               <input
                 pInputText
@@ -145,7 +145,7 @@
 
             <p-button (click)="openInputFolder()">Choose folder</p-button>
 
-            <div class="flex flex-col items-center gap-2">
+            <div class="flex flex-col gap-2 items-center">
               <p-inputSwitch
                 id="recursiveLoad"
                 ariaLabelledBy="recursiveLoad"
@@ -157,6 +157,21 @@
                 >
               </small>
             </div>
+            <div class="flex flex-col gap-2 items-center">
+              <p-inputSwitch
+                id="folderAsMultiframes"
+                ariaLabelledBy="folderAsMultiframes"
+                [(ngModel)]="projectService.folderAsMultiframes"
+              />
+              <small>
+                <label for="folderAsMultiframes" id="folderAsMultiframes"
+                  >Folders as multi-frames</label
+                >
+              </small>
+            </div>
+
+            
+            
             <p-floatLabel>
               <input
                 pInputText

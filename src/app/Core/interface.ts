@@ -76,11 +76,14 @@ export interface ProjectConfig {
   is_instance_segmentation: boolean;
   is_bbox_detection: boolean;
   has_text_description: boolean;
+  is_multiframes: boolean;
+  group_labels: boolean;
   segmentation_classes: null | string[];
   classification_classes: null | MulticlassInterface[];
   classification_multilabel: null | MultilabelInterface;
   text_names: null | string[];
   default_colors: null | string[];
+
 }
 
 export interface ImageFromCLI {

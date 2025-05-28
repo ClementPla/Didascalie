@@ -355,10 +355,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
       this.initializeDimensions();
 
-      this.canvasManagerService.initCanvas();
 
       this.undoRedoService.empty();
-      this.viewService.endLoading();
       this.redrawAllCanvas();
       this.isImageLoaded = true;
     };

@@ -131,7 +131,7 @@ export class IOService {
   }
 
   async save() {
-    this.viewService.setLoading(true, 'Saving annotations');
+    // this.viewService.setLoading(true, 'Saving annotations');
     let savefile = {
       masksName: [],
       masks: [],
