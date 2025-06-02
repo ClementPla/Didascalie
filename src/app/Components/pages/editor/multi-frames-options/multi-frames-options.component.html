@@ -1,0 +1,34 @@
+<p-panel
+  header="{{ 'Multiframes: ' + multiframeService.getLengthOfActiveGroup() }}"
+  *ngIf="
+    projectService.folderAsMultiframes &&
+    multiframeService.getLengthOfActiveGroup() > 1
+  "
+>
+  <div class="flex flex-col gap-4 m-2">
+    <p class="flex gap-2 items-center">
+      <p-inputSwitch
+        id="groupLabels"
+        ariaLabelledBy="groupLabels"
+        [(ngModel)]="projectService.groupLabels"
+      />
+      <small>
+        <label for="groupLabels" id="groupLabels">Shared labels accross frames</label>
+      </small>
+    </p>
+
+
+    <input
+      type="text"
+      pInputText
+      [(ngModel)]="currentFrame"
+    />
+    <p-slider
+      [(ngModel)]="currentFrame"
+      [min]="0"
+      [max]="multiframeService.getLengthOfActiveGroup() - 1"
+      (ngModelChange)="multiFrameChanged()"
+    ></p-slider>
+    <button pButton size="small" (click)="preload()">Preload</button>
+  </div>
+</p-panel>
