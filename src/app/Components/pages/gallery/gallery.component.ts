@@ -132,17 +132,11 @@ export class GalleryComponent implements OnInit, OnDestroy {
     if (this.projectService.folderAsMultiframes) {
       for (const key of this.multiframesService.groupedFrames.keys()) {
         let frames = this.multiframesService.groupedFrames.get(key)!;
-        let status = 'empty';
-        if (
-          this.projectService.annotationsName.includes(
-            frames[0].split('.').slice(0, -1).join('.') + '.svg'
-          )
-        ) {
-          status = 'annotated';
-        }
-        if (this.projectService.imagesHasBeenOpened.includes(frames[0])) {
-          status = 'reviewed';
-        }
+        
+        // Get the image name of the first frame
+        let imgPath = frames[0];
+        let imgName = this.projectService.extractImagesName([imgPath])[0];
+        let status = this.getStatusForImage(imgName);
         // Get name without extension
         let names = this.projectService.extractImagesName(frames);
         items.push({
@@ -154,16 +148,8 @@ export class GalleryComponent implements OnInit, OnDestroy {
     else {
       for (let i = 0; i < this.projectService.imagesName.length; i++) {
         let imgName = this.projectService.imagesName[i];
-        // Get name without extension
-        let name = imgName.split('.').slice(0, -1).join('.');
-        let status = 'empty';
-        if (this.projectService.annotationsName.includes(name + '.svg')) {
-          status = 'annotated';
-        }
-        if (this.projectService.imagesHasBeenOpened.includes(imgName)) {
-          status = 'reviewed';
-        }
-
+        
+        let status = this.getStatusForImage(imgName)
         items.push({
           img: [this.projectService.imagesName[i]],
           status: status,
@@ -173,6 +159,17 @@ export class GalleryComponent implements OnInit, OnDestroy {
     return items;
   }
 
+  getStatusForImage(imgName: string): string {
+    // Get name without extension
+    let name = imgName.split('.').slice(0, -1).join('.');
+    if (this.projectService.annotationsName.includes(name + '.svg')) {
+      return 'annotated';
+    } else if (this.projectService.imagesHasBeenOpened.includes(imgName)) {
+      return 'reviewed';
+    } else {
+      return 'empty';
+    }
+  }
   toggleFilter(event: any) {
     if (event.value == 0) {
       this.dataView.filter('');

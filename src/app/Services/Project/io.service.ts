@@ -179,7 +179,6 @@ export class IOService {
         );
       })
       .then(() => {
-        this.viewService.endLoading();
         return true;
       });
     return finished;

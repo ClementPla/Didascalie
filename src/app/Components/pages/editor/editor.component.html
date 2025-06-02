@@ -1,40 +1,6 @@
 <app-toolbar></app-toolbar>
 
 <div
-  *ngIf="
-    projectService.folderAsMultiframes &&
-    multiframeService.getLengthOfActiveGroup() > 1
-  "
-  class="-translate-y-1/2 border-r fixed flex flex-col gap-5 items-center left-0 p-2 top-1/2 transform z-10"
->
-<button
-  pButton
-  size="small"
-  (click)="preload()"
-  >
-  Preload
-</button>
-  <p-inputSwitch
-    id="groupLabels"
-    ariaLabelledBy="groupLabels"
-    [(ngModel)]="projectService.groupLabels"
-  />
-  <small>
-    <label for="groupLabels" id="groupLabels">Shared labels</label>
-  </small>
-
-  {{ multiframeService.getLengthOfActiveGroup() }}
-
-  <input type="text" pInputText [(ngModel)]="currentFrame" class="mb-2 w-16" />
-  <p-slider
-    [(ngModel)]="currentFrame"
-    [min]="0"
-    [max]="multiframeService.getLengthOfActiveGroup() - 1"
-    (ngModelChange)="multiFrameChanged()"
-    [orientation]="'vertical'"
-  ></p-slider>
-</div>
-<div
   class="editor flex gap-8 justify-around max-screen-available min-h-0 w-full"
 >
   <app-labels
@@ -50,7 +16,10 @@
 
   <div class="flex flex-col gap-4 min-w-96 overflow-y-auto">
     <app-tool-setting></app-tool-setting>
-    <p-panel header="Save">
+    <app-multi-frames-options
+      (change)="changedOfFrame($event)"
+    ></app-multi-frames-options>
+    <p-panel header="Save" styleClass="w-96">
       <p class="flex justify-center">
         <p-button (onClick)="loadPrevious()">Previous</p-button>
         <p-button (onClick)="save()" pTooltip="Ctrl+S">Save</p-button>

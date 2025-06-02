@@ -1,6 +1,6 @@
-<p-panel header="Advanced settings">
-  <p-fieldset legend="Bounding box" [toggleable]="true" [collapsed]="false">
-    <div class="gap-2 grid grid-cols-2">
+<p-panel header="Advanced settings" styleClass="w-96">
+  <p-fieldset legend="Bounding box" [toggleable]="true" [collapsed]="true">
+    <div class="gap-2 grid grid-cols-2 w-full">
         <app-labelled-switch
           [(checked)]="editorService.showBoundingBox"
           (checkedChange)="editorService.requestCanvasRedraw()"
@@ -41,7 +41,7 @@
     </div>
   </p-fieldset>
 
-  <div class="h-full max-w-[256px] overflow-y-auto">
+  <div class="h-full overflow-y-auto w-full">
     <p-fieldset
       legend="Instance Segmentation"
       [toggleable]="true"
