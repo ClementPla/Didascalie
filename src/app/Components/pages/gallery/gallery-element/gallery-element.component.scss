@@ -44,3 +44,16 @@
   transform: translateY(-10px) translateX(10px);
   opacity: 0.4;
 }
+
+.annotated{
+  border: 4px solid #FFA500
+
+}
+
+.reviewed {
+  border: 4px solid #00FF00;
+}
+ 
+.unannotated {
+  border: 4px solid #FF0000;
+}

@@ -19,16 +19,16 @@ export class ViewService {
   constructor(
     private router: Router,
     private projectService: ProjectService,
-    private multiframeService: MultiframesService
+    private multiframeService: MultiframesService,
   ) {}
 
   setLoading(status: boolean, message: string) {
     this.isLoading = status;
     this.loadingStatus = message;
-    console.log(`Loading status: ${this.loadingStatus}`);
   }
 
   endLoading() {
+    console.log('Loading ended');
     this.isLoading = false;
     this.loadingStatus = '';
   }
@@ -129,6 +129,10 @@ export class ViewService {
   }
 
   async openEditor(index: number) {
+    const wasLoading = this.isLoading;
+    if (!wasLoading){
+      this.setLoading(true, 'Opening image');
+    }
     this.projectService.activeIndex = index;
 
     await this.multiframeService.setActiveGroupFromFilepath(
@@ -143,7 +147,10 @@ export class ViewService {
       .then(async (filepath) => {
         this.projectService.activeImage = await loadImageFile(filepath);
         this.navigateToEditor()?.then(() => {
-          this.endLoading();
+          if (!wasLoading) {
+            this.endLoading();
+          }
+
         });
       });
     await openPromise$;

@@ -166,11 +166,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
     return points;
   }
 
-  public loadImage(image: string) {
+  public async loadImage(image: string) {
     this.isImageLoaded = false;
     this.srcImg = image;
-    this.reload();
-    this.cdr.detectChanges(); // This might not be needed
+    return this.reload();
   }
   public wheel(event: WheelEvent): void {
     event.preventDefault();
@@ -341,11 +340,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
     );
   }
 
-  public reload(): void {
-    this.image.src = this.srcImg;
+  public reload(): Promise<void> {
     this.ctxLabel.imageSmoothingEnabled = false;
-
-    this.image.onload = () => {
+    return new Promise<void>((resolve, reject) => {
+      this.image.onload = () => {
       this.stateService.recomputeCanvasSum = true;
       this.postProcessService.featuresExtracted = false;
 
@@ -359,7 +357,14 @@ export class DrawableCanvasComponent implements AfterViewInit {
       this.undoRedoService.empty();
       this.redrawAllCanvas();
       this.isImageLoaded = true;
+      resolve();
     };
+    this.image.onerror = (error) => {
+      console.error('Error loading image:', error);
+      reject(error);
+    };
+    this.image.src = this.srcImg;
+  });  
   }
 
   public loadCanvas(data: string, index: number) {

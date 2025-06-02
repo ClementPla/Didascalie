@@ -49,8 +49,6 @@ export class ProjectService {
   maxInstances: number = 100;
   generateThumbnails: boolean = true;
 
-  
-
   constructor(
     private labelService: LabelsService,
     private classificationService: ClassificationService,
@@ -135,8 +133,10 @@ export class ProjectService {
         // Convert JSON string to ProjectConfig
         projectConfig = JSON.parse(projectConfig);
         // Check if the path are relative or absolute
-        const isAbsoluteInputDir: boolean = !projectConfig.input_dir.startsWith(".")
-        const isAbsoluteOutputDir: boolean = !projectConfig.input_dir.startsWith(".")
+        const isAbsoluteInputDir: boolean =
+          !projectConfig.input_dir.startsWith('.');
+        const isAbsoluteOutputDir: boolean =
+          !projectConfig.input_dir.startsWith('.');
 
         if (!isAbsoluteInputDir) {
           projectConfig.input_dir = await path
@@ -183,8 +183,8 @@ export class ProjectService {
       regexfilter: this.inputRegex,
       recursive: this.recursive,
     });
-    if(this.folderAsMultiframes) {
-      this.multiframesService.groupFrames(this.inputFolder, fileList)
+    if (this.folderAsMultiframes) {
+      this.multiframesService.groupFrames(this.inputFolder, fileList);
     }
     this.imagesName = this.extractImagesName(fileList);
     if (this.isClassification) {
@@ -193,7 +193,11 @@ export class ProjectService {
   }
 
   async listAnnotations() {
-    const inputPath = await path.join(this.projectFolder, 'annotations', 'local');
+    const inputPath = await path.join(
+      this.projectFolder,
+      'annotations',
+      'local'
+    );
     let fileList = await invoke<string[]>('list_files_in_folder', {
       folder: inputPath,
       regexfilter: '.*.svg$',
@@ -209,13 +213,13 @@ export class ProjectService {
     return files.map((file) => {
       let filename = file.split(this.inputFolder)[1];
       // Replace the backslash with a forward slash
-      
+
       if (filename) {
-          filename = filename.replace(/\\/g, '/');
-        } else {
-          // filenamef input filename is not found in the path, use the full directory
-          filename = file;
-        }
+        filename = filename.replace(/\\/g, '/');
+      } else {
+        // filenamef input filename is not found in the path, use the full directory
+        filename = file;
+      }
       return filename;
     });
   }
@@ -286,35 +290,31 @@ export class ProjectService {
 
   async update_reviewed() {
     // Read the revision file and update the reviewed status
-    const currentImage = this.imagesName[this.activeIndex!];
-
-    if (!this.imagesHasBeenOpened.includes(currentImage)) {
-      this.imagesHasBeenOpened.push(currentImage);
+    if (this.activeIndex) {
+      const currentImage = this.imagesName[this.activeIndex!];
+      if (!this.imagesHasBeenOpened.includes(currentImage)) {
+        this.imagesHasBeenOpened.push(currentImage);
+      }
     }
     const revisionPath = await path.join(this.projectFolder, '.revisions.json');
-    let revision;
     try {
-      revision = await invokeLoadJsonFile(revisionPath).then(
-        (revisions: any) => {
-          if (revisions) {
-            revisions = JSON.parse(revisions).images;
-            // Add the images that have been opened to the list if they are not already there
-            this.imagesHasBeenOpened.forEach((image) => {
-              if (!revisions.includes(image)) {
-                revisions.push(image);
-              }
-            });
-            return revisions;
-          } else {
-            return this.imagesHasBeenOpened;
-          }
+      await invokeLoadJsonFile(revisionPath).then((revisions: any) => {
+        if (revisions) {
+          revisions = JSON.parse(revisions).images;
+          // Add the images that have been opened to the list if they are not already there
+          revisions.forEach((image: string | undefined | null) => {
+            if (
+              typeof image === 'string' &&
+              !this.imagesHasBeenOpened.includes(image)
+            ) {
+              this.imagesHasBeenOpened.push(image);
+            }
+          });
         }
-      );
+      });
     } catch (error) {
       console.error('Error loading revisions:', error);
-      revision = this.imagesHasBeenOpened;
     }
-    this.imagesHasBeenOpened = revision;
     const revisionString = JSON.stringify(
       { images: this.imagesHasBeenOpened },
       null,

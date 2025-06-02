@@ -33,6 +33,7 @@ import { MultiframesService } from '../../../Services/Project/multiframes.servic
 import { SliderModule } from 'primeng/slider';
 import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.service';
 import { InputSwitchModule } from 'primeng/inputswitch';
+import { MultiFramesOptionsComponent } from "./multi-frames-options/multi-frames-options.component";
 @Component({
   selector: 'app-editor',
   standalone: true,
@@ -49,18 +50,19 @@ import { InputSwitchModule } from 'primeng/inputswitch';
     ToolSettingComponent,
     TooltipModule,
     InputSwitchModule,
-  ],
+    MultiFramesOptionsComponent
+],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
 })
 export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(DrawableCanvasComponent) canvas: DrawableCanvasComponent;
+  @ViewChild(MultiFramesOptionsComponent) multiFramesOptions: MultiFramesOptionsComponent;
   public viewPortSize: number = 800;
   private subscriptions = new Subscription();
-  private _isLoaded: boolean = false;
   private _spaceDown: boolean = false;
 
-  currentFrame: number = 0;
+  
 
   constructor(
     public projectService: ProjectService,
@@ -82,7 +84,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit() {
     this.canvasManagerService.initCanvas();
     this.loadCanvas(true);
-    this._isLoaded = true;
+    this.multiFramesOptions._isLoaded = true;
   }
 
   ngOnDestroy(): void {
@@ -104,34 +106,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  async multiFrameChanged() {
-    if (!this._isLoaded) {
-      return;
-    }
-    await this.save();
-    if (this.multiframeService.activeGroup) {
-      const currentFramePath = this.multiframeService.getFrameNameInActiveGroup(
-        this.currentFrame
-      );
-      console.log(currentFramePath);
-      if (!currentFramePath) {
-        console.warn('Current frame path is not available');
-        return;
-      }
-      const currentFrameName = this.projectService.extractImagesName([
-        currentFramePath,
-      ])[0];
-      const index = this.projectService.imagesName.indexOf(currentFrameName);
-
-      this.projectService.activeIndex = index;
-      this.projectService.activeImage =
-        await this.multiframeService.getFrameInActiveGroup(this.currentFrame);
-    } else {
-      this.projectService.activeImage = null;
-      this.currentFrame = 0;
-    }
-    await this.loadCanvas(!this.projectService.groupLabels);
-  }
+  
 
   public async loadCanvas(reload: boolean = true) {
     if (!this.canvas || !this.projectService.activeImage) {
@@ -156,13 +131,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.drawService.refreshAllColors();
     this.stateService.recomputeCanvasSum = true;
 
-    // Finally reload the canvas and wait for the next frame
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        this.canvas.redrawAllCanvas();
-        resolve();
-      });
-    });
+    this.canvas.redrawAllCanvas();
     this.initSize();
   }
 
@@ -267,26 +236,29 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown.control.s', ['$event'])
   async save() {
+    console.log('Saving annotations...');
     await this.projectService.update_reviewed();
     return this.IOService.save();
   }
 
   @HostListener('window:keydown.ArrowRight', ['$event'])
   async loadNext() {
-    await this.save()
-      .then((hasSaved) => {
-        if (!hasSaved) {
-          return Promise.reject('Could not save');
-        }
-        return this.viewService.goNext();
-      })
-      .then((success) => {
-        if (!success) {
-          return Promise.reject('Could not load next frame');
-        }
-        this.currentFrame = 0; // Reset current frame when loading a new image
-        return this.loadCanvas();
-      });
+    this.viewService.setLoading(true, 'Loading next image');
+    
+    const hasSaved = await this.save()
+    if (!hasSaved) {
+      console.error('Could not save before loading next image');
+    }
+    const sucess = await this.viewService.goNext()
+    if (!sucess) {
+      console.error('Could not load next image');
+    }
+    if(this.multiFramesOptions) {
+      this.multiFramesOptions.currentFrame = 0; // Reset current frame when loading a new image
+    }
+    await this.loadCanvas();
+    this.viewService.endLoading();
+
   }
   @HostListener('window:keydown.=', ['$event'])
   @HostListener('window:keydown.shift.+', ['$event'])
@@ -303,50 +275,48 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown.ArrowLeft', ['$event'])
   async loadPrevious() {
-    await this.save()
-      .then((hasSaved) => {
-        if (!hasSaved) {
-          return Promise.reject('Could not save');
-        }
-        return this.viewService.goPrevious();
-      })
-      .then((success) => {
-        if (!success) {
-          return Promise.reject('Could not load previous frame');
-        }
-        this.currentFrame = 0; // Reset current frame when loading a new image
-        return this.loadCanvas();
-      });
-  }
-
-  @HostListener('window:keydown.ArrowUp', ['$event'])
-  nextFrame() {
-    if (this.multiframeService.activeGroup) {
-      if (
-        this.currentFrame + 1 >=
-        this.multiframeService.getLengthOfActiveGroup()
-      ) {
-        this.currentFrame = 0;
-      } else {
-        this.currentFrame++;
-      }
-      this.multiFrameChanged();
+    this.viewService.setLoading(true, 'Loading previous image');
+    
+    const hasSaved = await this.save();
+    if (!hasSaved) {
+      console.error('Could not save before loading previous image');
     }
-  }
-  @HostListener('window:keydown.ArrowDown', ['$event'])
-  previousFrame() {
-    if (this.multiframeService.activeGroup) {
-      if (this.currentFrame - 1 < 0) {
-        this.currentFrame = this.multiframeService.getLengthOfActiveGroup() - 1;
-      } else {
-        this.currentFrame--;
-      }
-      this.multiFrameChanged();
+    const success = await this.viewService.goPrevious();
+    if (!success) {
+      console.error('Could not load previous image');
     }
-  }
-  preload(){
-    this.viewService.setLoading(true, 'Preloading frames');
-    this.multiframeService.cacheActivegroupFrames();
+    if(this.multiFramesOptions) {
+      this.multiFramesOptions.currentFrame = 0; // Reset current frame when loading a new image
+    }
+    await this.loadCanvas();
     this.viewService.endLoading();
   }
+
+  async changedOfFrame(newFrame: number) {
+    await this.save();
+    if (this.multiframeService.activeGroup) {
+      const currentFramePath = this.multiframeService.getFrameNameInActiveGroup(
+        newFrame
+      );
+      if (!currentFramePath) {
+        console.warn('Current frame path is not available');
+        return;
+      }
+      const currentFrameName = this.projectService.extractImagesName([
+        currentFramePath,
+      ])[0];
+      const index = this.projectService.imagesName.indexOf(currentFrameName);
+
+      this.projectService.activeIndex = index;
+      this.projectService.activeImage =
+        await this.multiframeService.getFrameInActiveGroup(newFrame);
+    } else {
+      this.projectService.activeImage = null;
+      this.multiFramesOptions.currentFrame = 0;
+    }
+    await this.loadCanvas(!this.projectService.groupLabels);
+  }
+
+  
+  
 }

@@ -111,7 +111,11 @@ pub fn load_xml_file(filepath: String) -> Result<String, String> {
 
 #[command]
 pub fn load_json_file(filepath: String) -> Result<String, String> {
+    // Print the filepath for debugging
+    println!("Loading JSON file from: {}", filepath);
+
     // Open the file for reading
+
     let mut file = File::open(&filepath).map_err(|e| format!("Failed to open file: {}", e))?;
 
     // Read the file contents

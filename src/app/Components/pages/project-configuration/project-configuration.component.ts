@@ -158,7 +158,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
         true
       )
       .then(() => {
-        this.viewService.navigateToGallery();
+        this.viewService.openEditor(1);
       });
   }
 }

@@ -34,7 +34,6 @@ export class GalleryElementComponent implements OnInit {
     public labelsService: LabelsService,
     public classificatorService: ClassificationService,
     private viewService: ViewService,
-    private multiframeService: MultiframesService
   ) {}
 
   ngOnInit(): void {
@@ -43,17 +42,6 @@ export class GalleryElementComponent implements OnInit {
     });
   }
 
-  getStyle() {
-    if (this.status === 'annotated') {
-      return { border: '4px solid #FFA500' };
-    } else if (this.status === 'reviewed') {
-      return { border: '4px solid rgb(0, 255, 0)' };
-    } else {
-      return {
-        border: '4px solid rgb(255, 0, 0)',
-      };
-    }
-  }
 
   getCardStyleClass() {
     if (this.selected) {
