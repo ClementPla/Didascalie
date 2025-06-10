@@ -121,6 +121,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       throw error; // Re-throw to handle at caller level if needed
     }
     if (reload) {
+      this.canvasManagerService.clearAllCanvas();
       try {
         await this.IOService.load();
       } catch (error) {
@@ -236,7 +237,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown.control.s', ['$event'])
   async save() {
-    console.log('Saving annotations...');
     await this.projectService.update_reviewed();
     return this.IOService.save();
   }
