@@ -254,4 +254,12 @@ export class CanvasManagerService {
   getAllCanvas() {
     return this.labelCanvas;
   }
+
+  clearAllCanvas() {
+    this.labelCanvas.forEach((canvas) => {
+      this.clearCanvas(canvas.getContext('2d')!);
+    });
+    this.resetCombinedCanvas();
+    this.bboxManager.clear();
+  }
 }
