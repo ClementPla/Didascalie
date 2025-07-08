@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../dist/client/browser",
     "devUrl": "http://localhost:4200",
-    "beforeDevCommand": "npm run ng serve --hmr -o --debug",
+    "beforeDevCommand": "npm run ng serve --no-hmr -o --debug",
     "beforeBuildCommand": "npm run ng build"
   },
   "app": {

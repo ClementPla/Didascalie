@@ -3,10 +3,9 @@ import { Point2D } from '../models';
 import { EditorService } from '../../../../../Services/UI/editor.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class StateManagerService {
-
   public width: number = 512;
   public height: number = 512;
 
@@ -20,8 +19,7 @@ export class StateManagerService {
 
   public recomputeCanvasSum: boolean = false;
 
-
-  constructor(private editorService: EditorService) { }
+  constructor(private editorService: EditorService) {}
 
   updatePreviousPoint(point: Point2D) {
     this.previousPoint = point;
@@ -36,7 +34,10 @@ export class StateManagerService {
     this.height = height;
   }
   hasMoved() {
-    return this.currentPoint.x !== this.previousPoint.x || this.currentPoint.y !== this.previousPoint.y;
+    return (
+      this.currentPoint.x !== this.previousPoint.x ||
+      this.currentPoint.y !== this.previousPoint.y
+    );
   }
   resetMinMaxPoints() {
     this.minPoint = { x: Number.MAX_VALUE, y: Number.MAX_VALUE };
@@ -66,11 +67,11 @@ export class StateManagerService {
     const offset = this.getBrushSizeOffset();
     this.minPoint = {
       x: Math.max(0, Math.min(this.minPoint.x, point.x - offset)),
-      y: Math.max(0, Math.min(this.minPoint.y, point.y - offset))
+      y: Math.max(0, Math.min(this.minPoint.y, point.y - offset)),
     };
     this.maxPoint = {
       x: Math.max(this.maxPoint.x, point.x + offset),
-      y: Math.max(this.maxPoint.y, point.y + offset)
+      y: Math.max(this.maxPoint.y, point.y + offset),
     };
   }
 
@@ -83,17 +84,9 @@ export class StateManagerService {
     };
   }
 
-
-
   getBrushSizeOffset() {
-
     return this.editorService.isToolWithBrushSize()
       ? this.editorService.lineWidth / 2 + 2
       : 0;
-
   }
-
-
-
-
 }

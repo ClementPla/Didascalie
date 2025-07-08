@@ -2,7 +2,7 @@
   <ng-template pTemplate="start"> </ng-template>
   <ng-template pTemplate="center">
     <div
-      class="align-items-center flex flex-wrap gap-6 items-center justify-center"
+      class="align-items-center flex flex-shrink lg:gap-6 gap-0 items-center justify-center"
     >
       <p-selectButton
         [options]="tools"
@@ -14,9 +14,10 @@
             pTooltip="{{ item.shortcut }}"
             tooltipPosition="bottom"
             [autoHide]="false"
+            class="flex items-center gap-2"
           >
             <i [class]="item.icon"> </i>
-            {{ item.name }}
+            <div class="hidden lg:block">{{ item.name }}</div>
           </span>
         </ng-template>
       </p-selectButton>
