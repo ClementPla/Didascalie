@@ -261,4 +261,25 @@ export class CanvasManagerService {
     this.resetCombinedCanvas();
     this.bboxManager.clear();
   }
+
+  updateCanvasesDimensions(){
+    if(this.labelCanvas.length == 0){
+      this.initCanvas();
+    }
+    this.labelCanvas.forEach((canvas) => {
+      if (canvas.width !== this.stateService.width || canvas.height !== this.stateService.height) {
+        canvas.width = this.stateService.width;
+        canvas.height = this.stateService.height;
+      }
+    });
+
+    if (this.combinedCanvas.width !== this.stateService.width || this.combinedCanvas.height !== this.stateService.height) {
+      this.combinedCanvas.width = this.stateService.width;
+      this.combinedCanvas.height = this.stateService.height;
+    }
+    if (this.bufferCanvas.width !== this.stateService.width || this.bufferCanvas.height !== this.stateService.height) {
+      this.bufferCanvas.width = this.stateService.width;
+      this.bufferCanvas.height = this.stateService.height;
+    }
+    }
 }

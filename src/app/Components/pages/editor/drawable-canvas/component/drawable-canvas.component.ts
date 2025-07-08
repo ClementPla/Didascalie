@@ -217,7 +217,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
   public async loadImage(image: string) {
     this.isImageLoaded = false;
     this.srcImg = image;
-    return await this.reload();
+    await this.reload();
   }
   public wheel(event: WheelEvent): void {
     event.preventDefault();
@@ -400,7 +400,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
         this.drawService.clearCanvas(this.ctxImage!);
 
         this.initializeDimensions();
-        this.canvasManagerService.initCanvas();
+        this.canvasManagerService.updateCanvasesDimensions();
         this.undoRedoService.empty();
         this.redrawAllCanvas();
         this.isImageLoaded = true;

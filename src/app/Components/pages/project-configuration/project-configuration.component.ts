@@ -9,7 +9,6 @@ import { PanelModule } from 'primeng/panel';
 import { FloatLabelModule } from 'primeng/floatlabel';
 import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
-import { NgClass } from '@angular/common';
 
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { InputTextModule } from 'primeng/inputtext';
@@ -146,13 +145,13 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    this.debug();
+    // this.debug();
   }
 
   async debug() {
     await this.projectService
       .loadProjectFile(
-        '/home/clement/Documents/tmp/Demo/project_config.json',
+        '/home/thiago/Documents/NVIA/Debugging/project_config.json',
         true
       )
       .then(() => {

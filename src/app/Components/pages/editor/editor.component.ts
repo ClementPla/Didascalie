@@ -120,6 +120,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       throw error; // Re-throw to handle at caller level if needed
     }
     if (reload) {
+      console.log('Reloading annotations');
       this.canvasManagerService.clearAllCanvas();
       try {
         await this.IOService.load();
@@ -129,7 +130,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    this.zoomPanService.zoomTofitToScreen();
     this.drawService.refreshAllColors();
     this.stateService.recomputeCanvasSum = true;
     this.canvas.redrawAllCanvas();
@@ -288,6 +288,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.multiframeService.getFrameNameInActiveGroup(newFrame);
       if (!currentFramePath) {
         console.warn('Current frame path is not available');
+        console.warn(currentFramePath);
         return;
       }
       const currentFrameName = this.projectService.extractImagesName([
