@@ -1,24 +1,26 @@
 <div class="max-screen-available w-full">
- <div
-  class="bg-gray-950 overflow-hidden relative rounded-t-lg"
-  [style.width.px]="canvasWidth"
-  [style.height.px]="rulerSize"
->
+  <div
+    class="bg-gray-950 relative rounded-t-lg w-full"
+    [style.height.px]="rulerSize"
+  >
     <p
       class="absolute text-gray viewBoxMarker w-fit"
-      [style.left.px]="viewBox.xmin+canvasLeft"
+      [style.left.px]="viewBox.xmin + canvasLeft + rulerSize"
     >
       0
     </p>
 
     <p
       class="absolute text-gray viewBoxMarker w-fit"
-      [style.left.px]="cursor.x+canvasLeft"
+      [style.left.px]="cursor.x + canvasLeft"
     >
       {{ currentPixel.x }}
     </p>
 
-    <p class="absolute viewBoxMarker w-fit" [style.left.px]="viewBox.xmax+canvasLeft">
+    <p
+      class="absolute viewBoxMarker w-fit"
+      [style.left.px]="viewBox.xmax + canvasLeft"
+    >
       {{ stateService.width }}
     </p>
   </div>
@@ -39,7 +41,6 @@
       </p>
     </div>
     <div
-      #myImageContainer
       class="bg-black flex flex-grow items-center justify-center min-w-[50vw] relative"
       [ngStyle]="{
         'aspect-ratio': stateService.width / stateService.height,

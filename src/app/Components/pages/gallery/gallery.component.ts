@@ -23,7 +23,6 @@ import { ClassificationService } from '../../../Services/Project/classification.
 import { IOService } from '../../../Services/Project/io.service';
 import { SliderModule } from 'primeng/slider';
 import { MultiframesService } from '../../../Services/Project/multiframes.service';
-import { path } from '@tauri-apps/api';
 import { GalleryService } from './gallery.service';
 
 interface GalleryItem {
@@ -31,7 +30,6 @@ interface GalleryItem {
   status: string;
   title: string;
   id: number; // Optional ID for easier selection
-
 }
 
 @Component({
@@ -75,7 +73,6 @@ export class GalleryComponent implements OnInit, OnDestroy {
   ];
 
   @ViewChild('dv') dataView: DataView;
-  
 
   constructor(
     public projectService: ProjectService,
@@ -138,7 +135,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
     if (this.projectService.folderAsMultiframes) {
       for (const key of this.multiframesService.groupedFrames.keys()) {
         let frames = this.multiframesService.groupedFrames.get(key)!;
-        
+
         // Get the image name of the first frame
         let imgPath = frames[0];
         let imgName = this.projectService.extractImagesName([imgPath])[0];
@@ -152,12 +149,11 @@ export class GalleryComponent implements OnInit, OnDestroy {
           id: this.projectService.imagesName.indexOf(imgName), // Assign an ID for easier selection
         } as GalleryItem);
       }
-    }
-    else {
+    } else {
       for (let i = 0; i < this.projectService.imagesName.length; i++) {
         let imgName = this.projectService.imagesName[i];
-        
-        let status = this.getStatusForImage(imgName)
+
+        let status = this.getStatusForImage(imgName);
         items.push({
           img: [this.projectService.imagesName[i]],
           status: status,
@@ -181,7 +177,6 @@ export class GalleryComponent implements OnInit, OnDestroy {
     }
   }
 
-
   toggleFilter(event: any) {
     if (event.value == 0) {
       this.dataView.filter('');
@@ -199,7 +194,6 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   handleSelect(event: any) {
-
     let id = event[0];
     let selected = event[1];
     let isShift = event[2];
@@ -236,7 +230,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
 
     this.selectedItems.forEach((id) => {
       let filename = this.galleryItems[id].img;
-     
+
       for (let i = 0; i < choices.length; i++) {
         this.classificationService.multiclassChoices.get(filename[0])![i] =
           choices[i];

@@ -3,15 +3,15 @@ import {
   ChangeDetectorRef,
   Component,
   OnInit,
-  output,
 } from '@angular/core';
 import { DividerModule } from 'primeng/divider';
 import { PanelModule } from 'primeng/panel';
 import { FloatLabelModule } from 'primeng/floatlabel';
 import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
-import { NgClass, NgIf, NgFor } from '@angular/common';
-import { InputSwitchModule } from 'primeng/inputswitch';
+import { NgClass } from '@angular/common';
+
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { InputTextModule } from 'primeng/inputtext';
 import { open } from '@tauri-apps/plugin-dialog';
 import { FieldsetModule } from 'primeng/fieldset';
@@ -23,7 +23,6 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { CLIService } from '../../../Services/cli.service';
 import { ClassificationConfigurationComponent } from './classification-configuration/classification-configuration.component';
 import { TableModule } from 'primeng/table';
-import { CommonModule } from '@angular/common';
 import { path } from '@tauri-apps/api';
 import { GenericsModule } from '../../../generics/generics.module';
 import { TextConfigurationComponent } from './text-configuration/text-configuration.component';
@@ -31,6 +30,7 @@ import { PixelsConfigurationComponent } from './pixels-configuration/pixels-conf
 import { ViewService } from '../../../Services/UI/view.service';
 import { EditorService } from '../../../Services/UI/editor.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-project-configuration',
@@ -40,8 +40,6 @@ import { SelectButtonModule } from 'primeng/selectbutton';
     TableModule,
     CommonModule,
     ClassificationConfigurationComponent,
-    NgClass,
-    NgIf,
     DividerModule,
     ColorPickerModule,
     CheckboxModule,
@@ -49,7 +47,7 @@ import { SelectButtonModule } from 'primeng/selectbutton';
     FloatLabelModule,
     FormsModule,
     PanelModule,
-    InputSwitchModule,
+    ToggleSwitchModule,
     InputTextModule,
     FieldsetModule,
     TextConfigurationComponent,

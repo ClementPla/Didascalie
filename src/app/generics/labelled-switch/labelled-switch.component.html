@@ -1,8 +1,10 @@
-
-
 <p class="flex flex-col gap-0 items-center">
-    <p-inputSwitch  [(ngModel)]="checked" (click)="updateCheck()" pTooltip="{{tooltipLabel}}"></p-inputSwitch>
-    <label>
-        <small><ng-content></ng-content></small>
-    </label>
+  <p-toggleswitch
+    [(ngModel)]="checked"
+    (click)="updateCheck()"
+    pTooltip="{{ tooltipLabel }}"
+  ></p-toggleswitch>
+  <label>
+    <small><ng-content></ng-content></small>
+  </label>
 </p>

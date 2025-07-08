@@ -2,17 +2,23 @@ import { Component, EventEmitter, HostListener, Output } from '@angular/core';
 import { ViewService } from '../../../../Services/UI/view.service';
 import { MultiframesService } from '../../../../Services/Project/multiframes.service';
 import { ProjectService } from '../../../../Services/Project/project.service';
-import { NgIf, CommonModule } from '@angular/common';
-import { InputSwitchModule } from 'primeng/inputswitch';
+import { CommonModule } from '@angular/common';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { FormsModule } from '@angular/forms';
 import { SliderModule } from 'primeng/slider';
 import { PanelModule } from 'primeng/panel';
 @Component({
   selector: 'app-multi-frames-options',
   standalone: true,
-  imports: [NgIf, CommonModule, InputSwitchModule, FormsModule, PanelModule, SliderModule],
+  imports: [
+    CommonModule,
+    ToggleSwitchModule,
+    FormsModule,
+    PanelModule,
+    SliderModule,
+  ],
   templateUrl: './multi-frames-options.component.html',
-  styleUrl: './multi-frames-options.component.scss'
+  styleUrl: './multi-frames-options.component.scss',
 })
 export class MultiFramesOptionsComponent {
   currentFrame: number = 0;
@@ -23,10 +29,10 @@ export class MultiFramesOptionsComponent {
   constructor(
     public projectService: ProjectService,
     private viewService: ViewService,
-    public multiframeService: MultiframesService){}
+    public multiframeService: MultiframesService
+  ) {}
 
-
-  preload(){
+  preload() {
     this.viewService.setLoading(true, 'Preloading frames');
     this.multiframeService.cacheActivegroupFrames();
     this.viewService.endLoading();
@@ -37,7 +43,6 @@ export class MultiFramesOptionsComponent {
       return;
     }
     this.change.emit(this.currentFrame);
-   
   }
 
   @HostListener('window:keydown.ArrowUp', ['$event'])
@@ -65,5 +70,4 @@ export class MultiFramesOptionsComponent {
       this.multiFrameChanged();
     }
   }
-
 }

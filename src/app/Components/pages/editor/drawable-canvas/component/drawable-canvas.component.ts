@@ -77,6 +77,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
     private changeDetectorRef: ChangeDetectorRef
   ) {
     this.initSubscriptions();
+    this.loadImage('assets/imgs/hue_gradient.png');
   }
 
   private initSubscriptions() {
@@ -385,7 +386,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
   }
 
   public reload(): Promise<void> {
-    this.ctxLabel.imageSmoothingEnabled = false;
+    if (this.ctxLabel) {
+      this.ctxLabel.imageSmoothingEnabled = false;
+    }
+
     return new Promise<void>((resolve, reject) => {
       this.image.onload = () => {
         this.stateService.recomputeCanvasSum = true;

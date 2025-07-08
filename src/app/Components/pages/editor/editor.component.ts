@@ -32,12 +32,15 @@ import { FormsModule } from '@angular/forms';
 import { MultiframesService } from '../../../Services/Project/multiframes.service';
 import { SliderModule } from 'primeng/slider';
 import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.service';
-import { InputSwitchModule } from 'primeng/inputswitch';
+import { CommonModule } from '@angular/common';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
+
 @Component({
   selector: 'app-editor',
   standalone: true,
   imports: [
+    CommonModule,
     SliderModule,
     DrawableCanvasComponent,
     FormsModule,
@@ -45,11 +48,10 @@ import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames
     ToolbarComponent,
     ToolbarModule,
     LabelsComponent,
-    NgIf,
     PanelModule,
     ToolSettingComponent,
     TooltipModule,
-    InputSwitchModule,
+    ToggleSwitchModule,
     MultiFramesOptionsComponent,
   ],
   templateUrl: './editor.component.html',
@@ -73,7 +75,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private viewService: ViewService,
     private zoomPanService: ZoomPanService,
     public multiframeService: MultiframesService,
-    private canvasManagerService: CanvasManagerService,
+    private canvasManagerService: CanvasManagerService
   ) {}
 
   ngOnInit() {
@@ -126,14 +128,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         throw error; // Re-throw to handle at caller level if needed
       }
     }
-    
+
     this.zoomPanService.zoomTofitToScreen();
     this.drawService.refreshAllColors();
     this.stateService.recomputeCanvasSum = true;
     this.canvas.redrawAllCanvas();
   }
-
-  
 
   @HostListener('window:keydown.control.z', ['$event'])
   undo(event: KeyboardEvent) {

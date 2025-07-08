@@ -7,11 +7,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EditorService } from '../../../../Services/UI/editor.service';
 import { SliderModule } from 'primeng/slider';
-import { InputSwitchModule } from 'primeng/inputswitch';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { BlockUIModule } from 'primeng/blockui';
 import { PanelModule } from 'primeng/panel';
 import { GenericsModule } from '../../../../generics/generics.module';
 import { TooltipModule } from 'primeng/tooltip';
+
 @Component({
   selector: 'app-toolbar',
   standalone: true,
@@ -24,19 +25,15 @@ import { TooltipModule } from 'primeng/tooltip';
     CommonModule,
     FormsModule,
     SliderModule,
-    InputSwitchModule,
+    ToggleSwitchModule,
     GenericsModule,
-    TooltipModule
-],
+    TooltipModule,
+  ],
   templateUrl: './toolbar.component.html',
   styleUrl: './toolbar.component.scss',
 })
 export class ToolbarComponent {
   tools = Tools.ALL_TOOLS;
 
-  constructor(
-    public editorService: EditorService,
-  ) {}
-
-
+  constructor(public editorService: EditorService) {}
 }
