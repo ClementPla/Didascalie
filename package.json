@@ -46,7 +46,7 @@
     "@angular/cli": "^18.2.12",
     "@angular/compiler-cli": "^18.2.13",
     "@compodoc/compodoc": "^1.1.26",
-    "@tauri-apps/cli": "^2.1.0",
+    "@tauri-apps/cli": "^2.6.2",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^22.9.0",
     "@types/path-browserify": "^1.0.3",
