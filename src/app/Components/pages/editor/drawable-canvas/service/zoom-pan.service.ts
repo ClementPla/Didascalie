@@ -62,34 +62,7 @@ export class ZoomPanService {
     };
   }
 
-  public zoomTofitToScreen() {
-    if (!this.canvasRef) {
-      return;
-    }
-
-    const rect = this.canvasRef.getBoundingClientRect();
-    const canvasWidth = this.stateService.width;
-    const canvasHeight = this.stateService.height;
-    
-    const x = canvasWidth / 2;
-    
-
-    this.setTransform(
-      1,
-      0,
-      0,)
-
-    // This is the code to redraw the image
-    // ctxImage.translate(Math.floor(offset.x), Math.floor(offset.y));
-    // ctxImage.scale(scale, scale);
-    
-    
-
-
-
-
-    
-  }
+  public zoomTofitToScreen() {}
 
   public drag(event: MouseEvent) {
     if (!this.canPan) {
@@ -278,9 +251,10 @@ export class ZoomPanService {
   zoomIn(factor: number) {
     this.targetScale *= factor;
     this.targetScale = Math.min(this.targetScale, this.maxScale);
-    this.targetOffset.x = this.currentPixel.x - this.currentPixel.x * this.targetScale;
-    this.targetOffset.y = this.currentPixel.y - this.currentPixel.y * this.targetScale;
-
+    this.targetOffset.x =
+      this.currentPixel.x - this.currentPixel.x * this.targetScale;
+    this.targetOffset.y =
+      this.currentPixel.y - this.currentPixel.y * this.targetScale;
 
     this.smoothUpdateTransform();
   }
@@ -288,9 +262,10 @@ export class ZoomPanService {
   zoomOut(factor: number) {
     this.targetScale /= factor;
     this.targetScale = Math.max(this.targetScale, this.minScale);
-    this.targetOffset.x = this.currentPixel.x - this.currentPixel.x * this.targetScale;
-    this.targetOffset.y = this.currentPixel.y - this.currentPixel.y * this.targetScale;
+    this.targetOffset.x =
+      this.currentPixel.x - this.currentPixel.x * this.targetScale;
+    this.targetOffset.y =
+      this.currentPixel.y - this.currentPixel.y * this.targetScale;
     this.smoothUpdateTransform();
   }
-
 }

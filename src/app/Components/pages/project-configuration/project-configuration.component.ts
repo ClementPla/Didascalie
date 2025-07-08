@@ -146,13 +146,13 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    // this.debug();
+    this.debug();
   }
 
   async debug() {
     await this.projectService
       .loadProjectFile(
-        'c:/Users/cleme/OneDrive/Documents/postdoc/test/test-eg/project_config.json',
+        '/home/clement/Documents/tmp/Demo/project_config.json',
         true
       )
       .then(() => {

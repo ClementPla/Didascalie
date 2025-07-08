@@ -52,6 +52,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
   public canvasWidth = 1;
   public canvasHeight = 1;
   public canvasLeft = 0;
+  public canvasTop = 0;
   srcImg: string;
 
   @ViewChild('imageCanvas') public imgCanvas: ElementRef<HTMLCanvasElement>;
@@ -77,7 +78,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
     private changeDetectorRef: ChangeDetectorRef
   ) {
     this.initSubscriptions();
-    this.loadImage('assets/imgs/hue_gradient.png');
   }
 
   private initSubscriptions() {
@@ -167,6 +167,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
     this.canvasLeft =
       canvasRect.left - parentElement.getBoundingClientRect().left;
+    this.canvasTop = canvasRect.top - parentElement.getBoundingClientRect().top;
   }
   public initializeDimensions() {
     this.stateService.setWidthAndHeight(this.image.width, this.image.height);
@@ -184,6 +185,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
     });
 
     this.resizeCanvas();
+    this.changeDetectorRef.detectChanges();
   }
 
   public getCursorSize() {
@@ -215,7 +217,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
   public async loadImage(image: string) {
     this.isImageLoaded = false;
     this.srcImg = image;
-    return this.reload();
+    return await this.reload();
   }
   public wheel(event: WheelEvent): void {
     event.preventDefault();
@@ -299,7 +301,9 @@ export class DrawableCanvasComponent implements AfterViewInit {
     event = event as MouseEvent;
     event.preventDefault();
     const rect = this.ctxLabel.canvas.getBoundingClientRect();
-
+    if (!rect) {
+      return;
+    }
     const mouseX = event.clientX - rect.left;
     const mouseY = event.clientY - rect.top;
 
@@ -386,10 +390,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
   }
 
   public reload(): Promise<void> {
-    if (this.ctxLabel) {
-      this.ctxLabel.imageSmoothingEnabled = false;
-    }
-
     return new Promise<void>((resolve, reject) => {
       this.image.onload = () => {
         this.stateService.recomputeCanvasSum = true;
@@ -400,7 +400,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
         this.drawService.clearCanvas(this.ctxImage!);
 
         this.initializeDimensions();
-
+        this.canvasManagerService.initCanvas();
         this.undoRedoService.empty();
         this.redrawAllCanvas();
         this.isImageLoaded = true;

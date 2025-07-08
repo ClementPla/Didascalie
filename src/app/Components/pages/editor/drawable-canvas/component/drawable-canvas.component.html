@@ -1,11 +1,17 @@
-<div class="max-screen-available w-full">
+<div class="grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] w-full">
   <div
-    class="bg-gray-950 relative rounded-t-lg w-full"
+    [style.height.px]="rulerSize"
+    [style.width.px]="rulerSize"
+    class="bg-gray-950 rounded-tl-lg"
+  ></div>
+  <!-- Top ruler -->
+  <div
+    class="bg-gray-950 relative rounded-t-lg overflow-x-clip"
     [style.height.px]="rulerSize"
   >
     <p
       class="absolute text-gray viewBoxMarker w-fit"
-      [style.left.px]="viewBox.xmin + canvasLeft + rulerSize"
+      [style.left.px]="viewBox.xmin + canvasLeft"
     >
       0
     </p>
@@ -25,123 +31,132 @@
     </p>
   </div>
 
-  <div class="flex flex-row h-full overflow-hidden relative">
-    <div
-      class="bg-gray-950 overflow-hidden rounded-l-lg"
-      [style.width.px]="rulerSize"
+  <!-- Left ruler -->
+  <div
+    class="bg-gray-950 relative rounded-l-lg overflow-y-clip"
+    [style.width.px]="rulerSize"
+  >
+    <p
+      class="absolute viewBoxMarkerHorizontal"
+      [style.top.px]="viewBox.ymin - rulerSize"
     >
-      <p class="absolute viewBoxMarkerHorizontal" [style.top.px]="viewBox.ymin">
-        0
-      </p>
-      <p class="absolute viewBoxMarkerHorizontal" [style.top.px]="cursor.y">
-        {{ currentPixel.y }}
-      </p>
-      <p class="absolute viewBoxMarkerHorizontal" [style.top.px]="viewBox.ymax">
-        {{ stateService.height }}
-      </p>
-    </div>
-    <div
-      class="bg-black flex flex-grow items-center justify-center min-w-[50vw] relative"
-      [ngStyle]="{
+      0
+    </p>
+    <p
+      class="absolute viewBoxMarkerHorizontal"
+      [style.top.px]="cursor.y - rulerSize"
+    >
+      {{ currentPixel.y }}
+    </p>
+    <p
+      class="absolute viewBoxMarkerHorizontal"
+      [style.top.px]="viewBox.ymax - rulerSize"
+    >
+      {{ stateService.height }}
+    </p>
+  </div>
+
+  <!-- Main canvas -->
+  <div
+    class="bg-gray-800 flex flex-grow relative w-full items-center justify-center"
+    [ngStyle]="{
         'aspect-ratio': stateService.width / stateService.height,
       }"
-      [ngClass]="{
-        'relative max-screen-available': !isFullscreen,
-        'fixed h-full max-w-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black box-shadow z-[2500]':
-          isFullscreen
-      }"
+    [ngClass]="{
+      'relative max-screen-available': !isFullscreen,
+      'fixed h-full max-w-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black box-shadow z-[2500]':
+        isFullscreen
+    }"
+  >
+    <div
+      class="relative"
+      #myCanvasContainer
+      [style.width.px]="canvasWidth"
+      [style.height.px]="canvasHeight"
     >
-      <div
-        class="relative"
-        #myCanvasContainer
+      <app-svgelements #svg [UIPoints]="getLassoPointsToPolygon()">
+      </app-svgelements>
+      <canvas
+        #imageCanvas
         [style.width.px]="canvasWidth"
         [style.height.px]="canvasHeight"
-      >
-        <app-svgelements #svg [UIPoints]="getLassoPointsToPolygon()">
-        </app-svgelements>
-        <canvas
-          #imageCanvas
-          id="image"
-          [style.width.px]="canvasWidth"
-          [style.height.px]="canvasHeight"
-          [ngStyle]="{
+        [ngStyle]="{
         'aspect-ratio': stateService.width / stateService.height,
       }"
-          class="absolute cursor-crosshair min-h-[128px] min-w-[128px]"
-          [ngClass]="{
-            'cursor-grab': editorService.canPan(),
-            'cursor-none': editorService.isToolWithBrushSize(),
-            'cursor-crosshair': !(
-              editorService.isToolWithBrushSize() || editorService.canPan()
-            )
-          }"
-          (wheel)="wheel($event)"
-          (mousedown)="mouseDown($event)"
-          (mouseup)="mouseUp($event)"
-          (mousemove)="mouseMove($event)"
-          (mouseleave)="mouseUp($event)"
-          (touchstart)="mouseDown($event)"
-          (touchend)="mouseUp($event)"
-          (touchmove)="mouseMove($event)"
-          (touchcancel)="mouseUp($event)"
-          [attr.passive]="true"
-        >
-        </canvas>
+        class="absolute cursor-crosshair"
+        [ngClass]="{
+          'cursor-grab': editorService.canPan(),
+          'cursor-none': editorService.isToolWithBrushSize(),
+          'cursor-crosshair': !(
+            editorService.isToolWithBrushSize() || editorService.canPan()
+          )
+        }"
+        (wheel)="wheel($event)"
+        (mousedown)="mouseDown($event)"
+        (mouseup)="mouseUp($event)"
+        (mousemove)="mouseMove($event)"
+        (mouseleave)="mouseUp($event)"
+        (touchstart)="mouseDown($event)"
+        (touchend)="mouseUp($event)"
+        (touchmove)="mouseMove($event)"
+        (touchcancel)="mouseUp($event)"
+        [attr.passive]="true"
+      >
+      </canvas>
 
-        <canvas
-          #labelCanvas
-          [style.width.px]="canvasWidth"
-          [style.height.px]="canvasHeight"
-          class="absolute labelCanvas min-h-[128px] min-w-[128px] pointer-events-none w-full"
-          [style.opacity]="editorService.labelOpacity"
-        ></canvas>
+      <canvas
+        #labelCanvas
+        [style.width.px]="canvasWidth"
+        [style.height.px]="canvasHeight"
+        class="absolute labelCanvas pointer-events-none"
+        [style.opacity]="editorService.labelOpacity"
+      ></canvas>
 
-        <div
-          class="cursor"
-          *ngIf="editorService.isToolWithBrushSize()"
-          [ngStyle]="getCursorStyle()"
-        ></div>
-        <div
-          class="absolute h-full skeleton w-full z-50"
-          [ngClass]="{
-            invisible: !viewService.isLoading,
-            visible: viewService.isLoading
-          }"
-        ></div>
-      </div>
-
-      <p class="absolute flex items-center justify-start left-5 top-0">
-        <p-button
-          pRipple
-          [rounded]="true"
-          [raised]="true"
-          (click)="switchFullScreen()"
-          *ngIf="!isFullscreen"
-          icon="pi pi-window-maximize"
-          severity="help"
-        >
-        </p-button>
-        <p-button
-          pButton
-          pRipple
-          [rounded]="true"
-          [raised]="true"
-          (click)="switchFullScreen()"
-          *ngIf="isFullscreen"
-          icon="pi pi-window-minimize"
-          severity="help"
-        >
-        </p-button>
-
-        <p-button
-          [rounded]="true"
-          [raised]="true"
-          (click)="zoomPanService.resetZoomAndPan(true, true)"
-          icon="pi pi-refresh"
-          severity="help"
-        >
-        </p-button>
-      </p>
+      <div
+        class="cursor"
+        *ngIf="editorService.isToolWithBrushSize()"
+        [ngStyle]="getCursorStyle()"
+      ></div>
+      <div
+        class="absolute h-full skeleton w-full z-50"
+        [ngClass]="{
+          invisible: !viewService.isLoading,
+          visible: viewService.isLoading
+        }"
+      ></div>
     </div>
+
+    <p class="absolute flex items-center justify-start left-5 top-0">
+      <p-button
+        pRipple
+        [rounded]="true"
+        [raised]="true"
+        (click)="switchFullScreen()"
+        *ngIf="!isFullscreen"
+        icon="pi pi-window-maximize"
+        severity="help"
+      >
+      </p-button>
+      <p-button
+        pButton
+        pRipple
+        [rounded]="true"
+        [raised]="true"
+        (click)="switchFullScreen()"
+        *ngIf="isFullscreen"
+        icon="pi pi-window-minimize"
+        severity="help"
+      >
+      </p-button>
+
+      <p-button
+        [rounded]="true"
+        [raised]="true"
+        (click)="zoomPanService.resetZoomAndPan(true, true)"
+        icon="pi pi-refresh"
+        severity="help"
+      >
+      </p-button>
+    </p>
   </div>
 </div>
