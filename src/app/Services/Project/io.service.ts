@@ -16,6 +16,7 @@ import {
   invokeLoadCsvFile,
 } from '../../Core/save_load';
 import { ClassificationService } from './classification.service';
+import { MultiframesService } from './multiframes.service';
 
 @Injectable({
   providedIn: 'root',
@@ -26,10 +27,10 @@ export class IOService {
   constructor(
     private projectService: ProjectService,
     private labelService: LabelsService,
-    private viewService: ViewService,
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService,
-    private classificationService: ClassificationService
+    private classificationService: ClassificationService,
+    private multiframesService: MultiframesService
   ) {
     this.classificationService.requestReload.subscribe(() => {
       this.loadClassification();
@@ -143,7 +144,6 @@ export class IOService {
       texts: [],
     } as LabelFormat;
 
-    let allPromises$: Promise<void>[] = [];
     for (let i = 0; i < this.labelService.listSegmentationLabels.length; i++) {
       const label = this.labelService.listSegmentationLabels[i];
       if (label.shades) {
@@ -170,18 +170,39 @@ export class IOService {
       savefile.texts!.push(label.text);
     });
 
-    let finished = Promise.all(allPromises$)
-      .then(() => {
-        this.writeSave(
-          savefile,
-          this.stateService.width,
-          this.stateService.height
-        );
-      })
-      .then(() => {
-        return true;
-      });
-    return finished;
+    if (
+      this.projectService.groupLabels &&
+      this.multiframesService.activeGroup
+    ) {
+      let allPromises: Promise<void>[] = [];
+      const currentGroup = this.multiframesService.groupedFrames.get(
+        this.multiframesService.activeGroup
+      );
+
+      if (currentGroup) {
+        const currentImageName =
+          this.projectService.extractImagesName(currentGroup);
+        for (let i = 0; i < currentGroup.length; i++) {
+          const frameName = currentImageName[i];
+          allPromises.push(
+            this.writeSave(
+              savefile,
+              this.stateService.width,
+              this.stateService.height,
+              frameName
+            )
+          );
+        }
+        await Promise.all(allPromises);
+      }
+    } else {
+      await this.writeSave(
+        savefile,
+        this.stateService.width,
+        this.stateService.height
+      );
+    }
+    return true;
   }
 
   saveFromCLI(data: ImageFromCLI, imageName: string | null = null) {

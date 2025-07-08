@@ -55,7 +55,6 @@ export class CanvasManagerService {
     );
     this.bufferCtx = this.bufferCanvas.getContext('2d', {
       alpha: true,
-      desynchronized: true,
     })!;
   }
 

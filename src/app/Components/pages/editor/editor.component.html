@@ -1,7 +1,7 @@
 <app-toolbar></app-toolbar>
 
 <div
-  class="editor flex gap-8 justify-around max-screen-available min-h-0 w-full"
+  class="editor flex gap-8 justify-around w-full"
 >
   <app-labels
     *ngIf="
@@ -12,7 +12,7 @@
     "
     class="max-w-128"
   ></app-labels>
-  <app-drawable-canvas (imageLoaded)="initSize()"></app-drawable-canvas>
+  <app-drawable-canvas class="w-full"></app-drawable-canvas>
 
   <div class="flex flex-col gap-4 min-w-96 overflow-y-auto">
     <app-tool-setting></app-tool-setting>

@@ -33,7 +33,7 @@ import { MultiframesService } from '../../../Services/Project/multiframes.servic
 import { SliderModule } from 'primeng/slider';
 import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.service';
 import { InputSwitchModule } from 'primeng/inputswitch';
-import { MultiFramesOptionsComponent } from "./multi-frames-options/multi-frames-options.component";
+import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
 @Component({
   selector: 'app-editor',
   standalone: true,
@@ -50,19 +50,18 @@ import { MultiFramesOptionsComponent } from "./multi-frames-options/multi-frames
     ToolSettingComponent,
     TooltipModule,
     InputSwitchModule,
-    MultiFramesOptionsComponent
-],
+    MultiFramesOptionsComponent,
+  ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
 })
 export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(DrawableCanvasComponent) canvas: DrawableCanvasComponent;
-  @ViewChild(MultiFramesOptionsComponent) multiFramesOptions: MultiFramesOptionsComponent;
+  @ViewChild(MultiFramesOptionsComponent)
+  multiFramesOptions: MultiFramesOptionsComponent;
   public viewPortSize: number = 800;
   private subscriptions = new Subscription();
   private _spaceDown: boolean = false;
-
-  
 
   constructor(
     public projectService: ProjectService,
@@ -74,7 +73,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private viewService: ViewService,
     private zoomPanService: ZoomPanService,
     public multiframeService: MultiframesService,
-    private canvasManagerService: CanvasManagerService
+    private canvasManagerService: CanvasManagerService,
   ) {}
 
   ngOnInit() {
@@ -106,8 +105,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  
-
   public async loadCanvas(reload: boolean = true) {
     if (!this.canvas || !this.projectService.activeImage) {
       console.warn('Canvas or active image not available');
@@ -129,21 +126,14 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         throw error; // Re-throw to handle at caller level if needed
       }
     }
+    
+    this.zoomPanService.zoomTofitToScreen();
     this.drawService.refreshAllColors();
     this.stateService.recomputeCanvasSum = true;
-
     this.canvas.redrawAllCanvas();
-    this.initSize();
   }
 
-  initSize() {
-    if (!this.canvas) {
-      return;
-    }
-    let width = this.canvas.stateService.width;
-    let height = this.canvas.stateService.height;
-    this.viewPortSize = Math.min(width, height);
-  }
+  
 
   @HostListener('window:keydown.control.z', ['$event'])
   undo(event: KeyboardEvent) {
@@ -244,21 +234,20 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('window:keydown.ArrowRight', ['$event'])
   async loadNext() {
     this.viewService.setLoading(true, 'Loading next image');
-    
-    const hasSaved = await this.save()
+
+    const hasSaved = await this.save();
     if (!hasSaved) {
       console.error('Could not save before loading next image');
     }
-    const sucess = await this.viewService.goNext()
+    const sucess = await this.viewService.goNext();
     if (!sucess) {
       console.error('Could not load next image');
     }
-    if(this.multiFramesOptions) {
+    if (this.multiFramesOptions) {
       this.multiFramesOptions.currentFrame = 0; // Reset current frame when loading a new image
     }
     await this.loadCanvas();
     this.viewService.endLoading();
-
   }
   @HostListener('window:keydown.=', ['$event'])
   @HostListener('window:keydown.shift.+', ['$event'])
@@ -276,7 +265,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('window:keydown.ArrowLeft', ['$event'])
   async loadPrevious() {
     this.viewService.setLoading(true, 'Loading previous image');
-    
+
     const hasSaved = await this.save();
     if (!hasSaved) {
       console.error('Could not save before loading previous image');
@@ -285,7 +274,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!success) {
       console.error('Could not load previous image');
     }
-    if(this.multiFramesOptions) {
+    if (this.multiFramesOptions) {
       this.multiFramesOptions.currentFrame = 0; // Reset current frame when loading a new image
     }
     await this.loadCanvas();
@@ -295,9 +284,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   async changedOfFrame(newFrame: number) {
     await this.save();
     if (this.multiframeService.activeGroup) {
-      const currentFramePath = this.multiframeService.getFrameNameInActiveGroup(
-        newFrame
-      );
+      const currentFramePath =
+        this.multiframeService.getFrameNameInActiveGroup(newFrame);
       if (!currentFramePath) {
         console.warn('Current frame path is not available');
         return;
@@ -316,7 +304,4 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     await this.loadCanvas(!this.projectService.groupLabels);
   }
-
-  
-  
 }
