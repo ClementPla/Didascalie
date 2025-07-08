@@ -24,7 +24,7 @@ export class MultiFramesOptionsComponent {
   currentFrame: number = 0;
   _isLoaded: boolean = false;
 
-  @Output() change: EventEmitter<number> = new EventEmitter<number>();
+  @Output() changeOfFrame: EventEmitter<number> = new EventEmitter<number>();
 
   constructor(
     public projectService: ProjectService,
@@ -42,7 +42,8 @@ export class MultiFramesOptionsComponent {
     if (!this._isLoaded) {
       return;
     }
-    this.change.emit(this.currentFrame);
+    
+    this.changeOfFrame.emit(this.currentFrame);
   }
 
   @HostListener('window:keydown.ArrowUp', ['$event'])

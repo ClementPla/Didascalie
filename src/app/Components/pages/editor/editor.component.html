@@ -17,7 +17,7 @@
   <div class="flex flex-col gap-4 min-w-96 overflow-y-auto">
     <app-tool-setting></app-tool-setting>
     <app-multi-frames-options
-      (change)="changedOfFrame($event)"
+      (changeOfFrame)="changedOfFrame($event)"
     ></app-multi-frames-options>
     <p-panel header="Save" styleClass="w-96">
       <p class="flex justify-center">
