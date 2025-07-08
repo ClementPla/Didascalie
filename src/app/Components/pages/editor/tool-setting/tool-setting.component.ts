@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { PanelModule } from 'primeng/panel';
-import { NgIf, NgSwitch, CommonModule } from '@angular/common';
-import { InputSwitchModule } from 'primeng/inputswitch';
+
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { EditorService } from '../../../../Services/UI/editor.service';
 import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
@@ -13,7 +13,9 @@ import { SelectButtonModule } from 'primeng/selectbutton';
 import { PostProcessOption } from '../../../../Core/tools';
 import { postProcessingOptions } from '../../../../Core/tools';
 import { GenericsModule } from '../../../../generics/generics.module';
-import {MessageModule} from 'primeng/message';
+import { MessageModule } from 'primeng/message';
+
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-tool-setting',
@@ -22,15 +24,13 @@ import {MessageModule} from 'primeng/message';
     CommonModule,
     PanelModule,
     SliderModule,
-    NgIf,
-    InputSwitchModule,
-    NgSwitch,
+    ToggleSwitchModule,
     SelectButtonModule,
     FormsModule,
     CardModule,
     GenericsModule,
     FieldsetModule,
-    MessageModule
+    MessageModule,
   ],
   templateUrl: './tool-setting.component.html',
   styleUrl: './tool-setting.component.scss',
@@ -42,5 +42,5 @@ export class ToolSettingComponent {
     public editorService: EditorService,
     public projectService: ProjectService,
     public imageProcess: ImageProcessingService
-  ) { }
+  ) {}
 }

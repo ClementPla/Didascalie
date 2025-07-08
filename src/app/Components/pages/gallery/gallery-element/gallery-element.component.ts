@@ -2,22 +2,19 @@ import { Component, Input, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
-import { NgOptimizedImage } from '@angular/common';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { ProjectService } from '../../../../Services/Project/project.service';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
 import { loadImageFile } from '../../../../Core/save_load';
-import { NgStyle } from '@angular/common';
 import { LabelsService } from '../../../../Services/Project/labels.service';
 import { ViewService } from '../../../../Services/UI/view.service';
 import { ClassificationService } from '../../../../Services/Project/classification.service';
-import { MultiframesService } from '../../../../Services/Project/multiframes.service';
-import { NgClass } from '@angular/common';
+
 @Component({
   selector: 'app-gallery-element',
   standalone: true,
-  imports: [CommonModule, CardModule, PanelModule, NgStyle, SelectButtonModule, NgClass],
+  imports: [CommonModule, CardModule, PanelModule, SelectButtonModule],
   templateUrl: './gallery-element.component.html',
   styleUrl: './gallery-element.component.scss',
 })
@@ -33,7 +30,7 @@ export class GalleryElementComponent implements OnInit {
     public projectService: ProjectService,
     public labelsService: LabelsService,
     public classificatorService: ClassificationService,
-    private viewService: ViewService,
+    private viewService: ViewService
   ) {}
 
   ngOnInit(): void {
@@ -41,7 +38,6 @@ export class GalleryElementComponent implements OnInit {
       this.imagePath = path;
     });
   }
-
 
   getCardStyleClass() {
     if (this.selected) {
