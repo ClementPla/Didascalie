@@ -4,6 +4,7 @@ import {
   Component,
   ElementRef,
   ViewChild,
+  HostListener,
 } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
@@ -48,6 +49,9 @@ export class DrawableCanvasComponent implements AfterViewInit {
   public isImageLoaded: boolean = false;
   private ctxImage: CanvasRenderingContext2D | null = null;
   private ctxLabel: CanvasRenderingContext2D;
+  public canvasWidth = 1;
+  public canvasHeight = 1;
+  public canvasLeft = 0;
   srcImg: string;
 
   @ViewChild('imageCanvas') public imgCanvas: ElementRef<HTMLCanvasElement>;
@@ -69,8 +73,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
     public stateService: StateManagerService,
     private drawService: DrawService,
     private undoRedoService: UndoRedoService,
-    private cdr: ChangeDetectorRef,
-    private postProcessService: PostProcessService
+    private postProcessService: PostProcessService,
+    private changeDetectorRef: ChangeDetectorRef
   ) {
     this.initSubscriptions();
   }
@@ -123,9 +127,48 @@ export class DrawableCanvasComponent implements AfterViewInit {
     }
   }
 
+  goFullScreen() {
+    //
+  }
+
+  @HostListener('window:resize')
+  public resizedWindow() {
+    this.resizeCanvas();
+  }
+
+  public resizeCanvas() {
+    let aspectRatio = this.stateService.width / this.stateService.height;
+
+    const parentElement =
+      this.imgCanvas.nativeElement.parentElement?.parentElement;
+    if (!parentElement) {
+      console.error('Parent element not found');
+      return;
+    }
+    const parentWidth = parentElement?.clientWidth || 0;
+    const parentHeight = parentElement?.clientHeight || 0;
+    // Fill the parent element with the canvas without overflow or stretching
+    // Maintain aspect ratio
+    let newWidth = parentWidth;
+    let newHeight = parentWidth / aspectRatio;
+
+    if (newHeight > parentHeight) {
+      newHeight = parentHeight;
+      newWidth = parentHeight * aspectRatio;
+    }
+
+    this.canvasWidth = newWidth;
+    this.canvasHeight = newHeight;
+
+    this.changeDetectorRef.detectChanges();
+
+    const canvasRect = this.imgCanvas.nativeElement.getBoundingClientRect();
+
+    this.canvasLeft =
+      canvasRect.left - parentElement.getBoundingClientRect().left;
+  }
   public initializeDimensions() {
     this.stateService.setWidthAndHeight(this.image.width, this.image.height);
-
     this.imgCanvas.nativeElement.width = this.stateService.width; // This is the canvas with the main image
     this.imgCanvas.nativeElement.height = this.stateService.height;
 
@@ -138,6 +181,8 @@ export class DrawableCanvasComponent implements AfterViewInit {
       width: this.stateService.width,
       height: this.stateService.height,
     });
+
+    this.resizeCanvas();
   }
 
   public getCursorSize() {
@@ -312,7 +357,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.ctxImage.scale(scale, scale);
     let image = this.imageProcessingService.getCurrentCanvas();
     // Remove antialiasing from ctxLabel
-    // this.ctxImage.imageSmoothingEnabled = false;
+    this.ctxImage.imageSmoothingEnabled = false;
     this.ctxImage.drawImage(
       image,
       0,
@@ -332,7 +377,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
       this.canvasManagerService.computeCombinedCanvas();
       this.stateService.recomputeCanvasSum = false;
     }
-    // Ensure pixel-perfect alignment
     this.ctxLabel.drawImage(
       this.canvasManagerService.getCombinedCanvas(),
       0,
@@ -344,27 +388,26 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.ctxLabel.imageSmoothingEnabled = false;
     return new Promise<void>((resolve, reject) => {
       this.image.onload = () => {
-      this.stateService.recomputeCanvasSum = true;
-      this.postProcessService.featuresExtracted = false;
+        this.stateService.recomputeCanvasSum = true;
+        this.postProcessService.featuresExtracted = false;
 
-      this.imageProcessingService.setImage(this.image);
-      this.drawService.clearCanvas(this.ctxLabel);
-      this.drawService.clearCanvas(this.ctxImage!);
+        this.imageProcessingService.setImage(this.image);
+        this.drawService.clearCanvas(this.ctxLabel);
+        this.drawService.clearCanvas(this.ctxImage!);
 
-      this.initializeDimensions();
+        this.initializeDimensions();
 
-
-      this.undoRedoService.empty();
-      this.redrawAllCanvas();
-      this.isImageLoaded = true;
-      resolve();
-    };
-    this.image.onerror = (error) => {
-      console.error('Error loading image:', error);
-      reject(error);
-    };
-    this.image.src = this.srcImg;
-  });  
+        this.undoRedoService.empty();
+        this.redrawAllCanvas();
+        this.isImageLoaded = true;
+        resolve();
+      };
+      this.image.onerror = (error) => {
+        console.error('Error loading image:', error);
+        reject(error);
+      };
+      this.image.src = this.srcImg;
+    });
   }
 
   public loadCanvas(data: string, index: number) {
@@ -386,5 +429,26 @@ export class DrawableCanvasComponent implements AfterViewInit {
     return this.editorService.edgesOnly
       ? 'drop-shadow( 1px  0px 0px black) drop-shadow(-1px  0px 0px black) drop-shadow( 0px  1px 0px black) drop-shadow( 0px -1px 0px black)'
       : '';
+  }
+
+  public getCursorStyle() {
+    if (!this.ctxLabel) {
+      return {};
+    }
+    const cursorSize = this.getCursorSize();
+    if (cursorSize <= 0) {
+      return {};
+    }
+
+    const style = {
+      'left.px': this.cursor.x,
+      'top.px': this.cursor.y,
+      'width.px': cursorSize,
+      'border-color': this.labelService.activeLabel?.color,
+    };
+    //
+    return style;
+
+    return "{'left.px': cursor.x, 'top.px': cursor.y, 'width.px': getCursorSize(), 'border-color': labelService.activeLabel?.color}";
   }
 }

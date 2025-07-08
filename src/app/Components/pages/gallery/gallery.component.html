@@ -29,23 +29,20 @@
 
   <p-dataview
     #dv
-    [value]="items"
+    [value]="galleryItems"
     [layout]="'grid'"
-    [rows]="32"
+    [rows]="64"
     [paginator]="true"
     [showJumpToPageDropdown]="true"
-    filterBy="status,title"
+    filterBy="status,title,id"
     [paginatorPosition]="'both'"
+    [first]="galleryService.first"
+    (onPage)="onLazyLoad($event)"
   >
     <ng-template #header>
       <div class="flex gap-8 items-center justify-end">
         <p class="flex flex-row gap-4 items-center justify-center mr-auto">
-          <app-labelled-switch
-            [(checked)]="batchAnnotate"
-            *ngIf="projectService.isClassification"
-          >
-            Batch annotate</app-labelled-switch
-          >
+          
           <button
             *ngIf="projectService.isClassification"
             pButton
@@ -56,8 +53,8 @@
 
           <p-slider
             [(ngModel)]="imgSize"
-            [min]="64"
-            [max]="400"
+            [min]="128"
+            [max]="512"
             styleClass="w-56"
           />
         </p>
@@ -104,20 +101,19 @@
       </div>
 
     </ng-template>
+    
     <ng-template #grid let-items let-rowIndexValue="rowIndex">
 
       <div
-        class="flex flex-row flex-wrap gap-2 justify-left max-h-[70vh] overflow-y-scroll"
+        class="flex flex-row flex-wrap justify-left max-h-[70vh] overflow-y-scroll"
       >
-        <div
-          *ngFor="
+        
+          <app-gallery-element
+           *ngFor="
             let item of items as GalleryItem;
             let index = index;
             let first = first
           "
-          [style.width.px]="imgSize"
-        >
-          <app-gallery-element
             [img]="item.img"
             [status]="item.status"
             [selected]="
@@ -130,13 +126,12 @@
             [imgSize]="imgSize"
           >
           </app-gallery-element>
-        </div>
       </div>
     </ng-template>
 
     <ng-template #footer>
       <div class="flex justify-between w-full">
-        <small>{{ items.length || 0 }} images</small>
+        <small>{{ galleryItems.length || 0 }} images</small>
       </div>
 
     </ng-template>

@@ -15,7 +15,7 @@
   translate: -50% -50%;
 }
 .max-screen-available {
-  height: calc(100vh - 2 * var(--toolbar-height) - 8rem);
+  height: calc(100vh - 2 * var(--toolbar-height) - 6rem);
 }
 
 .cursor::before {

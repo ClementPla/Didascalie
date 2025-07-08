@@ -4,45 +4,49 @@
   (click)="select($event)"
   [styleClass]="getCardStyleClass()"
 >
-  <div class="align-middle flex justify-center" [ngClass]="{
-        annotated: this.status == 'annotated',
-        reviewed: this.status == 'reviewed',
-        unannotated: !(this.status == 'annotated' || this.status == 'reviewed')
-      }">
-    <div
-      class="stacked"
-      *ngIf="img.length > 1"
-    >
+  <ng-template #title
+    ><p class="text-center">
+      <b>
+        {{ id }}
+      </b>
+      {{ getImageName() }}
+    </p>
+  </ng-template>
+  <div
+    class="align-middle flex flex-col hover:brightness-125 hover:contrast-75 hover:scale-110 justify-center rounded-md"
+    [ngClass]="{
+      annotated: this.status == 'annotated',
+      reviewed: this.status == 'reviewed',
+      unannotated: !(this.status == 'annotated' || this.status == 'reviewed')
+    }"
+  >
+    <div class="stacked" *ngIf="img.length > 1">
       <img
-        class="aspect-auto flex flex-col hover:brightness-150 hover:contrast-75 hover:scale-110 rounded-md"
+        class="aspect-auto flex flex-col"
         [src]="imagePath"
         [width]="imgSize"
       />
     </div>
     <img
       *ngIf="img.length === 1"
-      class="aspect-auto flex flex-col hover:brightness-150 hover:contrast-75 hover:scale-110 rounded-md"
-      
+      class="aspect-auto flex flex-col"
       [src]="imagePath"
       [width]="imgSize"
     />
-  </div>
-  <p class="text-center">
-    <b>
-      {{ id }}
-    </b>
-    {{ getImageName() }}
-  </p>
-  <div *ngIf="projectService.isClassification">
-    <ng-container
-      *ngFor="let task of labelsService.listClassificationTasks; let i = index"
-    >
-      <small
-        *ngIf="classificatorService.multiclassChoices.get(getImageName())![i]"
+    <ng-container *ngIf="projectService.isClassification">
+      <ng-container
+        *ngFor="
+          let task of labelsService.listClassificationTasks;
+          let i = index
+        "
       >
-        <b>{{ task.taskName }}: </b>
-        {{ classificatorService.multiclassChoices.get(getImageName())![i] }}
-      </small>
+        <small
+          *ngIf="classificatorService.multiclassChoices.get(getImageName())![i]"
+        >
+          <b>{{ task.taskName }}: </b>
+          {{ classificatorService.multiclassChoices.get(getImageName())![i] }}
+        </small>
+      </ng-container>
     </ng-container>
   </div>
 </p-card>

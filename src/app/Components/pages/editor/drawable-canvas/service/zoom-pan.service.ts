@@ -62,6 +62,35 @@ export class ZoomPanService {
     };
   }
 
+  public zoomTofitToScreen() {
+    if (!this.canvasRef) {
+      return;
+    }
+
+    const rect = this.canvasRef.getBoundingClientRect();
+    const canvasWidth = this.stateService.width;
+    const canvasHeight = this.stateService.height;
+    
+    const x = canvasWidth / 2;
+    
+
+    this.setTransform(
+      1,
+      0,
+      0,)
+
+    // This is the code to redraw the image
+    // ctxImage.translate(Math.floor(offset.x), Math.floor(offset.y));
+    // ctxImage.scale(scale, scale);
+    
+    
+
+
+
+
+    
+  }
+
   public drag(event: MouseEvent) {
     if (!this.canPan) {
       return;

@@ -24,10 +24,14 @@ import { IOService } from '../../../Services/Project/io.service';
 import { SliderModule } from 'primeng/slider';
 import { MultiframesService } from '../../../Services/Project/multiframes.service';
 import { path } from '@tauri-apps/api';
+import { GalleryService } from './gallery.service';
 
 interface GalleryItem {
   img: string[];
   status: string;
+  title: string;
+  id: number; // Optional ID for easier selection
+
 }
 
 @Component({
@@ -52,14 +56,13 @@ interface GalleryItem {
 })
 export class GalleryComponent implements OnInit, OnDestroy {
   autoRefresh: boolean = false;
-  batchAnnotate: boolean = true;
   showAdvancedFilters: boolean = false;
 
   imgSize: number = 256;
   refreshInterval: number = 3000;
   percentageBeforeRefresh: number = 0;
   intervalFunction: NodeJS.Timeout | undefined;
-  items: GalleryItem[] = [];
+  galleryItems: GalleryItem[] = [];
   filterTitle: string = '';
   selectedItems: number[] = [];
   @ViewChildren('batchChoices') batchChoices: QueryList<SelectButton>;
@@ -72,13 +75,15 @@ export class GalleryComponent implements OnInit, OnDestroy {
   ];
 
   @ViewChild('dv') dataView: DataView;
+  
 
   constructor(
     public projectService: ProjectService,
     public labelsService: LabelsService,
     public classificationService: ClassificationService,
     private IOService: IOService,
-    private multiframesService: MultiframesService
+    private multiframesService: MultiframesService,
+    public galleryService: GalleryService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -98,8 +103,8 @@ export class GalleryComponent implements OnInit, OnDestroy {
     }
     const newItems = await this.getItems();
     // Check if the items are the same
-    if (JSON.stringify(this.items) !== JSON.stringify(newItems)) {
-      this.items = newItems;
+    if (JSON.stringify(this.galleryItems) !== JSON.stringify(newItems)) {
+      this.galleryItems = newItems;
     }
     if (this.autoRefresh) {
       this.intervalFunction = this.getInterval();
@@ -116,6 +121,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
       }
     }, interval);
   }
+
   setupAutoRefresh() {
     if (this.autoRefresh) {
       this.intervalFunction = this.getInterval();
@@ -142,6 +148,8 @@ export class GalleryComponent implements OnInit, OnDestroy {
         items.push({
           img: names,
           status: status,
+          title: imgName,
+          id: this.projectService.imagesName.indexOf(imgName), // Assign an ID for easier selection
         } as GalleryItem);
       }
     }
@@ -153,6 +161,8 @@ export class GalleryComponent implements OnInit, OnDestroy {
         items.push({
           img: [this.projectService.imagesName[i]],
           status: status,
+          title: imgName,
+          id: i, // Assign an ID for easier selection
         } as GalleryItem);
       }
     }
@@ -170,6 +180,8 @@ export class GalleryComponent implements OnInit, OnDestroy {
       return 'empty';
     }
   }
+
+
   toggleFilter(event: any) {
     if (event.value == 0) {
       this.dataView.filter('');
@@ -187,6 +199,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   handleSelect(event: any) {
+
     let id = event[0];
     let selected = event[1];
     let isShift = event[2];
@@ -222,7 +235,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
     let choices = this.batchChoices.toArray().map((item) => item.value);
 
     this.selectedItems.forEach((id) => {
-      let filename = this.items[id].img;
+      let filename = this.galleryItems[id].img;
      
       for (let i = 0; i < choices.length; i++) {
         this.classificationService.multiclassChoices.get(filename[0])![i] =
@@ -235,5 +248,11 @@ export class GalleryComponent implements OnInit, OnDestroy {
 
   deselectAll() {
     this.selectedItems = [];
+  }
+
+  onLazyLoad(event: any) {
+    console.log('Lazy load event:', event);
+    this.galleryService.first = event.first;
+    // Handle lazy loading logic here if needed
   }
 }
