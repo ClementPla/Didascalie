@@ -35,6 +35,9 @@ import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.s
 import { CommonModule } from '@angular/common';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
+import { WheelMenuComponent } from "../../../generics/wheel-menu/wheel-menu.component";
+import { QuickAccessMenuComponent } from "./quick-access-menu/quick-access-menu.component";
+
 
 @Component({
   selector: 'app-editor',
@@ -53,7 +56,9 @@ import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames
     TooltipModule,
     ToggleSwitchModule,
     MultiFramesOptionsComponent,
-  ],
+    WheelMenuComponent,
+    QuickAccessMenuComponent
+],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
 })
@@ -61,9 +66,13 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(DrawableCanvasComponent) canvas: DrawableCanvasComponent;
   @ViewChild(MultiFramesOptionsComponent)
   multiFramesOptions: MultiFramesOptionsComponent;
+
+  @ViewChild('quickAccessMenu') quickAccessMenu!: QuickAccessMenuComponent;
   public viewPortSize: number = 800;
   private subscriptions = new Subscription();
   private _spaceDown: boolean = false;
+
+  private mousePosition: { x: number; y: number } | null = null;
 
   constructor(
     public projectService: ProjectService,
@@ -106,7 +115,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       })
     );
   }
-
+  updateMousePosition(event: MouseEvent): void {
+    this.mousePosition = { x: event.clientX, y: event.clientY };
+  }
   public async loadCanvas(reload: boolean = true) {
     if (!this.canvas || !this.projectService.activeImage) {
       console.warn('Canvas or active image not available');
@@ -133,6 +144,14 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.drawService.refreshAllColors();
     this.stateService.recomputeCanvasSum = true;
     this.canvas.redrawAllCanvas();
+  }
+
+  @HostListener('window:keydown', ['$event']) 
+  onKeydown(event: KeyboardEvent) {
+    if (event.key === 'Alt') {
+      this.quickAccessMenu.position = this.mousePosition || { x: 0, y: 0 };
+      this.quickAccessMenu.toggleOpen();
+    }
   }
 
   @HostListener('window:keydown.control.z', ['$event'])

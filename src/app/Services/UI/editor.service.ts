@@ -96,4 +96,8 @@ export class EditorService {
   public restoreLastTool() {
     this.selectedTool = this._lastTool;
   }
+
+  public selectTool(tool: Tool) {
+    this.selectedTool = tool;
+  }
 }

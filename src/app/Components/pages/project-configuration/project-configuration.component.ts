@@ -54,7 +54,7 @@ import { CommonModule } from '@angular/common';
     PixelsConfigurationComponent,
     GenericsModule,
     SelectButtonModule,
-  ],
+],
   templateUrl: './project-configuration.component.html',
   styleUrl: './project-configuration.component.scss',
 })
@@ -145,13 +145,14 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    // this.debug();
+    this.debug()
+    // this.viewService.navigateToTestZone();
   }
 
   async debug() {
     await this.projectService
       .loadProjectFile(
-        '/home/thiago/Documents/NVIA/Debugging/project_config.json',
+        'c:/Users/cleme/Documents/Projects/GAVE/exp/notebooks/data/annotations/aptos_av_label/project_config.json',
         true
       )
       .then(() => {

@@ -5,8 +5,9 @@
       <p>Results with be saved in the following folder:</p>
       <p-floatLabel variant="on">
         <input
-          id="outputPath"
           pInputText
+          fluid="true"
+          id="outputPath"
           [(ngModel)]="projectService.outputFolder"
         />
         <label for="outputPath">Output path</label>

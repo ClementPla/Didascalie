@@ -45,6 +45,10 @@ export class ViewService {
     this.router.navigate(['/export']);
   }
 
+  navigateToTestZone() {
+    return this.router.navigate(['/testing-zone']);
+  }
+
   async goNext() {
     if (this.projectService.folderAsMultiframes) {
       const currentGroup = await this.multiframeService.activeGroup;

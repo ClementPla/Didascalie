@@ -165,11 +165,31 @@ pub async fn export(
     app: AppHandle,
     input_folder: String,
     output_folder: String,
+    revision_file: String,
     individual_mask: bool,
     combined_mask: bool,
     colormap: bool,
+    only_reviewed: bool
 ) {
-    let all_files = list_files_in_folder(&input_folder, r".*\.svg", true);
+    let mut all_files = list_files_in_folder(&input_folder, r".*\.svg", true);
+    if only_reviewed {
+        // Filter the files to only include those that have been reviewed
+        let revision_content = load_json_file(revision_file).unwrap();
+        let revision_data: serde_json::Value = serde_json::from_str(&revision_content).unwrap();
+        let reviewed_files: Vec<String> = revision_data
+            .as_object()
+            .unwrap()
+            .iter()
+            .filter_map(|(key, value)| {
+                if value["reviewed"].as_bool().unwrap_or(false) {
+                    Some(key.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        all_files.retain(|file| reviewed_files.contains(&file));
+    }
     app.emit("export", all_files.len()).unwrap();
     // Iterate through the SVG files
 

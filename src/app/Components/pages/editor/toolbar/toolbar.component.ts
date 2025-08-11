@@ -2,7 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component } from '@angular/core';
 import { ToolbarModule } from 'primeng/toolbar';
 import { ButtonModule } from 'primeng/button';
 import { SelectButtonModule } from 'primeng/selectbutton';
-import { Tools } from '../../../../Core/tools';
+import { ALL_TOOLS } from '../../../../Core/tools';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EditorService } from '../../../../Services/UI/editor.service';
@@ -33,7 +33,7 @@ import { TooltipModule } from 'primeng/tooltip';
   styleUrl: './toolbar.component.scss',
 })
 export class ToolbarComponent {
-  tools = Tools.ALL_TOOLS;
+  tools = ALL_TOOLS;
 
   constructor(public editorService: EditorService) {}
 }
