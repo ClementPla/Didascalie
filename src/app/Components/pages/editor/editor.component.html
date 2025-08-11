@@ -1,8 +1,11 @@
 <app-toolbar></app-toolbar>
 
 <div
-  class="editor flex gap-8 justify-around w-full"
+  class="editor flex gap-8 justify-around relative w-full"
+  (mousemove)="updateMousePosition($event)"
 >
+
+  <app-quick-access-menu #quickAccessMenu> </app-quick-access-menu>
   <app-labels
     *ngIf="
       projectService.isSegmentation ||
@@ -12,7 +15,7 @@
     "
     class="max-w-128"
   ></app-labels>
-  <app-drawable-canvas class="w-full"></app-drawable-canvas>
+  <app-drawable-canvas class="overflow-hidden w-full"></app-drawable-canvas>
 
   <div class="flex flex-col gap-4 min-w-96 overflow-y-auto">
     <app-tool-setting></app-tool-setting>

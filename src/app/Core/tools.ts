@@ -22,8 +22,8 @@ export class Tools {
     public static ERASER = new Tool(8, "Eraser", "pi pi-eraser", "E");
     public static LASSO = new Tool(2, "Lasso", "pi pi-cloud", "Shift + L");
     public static LASSO_ERASER = new Tool(3, "Lasso Eraser", "pi pi-cloud-slash", "Shift + Ctrl + E");
-    public static ALL_TOOLS = [Tools.PAN, Tools.PEN, Tools.LINE, Tools.ERASER, Tools.LASSO, Tools.LASSO_ERASER];
 }
+export const ALL_TOOLS = [Tools.PAN, Tools.PEN, Tools.LINE, Tools.ERASER, Tools.LASSO, Tools.LASSO_ERASER];
 
 export enum PostProcessOption {
     MEDSAM = 'MedSAM',

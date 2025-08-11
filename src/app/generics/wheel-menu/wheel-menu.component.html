@@ -1,0 +1,94 @@
+<svg #wheel [attr.viewBox]="getViewbox()" [style.width.px]="radius * 2">
+  <g
+    *ngFor="let segment of segments; let i = index"
+    class="cursor-pointer"
+    (mouseenter)="hoverSegment(i)"
+    (click)="callCommand(items[i])"
+  >
+    <path
+      class="primary-color"
+      [attr.d]="segment.path"
+      [attr.stroke]="'black'"
+      [ngClass]="{ 'is-active': selectedIndex === i }"
+    />
+    <text
+      class="pointer-events-none select-none text-color text-lg"
+      [attr.x]="segment.barycenter.x"
+      [attr.y]="segment.barycenter.y - 8"
+      text-anchor="middle"
+      dominant-baseline="central"
+    >
+      {{ items[i].label }}
+    </text>
+    <!-- PrimeNG Icon -->
+    <foreignObject
+      [attr.x]="segment.barycenter.x - 8"
+      [attr.y]="segment.barycenter.y + 5"
+      width="20"
+      height="20"
+    >
+      <div
+        xmlns="http://www.w3.org/1999/xhtml"
+        style="display: flex; justify-content: center; align-items: center"
+      >
+        <i
+          [ngClass]="items[i].icon"
+          style="font-size: 14px; color: var(--text-color)"
+        ></i>
+      </div>
+    </foreignObject>
+
+    <ng-container *ngIf="segment.children && segment.children!.length > 0">
+      <g
+        *ngFor="let child of segment.children; let j = index"
+        class="cursor-pointer"
+        [ngClass]="{ hidden: selectedIndex !== i }"
+        (click)="callCommand(items[i].children![j])"
+      >
+        <ng-container
+          [ngSwitch]="items[i].children && items[i].children![j].type"
+        >
+          <path
+            *ngSwitchDefault
+            [attr.d]="child.path"
+            class="cursor-pointer primary-color segment"
+            [attr.stroke]="'black'"
+          />
+          <path
+            *ngSwitchCase="segmentType.toggle"
+            [attr.d]="child.path"
+            class="cursor-pointer toggle"
+            [attr.stroke]="'black'"
+          />
+        </ng-container>
+
+        <text
+          class="pointer-events-none select-none text-color"
+          [attr.x]="child.barycenter.x"
+          [attr.y]="child.barycenter.y - 6"
+          text-anchor="middle"
+          dominant-baseline="central"
+        >
+          {{ items[i].children![j].label }}
+        </text>
+
+        <foreignObject
+          [attr.x]="child.barycenter.x - 8"
+          [attr.y]="child.barycenter.y + 5"
+          width="20"
+          height="20"
+        >
+          <div
+            xmlns="http://www.w3.org/1999/xhtml"
+            style="display: flex; justify-content: center; align-items: center"
+          >
+            <i
+              [ngClass]="items[i].children![j].icon"
+              style="font-size: 14px; color: var(--text-color)"
+            ></i>
+          </div>
+        </foreignObject>
+      </g>
+    </ng-container>
+  </g>
+</svg>

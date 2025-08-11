@@ -1,0 +1,16 @@
+<div
+  class="absolute aspect-square translate-x-[-50%] translate-y-[-100%] w-fit z-50"
+  [style.left.px]="position.x"
+  [style.top.px]="position.y"
+>
+  <app-wheel-menu
+    #quickAccessMenu
+
+    [radius]="radius"
+    [items]="getMenuItems()"
+    [ngClass]="{ 'hidden': !isOpen }"
+    (mouseleave)="close()"
+    tabindex="-1"
+    (closeMenu)="close()"
+  ></app-wheel-menu>
+</div>
