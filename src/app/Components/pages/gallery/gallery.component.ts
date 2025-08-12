@@ -33,24 +33,23 @@ interface GalleryItem {
 }
 
 @Component({
-  selector: 'app-gallery',
-  imports: [
-    CommonModule,
-    GalleryElementComponent,
-    PanelModule,
-    DataViewModule,
-    ButtonModule,
-    KnobModule,
-    FormsModule,
-    GenericsModule,
-    SelectButtonModule,
-    InputTextModule,
-    ToggleSwitchModule,
-    SliderModule,
-  ],
-  standalone: true,
-  templateUrl: './gallery.component.html',
-  styleUrl: './gallery.component.scss',
+    selector: 'app-gallery',
+    imports: [
+        CommonModule,
+        GalleryElementComponent,
+        PanelModule,
+        DataViewModule,
+        ButtonModule,
+        KnobModule,
+        FormsModule,
+        GenericsModule,
+        SelectButtonModule,
+        InputTextModule,
+        ToggleSwitchModule,
+        SliderModule,
+    ],
+    templateUrl: './gallery.component.html',
+    styleUrl: './gallery.component.scss'
 })
 export class GalleryComponent implements OnInit, OnDestroy {
   autoRefresh: boolean = false;

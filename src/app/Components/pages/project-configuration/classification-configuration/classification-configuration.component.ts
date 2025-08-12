@@ -12,11 +12,10 @@ import { MultilabelTask } from '../../../../Core/task';
 import { TagModule } from 'primeng/tag';
 
 @Component({
-  selector: 'app-classification-configuration',
-  standalone: true,
-  imports: [FormsModule, ButtonModule, CheckboxModule, NgFor, NgIf, TagModule, Fieldset, InputTextModule, DividerModule],
-  templateUrl: './classification-configuration.component.html',
-  styleUrl: './classification-configuration.component.scss'
+    selector: 'app-classification-configuration',
+    imports: [FormsModule, ButtonModule, CheckboxModule, NgFor, NgIf, TagModule, Fieldset, InputTextModule, DividerModule],
+    templateUrl: './classification-configuration.component.html',
+    styleUrl: './classification-configuration.component.scss'
 })
 export class ClassificationConfigurationComponent {
 

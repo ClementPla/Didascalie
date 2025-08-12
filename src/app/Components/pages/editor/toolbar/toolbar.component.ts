@@ -14,23 +14,22 @@ import { GenericsModule } from '../../../../generics/generics.module';
 import { TooltipModule } from 'primeng/tooltip';
 
 @Component({
-  selector: 'app-toolbar',
-  standalone: true,
-  imports: [
-    ToolbarModule,
-    ButtonModule,
-    PanelModule,
-    SelectButtonModule,
-    BlockUIModule,
-    CommonModule,
-    FormsModule,
-    SliderModule,
-    ToggleSwitchModule,
-    GenericsModule,
-    TooltipModule,
-  ],
-  templateUrl: './toolbar.component.html',
-  styleUrl: './toolbar.component.scss',
+    selector: 'app-toolbar',
+    imports: [
+        ToolbarModule,
+        ButtonModule,
+        PanelModule,
+        SelectButtonModule,
+        BlockUIModule,
+        CommonModule,
+        FormsModule,
+        SliderModule,
+        ToggleSwitchModule,
+        GenericsModule,
+        TooltipModule,
+    ],
+    templateUrl: './toolbar.component.html',
+    styleUrl: './toolbar.component.scss'
 })
 export class ToolbarComponent {
   tools = ALL_TOOLS;

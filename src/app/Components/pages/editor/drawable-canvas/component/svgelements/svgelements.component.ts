@@ -8,11 +8,10 @@ import { EditorService } from '../../../../../../Services/UI/editor.service';
 import { DrawService } from '../../service/draw.service';
 
 @Component({
-  selector: 'app-svgelements',
-  standalone: true,
-  imports: [NgFor, NgClass],
-  templateUrl: './svgelements.component.html',
-  styleUrl: './svgelements.component.scss',
+    selector: 'app-svgelements',
+    imports: [NgFor, NgClass],
+    templateUrl: './svgelements.component.html',
+    styleUrl: './svgelements.component.scss'
 })
 export class SVGElementsComponent {
   @Input() UIPoints: string = '';

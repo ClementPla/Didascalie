@@ -8,17 +8,16 @@ import { FormsModule } from '@angular/forms';
 import { SliderModule } from 'primeng/slider';
 import { PanelModule } from 'primeng/panel';
 @Component({
-  selector: 'app-multi-frames-options',
-  standalone: true,
-  imports: [
-    CommonModule,
-    ToggleSwitchModule,
-    FormsModule,
-    PanelModule,
-    SliderModule,
-  ],
-  templateUrl: './multi-frames-options.component.html',
-  styleUrl: './multi-frames-options.component.scss',
+    selector: 'app-multi-frames-options',
+    imports: [
+        CommonModule,
+        ToggleSwitchModule,
+        FormsModule,
+        PanelModule,
+        SliderModule,
+    ],
+    templateUrl: './multi-frames-options.component.html',
+    styleUrl: './multi-frames-options.component.scss'
 })
 export class MultiFramesOptionsComponent {
   currentFrame: number = 0;

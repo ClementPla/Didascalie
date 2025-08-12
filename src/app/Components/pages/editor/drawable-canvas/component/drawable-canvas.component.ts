@@ -34,11 +34,10 @@ import { PostProcessService } from '../service/post-process.service';
  */
 
 @Component({
-  selector: 'app-drawable-canvas',
-  standalone: true,
-  imports: [CommonModule, FormsModule, Button, SVGElementsComponent],
-  templateUrl: './drawable-canvas.component.html',
-  styleUrl: './drawable-canvas.component.scss',
+    selector: 'app-drawable-canvas',
+    imports: [CommonModule, FormsModule, Button, SVGElementsComponent],
+    templateUrl: './drawable-canvas.component.html',
+    styleUrl: './drawable-canvas.component.scss'
 })
 export class DrawableCanvasComponent implements AfterViewInit {
   public cursor: Point2D = { x: 25, y: 25 };

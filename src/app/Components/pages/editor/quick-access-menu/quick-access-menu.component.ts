@@ -15,11 +15,10 @@ import { NgClass } from '@angular/common';
 import { EditorService } from '../../../../Services/UI/editor.service';
 
 @Component({
-  selector: 'app-quick-access-menu',
-  standalone: true,
-  imports: [WheelMenuComponent, NgClass],
-  templateUrl: './quick-access-menu.component.html',
-  styleUrl: './quick-access-menu.component.scss',
+    selector: 'app-quick-access-menu',
+    imports: [WheelMenuComponent, NgClass],
+    templateUrl: './quick-access-menu.component.html',
+    styleUrl: './quick-access-menu.component.scss'
 })
 export class QuickAccessMenuComponent {
   @ViewChild('quickAccessMenu') quickAccessMenu!: WheelMenuComponent;

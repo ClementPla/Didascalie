@@ -4,11 +4,10 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 
 import { FormsModule } from '@angular/forms';
 @Component({
-  selector: 'app-testing-zone',
-  standalone: true,
-  imports: [QuickAccessMenuComponent, ToggleSwitchModule, FormsModule],
-  templateUrl: './testing-zone.component.html',
-  styleUrl: './testing-zone.component.scss'
+    selector: 'app-testing-zone',
+    imports: [QuickAccessMenuComponent, ToggleSwitchModule, FormsModule],
+    templateUrl: './testing-zone.component.html',
+    styleUrl: './testing-zone.component.scss'
 })
 
 

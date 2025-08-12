@@ -7,11 +7,10 @@ import { LabelsService } from '../../../../../Services/Project/labels.service';
 
 
 @Component({
-  selector: 'app-instance-label',
-  standalone: true,
-  imports: [NgFor, NgClass],
-  templateUrl: './instance-label.component.html',
-  styleUrl: './instance-label.component.scss'
+    selector: 'app-instance-label',
+    imports: [NgFor, NgClass],
+    templateUrl: './instance-label.component.html',
+    styleUrl: './instance-label.component.scss'
 })
 export class InstanceLabelComponent {
 

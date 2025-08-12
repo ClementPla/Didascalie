@@ -3,11 +3,10 @@ import { ProgressBarModule } from 'primeng/progressbar';
 import { ViewService } from '../../../Services/UI/view.service';
 
 @Component({
-  selector: 'app-loading',
-  standalone: true,
-  imports: [ProgressBarModule],
-  templateUrl: './loading.component.html',
-  styleUrl: './loading.component.scss'
+    selector: 'app-loading',
+    imports: [ProgressBarModule],
+    templateUrl: './loading.component.html',
+    styleUrl: './loading.component.scss'
 })
 export class LoadingComponent {
 

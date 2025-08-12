@@ -4,7 +4,6 @@ import { BlockableUI } from 'primeng/api';
 
 @Component({
     selector: 'blockable-div',
-    standalone: true,
     imports: [NgStyle, NgClass],
     template: `        
         <div [ngStyle]="style" [ngClass]="class" ><ng-content></ng-content></div>
