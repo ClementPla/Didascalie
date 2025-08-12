@@ -40,27 +40,26 @@ import { QuickAccessMenuComponent } from "./quick-access-menu/quick-access-menu.
 
 
 @Component({
-  selector: 'app-editor',
-  standalone: true,
-  imports: [
-    CommonModule,
-    SliderModule,
-    DrawableCanvasComponent,
-    FormsModule,
-    ButtonModule,
-    ToolbarComponent,
-    ToolbarModule,
-    LabelsComponent,
-    PanelModule,
-    ToolSettingComponent,
-    TooltipModule,
-    ToggleSwitchModule,
-    MultiFramesOptionsComponent,
-    WheelMenuComponent,
-    QuickAccessMenuComponent
-],
-  templateUrl: './editor.component.html',
-  styleUrl: './editor.component.scss',
+    selector: 'app-editor',
+    imports: [
+        CommonModule,
+        SliderModule,
+        DrawableCanvasComponent,
+        FormsModule,
+        ButtonModule,
+        ToolbarComponent,
+        ToolbarModule,
+        LabelsComponent,
+        PanelModule,
+        ToolSettingComponent,
+        TooltipModule,
+        ToggleSwitchModule,
+        MultiFramesOptionsComponent,
+        WheelMenuComponent,
+        QuickAccessMenuComponent
+    ],
+    templateUrl: './editor.component.html',
+    styleUrl: './editor.component.scss'
 })
 export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(DrawableCanvasComponent) canvas: DrawableCanvasComponent;

@@ -9,11 +9,10 @@ import { getDefaultColor } from '../../../../Core/misc/colors';
 
 
 @Component({
-  selector: 'app-pixels-configuration',
-  standalone: true,
-  imports: [CommonModule, FormsModule, ColorPickerModule, ButtonModule],
-  templateUrl: './pixels-configuration.component.html',
-  styleUrl: './pixels-configuration.component.scss'
+    selector: 'app-pixels-configuration',
+    imports: [CommonModule, FormsModule, ColorPickerModule, ButtonModule],
+    templateUrl: './pixels-configuration.component.html',
+    styleUrl: './pixels-configuration.component.scss'
 })
 export class PixelsConfigurationComponent {
   constructor(public labelService: LabelsService) { }

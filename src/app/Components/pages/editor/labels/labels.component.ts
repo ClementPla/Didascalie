@@ -20,25 +20,24 @@ import { TagModule } from 'primeng/tag';
 import { ClassificationService } from '../../../../Services/Project/classification.service';
 import { ViewService } from '../../../../Services/UI/view.service';
 @Component({
-  selector: 'app-labels',
-  standalone: true,
-  imports: [
-    TreeModule,
-    ColorPickerModule,
-    CommonModule,
-    FormsModule,
-    Button,
-    SelectButtonModule,
-    SliderModule,
-    PanelModule,
-    FieldsetModule,
-    DividerModule,
-    InstanceLabelComponent,
-    TextareaModule,
-    TagModule,
-  ],
-  templateUrl: './labels.component.html',
-  styleUrl: './labels.component.scss',
+    selector: 'app-labels',
+    imports: [
+        TreeModule,
+        ColorPickerModule,
+        CommonModule,
+        FormsModule,
+        Button,
+        SelectButtonModule,
+        SliderModule,
+        PanelModule,
+        FieldsetModule,
+        DividerModule,
+        InstanceLabelComponent,
+        TextareaModule,
+        TagModule,
+    ],
+    templateUrl: './labels.component.html',
+    styleUrl: './labels.component.scss'
 })
 export class LabelsComponent implements OnInit {
   classificationChoices: Array<string | null> = [];

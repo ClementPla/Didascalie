@@ -7,11 +7,10 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 
 @Component({
-  selector: 'app-text-configuration',
-  standalone: true,
-  imports: [NgFor, FormsModule, ButtonModule, InputTextModule],
-  templateUrl: './text-configuration.component.html',
-  styleUrl: './text-configuration.component.scss'
+    selector: 'app-text-configuration',
+    imports: [NgFor, FormsModule, ButtonModule, InputTextModule],
+    templateUrl: './text-configuration.component.html',
+    styleUrl: './text-configuration.component.scss'
 })
 export class TextConfigurationComponent {
   constructor(public labelService: LabelsService){}

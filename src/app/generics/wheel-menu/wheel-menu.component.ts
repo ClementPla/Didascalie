@@ -34,11 +34,10 @@ interface Segment {
 }
 
 @Component({
-  selector: 'app-wheel-menu',
-  standalone: true,
-  imports: [NgFor, ButtonModule, SliderModule, FormsModule, CommonModule],
-  templateUrl: './wheel-menu.component.html',
-  styleUrl: './wheel-menu.component.scss',
+    selector: 'app-wheel-menu',
+    imports: [NgFor, ButtonModule, SliderModule, FormsModule, CommonModule],
+    templateUrl: './wheel-menu.component.html',
+    styleUrl: './wheel-menu.component.scss'
 })
 export class WheelMenuComponent implements AfterViewInit {
   @Input() radius: number = 256;

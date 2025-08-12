@@ -18,22 +18,21 @@ import { MessageModule } from 'primeng/message';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-tool-setting',
-  standalone: true,
-  imports: [
-    CommonModule,
-    PanelModule,
-    SliderModule,
-    ToggleSwitchModule,
-    SelectButtonModule,
-    FormsModule,
-    CardModule,
-    GenericsModule,
-    FieldsetModule,
-    MessageModule,
-  ],
-  templateUrl: './tool-setting.component.html',
-  styleUrl: './tool-setting.component.scss',
+    selector: 'app-tool-setting',
+    imports: [
+        CommonModule,
+        PanelModule,
+        SliderModule,
+        ToggleSwitchModule,
+        SelectButtonModule,
+        FormsModule,
+        CardModule,
+        GenericsModule,
+        FieldsetModule,
+        MessageModule,
+    ],
+    templateUrl: './tool-setting.component.html',
+    styleUrl: './tool-setting.component.scss'
 })
 export class ToolSettingComponent {
   postProcessingOptions = postProcessingOptions;

@@ -15,22 +15,21 @@ import { KnobModule } from 'primeng/knob';
 import { RadioButtonModule } from 'primeng/radiobutton';
 import { SelectButtonModule } from   'primeng/selectbutton';
 @Component({
-  selector: 'app-export',
-  standalone: true,
-  imports: [
-    PanelModule,
-    DividerModule,
-    ToggleSwitchModule,
-    FormsModule,
-    FloatLabelModule,
-    InputTextModule,
-    ButtonModule,
-    KnobModule,
-    SelectButtonModule,
-    RadioButtonModule,
-  ],
-  templateUrl: './export.component.html',
-  styleUrl: './export.component.scss',
+    selector: 'app-export',
+    imports: [
+        PanelModule,
+        DividerModule,
+        ToggleSwitchModule,
+        FormsModule,
+        FloatLabelModule,
+        InputTextModule,
+        ButtonModule,
+        KnobModule,
+        SelectButtonModule,
+        RadioButtonModule,
+    ],
+    templateUrl: './export.component.html',
+    styleUrl: './export.component.scss'
 })
 export class ExportComponent {
   exportIndividualMask: boolean = true;

@@ -5,11 +5,10 @@ import { EventEmitter } from '@angular/core';
 import { BlockableUI } from 'primeng/api';
 import { TooltipModule } from 'primeng/tooltip';
 @Component({
-  selector: 'app-labelled-switch',
-  standalone: true,
-  imports: [ToggleSwitchModule, FormsModule, TooltipModule],
-  templateUrl: './labelled-switch.component.html',
-  styleUrl: './labelled-switch.component.scss',
+    selector: 'app-labelled-switch',
+    imports: [ToggleSwitchModule, FormsModule, TooltipModule],
+    templateUrl: './labelled-switch.component.html',
+    styleUrl: './labelled-switch.component.scss'
 })
 export class LabelledSwitchComponent implements BlockableUI {
   @Input() checked: boolean;
