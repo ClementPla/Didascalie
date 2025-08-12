@@ -145,7 +145,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    this.debug()
+    // this.debug()
     // this.viewService.navigateToTestZone();
   }
 
@@ -156,7 +156,9 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
         true
       )
       .then(() => {
-        this.viewService.openEditor(0);
+            this.viewService.navigateToExport();
+
+        // this.viewService.openEditor(0);
       });
   }
 }

@@ -13,8 +13,6 @@ use std::path::Path;
 use tauri::command;
 use tauri::{AppHandle, Emitter};
 
-// This command will return the list of files in a folder that match a regex
-// It should implement the recursive search #TODO
 
 #[command]
 pub fn list_files_in_folder(folder: &str, regexfilter: &str, recursive: bool) -> Vec<String> {
@@ -165,7 +163,7 @@ pub async fn export(
     app: AppHandle,
     input_folder: String,
     output_folder: String,
-    revision_file: String,
+    files_reviewed: Vec<String>,
     individual_mask: bool,
     combined_mask: bool,
     colormap: bool,
@@ -174,21 +172,23 @@ pub async fn export(
     let mut all_files = list_files_in_folder(&input_folder, r".*\.svg", true);
     if only_reviewed {
         // Filter the files to only include those that have been reviewed
-        let revision_content = load_json_file(revision_file).unwrap();
-        let revision_data: serde_json::Value = serde_json::from_str(&revision_content).unwrap();
-        let reviewed_files: Vec<String> = revision_data
-            .as_object()
-            .unwrap()
+        // We need to remove the extension of the files reviewed and compare
+        // with all the files also without extension
+        let reviewed_basenames: Vec<String> = files_reviewed
             .iter()
-            .filter_map(|(key, value)| {
-                if value["reviewed"].as_bool().unwrap_or(false) {
-                    Some(key.clone())
-                } else {
-                    None
-                }
+            .filter_map(|file| {
+                let path = Path::new(file);
+                path.file_stem().and_then(|stem| stem.to_str()).map(|stem| stem.to_string())
             })
             .collect();
-        all_files.retain(|file| reviewed_files.contains(&file));
+
+        all_files = all_files
+            .into_iter()
+            .filter(|file| {
+                let path = Path::new(file);
+                path.file_stem().and_then(|stem| stem.to_str()).map(|stem| stem.to_string()).map(|stem| reviewed_basenames.contains(&stem)).unwrap_or(false)
+            })
+            .collect();
     }
     app.emit("export", all_files.len()).unwrap();
     // Iterate through the SVG files

@@ -24,7 +24,10 @@ import { EditorService } from '../../../../Services/UI/editor.service';
 export class QuickAccessMenuComponent {
   @ViewChild('quickAccessMenu') quickAccessMenu!: WheelMenuComponent;
 
-  constructor(private cdr: ChangeDetectorRef, private editorService: EditorService) {}
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private editorService: EditorService
+  ) {}
 
   public radius: number = 200;
 
@@ -33,90 +36,103 @@ export class QuickAccessMenuComponent {
   public position: { x: number; y: number } = { x: 0, y: 0 };
 
   getMenuItems(): MenuItem[] {
-
     return [
       {
         label: Tools.PAN.name,
         icon: Tools.PAN.icon,
-        command: () => this.editorService.selectTool(Tools.PAN)
+        command: () => this.editorService.selectTool(Tools.PAN),
       },
       {
         label: Tools.LASSO_ERASER.name,
         icon: Tools.LASSO_ERASER.icon,
         command: () => this.editorService.selectTool(Tools.LASSO_ERASER),
-        children: [{
-          label: "Erase all labels",
-          icon: Tools.LASSO_ERASER.icon,
-          command: () => this.editorService.eraseAll = !this.editorService.eraseAll,
-          type: SegmentType.toggle,
-        }, 
-      {
-          label: "Erase connected",
-          icon: Tools.LASSO_ERASER.icon,
-          command: () => this.editorService.eraserPostProcess = !this.editorService.eraserPostProcess,
-          type: SegmentType.toggle,
-        }]
+        children: [
+          {
+            label: 'Erase all labels',
+            icon: Tools.LASSO_ERASER.icon,
+            command: () =>
+              (this.editorService.eraseAll = !this.editorService.eraseAll),
+            type: SegmentType.toggle,
+          },
+          {
+            label: 'Erase connected',
+            icon: Tools.LASSO_ERASER.icon,
+            command: () =>
+              (this.editorService.eraserPostProcess =
+                !this.editorService.eraserPostProcess),
+            type: SegmentType.toggle,
+          },
+        ],
       },
       {
         label: Tools.ERASER.name,
         icon: Tools.ERASER.icon,
         command: () => this.editorService.selectTool(Tools.ERASER),
-        children: [{
-          label: "Erase all labels",
-          icon: Tools.LASSO_ERASER.icon,
-          command: () => this.editorService.eraseAll = !this.editorService.eraseAll,
-          type: SegmentType.toggle,
-        },
-        {
-          label: "Erase connected",
-          icon: Tools.LASSO_ERASER.icon,
-          command: () => this.editorService.eraserPostProcess = !this.editorService.eraserPostProcess,
-          type: SegmentType.toggle,
-        }
-      ]
+        children: [
+          {
+            label: 'Erase all labels',
+            icon: Tools.LASSO_ERASER.icon,
+            command: () =>
+              (this.editorService.eraseAll = !this.editorService.eraseAll),
+            type: SegmentType.toggle,
+          },
+          {
+            label: 'Erase connected',
+            icon: Tools.LASSO_ERASER.icon,
+            command: () =>
+              (this.editorService.eraserPostProcess =
+                !this.editorService.eraserPostProcess),
+            type: SegmentType.toggle,
+          },
+        ],
       },
-      
-      
+
       {
-          label: Tools.PEN.name,
-          icon: Tools.PEN.icon,
-          command: () => this.editorService.selectTool(Tools.PEN),
-          children: [
-            {
-              label: "Swap labels",
-              icon: Tools.PEN.icon,
-              command: () => this.editorService.swapMarkers = !this.editorService.swapMarkers,
-              type: SegmentType.toggle,
-            }
-          ]
-        },
+        label: Tools.PEN.name,
+        icon: Tools.PEN.icon,
+        command: () => this.editorService.selectTool(Tools.PEN),
+        children: [
+          {
+            label: 'Swap labels',
+            icon: Tools.PEN.icon,
+            command: () =>
+              (this.editorService.swapMarkers =
+                !this.editorService.swapMarkers),
+            type: SegmentType.toggle,
+          },
+        ],
+      },
       {
         label: Tools.LASSO.name,
         icon: Tools.LASSO.icon,
         command: () => this.editorService.selectTool(Tools.LASSO),
-        children: [{
-          label: "Swap labels",
-          icon: Tools.LASSO.icon,
-          command: () => this.editorService.swapMarkers = !this.editorService.swapMarkers,
-          type: SegmentType.toggle,
-        }]
+        children: [
+          {
+            label: 'Swap labels',
+            icon: Tools.LASSO.icon,
+            command: () =>
+              (this.editorService.swapMarkers =
+                !this.editorService.swapMarkers),
+            type: SegmentType.toggle,
+          },
+        ],
       },
       {
         label: Tools.LINE.name,
         icon: Tools.LINE.icon,
         command: () => this.editorService.selectTool(Tools.LINE),
-        children: [{
-          label: "Swap labels",
-          icon: Tools.LINE.icon,
-          command: () => this.editorService.swapMarkers = !this.editorService.swapMarkers,
-          type: SegmentType.toggle,
-        },
-      ]
+        children: [
+          {
+            label: 'Swap labels',
+            icon: Tools.LINE.icon,
+            command: () =>
+              (this.editorService.swapMarkers =
+                !this.editorService.swapMarkers),
+            type: SegmentType.toggle,
+          },
+        ],
       },
-      
-      
-    ]
-    
+    ];
   }
 
   open() {

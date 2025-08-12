@@ -12,41 +12,74 @@ import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';
 import { KnobModule } from 'primeng/knob';
-
+import { RadioButtonModule } from 'primeng/radiobutton';
+import { SelectButtonModule } from   'primeng/selectbutton';
 @Component({
   selector: 'app-export',
   standalone: true,
-  imports: [PanelModule, DividerModule, ToggleSwitchModule, FormsModule, FloatLabelModule, InputTextModule, ButtonModule, KnobModule],
+  imports: [
+    PanelModule,
+    DividerModule,
+    ToggleSwitchModule,
+    FormsModule,
+    FloatLabelModule,
+    InputTextModule,
+    ButtonModule,
+    KnobModule,
+    SelectButtonModule,
+    RadioButtonModule,
+  ],
   templateUrl: './export.component.html',
-  styleUrl: './export.component.scss'
+  styleUrl: './export.component.scss',
 })
 export class ExportComponent {
-
   exportIndividualMask: boolean = true;
   exportCombinedMask: boolean = true;
   exportColorMap: boolean = true;
+  
+  
   totalFiles: number = 0;
   filesExported: number = 0;
-  constructor(public projectService: ProjectService, private labelService: LabelsService, private cdr: ChangeDetectorRef){
+
+  exportOptionsDefinedRevisions = [{"label": "All", "value": false}, {"label": "Reviewed", "value": true}];
+  exportOption = true;
+
+
+  constructor(
+    public projectService: ProjectService,
+    private labelService: LabelsService,
+    private cdr: ChangeDetectorRef
+  ) {
     this.setup_listener();
   }
 
-  async export(){
+  async export() {
     this.filesExported = 0;
-    const exportFolder = await path.join(this.projectService.outputFolder, this.projectService.projectName, 'export')
-    const inputFolder = await path.join(this.projectService.outputFolder, this.projectService.projectName, 'annotations')
+    const exportFolder = await path.join(
+      this.projectService.outputFolder,
+      this.projectService.projectName,
+      'export'
+    );
+    const inputFolder = await path.join(
+      this.projectService.outputFolder,
+      this.projectService.projectName,
+      'annotations'
+    );
     invoke('export', {
       outputFolder: exportFolder,
       inputFolder: inputFolder,
+      filesReviewed: this.projectService.imagesHasBeenOpened,
       individualMask: this.exportIndividualMask,
       combinedMask: this.exportCombinedMask,
-      colormap: this.exportColorMap
-    }).then(() => {
-    }).catch((e) => {
-      console.error(e);
-    });
+      colormap: this.exportColorMap,
+      onlyReviewed: this.exportOption,
+    })
+      .then(() => {})
+      .catch((e) => {
+        console.error(e);
+      });
   }
-  setup_listener(){
+  setup_listener() {
     listen('export', (event) => {
       this.totalFiles = event.payload as number;
       this.cdr.detectChanges();
@@ -58,4 +91,3 @@ export class ExportComponent {
     });
   }
 }
-
