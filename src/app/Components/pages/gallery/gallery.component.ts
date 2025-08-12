@@ -139,6 +139,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
         // Get the image name of the first frame
         let imgPath = frames[0];
         let imgName = this.projectService.extractImagesName([imgPath])[0];
+
         let status = this.getStatusForImage(imgName);
         // Get name without extension
         let names = this.projectService.extractImagesName(frames);
@@ -154,6 +155,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
         let imgName = this.projectService.imagesName[i];
 
         let status = this.getStatusForImage(imgName);
+
         items.push({
           img: [this.projectService.imagesName[i]],
           status: status,
@@ -168,10 +170,10 @@ export class GalleryComponent implements OnInit, OnDestroy {
   getStatusForImage(imgName: string): string {
     // Get name without extension
     let name = imgName.split('.').slice(0, -1).join('.');
-    if (this.projectService.annotationsName.includes(name + '.svg')) {
-      return 'annotated';
-    } else if (this.projectService.imagesHasBeenOpened.includes(imgName)) {
+    if (this.projectService.imagesHasBeenOpened.includes(imgName)) {
       return 'reviewed';
+    } else if (this.projectService.annotationsName.includes(name + '.svg')) {
+      return 'annotated';
     } else {
       return 'empty';
     }
@@ -245,8 +247,6 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   onLazyLoad(event: any) {
-    console.log('Lazy load event:', event);
     this.galleryService.first = event.first;
-    // Handle lazy loading logic here if needed
   }
 }

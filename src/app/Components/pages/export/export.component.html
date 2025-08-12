@@ -36,6 +36,15 @@
         ></p-toggleswitch>
         <label for="colorMap"><small>Color mask</small></label>
       </div>
+      <div class="flex flex-row gap-1 items-start">
+        <p-selectbutton
+          [options]="exportOptionsDefinedRevisions"
+          [(ngModel)]="exportOption"
+          optionLabel="label"
+          optionValue="value"
+          aria-labelledby="basic"
+        />
+      </div>
     </div>
     <p-divider> Classification </p-divider>
 
@@ -46,12 +55,12 @@
       Start export
     </p-button>
     <p-divider></p-divider>
-    <p-knob class="flex justify-center"
+    <p-knob
+      class="flex justify-center"
       [(ngModel)]="filesExported"
       [showValue]="true"
       [min]="0"
       [max]="totalFiles"
     ></p-knob>
-    
   </p-panel>
 </div>
