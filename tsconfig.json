@@ -15,7 +15,7 @@
     "sourceMap": true,
     "declaration": false,
     "experimentalDecorators": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "importHelpers": true,
     "target": "ES2022",
     "module": "ES2022",
@@ -25,7 +25,9 @@
       "dom"
     ],
     "paths": {
-      "path": ["./node_modules/path-browserify"]
+      "path": [
+        "./node_modules/path-browserify"
+      ]
     }
   },
   "angularCompilerOptions": {

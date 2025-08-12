@@ -25,24 +25,22 @@ import Nora from '@primeng/themes/nora';
 import { MulticlassTask, MultilabelTask } from './Core/task';
 import { BlockUIModule } from 'primeng/blockui';
 import { DividerModule } from 'primeng/divider';
-import { BlockableP } from './generics/blockable/p/p.component';
 @Component({
-    selector: 'app-root',
-    imports: [
-        ToolbarModule,
-        LoadingComponent,
-        NgIf,
-        RouterOutlet,
-        Button,
-        RouterModule,
-        BlockUIModule,
-        DividerModule,
-        BlockableP,
-    ],
-    templateUrl: './app.component.html',
-    styleUrl: './app.component.scss'
+  selector: 'app-root',
+  imports: [
+    ToolbarModule,
+    LoadingComponent,
+    NgIf,
+    RouterOutlet,
+    Button,
+    RouterModule,
+    BlockUIModule,
+    DividerModule,
+  ],
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.scss',
 })
-export class AppComponent  {
+export class AppComponent {
   title = 'Client';
 
   constructor(

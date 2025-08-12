@@ -35,7 +35,6 @@ import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.s
 import { CommonModule } from '@angular/common';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
-import { WheelMenuComponent } from "../../../generics/wheel-menu/wheel-menu.component";
 import { QuickAccessMenuComponent } from "./quick-access-menu/quick-access-menu.component";
 
 
@@ -55,7 +54,6 @@ import { QuickAccessMenuComponent } from "./quick-access-menu/quick-access-menu.
         TooltipModule,
         ToggleSwitchModule,
         MultiFramesOptionsComponent,
-        WheelMenuComponent,
         QuickAccessMenuComponent
     ],
     templateUrl: './editor.component.html',
