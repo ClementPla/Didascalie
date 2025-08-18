@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectorRef, Component } from '@angular/core';
 
 import { ToolbarModule } from 'primeng/toolbar';
 
@@ -10,19 +10,16 @@ import { ProjectService } from './Services/Project/project.service';
 import { Button } from 'primeng/button';
 import { RouterModule } from '@angular/router';
 import { environment } from '../environments/environment';
-import { LabelsService } from './Services/Project/labels.service';
 import { EditorService } from './Services/UI/editor.service';
 import { path } from '@tauri-apps/api';
 import { CLIService } from './Services/cli.service';
 import { IOService } from './Services/Project/io.service';
 import { ImageFromCLI } from './Core/interface';
-import { PostProcessOption } from './Core/tools';
 import { PrimeNG } from 'primeng/config';
 import Aura from '@primeng/themes/aura';
 import Material from '@primeng/themes/material';
 import Lara from '@primeng/themes/lara';
 import Nora from '@primeng/themes/nora';
-import { MulticlassTask, MultilabelTask } from './Core/task';
 import { BlockUIModule } from 'primeng/blockui';
 import { DividerModule } from 'primeng/divider';
 @Component({
@@ -47,7 +44,6 @@ export class AppComponent {
     public viewService: ViewService,
     public projectService: ProjectService,
     public editorService: EditorService,
-    private labelService: LabelsService,
     private cli: CLIService,
     private cdr: ChangeDetectorRef,
     private IOService: IOService,
