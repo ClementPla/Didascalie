@@ -4,7 +4,6 @@
   class="editor flex gap-8 justify-around relative w-full"
   (mousemove)="updateMousePosition($event)"
 >
-
   <app-quick-access-menu #quickAccessMenu> </app-quick-access-menu>
   <app-labels
     *ngIf="
@@ -30,4 +29,8 @@
       </p>
     </p-panel>
   </div>
+</div>
+
+<div class="fixed bottom-0 w-5/6 left-1/2 -translate-x-1/2">
+  <p-metergroup [value]="getCurrentProgress()"> </p-metergroup>
 </div>

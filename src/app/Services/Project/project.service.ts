@@ -16,7 +16,6 @@ import {
 } from '../../Core/save_load';
 import { ClassificationService } from './classification.service';
 import { MultiframesService } from './multiframes.service';
-import { GalleryService } from '../../Components/pages/gallery/gallery.service';
 
 @Injectable({
   providedIn: 'root',
@@ -53,8 +52,7 @@ export class ProjectService {
   constructor(
     private labelService: LabelsService,
     private classificationService: ClassificationService,
-    private multiframesService: MultiframesService,
-    private galleryService: GalleryService
+    private multiframesService: MultiframesService
   ) {
     this.localStoragesProjectsFilepaths = JSON.parse(
       localStorage.getItem('projects') || '[]'
@@ -127,7 +125,6 @@ export class ProjectService {
     await this.listFiles();
     await this.update_reviewed();
     this.isProjectStarted = true;
-    this.galleryService.first = 0; // Reset the first index for gallery service
   }
 
   async loadProjectFile(filepath: string, start: boolean = true) {
@@ -324,5 +321,9 @@ export class ProjectService {
       2
     );
     invokeSaveJsonFile(revisionPath, revisionString);
+  }
+
+  getTotalImages() {
+    return this.imagesName.length;
   }
 }

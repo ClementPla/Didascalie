@@ -30,32 +30,37 @@ import { ViewService } from '../../../Services/UI/view.service';
 import { EditorService } from '../../../Services/UI/editor.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { CommonModule } from '@angular/common';
+import { Clipboard } from '@angular/cdk/clipboard';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
 
 @Component({
-    selector: 'app-project-configuration',
-    imports: [
-        CardModule,
-        TableModule,
-        CommonModule,
-        ClassificationConfigurationComponent,
-        DividerModule,
-        ColorPickerModule,
-        CheckboxModule,
-        ButtonModule,
-        FloatLabelModule,
-        FormsModule,
-        PanelModule,
-        ToggleSwitchModule,
-        InputTextModule,
-        FieldsetModule,
-        TextConfigurationComponent,
-        ClassificationConfigurationComponent,
-        PixelsConfigurationComponent,
-        GenericsModule,
-        SelectButtonModule,
-    ],
-    templateUrl: './project-configuration.component.html',
-    styleUrl: './project-configuration.component.scss'
+  selector: 'app-project-configuration',
+  imports: [
+    CardModule,
+    TableModule,
+    CommonModule,
+    ClassificationConfigurationComponent,
+    DividerModule,
+    ColorPickerModule,
+    CheckboxModule,
+    ButtonModule,
+    FloatLabelModule,
+    FormsModule,
+    PanelModule,
+    ToggleSwitchModule,
+    InputTextModule,
+    FieldsetModule,
+    TextConfigurationComponent,
+    ClassificationConfigurationComponent,
+    PixelsConfigurationComponent,
+    GenericsModule,
+    ToastModule,
+    SelectButtonModule,
+  ],
+  providers: [MessageService],
+  templateUrl: './project-configuration.component.html',
+  styleUrl: './project-configuration.component.scss',
 })
 export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   isInputValid: boolean = true;
@@ -82,7 +87,9 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     private cli: CLIService,
     private cdr: ChangeDetectorRef,
     private viewService: ViewService,
-    public editorService: EditorService
+    public editorService: EditorService,
+    private clipboard: Clipboard,
+    private messageService: MessageService
   ) {}
 
   ngOnInit(): void {
@@ -123,6 +130,12 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async loadProjectFromFilepath(filepath: string, start: boolean) {
+    this.messageService.add({
+      key: 'pathCopiedToClipboard',
+      severity: 'success',
+      summary: 'Filepath copied to clipboard',
+    });
+    this.clipboard.copy(filepath);
     filepath = await path.join(filepath, 'project_config.json');
     await this.projectService.loadProjectFile(filepath, start);
     if (start) {
@@ -144,20 +157,19 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    // this.debug()
+    // this.debug();
     // this.viewService.navigateToTestZone();
   }
 
   async debug() {
     await this.projectService
       .loadProjectFile(
-        'c:/Users/cleme/Documents/Projects/GAVE/exp/notebooks/data/annotations/aptos_av_label/project_config.json',
+        '/home/clement/Documents/tmp/Demo/project_config.json',
         true
       )
       .then(() => {
-            this.viewService.navigateToExport();
-
-        // this.viewService.openEditor(0);
+        // this.viewService.navigateToExport();
+        this.viewService.openEditor(1500);
       });
   }
 }

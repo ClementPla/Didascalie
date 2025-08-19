@@ -35,29 +35,30 @@ import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.s
 import { CommonModule } from '@angular/common';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
-import { QuickAccessMenuComponent } from "./quick-access-menu/quick-access-menu.component";
-
+import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
+import { MeterGroupModule, MeterItem } from 'primeng/metergroup';
 
 @Component({
-    selector: 'app-editor',
-    imports: [
-        CommonModule,
-        SliderModule,
-        DrawableCanvasComponent,
-        FormsModule,
-        ButtonModule,
-        ToolbarComponent,
-        ToolbarModule,
-        LabelsComponent,
-        PanelModule,
-        ToolSettingComponent,
-        TooltipModule,
-        ToggleSwitchModule,
-        MultiFramesOptionsComponent,
-        QuickAccessMenuComponent
-    ],
-    templateUrl: './editor.component.html',
-    styleUrl: './editor.component.scss'
+  selector: 'app-editor',
+  imports: [
+    CommonModule,
+    SliderModule,
+    DrawableCanvasComponent,
+    FormsModule,
+    ButtonModule,
+    ToolbarComponent,
+    ToolbarModule,
+    LabelsComponent,
+    PanelModule,
+    ToolSettingComponent,
+    TooltipModule,
+    ToggleSwitchModule,
+    MultiFramesOptionsComponent,
+    QuickAccessMenuComponent,
+    MeterGroupModule,
+  ],
+  templateUrl: './editor.component.html',
+  styleUrl: './editor.component.scss',
 })
 export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(DrawableCanvasComponent) canvas: DrawableCanvasComponent;
@@ -143,7 +144,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.canvas.redrawAllCanvas();
   }
 
-  @HostListener('window:keydown', ['$event']) 
+  @HostListener('window:keydown', ['$event'])
   onKeydown(event: KeyboardEvent) {
     if (event.key === 'Alt') {
       this.quickAccessMenu.position = this.mousePosition || { x: 0, y: 0 };
@@ -159,7 +160,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   redo(event: KeyboardEvent) {
     this.editorService.requestRedo();
   }
-
+  @HostListener('window:keydown.2')
   @HostListener('window:keydown.e')
   changeToEraser() {
     this.editorService.selectedTool = Tools.ERASER;
@@ -168,20 +169,25 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   changeToLine() {
     this.editorService.selectedTool = Tools.LINE;
   }
-
+  @HostListener('window:keydown.3')
   @HostListener('window:keydown.shift.l')
   changeToLasso() {
     this.editorService.selectedTool = Tools.LASSO;
   }
-
+  @HostListener('window:keydown.4')
   @HostListener('window:keydown.shift.control.e')
   changeToLassoEraser() {
     this.editorService.selectedTool = Tools.LASSO_ERASER;
   }
-
   @HostListener('window:keydown.g')
   changeToPan() {
     this.editorService.selectedTool = Tools.PAN;
+  }
+
+  @HostListener('window:keydown.1')
+  @HostListener('window:keydown.p')
+  changeToPencil() {
+    this.editorService.selectedTool = Tools.PEN;
   }
 
   @HostListener('window:keydown.space')
@@ -196,11 +202,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   togglePanOff() {
     this.editorService.restoreLastTool();
     this._spaceDown = false;
-  }
-
-  @HostListener('window:keydown.p')
-  changeToPencil() {
-    this.editorService.selectedTool = Tools.PEN;
   }
 
   @HostListener('window:keydown.tab', ['$event'])
@@ -320,5 +321,23 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.multiFramesOptions.currentFrame = 0;
     }
     await this.loadCanvas(!this.projectService.groupLabels);
+  }
+
+  getCurrentProgress(): MeterItem[] | undefined {
+    if (this.projectService.imagesName.length === 0) {
+      return undefined;
+    }
+    const currentIndex = this.projectService.activeIndex;
+    if (currentIndex === null) return undefined;
+
+    const label = `${currentIndex} / ${this.projectService.getTotalImages()} images done`;
+    const value = [
+      {
+        label: label,
+        value: (100 * currentIndex) / this.projectService.getTotalImages(),
+        color: 'var(--p-primary-color)',
+      },
+    ] as MeterItem[];
+    return value;
   }
 }
