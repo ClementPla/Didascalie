@@ -1,4 +1,3 @@
-
 <div class="gap-4 grid grid-cols-3 my-14">
   <p-panel
     header="Load recent"
@@ -17,6 +16,7 @@
           <th>Clear history</th>
         </tr>
       </ng-template>
+
       <ng-template #body let-rows>
         <tr class="table-row">
           <td
@@ -55,6 +55,16 @@
       </ng-template>
     </p-table>
   </p-panel>
+
+  <p-toast
+    key="pathCopiedToClipboard"
+    [baseZIndex]="5000"
+    position="bottom-left"
+  >
+    <ng-template let-message #message>
+      Filepath copied to clipboard
+    </ng-template>
+  </p-toast>
 
   <div class="flex flex-col gap-8 items-stretch">
     <p-panel header="Project Configuration" class="flex flex-col items-stretch">

@@ -12,10 +12,10 @@ import { ViewService } from '../../../../Services/UI/view.service';
 import { ClassificationService } from '../../../../Services/Project/classification.service';
 
 @Component({
-    selector: 'app-gallery-element',
-    imports: [CommonModule, CardModule, PanelModule, SelectButtonModule],
-    templateUrl: './gallery-element.component.html',
-    styleUrl: './gallery-element.component.scss'
+  selector: 'app-gallery-element',
+  imports: [CommonModule, CardModule, PanelModule, SelectButtonModule],
+  templateUrl: './gallery-element.component.html',
+  styleUrl: './gallery-element.component.scss',
 })
 export class GalleryElementComponent implements OnInit {
   @Input() img: string[];
