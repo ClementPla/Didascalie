@@ -37,7 +37,7 @@ pub fn run() {
             commands::segmentation::otsu_segmentation,
             connection::connection::event_processed,
             commands::crf::crf_refine,
-            commands::dl::mask_sam_segment,
+            // commands::dl::mask_sam_segment,
             commands::io::save_json_file,
             commands::io::load_json_file,
             commands::io::save_xml_file,

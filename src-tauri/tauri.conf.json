@@ -7,7 +7,7 @@
     "frontendDist": "../dist/client/browser",
     "devUrl": "http://localhost:4200",
     "beforeDevCommand": "npm run ng serve -o --debug",
-    "beforeBuildCommand": "npm run ng build"
+    "beforeBuildCommand": "npm run ng build --prod"
   },
   "app": {
     "windows": [
