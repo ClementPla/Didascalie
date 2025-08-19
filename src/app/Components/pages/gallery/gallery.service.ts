@@ -6,7 +6,7 @@ import { ProjectService } from '../../../Services/Project/project.service';
 })
 export class GalleryService {
   first: number = 0;
-  itemPerPage: number = 16;
+  itemPerPage: number = 64;
   constructor(private projectService: ProjectService) {}
 
   getFirstPage() {
