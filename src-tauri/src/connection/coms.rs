@@ -4,7 +4,6 @@ use std::thread;
 use std::time::Duration;
 use tauri::AppHandle;
 
-
 pub fn setup_zmq_receiver(app: AppHandle) -> Result<(), ComError> {
     thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
