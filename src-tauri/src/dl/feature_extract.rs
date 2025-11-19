@@ -55,28 +55,24 @@ impl FeaturesExtractor {
         )
     }
 
-    pub fn extract_features(
+    pub fn __extract_features__(
         &mut self,
         image: Tensor<f32>,
-        session: &ort::session::Session,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+        session: &mut ort::session::Session,
+    ) -> Result<(), ort::Error> {
         println!("Running encoder inference");
-        let mut io_binding = session.create_binding().unwrap();
+        let mut io_binding = session.create_binding()?;
         io_binding.bind_input("image", &image)?;
         io_binding.bind_output_to_device("features", &session.allocator().memory_info())?;
 
+        let outputs = session.run_binding(&mut io_binding)?;
+
+        // Get the first output (features) from the outputs vector
+        self.features = outputs.into_iter().next().unwrap().1;
+
         Ok(())
-        // session.run(&mut io_binding).unwrap();
-        // // Get the first output (features) from the outputs vector
-        // let outputs = io_binding.outputs().unwrap();
-        // if let Some(output) = outputs.get(0) {
-        //     self.features = output.clone();
-        //     Ok(())
-        // } else {
-        //     Err("No output found in io_binding".into())
-        // }
     }
-    pub fn get_features(&self) -> &Value {
+    pub fn get_features(&self) -> &ort::value::Value {
         &self.features
     }
 }

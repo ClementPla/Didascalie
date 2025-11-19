@@ -162,6 +162,8 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async debug() {
+    this.editorService.penPostProcess = true;
+    this.editorService.postProcessOption = 'MedSAM';
     await this.projectService
       .loadProjectFile(
         '/home/clement/Documents/tmp/Demo/project_config.json',

@@ -5,15 +5,10 @@
   (mousemove)="updateMousePosition($event)"
 >
   <app-quick-access-menu #quickAccessMenu> </app-quick-access-menu>
-  <app-labels
-    *ngIf="
-      projectService.isSegmentation ||
-      projectService.isInstanceSegmentation ||
-      projectService.isClassification ||
-      projectService.hasTextDescription
-    "
-    class="max-w-128"
-  ></app-labels>
+  @if(projectService.isSegmentation || projectService.isInstanceSegmentation ||
+  projectService.isClassification || projectService.hasTextDescription){
+  <app-labels class="max-w-128"></app-labels>
+  }
   <app-drawable-canvas class="overflow-hidden w-full"></app-drawable-canvas>
 
   <div class="flex flex-col gap-4 min-w-96 overflow-y-auto">
@@ -21,7 +16,7 @@
     <app-multi-frames-options
       (changeOfFrame)="changedOfFrame($event)"
     ></app-multi-frames-options>
-    <p-panel header="Save" styleClass="w-96">
+    <p-panel header="Save" class="w-96">
       <p class="flex justify-center">
         <p-button (onClick)="loadPrevious()">Previous</p-button>
         <p-button (onClick)="save()" pTooltip="Ctrl+S">Save</p-button>
