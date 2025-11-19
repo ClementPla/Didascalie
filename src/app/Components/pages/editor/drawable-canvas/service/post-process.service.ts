@@ -69,6 +69,7 @@ export class PostProcessService {
         extractFeatures: true,
       });
     } else {
+      console.log('Using cached features for SAM segmentation');
       imageBitmap = await invoke<ArrayBufferLike>('mask_sam_segment', {
         coarseMask: binaryMask,
         image: [],
@@ -127,7 +128,7 @@ export class PostProcessService {
       connectedness: this.editorService.enforceConnectivity,
       width: rect.width,
       height: rect.height,
-    }).then((mask: ArrayBufferLike) => {
+    }).then((mask: Uint8ClampedArray) => {
       const newMAsk = new ImageData(
         new Uint8ClampedArray(mask),
         rect.width,

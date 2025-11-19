@@ -1,4 +1,8 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use crate::dl::feature_extract::FeaturesExtractor;
+use crate::dl::model::ModelSessions;
+use tokio::sync::Mutex;
 
 mod commands;
 mod connection;
@@ -22,9 +26,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(Arc::new(Mutex::new(
-            dl::feature_extract::FeaturesExtractor::new(),
-        )))
+        .manage(Arc::new(Mutex::new(FeaturesExtractor::new())))
+        .manage(ModelSessions::new()) // Add this line
         .setup(|app| {
             connection::coms::setup_zmq_receiver(app.handle().clone())?;
             Ok(())
@@ -37,7 +40,7 @@ pub fn run() {
             commands::segmentation::otsu_segmentation,
             connection::connection::event_processed,
             commands::crf::crf_refine,
-            // commands::dl::mask_sam_segment,
+            commands::dl::mask_sam_segment,
             commands::io::save_json_file,
             commands::io::load_json_file,
             commands::io::save_xml_file,

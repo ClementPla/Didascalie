@@ -49,6 +49,9 @@ svgtypes = "0.15.3"
 usvg = "0.45.1"
 roxmltree = "0.20.0"
 hex_color = "3.0.0"
+reqwest = { version = "0.12.24", features = ["stream"] }
+futures-util = "0.3.31"
+sha2 = "0.10.9"
 
 
 
