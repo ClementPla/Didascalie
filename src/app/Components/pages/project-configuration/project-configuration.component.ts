@@ -166,7 +166,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     this.editorService.postProcessOption = 'MedSAM';
     await this.projectService
       .loadProjectFile(
-        '/home/clement/Documents/tmp/Demo/project_config.json',
+        'c:/Users/cleme/Documents/Projects/GAVE/exp/notebooks/data/annotations/aptos_av_label/project_config.json',
         true
       )
       .then(() => {

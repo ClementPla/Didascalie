@@ -1,3 +1,8 @@
+
+<p-dialog header="Downloading Resources" [(visible)]="displayDownloadDialog" [modal]="true" [closable]="false" [dismissableMask]="false">
+  <p-progressbar [value]="downloadProgress" />
+</p-dialog>
+
 <app-toolbar></app-toolbar>
 
 <div
@@ -26,6 +31,6 @@
   </div>
 </div>
 
-<div class="fixed bottom-0 w-5/6 left-1/2 -translate-x-1/2">
+<div class="-translate-x-1/2 bottom-0 fixed left-1/2 w-5/6">
   <p-metergroup [value]="getCurrentProgress()"> </p-metergroup>
 </div>
