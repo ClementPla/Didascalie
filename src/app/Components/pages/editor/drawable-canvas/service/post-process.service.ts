@@ -69,7 +69,6 @@ export class PostProcessService {
         extractFeatures: true,
       });
     } else {
-      console.log('Using cached features for SAM segmentation');
       imageBitmap = await invoke<ArrayBufferLike>('mask_sam_segment', {
         coarseMask: binaryMask,
         image: [],

@@ -112,3 +112,11 @@ export interface LabelFormat {
   textsNames: string[];
   texts: string[] | null;
 }
+
+
+export type DownloadingInformations = {
+  filename: string;
+  progress: number;
+  downloaded: boolean;
+  total: number;
+}

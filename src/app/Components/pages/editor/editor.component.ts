@@ -1,8 +1,6 @@
 import {
   AfterViewInit,
-  ChangeDetectorRef,
   Component,
-  Host,
   OnDestroy,
   OnInit,
   ViewChild,
@@ -13,7 +11,6 @@ import { ToolbarModule } from 'primeng/toolbar';
 import { ToolbarComponent } from './toolbar/toolbar.component';
 import { LabelsComponent } from './labels/labels.component';
 import { ProjectService } from '../../../Services/Project/project.service';
-import { NgIf } from '@angular/common';
 import { HostListener } from '@angular/core';
 import { EditorService } from '../../../Services/UI/editor.service';
 import { Tools } from '../../../Core/tools';
@@ -37,6 +34,10 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
 import { MeterGroupModule, MeterItem } from 'primeng/metergroup';
+import { listen } from '@tauri-apps/api/event';
+import { DownloadingInformations } from '../../../Core/interface';
+import { DialogModule } from 'primeng/dialog';
+import { ProgressBarModule } from 'primeng/progressbar';
 
 @Component({
   selector: 'app-editor',
@@ -56,6 +57,8 @@ import { MeterGroupModule, MeterItem } from 'primeng/metergroup';
     MultiFramesOptionsComponent,
     QuickAccessMenuComponent,
     MeterGroupModule,
+    DialogModule,
+    ProgressBarModule
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
@@ -72,6 +75,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private mousePosition: { x: number; y: number } | null = null;
 
+  displayDownloadDialog: boolean = false;
+  downloadProgress: number = 0;
+
   constructor(
     public projectService: ProjectService,
     private drawService: DrawService,
@@ -83,10 +89,24 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private zoomPanService: ZoomPanService,
     public multiframeService: MultiframesService,
     private canvasManagerService: CanvasManagerService
-  ) {}
+  ) {
+    listen<DownloadingInformations>('download-progress', (event) => {
+      this.updateDownloadDialogDisplay(event.payload);
+    });
+
+    listen<void>('mask-segmentation-started', () => {
+      this.viewService.setLoading(true, 'Performing mask segmentation (first call may take longer)');
+    });
+
+    listen<void>('mask-segmentation-completed', () => {
+      this.viewService.endLoading();
+    });
+
+  }
 
   ngOnInit() {
     this.initializeSubscriptions();
+    
   }
 
   ngAfterViewInit() {
@@ -98,7 +118,11 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
   }
+  updateDownloadDialogDisplay(information: DownloadingInformations) {
+    this.displayDownloadDialog = !information.downloaded;
+    this.downloadProgress = information.progress;
 
+  }
   private initializeSubscriptions(): void {
     this.subscriptions.add(
       this.IOService.requestedReload.subscribe({
@@ -152,12 +176,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  @HostListener('window:keydown.control.z', ['$event'])
-  undo(event: KeyboardEvent) {
+  @HostListener('window:keydown.control.z')
+  undo() {
     this.editorService.requestUndo();
   }
-  @HostListener('window:keydown.control.y', ['$event'])
-  redo(event: KeyboardEvent) {
+  @HostListener('window:keydown.control.y')
+  redo() {
     this.editorService.requestRedo();
   }
   @HostListener('window:keydown.2')
@@ -205,13 +229,13 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   @HostListener('window:keydown.tab', ['$event'])
-  switchAllVisibility(e: KeyboardEvent) {
+  switchAllVisibility(e: Event) {
     e.preventDefault();
     this.labelService.switchVisibilityAllSegLabels();
     this.editorService.requestCanvasRedraw();
   }
 
-  @HostListener('window:keydown.control.tab', ['$event'])
+  @HostListener('window:keydown.control.tab')
   nextLabel() {
     const currentIndex = this.labelService.getActiveIndex();
     const nextIndex =
@@ -219,7 +243,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.labelService.activeLabel =
       this.labelService.listSegmentationLabels[nextIndex];
   }
-  @HostListener('window:keydown.d', ['$event'])
+  @HostListener('window:keydown.d')
   togglePostProcessing() {
     if (this.editorService.isDrawingTool()) {
       this.editorService.penPostProcess = !this.editorService.penPostProcess;
@@ -230,25 +254,25 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  @HostListener('window:keydown.q', ['$event'])
+  @HostListener('window:keydown.q')
   toggleImageProcessing() {
     this.editorService.useProcessing = !this.editorService.useProcessing;
     this.editorService.requestCanvasRedraw();
   }
 
-  @HostListener('window:keydown.control.e', ['$event'])
+  @HostListener('window:keydown.control.e')
   toggleEdges() {
     this.editorService.edgesOnly = !this.editorService.edgesOnly;
     this.editorService.requestCanvasRedraw();
   }
 
-  @HostListener('window:keydown.control.s', ['$event'])
+  @HostListener('window:keydown.control.s')
   async save() {
     await this.projectService.update_reviewed();
     return this.IOService.save();
   }
 
-  @HostListener('window:keydown.ArrowRight', ['$event'])
+  @HostListener('window:keydown.ArrowRight')
   async loadNext() {
     this.viewService.setLoading(true, 'Loading next image');
 
@@ -266,20 +290,20 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     await this.loadCanvas();
     this.viewService.endLoading();
   }
-  @HostListener('window:keydown.=', ['$event'])
-  @HostListener('window:keydown.shift.+', ['$event'])
-  @HostListener('window:keydown.+', ['$event'])
+  @HostListener('window:keydown.=')
+  @HostListener('window:keydown.shift.+')
+  @HostListener('window:keydown.+')
   zoomIn() {
     this.zoomPanService.zoomIn(1.2);
   }
-  @HostListener('window:keydown.shift._', ['$event'])
-  @HostListener('window:keydown.-', ['$event'])
-  @HostListener('window:keydown._', ['$event'])
+  @HostListener('window:keydown.shift._')
+  @HostListener('window:keydown.-')
+  @HostListener('window:keydown._')
   zoomOut() {
     this.zoomPanService.zoomOut(1.2);
   }
 
-  @HostListener('window:keydown.ArrowLeft', ['$event'])
+  @HostListener('window:keydown.ArrowLeft')
   async loadPrevious() {
     this.viewService.setLoading(true, 'Loading previous image');
 

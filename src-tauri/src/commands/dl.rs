@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tauri::State;
 use tauri::{self, ipc::Response};
 use tokio::sync::Mutex;
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
 pub async fn mask_sam_segment<'a>(
@@ -15,18 +16,19 @@ pub async fn mask_sam_segment<'a>(
     width: usize,
     height: usize,
     extract_features: bool,
-    app: tauri::AppHandle,
+    app: AppHandle,
     features_extractor: State<'a, Arc<Mutex<FeaturesExtractor>>>,
     model_sessions: State<'a, ModelSessions>,
 ) -> Result<Response, String> {
     let start_time = std::time::Instant::now();
-
+    app.emit("mask-segmentation-started", {}).unwrap();
     if extract_features {
+        app.emit("features-extraction-started", {}).unwrap();
         let prepare_start = std::time::Instant::now();
 
         let image_tensor = {
             let features_extractor_guard = features_extractor.lock().await;
-            features_extractor_guard.prepare_image(image.clone(), width, height)
+            features_extractor_guard.prepare_image(image, width, height)
         };
 
         println!("Image preparation took: {:?}", prepare_start.elapsed());
@@ -42,6 +44,7 @@ pub async fn mask_sam_segment<'a>(
             .map_err(|e| format!("Feature extraction failed: {}", e))?;
 
         println!("Feature extraction took: {:?}", encode_start.elapsed());
+        app.emit("features-extraction-completed", {}).unwrap();
     }
 
     // Convert coarse mask to image, resize to 1024x1024
@@ -49,7 +52,6 @@ pub async fn mask_sam_segment<'a>(
         width as u32,
         height as u32,
         coarse_mask
-            .clone()
             .into_iter()
             .map(|b| if b { 255u8 } else { 0u8 })
             .collect::<Vec<u8>>(),
@@ -123,6 +125,6 @@ pub async fn mask_sam_segment<'a>(
 
     let binary_vec: Vec<u8> = binary.into_raw();
     println!("Total execution time: {:?}", start_time.elapsed());
-
+    app.emit("mask-segmentation-completed", {}).unwrap();
     Ok(Response::new(binary_vec))
 }
