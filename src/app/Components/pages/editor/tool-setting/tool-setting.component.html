@@ -1,52 +1,43 @@
-<p-panel header="Advanced settings" styleClass="w-96">
+<p-panel header="Advanced settings" class="w-96">
   <p-fieldset legend="Bounding box" [toggleable]="true" [collapsed]="true">
     <div class="gap-2 grid grid-cols-2 w-full">
-        <app-labelled-switch
-          [(checked)]="editorService.showBoundingBox"
-          (checkedChange)="editorService.requestCanvasRedraw()"
-          >Show bounding box</app-labelled-switch
-        >
-        <app-labelled-switch
-          [(checked)]="editorService.labelledCombinedBoundingBox"
-          (checkedChange)="editorService.requestCanvasRedraw()"
-          >Combined labels</app-labelled-switch
-        >
-        <ng-container *ngIf="editorService.isEraser()"></ng-container>
-          <app-labelled-switch [(checked)]="editorService.eraseOnClick"
-            >Click to erase</app-labelled-switch
-          >
-          <ng-container
-            *ngIf="
-              editorService.eraseOnClick &&
-              editorService.labelledCombinedBoundingBox &&
-              !editorService.eraseAll
-            "
-          >
-            <p-message
-              severity="warn"
-              text="All labels within the bounding box will be erased, even though 'Erase all labels' is not checked.
-              Uncheck 'Combined labels' to erase per labels."
-              styleClass="w-48"
-            ></p-message>
-          </ng-container>
+      <app-labelled-switch
+        [(checked)]="editorService.showBoundingBox"
+        (checkedChange)="editorService.requestCanvasRedraw()"
+        >Show bounding box</app-labelled-switch
+      >
+      <app-labelled-switch
+        [(checked)]="editorService.labelledCombinedBoundingBox"
+        (checkedChange)="editorService.requestCanvasRedraw()"
+        >Combined labels</app-labelled-switch
+      >
+
+      <app-labelled-switch [(checked)]="editorService.eraseOnClick"
+        >Click to erase</app-labelled-switch
+      >
+      @if(editorService.eraseOnClick &&
+      editorService.labelledCombinedBoundingBox && !editorService.eraseAll) {
+      <p-message severity="warn" class="w-48"
+        >All labels within the bounding box will be erased, even though 'Erase
+        all labels' is not checked. Uncheck 'Combined labels' to erase per
+        labels.</p-message
+      >
+      }
     </div>
     <div class="mt-4">
       <p-slider
-      [(ngModel)]="editorService.bbxOpacity"
-      [min]="0"
-      [max]="1"
-      [step]="0.01"
+        [(ngModel)]="editorService.bbxOpacity"
+        [min]="0"
+        [max]="1"
+        [step]="0.01"
       ></p-slider>
       <small class="block mt-4 text-center">Opacity</small>
     </div>
   </p-fieldset>
 
   <div class="h-full overflow-y-auto w-full">
-    <p-fieldset
-      legend="Instance Segmentation"
-      [toggleable]="true"
-      *ngIf="projectService.isInstanceSegmentation"
-    >
+    @if(projectService.isInstanceSegmentation){
+    <p-fieldset legend="Instance Segmentation" [toggleable]="true">
       <p>
         <input
           type="text"
@@ -67,12 +58,8 @@
         Increment after stroke
       </app-labelled-switch>
     </p-fieldset>
-
-    <p-fieldset
-      *ngIf="editorService.useProcessing"
-      legend="Image processsing"
-      [toggleable]="true"
-    >
+    } @if(editorService.useProcessing){
+    <p-fieldset legend="Image processsing" [toggleable]="true">
       <div class="flex flex-wrap gap-2 justify-center">
         <app-labelled-switch
           [(checked)]="imageProcess.to_BW"
@@ -84,6 +71,12 @@
           (checkedChange)="imageProcess.refresh()"
           >Histogram stretching</app-labelled-switch
         >
+        <app-labelled-switch
+          [(checked)]="imageProcess.inverseColors"
+          (checkedChange)="imageProcess.refresh()"
+        >
+          Inverse colors
+        </app-labelled-switch>
 
         <div class="w-full">
           <p class="flex flex-col gap-2">
@@ -152,8 +145,8 @@
           (checkedChange)="imageProcess.refresh()"
           >Edge reinforcement</app-labelled-switch
         >
-
-        <p *ngIf="imageProcess.use_medianBlur" class="flex flex-col gap-2">
+        @if(imageProcess.use_medianBlur){
+        <p class="flex flex-col gap-2">
           <input
             type="number"
             pInputText
@@ -170,8 +163,8 @@
           />
           <small>Kernel size</small>
         </p>
-
-        <p *ngIf="imageProcess.reinforceEdges" class="flex flex-col gap-2">
+        } @if(imageProcess.reinforceEdges){
+        <p class="flex flex-col gap-2">
           <input
             type="number"
             pInputText
@@ -188,82 +181,93 @@
           />
           <small>Edge strength</small>
         </p>
+        }
       </div>
     </p-fieldset>
-
-    <p-fieldset
-      legend="Auto-postprocessing"
-      [toggleable]="true"
-      *ngIf="editorService.penPostProcess || editorService.eraserPostProcess"
-    >
+    } @if(editorService.penPostProcess || editorService.eraserPostProcess){
+    <p-fieldset legend="Auto-postprocessing" [toggleable]="true">
       <div class="flex flex-wrap gap-2 justify-center">
-        <ng-container *ngIf="editorService.isDrawingTool()">
-          <p-selectButton
-            [options]="postProcessingOptions"
-            [(ngModel)]="editorService.postProcessOption"
-          ></p-selectButton>
-          <ng-container [ngSwitch]="editorService.postProcessOption">
-            <ng-container *ngSwitchCase="ppOption.OTSU">
-              <small
-                >Automatically snap to the extrema by thresholding the area
-                covered by the brush stroke
-              </small>
-              <app-labelled-switch [(checked)]="editorService.useInverse"
-                >Use inverse image</app-labelled-switch
-              >
-              <app-labelled-switch
-                [(checked)]="editorService.autoPostProcessOpening"
-                >Smooth</app-labelled-switch
-              >
-              <p *ngIf="editorService.autoPostProcessOpening">
-                <input
-                  type="number"
-                  pInputText
-                  [(ngModel)]="editorService.morphoSize"
-                  class="mb-3 w-full"
-                />
+        @if(editorService.isDrawingTool()){
+        <p-selectButton
+          [options]="postProcessingOptions"
+          [(ngModel)]="editorService.postProcessOption"
+        ></p-selectButton>
+        @switch (editorService.postProcessOption) { @case (ppOption.OTSU) {
+        <small
+          >Automatically snap to the extrema by thresholding the area covered by
+          the brush stroke
+        </small>
+        <app-labelled-switch [(checked)]="editorService.useInverse"
+          >Use inverse image</app-labelled-switch
+        >
+        <app-labelled-switch [(checked)]="editorService.autoPostProcessOpening"
+          >Smooth</app-labelled-switch
+        >
+        @if(editorService.autoPostProcessOpening){
+        <p>
+          <input
+            type="number"
+            pInputText
+            [(ngModel)]="editorService.morphoSize"
+            class="mb-3 w-full"
+          />
 
-                <p-slider
-                  [(ngModel)]="editorService.morphoSize"
-                  [min]="1"
-                  [max]="15"
-                  [step]="2"
-                />
-              </p>
-              <app-labelled-switch
-                [(checked)]="editorService.enforceConnectivity"
-                >Force connectivity</app-labelled-switch
-              >
-            </ng-container>
-            <ng-container *ngSwitchCase="ppOption.MEDSAM">
-              <small>
-                Use MED-Sam has a post-processing step to auto-segment based on
-                the current stroke indication.
-              </small>
-              <div>
-                <input
-                  type="number"
-                  pInputText
-                  [(ngModel)]="editorService.samThreshold"
-                  class="mb-3 w-full"
-                />
-                <p-slider
-                  [(ngModel)]="editorService.samThreshold"
-                  [min]="0"
-                  [max]="1"
-                  [step]="0.01"
-                />
-              </div>
-            </ng-container>
-          </ng-container>
-        </ng-container>
-        <div class="flex" *ngIf="editorService.isEraser()">
+          <p-slider
+            [(ngModel)]="editorService.morphoSize"
+            [min]="1"
+            [max]="15"
+            [step]="2"
+          />
+        </p>
+        }
+        <app-labelled-switch [(checked)]="editorService.enforceConnectivity"
+          >Force connectivity</app-labelled-switch
+        >
+        } @case(ppOption.MEDSAM){
+        <small>
+          Use MED-Sam has a post-processing step to auto-segment based on the
+          current stroke indication.
+        </small>
+        <div>
+          <input
+            type="number"
+            pInputText
+            [(ngModel)]="editorService.samThreshold"
+            class="mb-3 w-full"
+          />
+          <p-slider
+            [(ngModel)]="editorService.samThreshold"
+            [min]="0"
+            [max]="1"
+            [step]="0.01"
+          />
+        </div>
+        } @case (ppOption.FLOODFILL){
+        <small> Automatically fill on the last point clicked. </small>
+        <div>
+          <input
+            type="number"
+            pInputText
+            [(ngModel)]="editorService.floodFillTolerance"
+            class="mb-3 w-full"
+          />
+          <p-slider
+            [(ngModel)]="editorService.floodFillTolerance"
+            [min]="0.5"
+            [max]="10.0"
+            [step]="0.01"
+          />
+        </div>
+        } } } @if(editorService.isEraser()){
+        <div class="flex">
           <small>
             Automatically remove all connected pixels that were covered by the
             brush stroke</small
           >
         </div>
+        }
       </div>
     </p-fieldset>
+    }
   </div>
 </p-panel>

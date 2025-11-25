@@ -1,6 +1,6 @@
 import { Subject } from 'rxjs';
 import { Injectable } from '@angular/core';
-import { Tool, Tools } from '../../Core/tools';
+import { Tool, Tools, PostProcessOption } from '../../Core/tools';
 
 @Injectable({
   providedIn: 'root',
@@ -36,9 +36,12 @@ export class EditorService {
 
   public samThreshold: number = 0.5;
 
-  public postProcessOption: string = 'otsu';
+  public postProcessOption: PostProcessOption = PostProcessOption.OTSU;
 
   public incrementAfterStroke: boolean = false;
+
+  public floodFillTolerance: number = 3.0;
+
   constructor() {}
 
   public activatePanMode() {

@@ -9,8 +9,13 @@ import { SVGUIService } from './svgui.service';
 import {
   binarizeArray,
   colorizeArray,
+  colorizeArrayInplace,
 } from '../../../../../Core/misc/binarize';
 import { OpenCVService } from '../../../../../Services/open-cv.service';
+import { PostProcessOption } from '../../../../../Core/tools';
+import { LabelsService } from '../../../../../Services/Project/labels.service';
+import { from_hex_to_rgb } from '../../../../../Core/misc/colors';
+import { ZoomPanService } from './zoom-pan.service';
 
 @Injectable({
   providedIn: 'root',
@@ -21,10 +26,11 @@ export class PostProcessService {
     private editorService: EditorService,
     private imageProcessingService: ImageProcessingService,
     private canvasManagerService: CanvasManagerService,
-    private bboxManager: BboxManagerService,
     private stateService: StateManagerService,
     private svgUIService: SVGUIService,
-    private openCVService: OpenCVService
+    private openCVService: OpenCVService,
+    private labelService: LabelsService,
+    private zoomPanService: ZoomPanService
   ) {}
 
   async sam_post_process() {
@@ -149,6 +155,107 @@ export class PostProcessService {
     });
   }
 
+  async crf_post_process() {
+    {
+      const rect = this.stateService.getBoundingBox();
+      let bufferCtx = this.canvasManagerService.getBufferCtx();
+
+      const imageData = this.imageProcessingService
+        .getCurrentCanvas()
+        .getContext('2d', { alpha: false })!
+        .getImageData(rect.x, rect.y, rect.width, rect.height).data;
+
+      const maskData = bufferCtx.getImageData(
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height
+      ).data;
+
+      return invoke<Uint8ClampedArray>('crf_refine', {
+        mask: maskData.buffer,
+        image: imageData.buffer,
+        width: rect.width,
+        height: rect.height,
+        spatialWeight: 3.0, // Lower value for spatial influence
+        bilateralWeight: 5.0,
+        numIterations: 50,
+      }).then((mask: Uint8ClampedArray) => {
+        const newMAsk = new ImageData(
+          new Uint8ClampedArray(mask),
+          rect.width,
+          rect.height
+        );
+        const activeCtx = this.canvasManagerService.getActiveCtx();
+        bufferCtx.putImageData(newMAsk, rect.x, rect.y);
+        activeCtx.drawImage(
+          bufferCtx.canvas,
+          rect.x,
+          rect.y,
+          rect.width,
+          rect.height,
+          rect.x,
+          rect.y,
+          rect.width,
+          rect.height
+        );
+      });
+    }
+  }
+
+  async flood_fill_post_process() {
+    let rect = this.stateService.getBoundingBox();
+    let bufferCtx = this.canvasManagerService.getBufferCtx();
+
+    const imageData = this.imageProcessingService
+      .getCurrentCanvas()
+      .getContext('2d', { alpha: false })!
+      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
+
+    const clickX = Math.floor(this.zoomPanService.currentPixel.x - rect.x);
+    const clickY = Math.floor(this.zoomPanService.currentPixel.y - rect.y);
+    const currentColor = this.labelService.activeLabel!.color;
+    if (!currentColor) {
+      return;
+    }
+    let rgbColor = from_hex_to_rgb(currentColor);
+    console.log(rgbColor);
+    return invoke<Uint8ClampedArray>('flood_fill_mask', {
+      image: imageData.buffer,
+      width: rect.width,
+      height: rect.height,
+      startX: clickX, // Relative to bounding box
+      startY: clickY,
+      tolerance: this.editorService.floodFillTolerance, // Delta E tolerance (0-100, typically 10-30 works well)
+    }).then((mask: Uint8ClampedArray) => {
+      const newMask = new ImageData(
+        new Uint8ClampedArray(mask),
+        rect.width,
+        rect.height
+      );
+      colorizeArrayInplace(newMask.data, [
+        rgbColor[0],
+        rgbColor[1],
+        rgbColor[2],
+        255,
+      ]);
+
+      const activeCtx = this.canvasManagerService.getActiveCtx();
+      bufferCtx.putImageData(newMask, rect.x, rect.y);
+      activeCtx.drawImage(
+        bufferCtx.canvas,
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height,
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height
+      );
+    });
+  }
+
   async eraseAll_post_process() {
     let bufferCtx = this.canvasManagerService.getBufferCtx();
 
@@ -181,5 +288,20 @@ export class PostProcessService {
       ctx.drawImage(maskCanvas, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
     });
+  }
+
+  async getPostProcessFunction(): Promise<void> {
+    switch (this.editorService.postProcessOption) {
+      case PostProcessOption.MEDSAM:
+        return this.sam_post_process();
+      case PostProcessOption.OTSU:
+        return this.otsu_post_process();
+      case PostProcessOption.CRF:
+        return this.crf_post_process();
+      case PostProcessOption.FLOODFILL:
+        return this.flood_fill_post_process();
+      default:
+        return;
+    }
   }
 }
