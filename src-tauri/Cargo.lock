@@ -19,6 +19,7 @@ dependencies = [
  "ndarray 0.16.1",
  "ndarray-image",
  "ndimage",
+ "once_cell",
  "ort",
  "parking_lot",
  "rayon",

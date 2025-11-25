@@ -52,6 +52,11 @@ export class DrawableCanvasComponent implements AfterViewInit {
   public canvasHeight = 1;
   public canvasLeft = 0;
   public canvasTop = 0;
+
+  // Mouse wheel handling
+  private lastWheelTime = 0;
+  private wheelVelocity = 0;
+  private wheelDecayTimeout?: number;
   srcImg: string;
 
   @ViewChild('imageCanvas') public imgCanvas: ElementRef<HTMLCanvasElement>;
@@ -221,8 +226,35 @@ export class DrawableCanvasComponent implements AfterViewInit {
   public wheel(event: WheelEvent): void {
     event.preventDefault();
     if (event.ctrlKey) {
-      this.editorService.lineWidth += event.deltaY > 0 ? -2 : 2;
+      const now = performance.now();
+      const timeDelta = now - this.lastWheelTime;
+
+      // Calculate velocity based on time between scrolls
+      if (timeDelta < 100) {
+        // User is scrolling fast, increase velocity exponentially
+        this.wheelVelocity = Math.min(this.wheelVelocity + 1, 25);
+      } else if (timeDelta > 200) {
+        // User paused, reset velocity
+        this.wheelVelocity = 0;
+      }
+
+      this.lastWheelTime = now;
+
+      // Exponential adjustment: 2^(1 + velocity/5)
+      // This creates exponential growth: 2, 2.3, 2.6, 3.2, 4, 5, 6.7, 9, 12, 16, 23, 32...
+      const exponent = 1 + this.wheelVelocity / 2.0;
+      const adjustment = Math.max(1, Math.round(Math.pow(2, exponent)));
+
+      this.editorService.lineWidth +=
+        event.deltaY > 0 ? -adjustment : adjustment;
       this.editorService.lineWidth = Math.max(1, this.editorService.lineWidth);
+
+      // Decay velocity after a delay
+      clearTimeout(this.wheelDecayTimeout);
+      this.wheelDecayTimeout = window.setTimeout(() => {
+        this.wheelVelocity = 0;
+      }, 150);
+
       return;
     }
     this.stateService.recomputeCanvasSum = false;

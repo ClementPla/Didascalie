@@ -1,7 +1,5 @@
 use super::images::{convert_image_to_luma_u8_array, convert_image_to_mask_array};
 use image::{GenericImageView, GrayImage, Luma};
-use imageproc::distance_transform::Norm;
-use imageproc::morphology::close_mut;
 use imageproc::region_labelling::{connected_components, Connectivity};
 use itertools::Itertools;
 use ndarray::{Array2, Zip};
@@ -113,6 +111,93 @@ fn otsu_in_mask(
     Ok(refined_mask)
 }
 
+fn dilation(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
+    let (height, width) = mask.dim();
+    let mut result = Array2::from_elem((height, width), false);
+
+    let radius = kernel_size as i32 / 2;
+
+    // Precompute disk structuring element offsets
+    let mut disk_offsets = Vec::new();
+    for dy in -radius..=radius {
+        for dx in -radius..=radius {
+            if (dx * dx + dy * dy) <= (radius * radius) {
+                disk_offsets.push((dx, dy));
+            }
+        }
+    }
+
+    // Apply dilation
+    for y in 0..height {
+        for x in 0..width {
+            // Check if any pixel under the structuring element is foreground
+            let mut any_foreground = false;
+
+            for &(dx, dy) in &disk_offsets {
+                let nx = x as i32 + dx;
+                let ny = y as i32 + dy;
+
+                if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
+                    if mask[[ny as usize, nx as usize]] {
+                        any_foreground = true;
+                        break;
+                    }
+                }
+            }
+
+            result[[y, x]] = any_foreground;
+        }
+    }
+
+    result
+}
+
+fn erosion(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
+    let (height, width) = mask.dim();
+    let mut result = Array2::from_elem((height, width), false);
+
+    let radius = kernel_size as i32 / 2;
+
+    // Precompute disk structuring element offsets
+    let mut disk_offsets = Vec::new();
+    for dy in -radius..=radius {
+        for dx in -radius..=radius {
+            // Check if point is within disk radius
+            if (dx * dx + dy * dy) <= (radius * radius) {
+                disk_offsets.push((dx, dy));
+            }
+        }
+    }
+
+    // Apply erosion
+    for y in 0..height {
+        for x in 0..width {
+            // Check if all pixels under the structuring element are foreground
+            let mut all_foreground = true;
+
+            for &(dx, dy) in &disk_offsets {
+                let nx = x as i32 + dx;
+                let ny = y as i32 + dy;
+
+                // Out of bounds or background pixel = erosion fails
+                if nx < 0 || nx >= width as i32 || ny < 0 || ny >= height as i32 {
+                    all_foreground = false;
+                    break;
+                }
+
+                if !mask[[ny as usize, nx as usize]] {
+                    all_foreground = false;
+                    break;
+                }
+            }
+
+            result[[y, x]] = all_foreground;
+        }
+    }
+
+    result
+}
+
 fn morpho_mask(
     mask: &Array2<bool>,
     opening: bool,
@@ -125,7 +210,15 @@ fn morpho_mask(
     let mut morphed: GrayImage = GrayImage::from_raw(width as u32, height as u32, raw_vec).unwrap();
 
     if opening {
-        close_mut(&mut morphed, Norm::LInf, kernel_size);
+        let dilated = dilation(mask, 2 * kernel_size);
+        let closed = erosion(&dilated, 2 * kernel_size);
+        morphed = GrayImage::from_fn(width as u32, height as u32, |x, y| {
+            if closed[[y as usize, x as usize]] {
+                Luma([255])
+            } else {
+                Luma([0])
+            }
+        });
     }
     if enforce_connectedness {
         let background = Luma([0]);

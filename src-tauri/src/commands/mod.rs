@@ -1,5 +1,6 @@
-pub mod images;
-pub mod segmentation;
-pub mod io;
-pub mod dl;
 pub mod crf;
+pub mod dl;
+pub mod flood_fill;
+pub mod images;
+pub mod io;
+pub mod segmentation;

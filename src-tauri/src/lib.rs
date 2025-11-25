@@ -40,6 +40,7 @@ pub fn run() {
             commands::segmentation::otsu_segmentation,
             connection::connection::event_processed,
             commands::crf::crf_refine,
+            commands::flood_fill::flood_fill_mask,
             commands::dl::mask_sam_segment,
             commands::io::save_json_file,
             commands::io::load_json_file,

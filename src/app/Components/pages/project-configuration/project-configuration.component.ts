@@ -33,6 +33,7 @@ import { CommonModule } from '@angular/common';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { PostProcessOption } from '../../../Core/tools';
 
 @Component({
   selector: 'app-project-configuration',
@@ -163,15 +164,16 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
 
   async debug() {
     this.editorService.penPostProcess = true;
-    this.editorService.postProcessOption = 'MedSAM';
+    this.editorService.postProcessOption = PostProcessOption.FLOODFILL;
+    this.editorService.lineWidth = 50;
     await this.projectService
       .loadProjectFile(
-        'c:/Users/cleme/Documents/Projects/GAVE/exp/notebooks/data/annotations/aptos_av_label/project_config.json',
+        '/home/clement/Documents/tmp/Demo/project_config.json',
         true
       )
       .then(() => {
         // this.viewService.navigateToExport();
-        this.viewService.openEditor(1500);
+        this.viewService.openEditor(0);
       });
   }
 }

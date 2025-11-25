@@ -4,10 +4,9 @@ import { OpenCVService } from '../../../../../Services/open-cv.service';
 import { PostProcessService } from './post-process.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class ImageProcessingService {
-
   ref_image: HTMLImageElement;
   private ref_canvas: HTMLCanvasElement | null = null;
   // We don't use OffscreenCanvas because it's not supported by OpenCV.js
@@ -27,17 +26,19 @@ export class ImageProcessingService {
   edgeStrength: number = 1;
   reinforceEdges: boolean = false;
 
-  constructor(private editorService: EditorService,
-    private openCVService: OpenCVService) { }
+  inverseColors: boolean = false;
 
+  constructor(
+    private editorService: EditorService,
+    private openCVService: OpenCVService
+  ) {}
 
   refresh() {
-    this.preprocess()
+    this.preprocess();
     this.editorService.requestCanvasRedraw();
   }
 
   getCurrentCanvas(): HTMLCanvasElement {
-
     if (!this.editorService.useProcessing) {
       return this.ref_canvas!;
     }
@@ -48,7 +49,6 @@ export class ImageProcessingService {
     }
 
     return this.preprocessImage!;
-
   }
 
   setImage(img: HTMLImageElement) {
@@ -60,18 +60,14 @@ export class ImageProcessingService {
     let ctx = this.ref_canvas.getContext('2d', { alpha: false })!;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(img, 0, 0);
-
-
   }
 
   checkValidInput() {
     // Cast to float
-    this.contrast = this.contrast
-    this.brightness = this.brightness
-    this.gamma = this.gamma
-    this.edgeStrength = this.edgeStrength
-
-
+    this.contrast = this.contrast;
+    this.brightness = this.brightness;
+    this.gamma = this.gamma;
+    this.edgeStrength = this.edgeStrength;
   }
   preprocess() {
     if (this.ref_canvas === null) {
@@ -79,8 +75,7 @@ export class ImageProcessingService {
     }
     try {
       this.checkValidInput();
-    }
-    catch (e) {
+    } catch (e) {
       console.error(e);
       return;
     }
@@ -89,43 +84,66 @@ export class ImageProcessingService {
       this.preprocessImage = document.createElement('canvas');
       this.preprocessImage.width = this.ref_image.width;
       this.preprocessImage.height = this.ref_image.height;
-
     }
-    this.preprocessImage.getContext('2d', { alpha: false, willReadFrequently: false })!.drawImage(this.ref_canvas, 0, 0);
+    this.preprocessImage
+      .getContext('2d', { alpha: false, willReadFrequently: false })!
+      .drawImage(this.ref_canvas, 0, 0);
+
+    if (this.inverseColors) {
+      this.openCVService.invertColors(
+        this.preprocessImage,
+        this.preprocessImage
+      );
+    }
 
     if (this.stretchHist) {
-
-      this.openCVService.stretchHist(this.preprocessImage, this.preprocessImage);
+      this.openCVService.stretchHist(
+        this.preprocessImage,
+        this.preprocessImage
+      );
     }
 
-
     if (this.contrast !== 1 || this.brightness !== 0) {
-      this.openCVService.brightness_contrast(this.preprocessImage, this.preprocessImage, this.contrast, this.brightness);
+      this.openCVService.brightness_contrast(
+        this.preprocessImage,
+        this.preprocessImage,
+        this.contrast,
+        this.brightness
+      );
     }
 
     if (this.gamma !== 1) {
-      this.openCVService.gammaCorrection(this.preprocessImage, this.preprocessImage, this.gamma);
+      this.openCVService.gammaCorrection(
+        this.preprocessImage,
+        this.preprocessImage,
+        this.gamma
+      );
     }
-
-
 
     // Convert to gryscale
     if (this.to_BW) {
-      this.openCVService.to_grayscale(this.preprocessImage, this.preprocessImage);
+      this.openCVService.to_grayscale(
+        this.preprocessImage,
+        this.preprocessImage
+      );
     }
 
     if (this.use_medianBlur) {
-      this.openCVService.median_blur(this.preprocessImage, this.preprocessImage, this.kernel_size);
+      this.openCVService.median_blur(
+        this.preprocessImage,
+        this.preprocessImage,
+        this.kernel_size
+      );
     }
 
     if (this.reinforceEdges && this.edgeStrength > 0) {
-      this.openCVService.reinforceEdges(this.preprocessImage, this.preprocessImage, this.edgeStrength);
+      this.openCVService.reinforceEdges(
+        this.preprocessImage,
+        this.preprocessImage,
+        this.edgeStrength
+      );
     }
 
-
     this.isUpdated = true;
-
   }
-
-
 }

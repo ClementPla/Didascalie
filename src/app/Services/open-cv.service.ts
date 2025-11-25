@@ -195,6 +195,35 @@ export class OpenCVService {
     return output;
   }
 
+  invertColors(
+    input: HTMLCanvasElement,
+    output: HTMLCanvasElement
+  ): HTMLCanvasElement {
+    let src = cv.imread(input);
+
+    // Split into separate channels
+    let channels = new cv.MatVector();
+    cv.split(src, channels);
+
+    // Invert only RGB channels (0, 1, 2), keep alpha (3) unchanged
+    for (let i = 0; i < 3; i++) {
+      let channel = channels.get(i);
+      cv.bitwise_not(channel, channel);
+    }
+
+    // Merge channels back together
+    cv.merge(channels, src);
+
+    cv.imshow(output, src);
+
+    // Cleanup
+    channels.delete();
+    src.delete();
+
+    console.log('Inversion done');
+    return output;
+  }
+
   stretchHist(
     input: HTMLCanvasElement,
     output: HTMLCanvasElement
@@ -679,12 +708,7 @@ export class OpenCVService {
     const alpha = channels.get(3);
     // Connected components
     cv.threshold(alpha, alpha, 1, 255, cv.THRESH_BINARY);
-    cv.connectedComponents(
-      alpha,
-      alpha,
-      8,
-      cv.CV_16U
-    );
+    cv.connectedComponents(alpha, alpha, 8, cv.CV_16U);
 
     // We can loop in the bbox of the region and get the ids of the connected component
     let ids = new Set<number>();
@@ -694,14 +718,23 @@ export class OpenCVService {
       region.canvas.width,
       region.canvas.height
     );
-    const finalMask = new cv.Mat.zeros(ctx.canvas.height, ctx.canvas.width, cv.CV_8U);
+    const finalMask = new cv.Mat.zeros(
+      ctx.canvas.height,
+      ctx.canvas.width,
+      cv.CV_8U
+    );
     const mask = new cv.Mat();
 
     // Loop through the image data and get the ids of the connected components
     for (let i = 0; i < imgData.data.length; i += 4) {
       const x = (i / 4) % region.canvas.width;
       const y = Math.floor(i / 4 / region.canvas.width);
-      if (x >= bbox.x && x <= bbox.x + bbox.width && y >= bbox.y && y <= bbox.y + bbox.height) {
+      if (
+        x >= bbox.x &&
+        x <= bbox.x + bbox.width &&
+        y >= bbox.y &&
+        y <= bbox.y + bbox.height
+      ) {
         const pixelIndex = y * ctx.canvas.width + x;
         if (imgData.data[i + 3] === 0) {
           continue; // Skip transparent pixels
@@ -718,7 +751,7 @@ export class OpenCVService {
         idMat.delete();
       }
     }
-    
+
     // Mask to RGBA
     cv.cvtColor(finalMask, finalMask, cv.COLOR_GRAY2RGBA, 0);
 
@@ -726,7 +759,7 @@ export class OpenCVService {
     cv.threshold(channels.get(0), channels.get(3), 1, 255, cv.THRESH_BINARY);
 
     cv.merge(channels, finalMask);
-    
+
     // Convert the mask to an image data format
     const processedImageData = new ImageData(
       new Uint8ClampedArray(finalMask.data),
