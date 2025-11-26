@@ -1,6 +1,13 @@
-import { AfterViewInit, ChangeDetectorRef, Component, Input, OnInit, Output, ViewChild, EventEmitter } from '@angular/core';
-import { NgIf, NgSwitch, NgSwitchCase, CommonModule } from '@angular/common';
-import { NgFor } from '@angular/common';
+import {
+  AfterViewInit,
+  ChangeDetectorRef,
+  Component,
+  Input,
+  Output,
+  ViewChild,
+  EventEmitter,
+} from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { FormsModule } from '@angular/forms';
 import { SliderModule } from 'primeng/slider';
@@ -34,10 +41,10 @@ interface Segment {
 }
 
 @Component({
-    selector: 'app-wheel-menu',
-    imports: [NgFor, ButtonModule, SliderModule, FormsModule, CommonModule],
-    templateUrl: './wheel-menu.component.html',
-    styleUrl: './wheel-menu.component.scss'
+  selector: 'app-wheel-menu',
+  imports: [ButtonModule, SliderModule, FormsModule, CommonModule],
+  templateUrl: './wheel-menu.component.html',
+  styleUrl: './wheel-menu.component.scss',
 })
 export class WheelMenuComponent implements AfterViewInit {
   @Input() radius: number = 256;
@@ -87,7 +94,7 @@ export class WheelMenuComponent implements AfterViewInit {
         A ${radius} ${radius} 0 0 0 ${
         radius * Math.cos((startAngle * Math.PI) / 180)
       } ${radius * Math.sin((startAngle * Math.PI) / 180)}
-        Z  
+        Z
       `;
       const midAngle = (startAngle + endAngle) / 2;
       // Create a barycenter for the segment
@@ -102,7 +109,7 @@ export class WheelMenuComponent implements AfterViewInit {
           2,
       };
       let children;
-       // Create a segment object
+      // Create a segment object
       let segment: Segment = {
         path,
         barycenter,
@@ -117,7 +124,6 @@ export class WheelMenuComponent implements AfterViewInit {
 
       segment.children = children || [];
 
-     
       // Add the segment to the array
       segments.push(segment);
     }
@@ -140,12 +146,12 @@ export class WheelMenuComponent implements AfterViewInit {
   hoverSegment(index: number): void {
     this.selectedIndex = index;
   }
-  focus(){
-    if(this.wheel) {
-      this.wheel.focus();
-    }
-  }
-  getChildSegmentPath(parentSegment: Segment, segmentIndex: number, childIndex: number): Segment {
+  focus() {}
+  getChildSegmentPath(
+    parentSegment: Segment,
+    segmentIndex: number,
+    childIndex: number
+  ): Segment {
     const currentSegment = parentSegment;
     const nChildren = this.items[segmentIndex].children!.length;
     const startAngle = currentSegment.startAngle;
@@ -166,7 +172,9 @@ export class WheelMenuComponent implements AfterViewInit {
       startRadius * Math.cos((childEndAngle * Math.PI) / 180)
     } ${startRadius * Math.sin((childEndAngle * Math.PI) / 180)}
 
-      L ${endRadius * Math.cos((childEndAngle * Math.PI) / 180)} ${endRadius * Math.sin((childEndAngle * Math.PI) / 180)}
+      L ${endRadius * Math.cos((childEndAngle * Math.PI) / 180)} ${
+      endRadius * Math.sin((childEndAngle * Math.PI) / 180)
+    }
       A ${endRadius} ${endRadius} 0 0 0 ${
       endRadius * Math.cos((childStartAngle * Math.PI) / 180)
     } ${endRadius * Math.sin((childStartAngle * Math.PI) / 180)}
@@ -176,15 +184,17 @@ export class WheelMenuComponent implements AfterViewInit {
     return {
       path,
       barycenter: {
-        x: (startRadius * Math.cos((midAngle * Math.PI) / 180) +
+        x:
+          (startRadius * Math.cos((midAngle * Math.PI) / 180) +
             endRadius * Math.cos((midAngle * Math.PI) / 180)) /
           2,
-        y: (startRadius * Math.sin((midAngle * Math.PI) / 180) +
+        y:
+          (startRadius * Math.sin((midAngle * Math.PI) / 180) +
             endRadius * Math.sin((midAngle * Math.PI) / 180)) /
-          2
+          2,
       },
       startAngle: childStartAngle,
-      endAngle: childEndAngle
+      endAngle: childEndAngle,
     };
   }
 

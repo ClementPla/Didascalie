@@ -14,20 +14,22 @@ export async function saveProjectConfigFile(
   invokeSaveJsonFile(await projectConfigPath, projectConfigString);
 }
 export async function invokeSaveXmlFile(filepath: string, xmlContent: string) {
-  await invoke('save_xml_file', { filepath, xmlContent })
+  await invoke('save_xml_file', { filepath, xmlContent });
 }
 export async function invokeSaveCSVFile(filepath: string, csvContent: string) {
-    await invoke('save_csv_file', { filepath, csvContent })
+  await invoke('save_csv_file', { filepath, csvContent });
 }
 
 export async function invokeLoadCsvFile(filepath: string): Promise<string> {
   return invoke('load_csv_file', { filepath });
 }
 
-export async function invokeSaveJsonFile(filepath: string, jsonContent: string) {
-    //
-    await invoke('save_json_file', { filepath, jsonContent })
-  
+export async function invokeSaveJsonFile(
+  filepath: string,
+  jsonContent: string
+) {
+  //
+  await invoke('save_json_file', { filepath, jsonContent });
 }
 
 export function invokeLoadJsonFile(filepath: string) {
@@ -44,19 +46,5 @@ export function blobToDataURL(blob: Blob): Promise<string> {
 }
 
 export function loadImageFile(filepath: string): Promise<string> {
-  return invoke<ArrayBuffer>('load_image_as_base64', {
-    filepath: filepath,
-  }).then((value) => {
-    return new Promise<string>((resolve, reject) => {
-      const blob = new Blob([value], { type: 'image/png' });
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(reader.result as string);
-      };
-      reader.onerror = (error) => {
-        reject(error);
-      };
-      reader.readAsDataURL(blob);
-    });
-  });
+  return invoke<string>('load_image_as_base64', { filepath });
 }

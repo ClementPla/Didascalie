@@ -126,14 +126,9 @@ export class DrawableCanvasComponent implements AfterViewInit {
     })!;
 
     this.zoomPanService.setContext(this.imgCanvas.nativeElement);
-    this.undoRedoService.empty();
     if (this.projectService.activeImage) {
       this.loadImage(this.projectService.activeImage);
     }
-  }
-
-  goFullScreen() {
-    //
   }
 
   @HostListener('window:resize')
@@ -187,6 +182,11 @@ export class DrawableCanvasComponent implements AfterViewInit {
       width: this.stateService.width,
       height: this.stateService.height,
     });
+    let max_dim = Math.max(this.stateService.width, this.stateService.height);
+
+    this.zoomPanService.smooth = max_dim < 2048;
+
+    this.zoomPanService.resetZoomAndPan(true, false);
 
     this.resizeCanvas();
     this.changeDetectorRef.detectChanges();
@@ -422,7 +422,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
   public reload(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.image.onload = () => {
+      this.image.onload = async () => {
         this.stateService.recomputeCanvasSum = true;
         this.postProcessService.featuresExtracted = false;
 
@@ -432,7 +432,6 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
         this.initializeDimensions();
         this.canvasManagerService.updateCanvasesDimensions();
-        this.undoRedoService.empty();
         this.redrawAllCanvas();
         this.isImageLoaded = true;
         this.zoomPanService.resetZoomAndPan(true, true);
@@ -450,8 +449,10 @@ export class DrawableCanvasComponent implements AfterViewInit {
     this.canvasManagerService.loadCanvas(data, index);
   }
 
-  public loadAllCanvas(masks: string[]) {
+  public async loadAllCanvas(masks: string[]) {
     this.canvasManagerService.loadAllCanvas(masks);
+    this.undoRedoService.empty();
+    await this.undoRedoService.update_undo_redo();
   }
 
   public switchFullScreen() {

@@ -1,73 +1,78 @@
 import { UndoRedoCanvasElement } from '../interface';
 
-export class _UndoStack {
-  stack: UndoRedoCanvasElement[] = [];
+class Stack<T> {
+  private stack: T[] = [];
 
   isEmpty(): boolean {
     return this.stack.length === 0;
   }
 
-  push(element: UndoRedoCanvasElement) {
+  push(element: T): void {
     this.stack.push(element);
   }
 
-  pop(): UndoRedoCanvasElement | undefined {
+  pop(): T | undefined {
     return this.stack.pop();
   }
 
-  empty() {
+  peek(): T | undefined {
+    return this.stack[this.stack.length - 1];
+  }
+
+  empty(): void {
     this.stack = [];
   }
-}
 
-export class _RedoStack {
-  stack: UndoRedoCanvasElement[] = [];
-
-  isEmpty(): boolean {
-    return this.stack.length === 0;
-  }
-
-  push(element: UndoRedoCanvasElement) {
-    this.stack.push(element);
-  }
-
-  pop(): UndoRedoCanvasElement | undefined {
-    return this.stack.pop();
-  }
-
-  empty() {
-    this.stack = [];
+  size(): number {
+    return this.stack.length;
   }
 }
 
 class UndoRedoStack {
-  undoStack: _UndoStack = new _UndoStack();
-  redoStack: _RedoStack = new _RedoStack();
+  private undoStack = new Stack<UndoRedoCanvasElement>();
+  private redoStack = new Stack<UndoRedoCanvasElement>();
 
-  undo() {
-    const element = this.undoStack.pop();
-    if (element) {
-      this.redoStack.push(element);
+  undo(): UndoRedoCanvasElement | undefined {
+    // Need at least 2 states: current state and previous state
+    if (this.undoStack.size() < 2) {
+      return undefined; // or return current state if size === 1
     }
-    return element;
+
+    // Pop current state and move to redo
+    const currentState = this.undoStack.pop();
+    if (currentState) {
+      this.redoStack.push(currentState);
+    }
+
+    // Return the previous state (now current)
+    return this.undoStack.peek();
   }
 
-  redo() {
+  redo(): UndoRedoCanvasElement | undefined {
     const element = this.redoStack.pop();
     if (element) {
       this.undoStack.push(element);
+      return element;
     }
-    return element;
+    return undefined;
   }
 
-  push(element: UndoRedoCanvasElement) {
+  push(element: UndoRedoCanvasElement): void {
     this.undoStack.push(element);
-    this.redoStack.empty();
+    this.redoStack.empty(); // Clear redo stack on new action
   }
 
-  empty() {
+  empty(): void {
     this.undoStack.empty();
     this.redoStack.empty();
+  }
+
+  canUndo(): boolean {
+    return this.undoStack.size() > 1;
+  }
+
+  canRedo(): boolean {
+    return !this.redoStack.isEmpty();
   }
 }
 

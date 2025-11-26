@@ -1,12 +1,14 @@
-<div class="grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] w-full">
+<div
+  class="grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] w-full max-screen-available overflow-hidden rounded-lg"
+>
   <div
     [style.height.px]="rulerSize"
     [style.width.px]="rulerSize"
-    class="bg-gray-950 rounded-tl-lg"
+    class="bg-gray-950 invisible"
   ></div>
   <!-- Top ruler -->
   <div
-    class="bg-gray-950 relative rounded-t-lg overflow-x-clip"
+    class="bg-gray-950 relative overflow-x-clip"
     [style.height.px]="rulerSize"
   >
     <p
@@ -32,22 +34,22 @@
   </div>
 
   <!-- Left ruler -->
-  <div
-    class="bg-gray-950 relative rounded-l-lg overflow-y-clip"
-    [style.width.px]="rulerSize"
-  >
+  <div class="bg-gray-950 relative" [style.width.px]="rulerSize">
+    @if((viewBox.ymin) >= 0){
     <p
       class="absolute viewBoxMarkerHorizontal"
       [style.top.px]="viewBox.ymin - rulerSize"
     >
       0
     </p>
+    } @if((cursor.y - rulerSize) > 0){
     <p
       class="absolute viewBoxMarkerHorizontal"
       [style.top.px]="cursor.y - rulerSize"
     >
       {{ currentPixel.y }}
     </p>
+    }
     <p
       class="absolute viewBoxMarkerHorizontal"
       [style.top.px]="viewBox.ymax - rulerSize"
@@ -58,12 +60,12 @@
 
   <!-- Main canvas -->
   <div
-    class="bg-gray-800 flex flex-grow relative w-full items-center justify-center"
+    class="bg-gray-800 flex flex-grow relative w-full"
     [ngStyle]="{
         'aspect-ratio': stateService.width / stateService.height,
       }"
     [ngClass]="{
-      'relative max-screen-available': !isFullscreen,
+      relative: !isFullscreen,
       'fixed h-full max-w-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black box-shadow z-[2500]':
         isFullscreen
     }"
@@ -83,7 +85,7 @@
         [ngStyle]="{
         'aspect-ratio': stateService.width / stateService.height,
       }"
-        class="absolute cursor-crosshair"
+        class="absolute cursor-crosshair crisp-edges"
         [ngClass]="{
           'cursor-grab': editorService.canPan(),
           'cursor-none': editorService.isToolWithBrushSize(),
@@ -108,15 +110,12 @@
         #labelCanvas
         [style.width.px]="canvasWidth"
         [style.height.px]="canvasHeight"
-        class="absolute labelCanvas pointer-events-none"
+        class="absolute crisp-edges pointer-events-none"
         [style.opacity]="editorService.labelOpacity"
       ></canvas>
-
-      <div
-        class="cursor"
-        *ngIf="editorService.isToolWithBrushSize()"
-        [ngStyle]="getCursorStyle()"
-      ></div>
+      @if(editorService.isToolWithBrushSize()){
+      <div class="cursor" [ngStyle]="getCursorStyle()"></div>
+      }
       <div
         class="absolute h-full skeleton w-full z-50"
         [ngClass]="{
@@ -127,27 +126,28 @@
     </div>
 
     <p class="absolute flex items-center justify-start left-5 top-0">
+      @if(!isFullscreen){
       <p-button
         pRipple
         [rounded]="true"
         [raised]="true"
         (click)="switchFullScreen()"
-        *ngIf="!isFullscreen"
         icon="pi pi-window-maximize"
         severity="help"
       >
       </p-button>
+      } @if(isFullscreen){
       <p-button
         pButton
         pRipple
         [rounded]="true"
         [raised]="true"
         (click)="switchFullScreen()"
-        *ngIf="isFullscreen"
         icon="pi pi-window-minimize"
         severity="help"
       >
       </p-button>
+      }
 
       <p-button
         [rounded]="true"

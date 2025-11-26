@@ -18,7 +18,7 @@ export class ZoomPanService {
   private canZoom = true;
   private canPan = true;
   private canvasRef: HTMLCanvasElement;
-
+  smooth: boolean = true;
   private prevPoint: Point2D | null = null;
   public redrawRequest = new Subject<boolean>();
   constructor(private stateService: StateManagerService) {}
@@ -61,8 +61,6 @@ export class ZoomPanService {
       height: viewBoxHeight,
     };
   }
-
-  public zoomTofitToScreen() {}
 
   public drag(event: MouseEvent) {
     if (!this.canPan) {
@@ -166,7 +164,7 @@ export class ZoomPanService {
     this.targetScale = scale;
     this.targetOffset.x = offsetX;
     this.targetOffset.y = offsetY;
-    if (smooth) {
+    if (smooth && this.smooth) {
       this.smoothUpdateTransform();
     } else {
       this.redrawRequest.next(true);
@@ -175,13 +173,29 @@ export class ZoomPanService {
 
   public resetZoomAndPan(smooth: boolean = true, redraw: boolean = true) {
     this.stateService.recomputeCanvasSum = false;
-    this.targetScale = 1;
-    this.targetOffset = { x: 0, y: 0 };
+    // Compute the target scale and offset to fit the image to the canvas
+    // Use actual canvas dimensions, not the bounding rect
+    const canvasWidth = this.canvasRef.width;
+    const canvasHeight = this.canvasRef.height;
+
+    // Calculate scale to fit image within canvas
+    let scaleX = canvasWidth / this.stateService.width;
+    let scaleY = canvasHeight / this.stateService.height;
+    this.targetScale = Math.max(scaleX, scaleY);
+    this.targetScale = Math.min(this.targetScale, this.maxScale);
+    this.targetScale = Math.max(this.targetScale, this.minScale);
+
+    // Center the image on the canvas
+    const offsetX =
+      (canvasWidth - this.stateService.width * this.targetScale) / 2;
+    const offsetY =
+      (canvasHeight - this.stateService.height * this.targetScale) / 2;
+    this.targetOffset = { x: offsetX, y: offsetY };
     if (!redraw) {
       return;
     }
 
-    if (smooth) {
+    if (smooth && this.smooth) {
       this.smoothUpdateTransform();
     } else {
       this.scale = this.targetScale;
@@ -191,6 +205,12 @@ export class ZoomPanService {
   }
 
   public smoothUpdateTransform() {
+    if (!this.smooth) {
+      this.scale = this.targetScale;
+      this.offset = this.targetOffset;
+      this.redrawRequest.next(true);
+      return;
+    }
     const easeFactorZoom = 0.3;
     const newScale =
       this.scale + (this.targetScale - this.scale) * easeFactorZoom;
