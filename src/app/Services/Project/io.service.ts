@@ -99,6 +99,7 @@ export class IOService {
 
   async load() {
     let exists = await this.checkIfDataExists(await this.getMaskSavePath());
+    console.log('Annotations exist:', exists);
     if (!exists) {
       return;
     }
@@ -132,7 +133,6 @@ export class IOService {
   }
 
   async save() {
-    // this.viewService.setLoading(true, 'Saving annotations');
     let savefile = {
       masksName: [],
       masks: [],

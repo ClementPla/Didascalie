@@ -52,7 +52,7 @@
             [(ngModel)]="imgSize"
             [min]="128"
             [max]="512"
-            styleClass="w-56"
+            class="w-56"
           />
         </p>
         <app-labelled-switch [(checked)]="showAdvancedFilters">
@@ -88,12 +88,13 @@
           class="p-button-success"
           (click)="refresh()"
         >
+          @if(autoRefresh){
           <p-knob
-            *ngIf="autoRefresh"
             [(ngModel)]="percentageBeforeRefresh"
             [size]="15"
             [valueTemplate]="''"
           />
+          }
         </button>
       </div>
     </ng-template>

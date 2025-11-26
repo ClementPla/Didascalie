@@ -34,6 +34,7 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { PostProcessOption } from '../../../Core/tools';
+import { ProgressBarModule } from 'primeng/progressbar';
 
 @Component({
   selector: 'app-project-configuration',
@@ -58,6 +59,7 @@ import { PostProcessOption } from '../../../Core/tools';
     GenericsModule,
     ToastModule,
     SelectButtonModule,
+    ProgressBarModule,
   ],
   providers: [MessageService],
   templateUrl: './project-configuration.component.html',
@@ -67,21 +69,8 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   isInputValid: boolean = true;
   isOutputValid: boolean = true;
   isNameValid: boolean = true;
+  fileLoading: boolean = false;
 
-  defaultPotentialSizes: any[] = [
-    {
-      name: '512',
-      value: 512,
-    },
-    {
-      name: '1024',
-      value: 1024,
-    },
-    {
-      name: '2048',
-      value: 2048,
-    },
-  ];
   constructor(
     public projectService: ProjectService,
     public labelService: LabelsService,
@@ -119,13 +108,14 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     });
   }
 
-  startProject() {
+  async startProject() {
     // Validate input
     this.isInputValid = this.projectService.inputFolder !== '';
     this.isOutputValid = this.projectService.outputFolder !== '';
     this.isNameValid = this.projectService.projectName !== '';
+
     if (this.isInputValid && this.isOutputValid) {
-      this.projectService.startProject();
+      await this.projectService.startProject();
       this.viewService.navigateToGallery();
     }
   }
@@ -138,7 +128,8 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     });
     this.clipboard.copy(filepath);
     filepath = await path.join(filepath, 'project_config.json');
-    await this.projectService.loadProjectFile(filepath, start);
+    await this.projectService.loadProjectFile(filepath, start).then;
+    this.updateFileCounter();
     if (start) {
       await this.viewService.navigateToGallery();
     }
@@ -152,7 +143,14 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
       }
     });
   }
+  async updateFileCounter() {
+    if (this.fileLoading) return;
 
+    this.fileLoading = true;
+    this.projectService.listFiles().then(() => {
+      this.fileLoading = false;
+    });
+  }
   removeProjectFromFilepath(filepath: string) {
     this.projectService.removeProjectFile(filepath);
   }
@@ -163,12 +161,12 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async debug() {
-    this.editorService.penPostProcess = true;
+    this.editorService.penPostProcess = false;
     this.editorService.postProcessOption = PostProcessOption.FLOODFILL;
     this.editorService.lineWidth = 50;
     await this.projectService
       .loadProjectFile(
-        '/home/clement/Documents/tmp/Demo/project_config.json',
+        '/home/clement/Documents/tmp/Demo/TestEnvironment/project_config.json',
         true
       )
       .then(() => {

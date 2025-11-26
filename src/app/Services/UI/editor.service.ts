@@ -31,9 +31,6 @@ export class EditorService {
   public bbxOpacity: number = 0.4;
   public eraseOnClick: boolean = false;
 
-  public autoResize: boolean = false;
-  public maxDimension: number = 2048;
-
   public samThreshold: number = 0.5;
 
   public postProcessOption: PostProcessOption = PostProcessOption.OTSU;

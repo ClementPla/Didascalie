@@ -15,7 +15,11 @@
   translate: -50% -50%;
 }
 .max-screen-available {
-  height: calc(100vh - 2 * var(--toolbar-height) - 6rem);
+  height: calc(100vh - 2 * var(--toolbar-height) - 4rem);
+}
+
+.debug-border {
+  border: solid red 3px
 }
 
 .cursor::before {
@@ -30,7 +34,7 @@
   transform: translate(-50%, -50%);
 }
 
-.labelCanvas {
+.crisp-edges {
   // filter: drop-shadow(3px 5px 2px rgb(0 0 0 /1.0));
   image-rendering: -moz-crisp-edges;
   image-rendering: pixelated;

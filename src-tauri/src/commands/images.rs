@@ -1,243 +1,264 @@
-use base64::{ engine::general_purpose, Engine as _ };
+use base64::{engine::general_purpose, Engine as _};
 use std;
 
-use image::{ ImageBuffer, Luma, Rgb };
+use image::{ImageBuffer, Luma, Rgb};
 use std::io::Cursor;
-use std::path::{ Path, PathBuf };
+use std::path::{Path, PathBuf};
 
-use image::{ DynamicImage, GenericImageView };
+use image::{DynamicImage, GenericImageView};
 use ndarray::Array2;
-
-use tauri::ipc::Response;
 
 #[tauri::command]
 pub async fn create_cache_thumbnail(
-  image_path: String,
-  thumbnail_path: String,
-  width: u32,
-  height: u32
+    image_path: String,
+    thumbnail_path: String,
+    width: u32,
+    height: u32,
 ) -> Result<bool, String> {
-  let image_path = Path::new(&image_path).to_path_buf();
-  let thumbnail_path = Path::new(&thumbnail_path).to_path_buf();
-  if thumbnail_path.exists() {
-    // If the thumbnail already exists, return true
-    return Ok(true);
-  }
-  Ok(generate_thumbnail(&image_path, &thumbnail_path, width, height))
+    let image_path = Path::new(&image_path).to_path_buf();
+    let thumbnail_path = Path::new(&thumbnail_path).to_path_buf();
+    if thumbnail_path.exists() {
+        // If the thumbnail already exists, return true
+        return Ok(true);
+    }
+    Ok(generate_thumbnail(
+        &image_path,
+        &thumbnail_path,
+        width,
+        height,
+    ))
 }
 
 #[tauri::command]
 pub async fn create_thumbnail(
-  image_path: String,
-  width: u32,
-  height: u32
+    image_path: String,
+    width: u32,
+    height: u32,
 ) -> Result<String, String> {
-  let image_path = Path::new(&image_path).to_path_buf();
-  let img = image::open(&image_path).unwrap();
-  let thumbnail = img.thumbnail(width, height);
-  // Return the thumbnail as a base64 string
-  let mut buffer = Cursor::new(Vec::new());
-  thumbnail.write_to(&mut buffer, image::ImageFormat::Png).unwrap();
-  let thumbnail_base64 = general_purpose::STANDARD.encode(buffer.into_inner());
-  Ok(thumbnail_base64)
+    let image_path = Path::new(&image_path).to_path_buf();
+    let img = image::open(&image_path).unwrap();
+    let thumbnail = img.thumbnail(width, height);
+    // Return the thumbnail as a base64 string
+    let mut buffer = Cursor::new(Vec::new());
+    thumbnail
+        .write_to(&mut buffer, image::ImageFormat::Png)
+        .unwrap();
+    let thumbnail_base64 = general_purpose::STANDARD.encode(buffer.into_inner());
+    Ok(thumbnail_base64)
 }
 
 #[tauri::command]
-pub fn load_image_as_base64(filepath: String) -> Result<Response, String> {
-  let image_path = Path::new(&filepath);
+pub fn load_image_as_base64(filepath: String) -> Result<String, String> {
+    let image_path = Path::new(&filepath);
 
-  if !image_path.exists() {
-    eprintln!("Image {} does not exist", image_path.display());
-    return Err(format!("Image does not exist: {}", image_path.display()));
-  }
+    if !image_path.exists() {
+        return Err(format!("Image does not exist: {}", image_path.display()));
+    }
 
-  // Open the image
-  let img = image::open(image_path).map_err(|err| {
-    eprintln!("Failed to open image: {}", err);
-    format!("Failed to open image: {}", err)
-  })?;
+    // Read the file as raw bytes (no decoding/encoding)
+    let image_bytes =
+        std::fs::read(image_path).map_err(|err| format!("Failed to read image file: {}", err))?;
 
-  // Create a buffer wrapped in a Cursor
-  let mut buffer = Cursor::new(Vec::new());
+    // Detect MIME type from file extension or magic bytes
+    let mime_type = detect_mime_type(image_path, &image_bytes);
 
-  // Write the image to the buffer
-  img.write_to(&mut buffer, image::ImageFormat::Png).map_err(|err| {
-    eprintln!("Failed to write image to buffer: {}", err);
-    format!("Failed to write image to buffer: {}", err)
-  })?;
+    // Encode to base64
+    let base64_string = general_purpose::STANDARD.encode(&image_bytes);
 
-  Ok(Response::new(buffer.into_inner()))
+    // Return as data URL
+    Ok(format!("data:{};base64,{}", mime_type, base64_string))
+}
+
+fn detect_mime_type(path: &Path, bytes: &[u8]) -> &'static str {
+    // Check magic bytes first (more reliable)
+    if bytes.len() >= 4 {
+        match &bytes[0..4] {
+            [0x89, b'P', b'N', b'G'] => return "image/png",
+            [0xFF, 0xD8, 0xFF, _] => return "image/jpeg",
+            _ => {}
+        }
+    }
+
+    if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        return "image/webp";
+    }
+
+    // Fallback to extension
+    match path.extension().and_then(|s| s.to_str()) {
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("webp") => "image/webp",
+        Some("gif") => "image/gif",
+        Some("bmp") => "image/bmp",
+        _ => "application/octet-stream",
+    }
 }
 
 fn generate_thumbnail(
-  image_path: &PathBuf,
-  thumbnail_path: &PathBuf,
-  width: u32,
-  height: u32
+    image_path: &PathBuf,
+    thumbnail_path: &PathBuf,
+    width: u32,
+    height: u32,
 ) -> bool {
-  let image_path = image_path.clone();
-  let thumbnail_path = thumbnail_path.clone();
+    let image_path = image_path.clone();
+    let thumbnail_path = thumbnail_path.clone();
 
-  let img = image::open(&image_path).unwrap();
-  let thumbnail = img.thumbnail(width, height);
-  if !thumbnail_path.parent().unwrap().exists() {
-    std::fs::create_dir_all(thumbnail_path.parent().unwrap()).unwrap();
-  }
-  if thumbnail_path.exists() {
-    return true;
-  }
-  thumbnail.save(&thumbnail_path).is_ok()
+    let img = image::open(&image_path).unwrap();
+    let thumbnail = img.thumbnail(width, height);
+    if !thumbnail_path.parent().unwrap().exists() {
+        std::fs::create_dir_all(thumbnail_path.parent().unwrap()).unwrap();
+    }
+    if thumbnail_path.exists() {
+        return true;
+    }
+    thumbnail.save(&thumbnail_path).is_ok()
 }
 
 #[tauri::command]
 pub fn process_image_blob(blob: Vec<u8>) -> Result<f64, String> {
-  // Convert the blob to an image
-  let img = match image::load_from_memory(&blob) {
-    Ok(dynamic_image) => dynamic_image.to_rgba8(),
-    Err(_) => {
-      return Err("Failed to load image from blob".to_string());
-    }
-  };
+    // Convert the blob to an image
+    let img = match image::load_from_memory(&blob) {
+        Ok(dynamic_image) => dynamic_image.to_rgba8(),
+        Err(_) => {
+            return Err("Failed to load image from blob".to_string());
+        }
+    };
 
-  // Calculate mean pixel value
-  let (width, height) = img.dimensions();
-  let total_pixels = width * height;
+    // Calculate mean pixel value
+    let (width, height) = img.dimensions();
+    let total_pixels = width * height;
 
-  // Sum up all pixel values
-  let sum: f64 = img
-    .pixels()
-    .map(|pixel| {
-      // Calculate average of R, G, B channels (ignore alpha)
-      ((pixel[0] as f64) + (pixel[1] as f64) + (pixel[2] as f64)) / 3.0
-    })
-    .sum();
+    // Sum up all pixel values
+    let sum: f64 = img
+        .pixels()
+        .map(|pixel| {
+            // Calculate average of R, G, B channels (ignore alpha)
+            ((pixel[0] as f64) + (pixel[1] as f64) + (pixel[2] as f64)) / 3.0
+        })
+        .sum();
 
-  // Calculate mean
-  let mean = sum / (total_pixels as f64);
+    // Calculate mean
+    let mean = sum / (total_pixels as f64);
 
-  Ok(mean)
+    Ok(mean)
 }
 
 pub fn convert_image_to_mask_array(image: &DynamicImage) -> Array2<bool> {
-  let (width, height) = image.dimensions();
-  let rgba_image = image.to_rgba8();
-  let pixels = rgba_image.into_raw();
+    let (width, height) = image.dimensions();
+    let rgba_image = image.to_rgba8();
+    let pixels = rgba_image.into_raw();
 
-  let mut mask_data = Vec::with_capacity((width * height) as usize);
+    let mut mask_data = Vec::with_capacity((width * height) as usize);
 
-  for pixel in pixels.chunks(4) {
-    let a = pixel[3];
-    // Binarization using the alpha channel
-    let is_masked = a > 128;
+    for pixel in pixels.chunks(4) {
+        let a = pixel[3];
+        // Binarization using the alpha channel
+        let is_masked = a > 128;
 
-    mask_data.push(is_masked);
-  }
+        mask_data.push(is_masked);
+    }
 
-  Array2::from_shape_vec((height as usize, width as usize), mask_data).unwrap()
+    Array2::from_shape_vec((height as usize, width as usize), mask_data).unwrap()
 }
 
 pub fn convert_image_to_luma_u8_array(image: &DynamicImage) -> Array2<u8> {
-  let (width, height) = image.dimensions();
-  let luma_image = image.to_luma8();
-  let pixels = luma_image.into_raw();
+    let (width, height) = image.dimensions();
+    let luma_image = image.to_luma8();
+    let pixels = luma_image.into_raw();
 
-  Array2::from_shape_vec((height as usize, width as usize), pixels).unwrap()
+    Array2::from_shape_vec((height as usize, width as usize), pixels).unwrap()
 }
 
 pub fn hex_to_rgb(hex: String) -> Vec<u8> {
-  let hex = hex.trim_start_matches('#');
-  let r = u8::from_str_radix(&hex[0..2], 16).unwrap();
-  let g = u8::from_str_radix(&hex[2..4], 16).unwrap();
-  let b = u8::from_str_radix(&hex[4..6], 16).unwrap();
-  vec![r, g, b]
+    let hex = hex.trim_start_matches('#');
+    let r = u8::from_str_radix(&hex[0..2], 16).unwrap();
+    let g = u8::from_str_radix(&hex[2..4], 16).unwrap();
+    let b = u8::from_str_radix(&hex[4..6], 16).unwrap();
+    vec![r, g, b]
 }
 
 pub fn filter_aliasing(
-  image: ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-  hex: String
+    image: ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+    hex: String,
 ) -> ImageBuffer<image::Rgb<u8>, Vec<u8>> {
-  let color = hex_to_rgb(hex);
-  // Any time alpha is not 0, we take
-  let mut new_image: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::new(
-    image.width(),
-    image.height()
-  );
-  for y in 0..image.height() {
-    for x in 0..image.width() {
-      let pixel = image.get_pixel(x, y);
-      let mut new_pixel = Rgb([0, 0, 0]);
-      if pixel[3] != 0 {
-        new_pixel[0] = color[0];
-        new_pixel[1] = color[1];
-        new_pixel[2] = color[2];
-      }
-      new_image.put_pixel(x, y, new_pixel);
+    let color = hex_to_rgb(hex);
+    // Any time alpha is not 0, we take
+    let mut new_image: ImageBuffer<Rgb<u8>, Vec<u8>> =
+        ImageBuffer::new(image.width(), image.height());
+    for y in 0..image.height() {
+        for x in 0..image.width() {
+            let pixel = image.get_pixel(x, y);
+            let mut new_pixel = Rgb([0, 0, 0]);
+            if pixel[3] != 0 {
+                new_pixel[0] = color[0];
+                new_pixel[1] = color[1];
+                new_pixel[2] = color[2];
+            }
+            new_image.put_pixel(x, y, new_pixel);
+        }
     }
-  }
-  new_image
+    new_image
 }
 
 pub fn merge_multiple_images(
-  images: &Vec<ImageBuffer<image::Rgb<u8>, Vec<u8>>>
+    images: &Vec<ImageBuffer<image::Rgb<u8>, Vec<u8>>>,
 ) -> ImageBuffer<image::Rgb<u8>, Vec<u8>> {
-  let mut new_image: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::new(
-    images[0].width(),
-    images[0].height()
-  );
-  for y in 0..images[0].height() {
-    for x in 0..images[0].width() {
-      let mut new_pixel = Rgb([0, 0, 0]);
-      for image in images.iter() {
-        let pixel = image.get_pixel(x, y);
-        if pixel[0] != 0 || pixel[1] != 0 || pixel[2] != 0 {
-          new_pixel[0] = pixel[0];
-          new_pixel[1] = pixel[1];
-          new_pixel[2] = pixel[2];
+    let mut new_image: ImageBuffer<Rgb<u8>, Vec<u8>> =
+        ImageBuffer::new(images[0].width(), images[0].height());
+    for y in 0..images[0].height() {
+        for x in 0..images[0].width() {
+            let mut new_pixel = Rgb([0, 0, 0]);
+            for image in images.iter() {
+                let pixel = image.get_pixel(x, y);
+                if pixel[0] != 0 || pixel[1] != 0 || pixel[2] != 0 {
+                    new_pixel[0] = pixel[0];
+                    new_pixel[1] = pixel[1];
+                    new_pixel[2] = pixel[2];
+                }
+            }
+            new_image.put_pixel(x, y, new_pixel);
         }
-      }
-      new_image.put_pixel(x, y, new_pixel);
     }
-  }
-  new_image
+    new_image
 }
 
 pub fn from_rgb_to_binary(
-  image: &ImageBuffer<image::Rgb<u8>, Vec<u8>>
+    image: &ImageBuffer<image::Rgb<u8>, Vec<u8>>,
 ) -> ImageBuffer<image::Luma<u8>, Vec<u8>> {
-  let (width, height) = image.dimensions();
-  let mut mask_data: ImageBuffer<image::Luma<u8>, Vec<u8>> = ImageBuffer::new(width, height);
+    let (width, height) = image.dimensions();
+    let mut mask_data: ImageBuffer<image::Luma<u8>, Vec<u8>> = ImageBuffer::new(width, height);
 
-  for y in 0..height {
-    for x in 0..width {
-      let pixel = image.get_pixel(x, y);
-      let is_masked = pixel[0] != 0 || pixel[1] != 0 || pixel[2] != 0;
-      if is_masked {
-        mask_data.put_pixel(x, y, image::Luma([255]));
-      } else {
-        mask_data.put_pixel(x, y, image::Luma([0]));
-      }
+    for y in 0..height {
+        for x in 0..width {
+            let pixel = image.get_pixel(x, y);
+            let is_masked = pixel[0] != 0 || pixel[1] != 0 || pixel[2] != 0;
+            if is_masked {
+                mask_data.put_pixel(x, y, image::Luma([255]));
+            } else {
+                mask_data.put_pixel(x, y, image::Luma([0]));
+            }
+        }
     }
-  }
-  mask_data
+    mask_data
 }
 
 pub fn from_multiples_masks_to_multiclass(
-  masks: &Vec<ImageBuffer<image::Luma<u8>, Vec<u8>>>
+    masks: &Vec<ImageBuffer<image::Luma<u8>, Vec<u8>>>,
 ) -> ImageBuffer<image::Luma<u8>, Vec<u8>> {
-  let (width, height) = masks[0].dimensions();
-  let mut mask_data: ImageBuffer<image::Luma<u8>, Vec<u8>> = ImageBuffer::new(width, height);
+    let (width, height) = masks[0].dimensions();
+    let mut mask_data: ImageBuffer<image::Luma<u8>, Vec<u8>> = ImageBuffer::new(width, height);
 
-  for y in 0..height {
-    for x in 0..width {
-      let mut new_pixel = Luma([0]);
-      for (i, mask) in masks.iter().enumerate().rev() {
-        let pixel = mask.get_pixel(x, y);
-        if pixel[0] != 0 {
-          new_pixel = Luma([(i+1) as u8]);
+    for y in 0..height {
+        for x in 0..width {
+            let mut new_pixel = Luma([0]);
+            for (i, mask) in masks.iter().enumerate().rev() {
+                let pixel = mask.get_pixel(x, y);
+                if pixel[0] != 0 {
+                    new_pixel = Luma([(i + 1) as u8]);
+                }
+            }
+            mask_data.put_pixel(x, y, new_pixel);
         }
-      }
-      mask_data.put_pixel(x, y, new_pixel);
     }
-  }
-  mask_data
+    mask_data
 }

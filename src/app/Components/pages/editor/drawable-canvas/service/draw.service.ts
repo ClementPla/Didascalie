@@ -300,6 +300,7 @@ export class DrawService {
         this.labelService.incrementActiveInstance();
       }
     }
+    await this.undoRedoService.update_undo_redo();
   }
 
   public eraserPen(ctx: OffscreenCanvasRenderingContext2D) {
@@ -437,7 +438,7 @@ export class DrawService {
     }
 
     this.clearCanvas(this.canvasManagerService.bufferCtx);
-    await this.undoRedoService.update_undo_redo();
+    // await this.undoRedoService.update_undo_redo();
   }
 
   public swapMarkers() {

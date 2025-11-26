@@ -10,7 +10,7 @@ export const CombinedLabel = {
   color: '#ffffff',
   isVisible: true,
   shades: null,
-}
+};
 
 export interface SegInstance {
   label: SegLabel;
@@ -53,7 +53,7 @@ export interface Viewbox {
 }
 
 export interface UndoRedoCanvasElement {
-  data: Blob | Blob[];
+  data: OffscreenCanvas | OffscreenCanvas[];
   index: number;
 }
 
@@ -83,7 +83,6 @@ export interface ProjectConfig {
   classification_multilabel: null | MultilabelInterface;
   text_names: null | string[];
   default_colors: null | string[];
-
 }
 
 export interface ImageFromCLI {
@@ -97,12 +96,10 @@ export interface ImageFromCLI {
   height: number;
 }
 
-
 export interface ProjectFile {
   root: string;
   project_name: string;
 }
-
 
 export interface LabelFormat {
   masksName: string[];
@@ -113,10 +110,9 @@ export interface LabelFormat {
   texts: string[] | null;
 }
 
-
 export type DownloadingInformations = {
   filename: string;
   progress: number;
   downloaded: boolean;
   total: number;
-}
+};

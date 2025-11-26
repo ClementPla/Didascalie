@@ -13,43 +13,65 @@ use std::path::Path;
 use tauri::command;
 use tauri::{AppHandle, Emitter};
 
-
 #[command]
 pub fn list_files_in_folder(folder: &str, regexfilter: &str, recursive: bool) -> Vec<String> {
-    let mut files = Vec::new();
+    let mut __files__ = Vec::new();
+
     if !std::path::Path::new(folder).exists() {
-        return files;
+        return __files__;
     }
-    let paths = std::fs::read_dir(folder).unwrap();
+
+    // Handle read_dir error gracefully - folder might have been deleted/moved
+    let paths = match std::fs::read_dir(folder) {
+        Ok(paths) => paths,
+        Err(_) => return __files__,
+    };
+
     let formatted_regex = format!(r"(?i){}", regexfilter);
-    match Regex::new(&formatted_regex) {
-        Ok(re) => {
-            for path in paths {
-                let path = path.unwrap().path();
-                let file_name = path.file_name().unwrap().to_str().unwrap();
-                if file_name.starts_with(".") {
-                    continue;
-                }
-                if path.is_file() && re.is_match(path.to_str().unwrap()) {
-                    files.push(path.display().to_string());
-                }
-                if path.is_dir() && recursive {
-                    files.append(
-                        list_files_in_folder(path.to_str().unwrap(), regexfilter, recursive)
-                            .as_mut(),
-                    );
-                }
-            }
-        }
+    let re = match Regex::new(&formatted_regex) {
+        Ok(re) => re,
         Err(_) => {
             println!("Invalid regex: {}", regexfilter);
-            // Return an empty list if the regex is invalid
-            return files;
+            return __files__;
+        }
+    };
+
+    for path_result in paths {
+        // THIS IS THE CRITICAL FIX - handle the DirEntry error
+        let entry = match path_result {
+            Ok(entry) => entry,
+            Err(_) => continue, // Skip entries we can't read
+        };
+
+        let path = entry.path();
+
+        // Handle file_name extraction errors
+        let file_name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name,
+            None => continue,
+        };
+
+        if file_name.starts_with('.') {
+            continue;
+        }
+
+        // Handle path.to_str() errors
+        let path_str = match path.to_str() {
+            Some(s) => s,
+            None => continue,
+        };
+
+        if path.is_file() && re.is_match(path_str) {
+            __files__.push(path.display().to_string());
+        }
+
+        if path.is_dir() && recursive {
+            __files__.append(&mut list_files_in_folder(path_str, regexfilter, recursive));
         }
     }
-    files
-}
 
+    __files__
+}
 #[command]
 pub fn save_xml_file(filepath: String, xml_content: String) -> Result<(), String> {
     // Validate the filepath
@@ -67,7 +89,7 @@ pub fn save_xml_file(filepath: String, xml_content: String) -> Result<(), String
     // Write the XML content to the file
     file.write_all(xml_content.as_bytes())
         .map_err(|e| format!("Failed to write XML content: {}", e))?;
-
+    dbg!("Sucessfully saved file");
     Ok(())
 }
 
@@ -143,13 +165,19 @@ pub fn save_csv_file(filepath: String, csv_content: String) {
 #[command]
 pub fn load_csv_file(filepath: String) -> String {
     // Open the file for reading
-    let mut file = File::open(&filepath).unwrap();
+    let path = Path::new(&filepath);
+    if path.exists() {
+        let mut file = File::open(&filepath).unwrap();
 
-    // Read the file contents
-    let mut csv_content = String::new();
-    file.read_to_string(&mut csv_content).unwrap();
+        // Read the file contents
+        let mut csv_content = String::new();
+        file.read_to_string(&mut csv_content).unwrap();
 
-    csv_content
+        csv_content
+    } else {
+        println!("{}", format!("Failed to read file: {}", filepath));
+        String::new()
+    }
 }
 
 #[command]
@@ -167,7 +195,7 @@ pub async fn export(
     individual_mask: bool,
     combined_mask: bool,
     colormap: bool,
-    only_reviewed: bool
+    only_reviewed: bool,
 ) {
     let mut all_files = list_files_in_folder(&input_folder, r".*\.svg", true);
     if only_reviewed {
@@ -178,7 +206,9 @@ pub async fn export(
             .iter()
             .filter_map(|file| {
                 let path = Path::new(file);
-                path.file_stem().and_then(|stem| stem.to_str()).map(|stem| stem.to_string())
+                path.file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .map(|stem| stem.to_string())
             })
             .collect();
 
@@ -186,7 +216,11 @@ pub async fn export(
             .into_iter()
             .filter(|file| {
                 let path = Path::new(file);
-                path.file_stem().and_then(|stem| stem.to_str()).map(|stem| stem.to_string()).map(|stem| reviewed_basenames.contains(&stem)).unwrap_or(false)
+                path.file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .map(|stem| stem.to_string())
+                    .map(|stem| reviewed_basenames.contains(&stem))
+                    .unwrap_or(false)
             })
             .collect();
     }
@@ -197,12 +231,12 @@ pub async fn export(
         // Load the SVG file as XML
         let xml_content = load_xml_file(file.clone()).unwrap();
         let xml: roxmltree::Document<'_> = roxmltree::Document::parse(&xml_content).unwrap();
-        let filename = Path::new(file); 
+        let filename = Path::new(file);
         // Strip the input folder from the filename
         let filename = filename.strip_prefix(&input_folder).unwrap();
         let filename = filename.to_str().unwrap();
         let filename = filename.replace(".svg", ".png");
-        
+
         // Check if the SVG file has a mask
         let has_mask = xml
             .descendants()
@@ -219,7 +253,6 @@ pub async fn export(
             );
         }
         app.emit("export-progress", 1).unwrap();
-
     });
 }
 
@@ -258,7 +291,7 @@ fn read_mask_and_save(
     // let mut combined_mask = ImageBuffer::new(dims.0, dims.1);
     if colormap {
         let mut output_path = Path::new(&output_folder).to_path_buf().join("colormaps");
-        
+
         output_path = output_path.join(filename.clone());
         if !output_path.exists() {
             let output_folder = output_path.parent().unwrap();
@@ -277,7 +310,7 @@ fn read_mask_and_save(
             binary_masks.iter().enumerate().for_each(|(i, mask)| {
                 let mut output_path = output_path.clone();
                 output_path = output_path.join(mask_names[i].clone());
-                
+
                 output_path = output_path.join(filename.clone());
                 if !output_path.exists() {
                     // We separate the filename from the folder
@@ -290,7 +323,7 @@ fn read_mask_and_save(
         }
         if combined_mask {
             let mut output_path = Path::new(&output_folder).to_path_buf().join("multiclass");
-            
+
             output_path = output_path.join(filename.clone());
             if !output_path.exists() {
                 let output_folder = output_path.parent().unwrap();

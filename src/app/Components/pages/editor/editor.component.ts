@@ -58,7 +58,7 @@ import { ProgressBarModule } from 'primeng/progressbar';
     QuickAccessMenuComponent,
     MeterGroupModule,
     DialogModule,
-    ProgressBarModule
+    ProgressBarModule,
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
@@ -95,18 +95,19 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     listen<void>('mask-segmentation-started', () => {
-      this.viewService.setLoading(true, 'Performing mask segmentation (first call may take longer)');
+      this.viewService.setLoading(
+        true,
+        'Performing mask segmentation (first call may take longer)'
+      );
     });
 
     listen<void>('mask-segmentation-completed', () => {
       this.viewService.endLoading();
     });
-
   }
 
   ngOnInit() {
     this.initializeSubscriptions();
-    
   }
 
   ngAfterViewInit() {
@@ -121,7 +122,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   updateDownloadDialogDisplay(information: DownloadingInformations) {
     this.displayDownloadDialog = !information.downloaded;
     this.downloadProgress = information.progress;
-
   }
   private initializeSubscriptions(): void {
     this.subscriptions.add(
@@ -140,6 +140,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   updateMousePosition(event: MouseEvent): void {
     this.mousePosition = { x: event.clientX, y: event.clientY };
   }
+
   public async loadCanvas(reload: boolean = true) {
     if (!this.canvas || !this.projectService.activeImage) {
       console.warn('Canvas or active image not available');
@@ -269,7 +270,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('window:keydown.control.s')
   async save() {
     await this.projectService.update_reviewed();
-    return this.IOService.save();
+    await this.IOService.save();
+    console.log('Annotations saved');
+    return true;
   }
 
   @HostListener('window:keydown.ArrowRight')
@@ -352,9 +355,11 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return undefined;
     }
     const currentIndex = this.projectService.activeIndex;
-    if (currentIndex === null) return undefined;
 
-    const label = `${currentIndex} / ${this.projectService.getTotalImages()} images done`;
+    if (currentIndex === null) return undefined;
+    const currentImageName = this.projectService.imagesName[currentIndex];
+
+    const label = `Current image: ${currentImageName} - ${currentIndex} / ${this.projectService.getTotalImages()} images done`;
     const value = [
       {
         label: label,
