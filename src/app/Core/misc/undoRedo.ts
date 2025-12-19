@@ -1,5 +1,3 @@
-import { UndoRedoCanvasElement } from '../interface';
-
 class Stack<T> {
   private stack: T[] = [];
 
@@ -28,14 +26,14 @@ class Stack<T> {
   }
 }
 
-class UndoRedoStack {
-  private undoStack = new Stack<UndoRedoCanvasElement>();
-  private redoStack = new Stack<UndoRedoCanvasElement>();
+export class UndoRedo<T> {
+  private undoStack = new Stack<T>();
+  private redoStack = new Stack<T>();
 
-  undo(): UndoRedoCanvasElement | undefined {
+  undo(): T | undefined {
     // Need at least 2 states: current state and previous state
     if (this.undoStack.size() < 2) {
-      return undefined; // or return current state if size === 1
+      return undefined;
     }
 
     // Pop current state and move to redo
@@ -48,7 +46,7 @@ class UndoRedoStack {
     return this.undoStack.peek();
   }
 
-  redo(): UndoRedoCanvasElement | undefined {
+  redo(): T | undefined {
     const element = this.redoStack.pop();
     if (element) {
       this.undoStack.push(element);
@@ -57,7 +55,7 @@ class UndoRedoStack {
     return undefined;
   }
 
-  push(element: UndoRedoCanvasElement): void {
+  push(element: T): void {
     this.undoStack.push(element);
     this.redoStack.empty(); // Clear redo stack on new action
   }
@@ -74,6 +72,22 @@ class UndoRedoStack {
   canRedo(): boolean {
     return !this.redoStack.isEmpty();
   }
-}
 
-export const UndoRedo = new UndoRedoStack();
+  size(): number {
+    return this.undoStack.size();
+  }
+
+  /**
+   * Get the current state without modifying the stack
+   */
+  peek(): T | undefined {
+    return this.undoStack.peek();
+  }
+
+  /**
+   * Check if the stack has any states
+   */
+  isEmpty(): boolean {
+    return this.undoStack.isEmpty();
+  }
+}
