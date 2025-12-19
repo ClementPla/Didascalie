@@ -435,6 +435,7 @@ export class DrawableCanvasComponent implements AfterViewInit {
         this.redrawAllCanvas();
         this.isImageLoaded = true;
         this.zoomPanService.resetZoomAndPan(true, true);
+        await this.undoRedoService.captureInitialStates();
         resolve();
       };
       this.image.onerror = (error) => {
@@ -447,12 +448,13 @@ export class DrawableCanvasComponent implements AfterViewInit {
 
   public loadCanvas(data: string, index: number) {
     this.canvasManagerService.loadCanvas(data, index);
+    this.undoRedoService.captureInitialState(index);
   }
 
   public async loadAllCanvas(masks: string[]) {
     this.canvasManagerService.loadAllCanvas(masks);
     this.undoRedoService.empty();
-    await this.undoRedoService.update_undo_redo();
+    await this.undoRedoService.captureInitialStates();
   }
 
   public switchFullScreen() {

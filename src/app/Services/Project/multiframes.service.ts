@@ -1,8 +1,6 @@
 import { Injectable } from '@angular/core';
 import { path } from '@tauri-apps/api';
 import { loadImageFile } from '../../Core/save_load';
-import { Subject } from 'rxjs';
-
 
 @Injectable({
   providedIn: 'root',
@@ -28,6 +26,26 @@ export class MultiframesService {
         this.groupedFrames.get(parentFolder)!.push(file);
       }
     });
+    //
+    // Sort each group's frames alphabetically
+    for (const [group, frames] of this.groupedFrames) {
+      // Sort frames per filename
+      const framesWithBasenames = await Promise.all(
+        frames.map(async (frame) => ({
+          frame,
+          basename: (await path.basename(frame)).toLowerCase(),
+        }))
+      );
+      framesWithBasenames.sort((a, b) => {
+        if (a.basename < b.basename) return -1;
+        if (a.basename > b.basename) return 1;
+        return 0;
+      });
+      this.groupedFrames.set(
+        group,
+        framesWithBasenames.map((item) => item.frame)
+      );
+    }
   }
   numberOfGroups(): number {
     return this.groupedFrames.size;
@@ -40,20 +58,22 @@ export class MultiframesService {
     return 0;
   }
   async extractGroupName(filepath: string): Promise<string> {
-    return path
-      .dirname(filepath)
-      // Normalize path for consistency
-      .then((dir) => {
-        let folder = dir.split(this.inputFolder)[1]; // Get the part after the input folder
-        // Replace backslashes with forward slashes for consistency
-        if (folder) {
-          folder = folder.replace(/\\/g, '/');
-        } else {
-          // If input folder is not found in the path, use the full directory
-          folder = dir;
-        }
-        return folder
-      }); // Get parent folder name
+    return (
+      path
+        .dirname(filepath)
+        // Normalize path for consistency
+        .then((dir) => {
+          let folder = dir.split(this.inputFolder)[1]; // Get the part after the input folder
+          // Replace backslashes with forward slashes for consistency
+          if (folder) {
+            folder = folder.replace(/\\/g, '/');
+          } else {
+            // If input folder is not found in the path, use the full directory
+            folder = dir;
+          }
+          return folder;
+        })
+    ); // Get parent folder name
   }
 
   async getGroupFrames(filepath: string) {

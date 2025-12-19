@@ -162,7 +162,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
 
   async debug() {
     this.editorService.penPostProcess = false;
-    this.editorService.postProcessOption = PostProcessOption.FLOODFILL;
+    this.editorService.postProcessOption = PostProcessOption.OTSU;
     this.editorService.lineWidth = 50;
     await this.projectService
       .loadProjectFile(
