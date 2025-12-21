@@ -1,11 +1,10 @@
 import { Injectable, input } from '@angular/core';
-import { EditorService } from '../../../../../Services/UI/editor.service';
+import { EditorService } from '../../services/editor.service';
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
 import { ImageProcessingService } from './image-processing.service';
 import { invoke } from '@tauri-apps/api/core';
 import { BboxManagerService } from './bbox-manager.service';
-import { SVGUIService } from './svgui.service';
 import {
   binarizeArray,
   colorizeArray,
@@ -27,7 +26,6 @@ export class PostProcessService {
     private imageProcessingService: ImageProcessingService,
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService,
-    private svgUIService: SVGUIService,
     private openCVService: OpenCVService,
     private labelService: LabelsService,
     private zoomPanService: ZoomPanService
@@ -279,7 +277,6 @@ export class PostProcessService {
       bbox
     );
     const activeIndex = this.canvasManagerService.getActiveIndex();
-    this.svgUIService.resetPath();
 
     this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
       if (index !== activeIndex && !this.editorService.eraseAll) return;

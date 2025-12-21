@@ -1,9 +1,9 @@
 import { Subscription } from 'rxjs';
 import { DrawingController } from './core/drawing-controller';
 import { LayerManager } from './core/layer-manager';
-import { EditorService } from '../../../../Services/UI/editor.service';
+import { EditorService } from '../services/editor.service';
 import { LabelsService } from '../../../../Services/Project/labels.service';
-import { ProjectService } from '../../../../Services/Project/project.service';
+import { ProjectService } from '../../../../Services/ProjectService/project.service';
 import { Tools } from '../../../../Core/tools';
 import { ToolRegistry } from './tools/tools.interface';
 import { SegLabel } from '../../../../Core/interface';

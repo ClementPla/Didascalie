@@ -12,7 +12,7 @@ import {
 } from '../../../../generics/wheel-menu/wheel-menu.component';
 import { ALL_TOOLS, Tools } from '../../../../Core/tools';
 import { NgClass } from '@angular/common';
-import { EditorService } from '../../../../Services/UI/editor.service';
+import { EditorService } from '../services/editor.service';
 
 @Component({
     selector: 'app-quick-access-menu',

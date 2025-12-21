@@ -15,7 +15,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { open } from '@tauri-apps/plugin-dialog';
 import { FieldsetModule } from 'primeng/fieldset';
 import { ButtonModule } from 'primeng/button';
-import { ProjectService } from '../../../Services/Project/project.service';
+import { ProjectService } from '../../../Services/ProjectService/project.service';
 import { LabelsService } from '../../../Services/Project/labels.service';
 import { ColorPickerModule } from 'primeng/colorpicker';
 import { CheckboxModule } from 'primeng/checkbox';
@@ -27,7 +27,7 @@ import { GenericsModule } from '../../../generics/generics.module';
 import { TextConfigurationComponent } from './text-configuration/text-configuration.component';
 import { PixelsConfigurationComponent } from './pixels-configuration/pixels-configuration.component';
 import { ViewService } from '../../../Services/UI/view.service';
-import { EditorService } from '../../../Services/UI/editor.service';
+import { EditorService } from '../editor/services/editor.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { CommonModule } from '@angular/common';
 import { Clipboard } from '@angular/cdk/clipboard';
@@ -156,7 +156,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    // this.debug();
+    this.debug();
     // this.viewService.navigateToTestZone();
   }
 
@@ -166,12 +166,12 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     this.editorService.lineWidth = 50;
     await this.projectService
       .loadProjectFile(
-        '/home/clement/Documents/tmp/Demo/TestEnvironment/project_config.json',
+        "C:/Users/cleme/Documents/data/multiImageTest/Multi-ImageTest/project_config.json",
         true
       )
       .then(() => {
         // this.viewService.navigateToExport();
-        this.viewService.openEditor(0);
+        this.viewService.openEditor(1);
       });
   }
 }

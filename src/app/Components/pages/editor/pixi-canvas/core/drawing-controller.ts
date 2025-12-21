@@ -2,7 +2,7 @@ import { Point, Renderer } from 'pixi.js';
 import { LayerManager } from './layer-manager';
 import { UndoRedoManager } from './undo-redo-manager';
 import { ITool } from '../tools/tools.interface';
-import { EditorService } from '../../../../../Services/UI/editor.service';
+import { EditorService } from '../../services/editor.service';
 
 export interface DrawingOptions {
   lineWidth: number;

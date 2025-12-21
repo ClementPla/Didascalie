@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { StateManagerService } from './state-manager.service';
 import { LabelsService } from '../../../../../Services/Project/labels.service';
 import { OpenCVService } from '../../../../../Services/open-cv.service';
-import { EditorService } from '../../../../../Services/UI/editor.service';
+import { EditorService } from '../../services/editor.service';
 import { Subject } from 'rxjs';
 import { BboxManagerService } from './bbox-manager.service';
 import { CombinedLabel } from '../../../../../Core/interface';
@@ -74,8 +74,10 @@ export class CanvasManagerService {
       }
 
       this.drawCanvasToCanvas(this.canvasCtx[index], this.combinedCtx);
-      if (this.editorService.showBoundingBox && !this.editorService.labelledCombinedBoundingBox) {
-
+      if (
+        this.editorService.showBoundingBox &&
+        !this.editorService.labelledCombinedBoundingBox
+      ) {
         let boundingBox = this.openCVService.findBoundingBox(
           this.canvasCtx[index]
         );
@@ -83,19 +85,15 @@ export class CanvasManagerService {
           boundingBox,
           this.labelService.listSegmentationLabels[index]
         );
-
-        
       }
     });
-    if (this.editorService.showBoundingBox && this.editorService.labelledCombinedBoundingBox) {
+    if (
+      this.editorService.showBoundingBox &&
+      this.editorService.labelledCombinedBoundingBox
+    ) {
       let boundingBox = this.openCVService.findBoundingBox(this.combinedCtx);
-      this.bboxManager.addBboxes(
-        boundingBox,
-        CombinedLabel
-      );
-
+      this.bboxManager.addBboxes(boundingBox, CombinedLabel);
     }
-
     if (this.editorService.edgesOnly) {
       let edge = this.openCVService.edgeDetection_v2(this.combinedCtx);
       this.combinedCtx.clearRect(
@@ -111,51 +109,31 @@ export class CanvasManagerService {
       this.drawCanvasToCanvas(edgeCtx, this.combinedCtx);
     }
   }
+
   public drawCanvasToCanvas(
     sourceCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     targetCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     x = 0,
     y = 0
   ) {
-    // Check if source canvas has any content
-    const sourceData = sourceCtx.getImageData(
-      0,
-      0,
-      sourceCtx.canvas.width,
-      sourceCtx.canvas.height
-    );
-    let hasContent = false;
+    // 1. Force integer dimensions to prevent the "long value range" error
+    const w = Math.floor(sourceCtx.canvas.width);
+    const h = Math.floor(sourceCtx.canvas.height);
 
-    // Quick check for non-transparent pixels
-    for (let i = 3; i < sourceData.data.length; i += 4) {
-      if (sourceData.data[i] > 0) {
-        hasContent = true;
-        break;
-      }
-    }
+    if (w <= 0 || h <= 0) return;
 
-    if (!hasContent) {
-      // Canvas is empty, no need to draw
-      return;
-    }
-
-    // Save current transform
+    // 2. Perform the draw
     const currentTransform = targetCtx.getTransform();
-
-    // Reset transform for 1:1 pixel mapping
     targetCtx.resetTransform();
 
-    // Ensure both source and target have anti-aliasing disabled
     sourceCtx.imageSmoothingEnabled = false;
     targetCtx.imageSmoothingEnabled = false;
 
-    // Use regular drawImage (faster and sufficient when combined with the other fixes)
     targetCtx.drawImage(sourceCtx.canvas, x, y);
 
-    // Restore transform
     targetCtx.setTransform(currentTransform);
   }
-  
+
   public ensurePixelPerfectDrawing(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
   ) {
@@ -186,7 +164,7 @@ export class CanvasManagerService {
       }
     }
   }
-  
+
   clearCanvasAtIndex(index: number) {
     this.clearCanvas(this.canvasCtx[index]);
   }
@@ -215,6 +193,7 @@ export class CanvasManagerService {
     for (let i = 0; i < data.length; i++) {
       await this.loadCanvas(data[i], i);
     }
+    this.stateService.recomputeCanvasSum = true;
   }
 
   getBufferCanvas() {
@@ -262,24 +241,33 @@ export class CanvasManagerService {
     this.bboxManager.clear();
   }
 
-  updateCanvasesDimensions(){
-    if(this.labelCanvas.length == 0){
+  updateCanvasesDimensions() {
+    if (this.labelCanvas.length == 0) {
       this.initCanvas();
     }
     this.labelCanvas.forEach((canvas) => {
-      if (canvas.width !== this.stateService.width || canvas.height !== this.stateService.height) {
+      if (
+        canvas.width !== this.stateService.width ||
+        canvas.height !== this.stateService.height
+      ) {
         canvas.width = this.stateService.width;
         canvas.height = this.stateService.height;
       }
     });
 
-    if (this.combinedCanvas.width !== this.stateService.width || this.combinedCanvas.height !== this.stateService.height) {
+    if (
+      this.combinedCanvas.width !== this.stateService.width ||
+      this.combinedCanvas.height !== this.stateService.height
+    ) {
       this.combinedCanvas.width = this.stateService.width;
       this.combinedCanvas.height = this.stateService.height;
     }
-    if (this.bufferCanvas.width !== this.stateService.width || this.bufferCanvas.height !== this.stateService.height) {
+    if (
+      this.bufferCanvas.width !== this.stateService.width ||
+      this.bufferCanvas.height !== this.stateService.height
+    ) {
       this.bufferCanvas.width = this.stateService.width;
       this.bufferCanvas.height = this.stateService.height;
     }
-    }
+  }
 }

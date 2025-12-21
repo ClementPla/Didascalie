@@ -6,11 +6,11 @@ import { ViewService } from './Services/UI/view.service';
 import { LoadingComponent } from './Components/pages/loading/loading.component';
 import { RouterOutlet } from '@angular/router';
 import { NgIf } from '@angular/common';
-import { ProjectService } from './Services/Project/project.service';
+import { ProjectService } from './Services/ProjectService/project.service';
 import { Button } from 'primeng/button';
 import { RouterModule } from '@angular/router';
 import { environment } from '../environments/environment';
-import { EditorService } from './Services/UI/editor.service';
+import { EditorService } from './Components/pages/editor/services/editor.service';
 import { path } from '@tauri-apps/api';
 import { CLIService } from './Services/cli.service';
 import { IOService } from './Services/Project/io.service';
@@ -76,7 +76,7 @@ export class AppComponent {
     });
     this.cli.projectCreated.subscribe((config) => {
       if (config) {
-        this.projectService.create_project(config);
+        this.projectService.createProject(config);
         this.projectService.isProjectStarted = true;
       }
     });

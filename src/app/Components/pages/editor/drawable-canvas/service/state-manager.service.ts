@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Point2D } from '../models';
-import { EditorService } from '../../../../../Services/UI/editor.service';
+import { Point2D } from '../interface';
+import { EditorService } from '../../services/editor.service';
 
 @Injectable({
   providedIn: 'root',

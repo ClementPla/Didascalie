@@ -6,7 +6,7 @@ import {
   ViewChild,
   ViewChildren,
 } from '@angular/core';
-import { ProjectService } from '../../../Services/Project/project.service';
+import { ProjectService } from '../../../Services/ProjectService/project.service';
 import { CommonModule } from '@angular/common';
 import { GalleryElementComponent } from './gallery-element/gallery-element.component';
 import { PanelModule } from 'primeng/panel';

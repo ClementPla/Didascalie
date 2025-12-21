@@ -1,18 +1,5 @@
-.path {
-  stroke-dasharray: 100;
-  animation: dash 5s linear;
-}
 
-@keyframes dash {
-  to {
-    stroke-dashoffset: 1000;
-  }
-}
-
-
-.lassoPolygon {
-  stroke-width: 1;
-  stroke-dasharray: 10;
+.animatedPath {
   animation: dash 20s linear;
   animation-iteration-count: infinite;
 }

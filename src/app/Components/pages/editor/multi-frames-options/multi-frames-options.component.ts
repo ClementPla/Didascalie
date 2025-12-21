@@ -1,7 +1,7 @@
 import { Component, EventEmitter, HostListener, Output } from '@angular/core';
 import { ViewService } from '../../../../Services/UI/view.service';
 import { MultiframesService } from '../../../../Services/Project/multiframes.service';
-import { ProjectService } from '../../../../Services/Project/project.service';
+import { ProjectService } from '../../../../Services/ProjectService/project.service';
 import { CommonModule } from '@angular/common';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { FormsModule } from '@angular/forms';
@@ -33,7 +33,7 @@ export class MultiFramesOptionsComponent {
 
   preload() {
     this.viewService.setLoading(true, 'Preloading frames');
-    this.multiframeService.cacheActivegroupFrames();
+    this.multiframeService.cacheActiveGroupFrames();
     this.viewService.endLoading();
   }
 
@@ -45,7 +45,7 @@ export class MultiFramesOptionsComponent {
     this.changeOfFrame.emit(this.currentFrame);
   }
 
-  @HostListener('window:keydown.ArrowUp', ['$event'])
+  @HostListener('window:keydown.ArrowUp')
   nextFrame() {
     if (this.multiframeService.activeGroup) {
       if (
@@ -59,7 +59,7 @@ export class MultiFramesOptionsComponent {
       this.multiFrameChanged();
     }
   }
-  @HostListener('window:keydown.ArrowDown', ['$event'])
+  @HostListener('window:keydown.ArrowDown')
   previousFrame() {
     if (this.multiframeService.activeGroup) {
       if (this.currentFrame - 1 < 0) {

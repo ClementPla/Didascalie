@@ -1,20 +1,22 @@
-import { Component, ElementRef, Input, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { LabelsService } from '../../../../../../Services/Project/labels.service';
-import { BboxLabel, Point2D, Rect } from '../../../../../../Core/interface';
+import { BboxLabel, Rect } from '../../../../../../Core/interface';
 import { BboxManagerService } from '../../service/bbox-manager.service';
-import { NgFor, NgClass } from '@angular/common';
-import { SVGUIService } from '../../service/svgui.service';
-import { EditorService } from '../../../../../../Services/UI/editor.service';
+import {  NgClass } from '@angular/common';
+import { EditorService } from '../../../services/editor.service';
 import { DrawService } from '../../service/draw.service';
+import { Tools } from '../../../../../../Core/tools';
+import { Point2D } from '../../interface';
+
 
 @Component({
     selector: 'app-svgelements',
-    imports: [NgFor, NgClass],
+    imports: [NgClass],
     templateUrl: './svgelements.component.html',
     styleUrl: './svgelements.component.scss'
 })
-export class SVGElementsComponent {
-  @Input() UIPoints: string = '';
+export class SVGElementsComponent implements OnInit {
+  formattedPoints: string = '';
 
   @ViewChild('svg') svg: ElementRef<SVGElement>;
 
@@ -22,10 +24,15 @@ export class SVGElementsComponent {
     public labelService: LabelsService,
     public editorService: EditorService,
     public bboxManager: BboxManagerService,
-    public svgUIService: SVGUIService,
-    private drawService: DrawService
+    public drawService: DrawService
   ) {}
+  ngOnInit(): void {
+    this.drawService.previewPoints$.subscribe((points)=>
+    {
+      this.formattedPoints = this.formatPointsForSvg(points);
 
+    })
+  }
   setViewBox(viewbox: Rect) {
     this.svg.nativeElement.setAttribute(
       'viewBox',
@@ -53,4 +60,26 @@ export class SVGElementsComponent {
   isBboxClickable(): boolean {
     return this.editorService.isEraser() && this.editorService.eraseOnClick;
   }
+  isLassoTool(): boolean {
+    return this.editorService.selectedTool === Tools.LASSO || this.editorService.selectedTool === Tools.LASSO_ERASER;
+  }
+
+  isLineTool(): boolean {
+    return this.editorService.selectedTool === Tools.LINE;
+  }
+  getPolygonStyle(){
+    switch(this.editorService.selectedTool){
+      case Tools.LASSO_ERASER:
+      case Tools.LASSO:
+        return {'stroke-width': '2', 'stroke-dasharray': '10'};
+      case Tools.LINE:
+        return {'stroke-width': this.editorService.lineWidth, 'stroke-linecap': 'round' };
+    }
+    return {'stroke-width': '1'};
+  }
+   private formatPointsForSvg(points: Point2D[]): string {
+    if (points.length < 2) return '';
+    return points.map((p) => `${p.x},${p.y}`).join(' ');
+  }
 }
+  

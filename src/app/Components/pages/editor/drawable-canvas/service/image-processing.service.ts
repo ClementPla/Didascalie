@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { EditorService } from '../../../../../Services/UI/editor.service';
+import { EditorService } from '../../services/editor.service';
 import { OpenCVService } from '../../../../../Services/open-cv.service';
 import { PostProcessService } from './post-process.service';
 

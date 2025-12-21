@@ -5,7 +5,7 @@ import { SelectButtonModule } from 'primeng/selectbutton';
 import { ALL_TOOLS } from '../../../../Core/tools';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { EditorService } from '../../../../Services/UI/editor.service';
+import { EditorService } from '../services/editor.service';
 import { SliderModule } from 'primeng/slider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { BlockUIModule } from 'primeng/blockui';
