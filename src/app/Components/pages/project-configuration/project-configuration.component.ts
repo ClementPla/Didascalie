@@ -156,7 +156,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    this.debug();
+    // this.debug();
     // this.viewService.navigateToTestZone();
   }
 
