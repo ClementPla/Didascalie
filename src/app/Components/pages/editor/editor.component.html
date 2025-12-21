@@ -21,7 +21,7 @@
   }
   <div class="w-full">
     <app-drawable-canvas class="overflow-hidden w-full"></app-drawable-canvas>
-    <p-metergroup [value]="getCurrentProgress()"> </p-metergroup>
+    <p-metergroup [value]="progressItems"> </p-metergroup>
   </div>
   <div class="flex flex-col gap-4 min-w-96 overflow-y-auto">
     <app-tool-setting></app-tool-setting>
@@ -30,9 +30,9 @@
     ></app-multi-frames-options>
     <p-panel header="Save" class="w-96">
       <p class="flex justify-center">
-        <p-button (onClick)="loadPrevious()">Previous</p-button>
+        <p-button (onClick)="navigatePrevious()">Previous</p-button>
         <p-button (onClick)="save()" pTooltip="Ctrl+S">Save</p-button>
-        <p-button (onClick)="loadNext()">Next</p-button>
+        <p-button (onClick)="navigateNext()">Next</p-button>
       </p>
     </p-panel>
   </div>

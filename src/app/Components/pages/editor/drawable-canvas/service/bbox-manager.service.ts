@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BboxLabel, SegLabel } from '../../../../../Core/interface';
-import { Rect } from '../models';
+import { Rect } from '../interface';
 
 
 

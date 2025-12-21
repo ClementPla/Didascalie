@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
 import { SelectButtonModule } from 'primeng/selectbutton';
-import { ProjectService } from '../../../../Services/Project/project.service';
+import { ProjectService } from '../../../../Services/ProjectService/project.service';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
 import { loadImageFile } from '../../../../Core/save_load';

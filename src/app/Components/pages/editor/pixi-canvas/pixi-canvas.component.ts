@@ -11,9 +11,9 @@ import { LayerManager } from './core/layer-manager';
 import { DrawingController } from './core/drawing-controller';
 import { UndoRedoManager } from './core/undo-redo-manager';
 import { PixiServiceAdapter } from './pixi-service-adapter';
-import { EditorService } from '../../../../Services/UI/editor.service';
+import { EditorService } from '../services/editor.service';
 import { LabelsService } from '../../../../Services/Project/labels.service';
-import { ProjectService } from '../../../../Services/Project/project.service';
+import { ProjectService } from '../../../../Services/ProjectService/project.service';
 import { Tools } from '../../../../Core/tools';
 import { Subject, Subscription } from 'rxjs';
 

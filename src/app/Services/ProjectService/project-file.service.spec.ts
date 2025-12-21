@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { SVGUIService } from './svgui.service';
+import { ProjectFileService } from './project-file.service';
 
-describe('SVGUIService', () => {
-  let service: SVGUIService;
+describe('ProjectFileService', () => {
+  let service: ProjectFileService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(SVGUIService);
+    service = TestBed.inject(ProjectFileService);
   });
 
   it('should be created', () => {

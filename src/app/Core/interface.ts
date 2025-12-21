@@ -33,10 +33,7 @@ export interface Thumbnail {
   thumbnailPath: Promise<string>;
 }
 
-export interface Point2D {
-  x: number;
-  y: number;
-}
+
 
 export interface Rect {
   x: number;
@@ -45,17 +42,7 @@ export interface Rect {
   height: number;
 }
 
-export interface Viewbox {
-  xmin: number;
-  ymin: number;
-  xmax: number;
-  ymax: number;
-}
 
-export interface UndoRedoCanvasElement {
-  data: OffscreenCanvas | OffscreenCanvas[];
-  index: number;
-}
 
 // This interface is used to store the setup of classification and multilabel classes in the project_config.json file
 export interface MulticlassInterface {

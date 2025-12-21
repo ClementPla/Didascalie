@@ -1,5 +1,5 @@
 <div
-  class="grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] w-full max-screen-available overflow-hidden rounded-lg"
+  class="grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] max-screen-available overflow-hidden rounded-lg w-full"
 >
   <div
     [style.height.px]="rulerSize"
@@ -8,7 +8,7 @@
   ></div>
   <!-- Top ruler -->
   <div
-    class="bg-gray-950 relative overflow-x-clip"
+    class="bg-gray-950 overflow-x-clip relative"
     [style.height.px]="rulerSize"
   >
     <p
@@ -22,14 +22,14 @@
       class="absolute text-gray viewBoxMarker w-fit"
       [style.left.px]="cursor.x + canvasLeft"
     >
-      {{ currentPixel.x }}
+      {{ zoomPanService.currentPixel.x }}
     </p>
 
     <p
       class="absolute viewBoxMarker w-fit"
       [style.left.px]="viewBox.xmax + canvasLeft"
     >
-      {{ stateService.width }}
+      {{ orchestrator.width }}
     </p>
   </div>
 
@@ -47,14 +47,14 @@
       class="absolute viewBoxMarkerHorizontal"
       [style.top.px]="cursor.y - rulerSize"
     >
-      {{ currentPixel.y }}
+      {{ zoomPanService.currentPixel.y }}
     </p>
     }
     <p
       class="absolute viewBoxMarkerHorizontal"
       [style.top.px]="viewBox.ymax - rulerSize"
     >
-      {{ stateService.height }}
+      {{ orchestrator.height }}
     </p>
   </div>
 
@@ -62,7 +62,7 @@
   <div
     class="bg-gray-800 flex flex-grow relative w-full"
     [ngStyle]="{
-        'aspect-ratio': stateService.width / stateService.height,
+        'aspect-ratio': orchestrator.width / orchestrator.height,
       }"
     [ngClass]="{
       relative: !isFullscreen,
@@ -76,16 +76,17 @@
       [style.width.px]="canvasWidth"
       [style.height.px]="canvasHeight"
     >
-      <app-svgelements #svg [UIPoints]="getLassoPointsToPolygon()">
+      <app-svgelements #svg>
       </app-svgelements>
       <canvas
+        appCanvasInput
         #imageCanvas
         [style.width.px]="canvasWidth"
         [style.height.px]="canvasHeight"
         [ngStyle]="{
-        'aspect-ratio': stateService.width / stateService.height,
+        'aspect-ratio': orchestrator.width / orchestrator.height,
       }"
-        class="absolute cursor-crosshair crisp-edges"
+        class="absolute crisp-edges cursor-crosshair"
         [ngClass]="{
           'cursor-grab': editorService.canPan(),
           'cursor-none': editorService.isToolWithBrushSize(),
@@ -93,16 +94,8 @@
             editorService.isToolWithBrushSize() || editorService.canPan()
           )
         }"
+        (canvasMove)="onMouseMove($any($event))"
         (wheel)="wheel($event)"
-        (mousedown)="mouseDown($event)"
-        (mouseup)="mouseUp($event)"
-        (mousemove)="mouseMove($event)"
-        (mouseleave)="mouseUp($event)"
-        (touchstart)="mouseDown($event)"
-        (touchend)="mouseUp($event)"
-        (touchmove)="mouseMove($event)"
-        (touchcancel)="mouseUp($event)"
-        [attr.passive]="true"
       >
       </canvas>
 

@@ -1,5 +1,5 @@
-import { Host, HostListener, Injectable } from '@angular/core';
-import { Point2D, Rect, Viewbox } from '../models';
+import { Injectable } from '@angular/core';
+import { Point2D, Rect, Viewbox } from '../interface';
 import { Subject } from 'rxjs';
 import { StateManagerService } from './state-manager.service';
 

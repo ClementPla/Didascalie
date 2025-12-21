@@ -2,12 +2,12 @@ import { Component } from '@angular/core';
 import { PanelModule } from 'primeng/panel';
 
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
-import { EditorService } from '../../../../Services/UI/editor.service';
+import { EditorService } from '../services/editor.service';
 import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
 import { FieldsetModule } from 'primeng/fieldset';
 import { SliderModule } from 'primeng/slider';
-import { ProjectService } from '../../../../Services/Project/project.service';
+import { ProjectService } from '../../../../Services/ProjectService/project.service';
 import { ImageProcessingService } from '../drawable-canvas/service/image-processing.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { PostProcessOption } from '../../../../Core/tools';

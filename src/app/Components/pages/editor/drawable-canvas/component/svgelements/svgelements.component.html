@@ -1,17 +1,29 @@
 <svg #svg class="absolute min-w-[128px] pointer-events-none w-full z-50">
+  @if(formattedPoints && isLassoTool()){
   <polygon
-    class="lassoPolygon"
-    [attr.points]="UIPoints"
+    class="animatedPath"
+    [attr.points]="formattedPoints"
     [attr.fill]="labelService.activeLabel?.color + '20'"
     [attr.stroke]="labelService.activeLabel?.color"
-    [attr.stroke-width]="2"
+    [style]="getPolygonStyle()"
+    [attr.stroke-linecap]="'round'"
   />
+  }
+  @else if(formattedPoints && isLineTool()){
+  <polyline
+    class="animatedPath"
+    [attr.points]="formattedPoints"
+    [attr.fill]="'none'"
+    [attr.stroke]="labelService.activeLabel?.color"
+    [style]="getPolygonStyle()"
+    [attr.stroke-linecap]="'round'"
+  />
+  }
 
+  @for(rectLabel of bboxManager.listBbox; track rectLabel.instance){
   <rect
-    *ngFor="let rectLabel of bboxManager.listBbox"
     class="bbox"
     [ngClass]="{ 'cursor-pointer': isBboxClickable() }"
-
     [attr.x]="rectLabel.bbox.x"
     [attr.y]="rectLabel.bbox.y"
     [attr.width]="rectLabel.bbox.width"
@@ -22,22 +34,5 @@
     [attr.pointer-events]="this.isBboxClickable() ? 'fill' : 'none'"
     (mousedown)="boundingBoxClick($event, rectLabel)"
   ></rect>
-
-  <path
-    [attr.d]="svgUIService.getEraserPathasSVG()"
-    class="eraserPath"
-    stroke-linecap="round"
-    fill="transparent"
-    [attr.stroke-width]="editorService.lineWidth"
-    [attr.stroke]="labelService.activeLabel?.color"
-  />
-
-  <path
-    [attr.d]="svgUIService.getLinePathasSVG()"
-    class="eraserPath"
-    stroke-linecap="round"
-    fill="transparent"
-    [attr.stroke-width]="editorService.lineWidth"
-    [attr.stroke]="labelService.activeLabel?.color"
-  />
+  }
 </svg>

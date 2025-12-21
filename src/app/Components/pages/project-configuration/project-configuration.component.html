@@ -1,4 +1,4 @@
-<div class="gap-4 grid w-full grid-cols-[1fr_1fr_1fr]">
+<div class="gap-4 grid grid-cols-[1fr_1fr_1fr] w-full">
   @if(projectService.localStoragesProjectsFilepaths.length > 0){
   <p-panel header="Load recent" class="flex flex-col">
     <p-table
@@ -120,10 +120,10 @@
             <label for="fileExtension">Regex</label>
           </p-floatLabel>
         </div>
-        <div class="flex w-full items-center gap-8 m-2 justify-center">
+        <div class="flex gap-8 items-center justify-center m-2 w-full">
           <small> Found {{ projectService.imagesName.length }} images</small>
           @if(this.fileLoading){
-          <p-progressbar mode="indeterminate" class="w-1/5 h-[6px]" />
+          <p-progressbar mode="indeterminate" class="h-[6px] w-1/5" />
           }
         </div>
       </p-fieldset>

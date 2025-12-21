@@ -1,3 +1,4 @@
+// editor.component.ts
 import {
   AfterViewInit,
   Component,
@@ -5,140 +6,192 @@ import {
   OnInit,
   ViewChild,
 } from '@angular/core';
-import { DrawableCanvasComponent } from './drawable-canvas/component/drawable-canvas.component';
-import { ToolbarModule } from 'primeng/toolbar';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
-import { ToolbarComponent } from './toolbar/toolbar.component';
-import { LabelsComponent } from './labels/labels.component';
-import { ProjectService } from '../../../Services/Project/project.service';
-import { HostListener } from '@angular/core';
-import { EditorService } from '../../../Services/UI/editor.service';
-import { Tools } from '../../../Core/tools';
-import { ToolSettingComponent } from './tool-setting/tool-setting.component';
-import { LabelsService } from '../../../Services/Project/labels.service';
+// PrimeNG
+import { ToolbarModule } from 'primeng/toolbar';
 import { PanelModule } from 'primeng/panel';
 import { ButtonModule } from 'primeng/button';
-import { IOService } from '../../../Services/Project/io.service';
-import { Subscription } from 'rxjs';
-import { DrawService } from './drawable-canvas/service/draw.service';
-import { StateManagerService } from './drawable-canvas/service/state-manager.service';
-import { ViewService } from '../../../Services/UI/view.service';
-import { ZoomPanService } from './drawable-canvas/service/zoom-pan.service';
 import { TooltipModule } from 'primeng/tooltip';
-import { FormsModule } from '@angular/forms';
-import { MultiframesService } from '../../../Services/Project/multiframes.service';
 import { SliderModule } from 'primeng/slider';
-import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.service';
-import { CommonModule } from '@angular/common';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
-import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
-import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
 import { MeterGroupModule, MeterItem } from 'primeng/metergroup';
-import { listen } from '@tauri-apps/api/event';
-import { DownloadingInformations } from '../../../Core/interface';
 import { DialogModule } from 'primeng/dialog';
 import { ProgressBarModule } from 'primeng/progressbar';
+
+// Components
+import { DrawableCanvasComponent } from './drawable-canvas/component/drawable-canvas.component';
+import { ToolbarComponent } from './toolbar/toolbar.component';
+import { LabelsComponent } from './labels/labels.component';
+import { ToolSettingComponent } from './tool-setting/tool-setting.component';
+import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
+import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
+
+// Services
+import { EditorService } from './services/editor.service';
+import { LabelsService } from '../../../Services/Project/labels.service';
+import { ViewService, ProgressInfo } from '../../../Services/UI/view.service';
+import { ProjectService } from '../../../Services/ProjectService/project.service';
+import { ZoomPanService } from './drawable-canvas/service/zoom-pan.service';
+import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.service';
+import { KeyboardShortcutService } from './services/keyboard-shortcut.service';
+import { DownloadProgress, TauriEventService } from '../../../Services/tauri-event.service';
+import { IOService } from '../../../Services/Project/io.service';
+
+// Core
+import { Tools } from '../../../Core/tools';
 
 @Component({
   selector: 'app-editor',
   imports: [
     CommonModule,
-    SliderModule,
-    DrawableCanvasComponent,
     FormsModule,
+    SliderModule,
     ButtonModule,
-    ToolbarComponent,
     ToolbarModule,
-    LabelsComponent,
     PanelModule,
-    ToolSettingComponent,
     TooltipModule,
     ToggleSwitchModule,
-    MultiFramesOptionsComponent,
-    QuickAccessMenuComponent,
     MeterGroupModule,
     DialogModule,
     ProgressBarModule,
+    DrawableCanvasComponent,
+    ToolbarComponent,
+    LabelsComponent,
+    ToolSettingComponent,
+    MultiFramesOptionsComponent,
+    QuickAccessMenuComponent,
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
 })
 export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(DrawableCanvasComponent) canvas: DrawableCanvasComponent;
-  @ViewChild(MultiFramesOptionsComponent)
-  multiFramesOptions: MultiFramesOptionsComponent;
+  @ViewChild(MultiFramesOptionsComponent) multiFramesOptions: MultiFramesOptionsComponent;
+  @ViewChild('quickAccessMenu') quickAccessMenu: QuickAccessMenuComponent;
 
-  @ViewChild('quickAccessMenu') quickAccessMenu!: QuickAccessMenuComponent;
-  public viewPortSize: number = 800;
-  private subscriptions = new Subscription();
-  private _spaceDown: boolean = false;
+  public viewPortSize = 800;
+  public displayDownloadDialog = false;
+  public downloadProgress = 0;
+  public progressItems: MeterItem[] =  [];
 
-  private mousePosition: { x: number; y: number } | null = null;
-
-  displayDownloadDialog: boolean = false;
-  downloadProgress: number = 0;
+  private destroy$ = new Subject<void>();
+  private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
 
   constructor(
-    public projectService: ProjectService,
-    private drawService: DrawService,
-    private stateService: StateManagerService,
     private editorService: EditorService,
     private labelService: LabelsService,
-    public IOService: IOService,
     private viewService: ViewService,
+    public projectService: ProjectService,
     private zoomPanService: ZoomPanService,
-    public multiframeService: MultiframesService,
-    private canvasManagerService: CanvasManagerService
-  ) {
-    listen<DownloadingInformations>('download-progress', (event) => {
-      this.updateDownloadDialogDisplay(event.payload);
-    });
+    private canvasManagerService: CanvasManagerService,
+    private keyboardService: KeyboardShortcutService,
+    private tauriEvents: TauriEventService,
+    private ioService: IOService
+  ) {}
 
-    listen<void>('mask-segmentation-started', () => {
-      this.viewService.setLoading(
-        true,
-        'Performing mask segmentation (first call may take longer)'
-      );
-    });
-
-    listen<void>('mask-segmentation-completed', () => {
-      this.viewService.endLoading();
-    });
-  }
-
-  ngOnInit() {
-    this.initializeSubscriptions();
+  async ngOnInit() {
+    await this.tauriEvents.initialize();
+    this.initSubscriptions();
   }
 
   ngAfterViewInit() {
     this.canvasManagerService.initCanvas();
     this.loadCanvas(true);
-    this.multiFramesOptions._isLoaded = true;
+
+    if (this.multiFramesOptions) {
+      this.multiFramesOptions._isLoaded = true;
+    }
   }
 
-  ngOnDestroy(): void {
-    this.subscriptions.unsubscribe();
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
-  updateDownloadDialogDisplay(information: DownloadingInformations) {
-    this.displayDownloadDialog = !information.downloaded;
-    this.downloadProgress = information.progress;
+
+  private initSubscriptions() {
+    this.keyboardService.action$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(action => this.handleShortcutAction(action));
+
+    this.ioService.requestedReload
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(shouldReload => {
+        if (shouldReload) {
+          this.loadCanvas(shouldReload);
+        }
+      });
+
+    this.tauriEvents.downloadProgress$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(info => this.handleDownloadProgress(info));
+
+    this.tauriEvents.segmentationStarted$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.viewService.setLoading(true, 'Performing mask segmentation (first call may take longer)');
+      });
+
+    this.tauriEvents.segmentationCompleted$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.viewService.endLoading();
+      });
+
+    this.viewService.progress$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(progress => this.updateProgressDisplay(progress));
   }
-  private initializeSubscriptions(): void {
-    this.subscriptions.add(
-      this.IOService.requestedReload.subscribe({
-        next: (shouldReload: boolean) => {
-          if (shouldReload) {
-            void this.loadCanvas();
-          }
-        },
-        error: (error: Error) => {
-          console.error('Reload subscription error:', error);
-        },
-      })
-    );
-  }
-  updateMousePosition(event: MouseEvent): void {
-    this.mousePosition = { x: event.clientX, y: event.clientY };
+
+  private handleShortcutAction(action: string) {
+    const actionHandlers: Record<string, () => void | Promise<void>> = {
+      'selectPen': () => this.editorService.selectTool(Tools.PEN),
+      'selectEraser': () => this.editorService.selectTool(Tools.ERASER),
+      'selectLasso': () => this.editorService.selectTool(Tools.LASSO),
+      'selectLassoEraser': () => this.editorService.selectTool(Tools.LASSO_ERASER),
+      'selectLine': () => this.editorService.selectTool(Tools.LINE),
+      'selectPan': () => this.editorService.selectTool(Tools.PAN),
+
+      'undo': () => this.editorService.requestUndo(),
+      'redo': () => this.editorService.requestRedo(),
+
+      'toggleAllVisibility': () => {
+        this.labelService.switchVisibilityAllSegLabels();
+        this.editorService.requestCanvasRedraw();
+      },
+      'nextLabel': () => this.cycleToNextLabel(),
+      'toggleEdges': () => {
+        this.editorService.edgesOnly = !this.editorService.edgesOnly;
+        this.editorService.requestCanvasRedraw();
+      },
+      'toggleImageProcessing': () => {
+        this.editorService.useProcessing = !this.editorService.useProcessing;
+        this.editorService.requestCanvasRedraw();
+      },
+      'togglePostProcessing': () => this.togglePostProcessing(),
+      'zoomIn': () => this.zoomPanService.zoomIn(1.2),
+      'zoomOut': () => this.zoomPanService.zoomOut(1.2),
+
+      'save': async () => { await this.save(); },
+      'nextImage': () => this.navigateNext(),
+      'previousImage': () => this.navigatePrevious(),
+
+      'panMode:start': () => this.editorService.activatePanMode(),
+      'panMode:end': () => this.editorService.restoreLastTool(),
+      'quickMenu:start': () => {
+        this.quickAccessMenu.position = this.mousePosition;
+        this.quickAccessMenu.toggleOpen();
+      },
+      'quickMenu:end': () => {},
+    };
+
+    const handler = actionHandlers[action];
+    if (handler) {
+      handler();
+    }
   }
 
   public async loadCanvas(reload: boolean = true) {
@@ -148,225 +201,110 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     try {
-      await this.canvas.loadImage(this.projectService.activeImage);
+      await this.viewService.loadCurrentImage(reload);
+      this.canvas.redrawAllCanvas();
+      this.updateProgressDisplay(this.viewService.getProgress());
     } catch (error) {
-      console.error('Error in loadCanvas sequence:', error);
-      throw error; // Re-throw to handle at caller level if needed
-    }
-    if (reload) {
-      console.log('Reloading annotations');
-      this.canvasManagerService.clearAllCanvas();
-      try {
-        await this.IOService.load();
-      } catch (error) {
-        console.error('Error loading annotations:', error);
-        throw error; // Re-throw to handle at caller level if needed
-      }
-    }
-
-    this.drawService.refreshAllColors();
-    this.stateService.recomputeCanvasSum = true;
-    this.canvas.redrawAllCanvas();
-  }
-
-  @HostListener('window:keydown', ['$event'])
-  onKeydown(event: KeyboardEvent) {
-    if (event.key === 'Alt') {
-      this.quickAccessMenu.position = this.mousePosition || { x: 0, y: 0 };
-      this.quickAccessMenu.toggleOpen();
+      console.error('Error loading canvas:', error);
     }
   }
 
-  @HostListener('window:keydown.control.z')
-  undo() {
-    this.editorService.requestUndo();
-  }
-  @HostListener('window:keydown.control.y')
-  redo() {
-    this.editorService.requestRedo();
-  }
-  @HostListener('window:keydown.2')
-  @HostListener('window:keydown.e')
-  changeToEraser() {
-    this.editorService.selectedTool = Tools.ERASER;
-  }
-  @HostListener('window:keydown.l')
-  changeToLine() {
-    this.editorService.selectedTool = Tools.LINE;
-  }
-  @HostListener('window:keydown.3')
-  @HostListener('window:keydown.shift.l')
-  changeToLasso() {
-    this.editorService.selectedTool = Tools.LASSO;
-  }
-  @HostListener('window:keydown.4')
-  @HostListener('window:keydown.shift.control.e')
-  changeToLassoEraser() {
-    this.editorService.selectedTool = Tools.LASSO_ERASER;
-  }
-  @HostListener('window:keydown.g')
-  changeToPan() {
-    this.editorService.selectedTool = Tools.PAN;
-  }
-
-  @HostListener('window:keydown.1')
-  @HostListener('window:keydown.p')
-  changeToPencil() {
-    this.editorService.selectedTool = Tools.PEN;
-  }
-
-  @HostListener('window:keydown.space')
-  togglePanOn() {
-    if (!this._spaceDown) {
-      this.editorService.activatePanMode();
-      this._spaceDown = true;
+  public async navigateNext() {
+    const success = await this.viewService.navigate('next');
+    if (success) {
+      this.resetFrameIfNeeded();
+      this.canvas.redrawAllCanvas();
     }
   }
 
-  @HostListener('window:keyup.space')
-  togglePanOff() {
-    this.editorService.restoreLastTool();
-    this._spaceDown = false;
+  public async navigatePrevious() {
+    const success = await this.viewService.navigate('previous');
+    if (success) {
+      this.resetFrameIfNeeded();
+      this.canvas.redrawAllCanvas();
+    }
   }
 
-  @HostListener('window:keydown.tab', ['$event'])
-  switchAllVisibility(e: Event) {
-    e.preventDefault();
-    this.labelService.switchVisibilityAllSegLabels();
-    this.editorService.requestCanvasRedraw();
+  public async changedOfFrame(newFrame: number) {
+    const success = await this.viewService.navigateToFrame(newFrame);
+    if (success) {
+      this.canvas.redrawAllCanvas();
+    } else {
+      this.resetFrameIfNeeded();
+    }
   }
 
-  @HostListener('window:keydown.control.tab')
-  nextLabel() {
+  private resetFrameIfNeeded() {
+    if (this.multiFramesOptions) {
+      this.multiFramesOptions.currentFrame = 0;
+    }
+  }
+
+  public async save(): Promise<boolean> {
+    const success = await this.viewService.save();
+    if (success) {
+      console.log('Annotations saved');
+    }
+    return success;
+  }
+
+  private cycleToNextLabel() {
     const currentIndex = this.labelService.getActiveIndex();
-    const nextIndex =
-      (currentIndex + 1) % this.labelService.listSegmentationLabels.length;
-    this.labelService.activeLabel =
-      this.labelService.listSegmentationLabels[nextIndex];
+    const labels = this.labelService.listSegmentationLabels;
+    const nextIndex = (currentIndex + 1) % labels.length;
+    this.labelService.activeLabel = labels[nextIndex];
   }
-  @HostListener('window:keydown.d')
-  togglePostProcessing() {
+
+  private togglePostProcessing() {
     if (this.editorService.isDrawingTool()) {
       this.editorService.penPostProcess = !this.editorService.penPostProcess;
     }
     if (this.editorService.isEraser()) {
-      this.editorService.eraserPostProcess =
-        !this.editorService.eraserPostProcess;
+      this.editorService.eraserPostProcess = !this.editorService.eraserPostProcess;
     }
   }
 
-  @HostListener('window:keydown.q')
-  toggleImageProcessing() {
-    this.editorService.useProcessing = !this.editorService.useProcessing;
-    this.editorService.requestCanvasRedraw();
+  public updateMousePosition(event: MouseEvent) {
+    this.mousePosition = { x: event.clientX, y: event.clientY };
   }
 
-  @HostListener('window:keydown.control.e')
-  toggleEdges() {
-    this.editorService.edgesOnly = !this.editorService.edgesOnly;
-    this.editorService.requestCanvasRedraw();
+  private handleDownloadProgress(info: DownloadProgress) {
+    this.displayDownloadDialog = !info.downloaded;
+    this.downloadProgress = info.progress;
   }
 
-  @HostListener('window:keydown.control.s')
-  async save() {
-    await this.projectService.update_reviewed();
-    await this.IOService.save();
-    console.log('Annotations saved');
-    return true;
+  private updateProgressDisplay(progress: ProgressInfo | null) {
+    if (!progress) {
+      this.progressItems = [];
+      return;
+    }
+
+    this.progressItems = [{
+      label: `Current image: ${progress.imageName} - ${progress.currentIndex} / ${progress.total} images done`,
+      value: progress.percentage,
+      color: 'var(--p-primary-color)',
+    }];
   }
 
-  @HostListener('window:keydown.ArrowRight')
-  async loadNext() {
-    this.viewService.setLoading(true, 'Loading next image');
-
-    const hasSaved = await this.save();
-    if (!hasSaved) {
-      console.error('Could not save before loading next image');
-    }
-    const sucess = await this.viewService.goNext();
-    if (!sucess) {
-      console.error('Could not load next image');
-    }
-    if (this.multiFramesOptions) {
-      this.multiFramesOptions.currentFrame = 0; // Reset current frame when loading a new image
-    }
-    await this.loadCanvas();
-    this.viewService.endLoading();
-  }
-  @HostListener('window:keydown.=')
-  @HostListener('window:keydown.shift.+')
-  @HostListener('window:keydown.+')
-  zoomIn() {
-    this.zoomPanService.zoomIn(1.2);
-  }
-  @HostListener('window:keydown.shift._')
-  @HostListener('window:keydown.-')
-  @HostListener('window:keydown._')
-  zoomOut() {
-    this.zoomPanService.zoomOut(1.2);
+  get isMultiframeActive(): boolean {
+    return this.viewService.isMultiframeActive;
   }
 
-  @HostListener('window:keydown.ArrowLeft')
-  async loadPrevious() {
-    this.viewService.setLoading(true, 'Loading previous image');
-
-    const hasSaved = await this.save();
-    if (!hasSaved) {
-      console.error('Could not save before loading previous image');
-    }
-    const success = await this.viewService.goPrevious();
-    if (!success) {
-      console.error('Could not load previous image');
-    }
-    if (this.multiFramesOptions) {
-      this.multiFramesOptions.currentFrame = 0; // Reset current frame when loading a new image
-    }
-    await this.loadCanvas();
-    this.viewService.endLoading();
+  get totalImages(): number {
+    return this.projectService.getTotalImages();
   }
 
-  async changedOfFrame(newFrame: number) {
-    await this.save();
-    if (this.multiframeService.activeGroup) {
-      const currentFramePath =
-        this.multiframeService.getFrameNameInActiveGroup(newFrame);
-      if (!currentFramePath) {
-        console.warn('Current frame path is not available');
-        console.warn(currentFramePath);
-        return;
-      }
-      const currentFrameName = this.projectService.extractImagesName([
-        currentFramePath,
-      ])[0];
-      const index = this.projectService.imagesName.indexOf(currentFrameName);
-
-      this.projectService.activeIndex = index;
-      this.projectService.activeImage =
-        await this.multiframeService.getFrameInActiveGroup(newFrame);
-    } else {
-      this.projectService.activeImage = null;
-      this.multiFramesOptions.currentFrame = 0;
-    }
-    await this.loadCanvas(!this.projectService.groupLabels);
+  get activeImageName(): string | null {
+    const index = this.projectService.activeIndex;
+    if (index === null) return null;
+    return this.projectService.imagesName[index] || null;
   }
 
-  getCurrentProgress(): MeterItem[] | undefined {
-    if (this.projectService.imagesName.length === 0) {
-      return undefined;
-    }
-    const currentIndex = this.projectService.activeIndex;
+  get isLoading(): boolean {
+    return this.viewService.isLoading;
+  }
 
-    if (currentIndex === null) return undefined;
-    const currentImageName = this.projectService.imagesName[currentIndex];
-
-    const label = `Current image: ${currentImageName} - ${currentIndex} / ${this.projectService.getTotalImages()} images done`;
-    const value = [
-      {
-        label: label,
-        value: (100 * currentIndex) / this.projectService.getTotalImages(),
-        color: 'var(--p-primary-color)',
-      },
-    ] as MeterItem[];
-    return value;
+  get loadingStatus(): string {
+    return this.viewService.loadingStatus;
   }
 }

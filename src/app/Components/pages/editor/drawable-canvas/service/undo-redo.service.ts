@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
-import { UndoRedo } from '../../../../../Core/misc/undoRedo';
+import { UndoRedo } from '../../../../../Core/misc/undo-redo';
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
-import { EditorService } from '../../../../../Services/UI/editor.service';
+import { EditorService } from '../../services/editor.service';
 import { LabelsService } from '../../../../../Services/Project/labels.service';
 import { BehaviorSubject } from 'rxjs';
 
@@ -168,7 +168,7 @@ export class UndoRedoService {
   /**
    * Update undo/redo state after a canvas modification
    */
-  public async update_undo_redo(): Promise<void> {
+  public async updateUndoRedo(): Promise<void> {
     if (this.editorService.affectsMultipleLabels()) {
       // Save all layers for global operations
       const allCanvas = this.canvasManagerService.getAllCanvas();
