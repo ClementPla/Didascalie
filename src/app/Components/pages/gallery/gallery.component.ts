@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { ProjectService } from '../../../Services/ProjectService/project.service';
 import { CommonModule } from '@angular/common';
-import { GalleryElementComponent } from './gallery-element/gallery-element.component';
+import { GalleryElementComponent, ThumbnailSelectionEvent } from './gallery-element/gallery-element.component';
 import { PanelModule } from 'primeng/panel';
 import { DataViewModule, DataView } from 'primeng/dataview';
 import { ButtonModule } from 'primeng/button';
@@ -18,12 +18,13 @@ import { GenericsModule } from '../../../generics/generics.module';
 import { SelectButton, SelectButtonModule } from 'primeng/selectbutton';
 import { InputTextModule } from 'primeng/inputtext';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
-import { LabelsService } from '../../../Services/Project/labels.service';
-import { ClassificationService } from '../../../Services/Project/classification.service';
-import { IOService } from '../../../Services/Project/io.service';
+import { LabelsService } from '../../../Services/Labels/labels.service';
+import { ClassificationService } from '../../../Services/Labels/classification.service';
 import { SliderModule } from 'primeng/slider';
-import { MultiframesService } from '../../../Services/Project/multiframes.service';
+import { MultiframesService } from '../../../Services/multiframes.service';
 import { GalleryService } from './gallery.service';
+import { BatchAnnotationService } from '../../../Services/Labels/batch-annotation.service';
+import { UIStateService } from '../../../Services/uistate.service';
 
 interface GalleryItem {
   img: string[];
@@ -58,7 +59,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
   imgSize: number = 256;
   refreshInterval: number = 3000;
   percentageBeforeRefresh: number = 0;
-  intervalFunction: NodeJS.Timeout | undefined;
+  intervalFunction: ReturnType<typeof setInterval> | undefined;
   galleryItems: GalleryItem[] = [];
   filterTitle: string = '';
   selectedItems: number[] = [];
@@ -77,13 +78,14 @@ export class GalleryComponent implements OnInit, OnDestroy {
     public projectService: ProjectService,
     public labelsService: LabelsService,
     public classificationService: ClassificationService,
-    private IOService: IOService,
     private multiframesService: MultiframesService,
-    public galleryService: GalleryService
+    public galleryService: GalleryService,
+    private batchAnnotationService: BatchAnnotationService,
+    private uiState: UIStateService
   ) {}
 
   async ngOnInit(): Promise<void> {
-    await this.refresh();
+    this.refresh();
   }
 
   ngOnDestroy(): void {
@@ -127,9 +129,10 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   async getItems(): Promise<GalleryItem[]> {
+    this.uiState.setLoading(true, 'Loading gallery items...');
     await this.projectService.listFiles();
     await this.projectService.listAnnotations();
-
+    this.uiState.endLoading();
     let items = [];
     if (this.projectService.folderAsMultiframes) {
       for (const key of this.multiframesService.groupedFrames.keys()) {
@@ -194,11 +197,10 @@ export class GalleryComponent implements OnInit, OnDestroy {
     this.dataView.filter(this.filterTitle);
   }
 
-  handleSelect(event: any) {
-    let id = event[0];
-    let selected = event[1];
-    let isShift = event[2];
-
+  handleSelect(event: ThumbnailSelectionEvent) {
+    let id = event.id;
+    let selected = event.selected;
+    let isShift = event.isShiftClick;
     if (selected) {
       if (isShift) {
         let last = this.selectedItems[this.selectedItems.length - 1];
@@ -226,21 +228,69 @@ export class GalleryComponent implements OnInit, OnDestroy {
     }
   }
 
-  annotateBatch() {
-    let choices = this.batchChoices.toArray().map((item) => item.value);
+  /**
+   * Apply batch classification choices to all selected images.
+   */
+  /**
+   * Apply batch classification choices to all selected images.
+   */
+  public async annotateBatch(): Promise<void> {
+    // Extract choices from UI
+    const choices = this.extractBatchChoices();
+    
+    if (choices.length === 0) {
+      console.warn('No batch choices to apply');
+      return;
+    }
 
-    this.selectedItems.forEach((id) => {
-      let filename = this.galleryItems[id].img;
+    if (this.selectedItems.length === 0) {
+      console.warn('No images selected for batch annotation');
+      return;
+    }
 
-      for (let i = 0; i < choices.length; i++) {
-        this.classificationService.multiclassChoices.get(filename[0])![i] =
-          choices[i];
+    // Get image names for selected items
+    const imageNames = this.selectedItems
+      .map((id) => this.galleryItems[id]?.img?.[0])
+      .filter((name): name is string => !!name);
+
+    if (imageNames.length === 0) {
+      console.error('Failed to extract image names from selected items');
+      return;
+    }
+
+    // Show loading state
+    this.uiState.setLoading(true, `Applying batch annotations to ${imageNames.length} images`);
+
+    try {
+      // Apply batch annotations
+      const result = await this.batchAnnotationService.applyBatchClassifications(
+        imageNames,
+        choices
+      );
+
+      // Handle result
+      if (result.success) {
+        console.log(`Batch annotation completed: ${result.processedCount} images annotated`);
+        this.deselectAll();
+      } else {
+        console.error('Batch annotation completed with errors:', result.errors);
+        // TODO: Show error notification to user
       }
-    });
-    this.IOService.saveClassification();
-    this.deselectAll();
+    } catch (error) {
+      console.error('Failed to apply batch annotations:', error);
+      // TODO: Show error notification to user
+    } finally {
+      this.uiState.endLoading();
+    }
   }
 
+  private extractBatchChoices(): Array<string | null> {
+    if (!this.batchChoices || this.batchChoices.length === 0) {
+      return [];
+    }
+
+    return this.batchChoices.toArray().map((component) => component.value);
+  }
   deselectAll() {
     this.selectedItems = [];
   }

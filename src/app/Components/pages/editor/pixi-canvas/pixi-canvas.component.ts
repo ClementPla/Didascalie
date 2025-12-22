@@ -12,7 +12,7 @@ import { DrawingController } from './core/drawing-controller';
 import { UndoRedoManager } from './core/undo-redo-manager';
 import { PixiServiceAdapter } from './pixi-service-adapter';
 import { EditorService } from '../services/editor.service';
-import { LabelsService } from '../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../Services/Labels/labels.service';
 import { ProjectService } from '../../../../Services/ProjectService/project.service';
 import { Tools } from '../../../../Core/tools';
 import { Subject, Subscription } from 'rxjs';

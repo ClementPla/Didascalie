@@ -172,6 +172,10 @@ export class ZoomPanService {
   }
 
   public resetZoomAndPan(smooth: boolean = true, redraw: boolean = true) {
+     // CRITICAL: Check if context is initialized
+    if (!this.canvasRef) {
+      return;
+    }
     this.stateService.recomputeCanvasSum = false;
     // Compute the target scale and offset to fit the image to the canvas
     // Use actual canvas dimensions, not the bounding rect

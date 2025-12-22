@@ -121,8 +121,9 @@
           </p-floatLabel>
         </div>
         <div class="flex gap-8 items-center justify-center m-2 w-full">
+          @if(!this.fileLoading){
           <small> Found {{ projectService.imagesName.length }} images</small>
-          @if(this.fileLoading){
+          } @else{
           <p-progressbar mode="indeterminate" class="h-[6px] w-1/5" />
           }
         </div>
@@ -241,6 +242,18 @@
           <small>
             <label for="generateThumbnails" id="generateThumbnails"
               >Create thumbnails</label
+            >
+          </small>
+        </div>
+        <div class="flex flex-col gap-2 items-center">
+          <p-toggleswitch
+            id="showFpsCounter"
+            ariaLabelledBy="showFpsCounter"
+            [(ngModel)]="uiStateService.showFpsCounter"
+          />
+          <small>
+            <label for="showFpsCounter" id="showFpsCounter"
+              >Show FPS Counter</label
             >
           </small>
         </div>

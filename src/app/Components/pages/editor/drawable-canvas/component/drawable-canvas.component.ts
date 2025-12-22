@@ -14,8 +14,7 @@ import { takeUntil } from 'rxjs/operators';
 
 // UI Services (component still needs direct access)
 import { EditorService } from '../../services/editor.service';
-import { ViewService } from '../../../../../Services/UI/view.service';
-import { LabelsService } from '../../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { ProjectService } from '../../../../../Services/ProjectService/project.service';
 
 // Orchestrator + Draw (the only "editor" services needed)
@@ -29,6 +28,7 @@ import { CanvasInputDirective } from '../directives/canvas-input.directive';
 import { Button } from 'primeng/button';
 
 import { Point2D, Viewbox } from '../interface';
+import { UIStateService } from '../../../../../Services/uistate.service';
 
 @Component({
   selector: 'app-drawable-canvas',
@@ -67,13 +67,13 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   constructor(
     public editorService: EditorService,
-    public viewService: ViewService,
     public labelService: LabelsService,
     public projectService: ProjectService,
     public orchestrator: OrchestratorService,
     private drawService: DrawService,
     public zoomPanService: ZoomPanService, // Only needed for currentPixel setter
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private uiStateService: UIStateService
   ) {
       this.initSubscriptions();
   }
@@ -240,7 +240,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   // Rendering
   // ==========================================
 
-  public redrawAllCanvas() {
+  public async redrawAllCanvas() {
     const img = this.orchestrator.image;
     if (!img || !img.complete || img.naturalWidth === 0)
     {
@@ -252,8 +252,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       console.error('Canvas contexts not initialized.');
       return;
     };
-
-    console.log('Redrawing canvases');
 
     this.viewBox = this.orchestrator.getViewBox();
     this.svg.setViewBox(this.orchestrator.getSVGViewBox());
@@ -269,14 +267,14 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.ctxImage.scale(scale, scale);
     this.ctxImage.imageSmoothingEnabled = false;
     this.ctxImage.drawImage(this.orchestrator.getProcessedImage(), 0, 0, width, height);
-
+    const combinedLabelCanvas = await this.orchestrator.getCombinedLabelCanvas();
     // Draw label canvas
     this.ctxLabel.resetTransform();
     this.ctxLabel.clearRect(0, 0, this.ctxLabel.canvas.width, this.ctxLabel.canvas.height);
     this.ctxLabel.translate(Math.floor(offset.x), Math.floor(offset.y));
     this.ctxLabel.scale(scale, scale);
     this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
-    this.ctxLabel.drawImage(this.orchestrator.getCombinedLabelCanvas(), 0, 0);
+    this.ctxLabel.drawImage(combinedLabelCanvas, 0, 0);
   }
 
   // ==========================================
@@ -307,10 +305,18 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     const rect = this.ctxLabel.canvas.getBoundingClientRect();
     const { scale } = this.orchestrator.getViewTransform();
-
-    return ((this.editorService.lineWidth * rect.width) / this.orchestrator.width) * scale;
+    // Adjust cursor size based on current scale
+    // We need to 
+    // 
+    // We need to adjust for the canvas size in the DOM as well
+    const domScaleX = rect.width / this.ctxLabel.canvas.width;
+    const domScaleY = rect.height / this.ctxLabel.canvas.height;
+    const domScale = (domScaleX + domScaleY) / 2;
+    return this.editorService.lineWidth * scale * domScale; 
   }
-
+  public get isLoading(): boolean {
+    return this.uiStateService.isLoading;
+  }
   public getCursorStyle() {
     const cursorSize = this.getCursorSize();
     if (cursorSize <= 0) return {};

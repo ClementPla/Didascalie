@@ -6,55 +6,47 @@
       [toggleable]="true"
       [collapsed]="true"
     >
-      <ng-container
-        *ngFor="
-          let task of labelsService.listClassificationTasks;
-          let i = index
-        "
-      >
+      @for(task of labelsService.listClassificationTasks; track task.taskName){
+      <ng-container>
         <p-divider align="left" type="solid">
           <b>{{ task.taskName }}</b>
         </p-divider>
         <p-selectButton
           [options]="task.classLabels"
-          [(ngModel)]="classificationChoices[i]!"
-          (onOptionClick)="setMulticlassValues(i, $event.option)"
+          [(ngModel)]="classificationChoices[$index]!"
+          (onOptionClick)="setMulticlassValues($index, $event.option)"
           size="small"
           style="display: flex; flex-wrap: wrap"
         ></p-selectButton>
       </ng-container>
+      } @if(labelsService.multiLabelTask !== null){
+      <p-divider align="left" type="solid">
+        <b>Multiple label</b>
+      </p-divider>
+      <p-select-button
+        [options]="labelsService.multiLabelTask.taskLabels"
+        [multiple]="true"
+        [(ngModel)]="multilabelValues"
+        size="small"
+        style="display: flex; flex-wrap: wrap"
+      ></p-select-button>
 
-      <ng-container *ngIf="labelsService.multiLabelTask !== null">
-        <p-divider align="left" type="solid">
-          <b>Multiple label</b>
-        </p-divider>
-        <p-select-button
-          [options]="labelsService.multiLabelTask.taskLabels"
-          [multiple]="true"
-          [(ngModel)]="multilabelValues"
-          size="small"
-          style="display: flex; flex-wrap: wrap"
-        ></p-select-button>
+      <div class="grid grid-cols-3">
+        @for(label of multilabelValues; track label){
+        <p-tag severity="info" class="m-1" [rounded]="true">
+          <span class="text-base">
+            {{ label }}
+          </span>
 
-        <div class="grid grid-cols-3">
-          <p-tag
-            severity="info"
-            class="m-1"
-            [rounded]="true"
-            *ngFor="let label of multilabelValues; let i = index"
-          >
-            <span class="text-base">
-              {{ label }}
-            </span>
-
-            <i
-              class="hover:outline hover:outline-1 outline-white pi pi-times rounded-full"
-              style="font-size: 0.75rem"
-              (click)="removeChoiceFromMultilabel(label)"
-            ></i>
-          </p-tag>
-        </div>
-      </ng-container>
+          <i
+            class="hover:outline hover:outline-1 outline-white pi pi-times rounded-full"
+            style="font-size: 0.75rem"
+            (click)="removeChoiceFromMultilabel(label)"
+          ></i>
+        </p-tag>
+        }
+      </div>
+      }
     </p-fieldset>
 
     <p-fieldset
@@ -66,30 +58,29 @@
       "
     >
       <div class="flex flex-row gap-4 items-center">
+        @if(labelsService.showAllLabels){
         <p-button
           icon="pi pi-eye"
           (click)="changeAllVisibility()"
           [rounded]="true"
-          *ngIf="labelsService.showAllLabels; else eyeClose"
         ></p-button>
-        <ng-template #eyeClose>
-          <p-button
-            #eyeClose
-            icon="pi pi-eye-slash"
-            (click)="changeAllVisibility()"
-            [rounded]="true"
-          ></p-button>
-        </ng-template>
+        } @else {
+        <p-button
+          icon="pi pi-eye-slash"
+          (click)="changeAllVisibility()"
+          [rounded]="true"
+        ></p-button>
+        }
         <p class="flex flex-col gap-2">
           <input
             type="text"
             pInputText
-            [(ngModel)]="drawService.labelOpacity"
+            [(ngModel)]="editorService.labelOpacity"
             (onChange)="updateOpacity()"
             class="mb-3 w-full"
           />
           <p-slider
-            [(ngModel)]="drawService.labelOpacity"
+            [(ngModel)]="editorService.labelOpacity"
             [min]="0"
             [max]="1"
             [step]="0.01"
@@ -109,8 +100,8 @@
         class="p-0"
       >
         <ng-template let-node pTemplate="default" class="p-0 w-full">
+          @if(!hasChild(node)){
           <div
-            *ngIf="!hasChild(node)"
             class="flex flex-row gap-2 items-center justify-stretch w-full"
             [ngClass]="{ activeNode: node.data === labelsService.activeLabel }"
           >
@@ -145,24 +136,27 @@
               severity="danger"
             ></p-button>
           </div>
-          <b *ngIf="hasChild(node)">
+          } @if(hasChild(node)){
+          <b>
             {{ node.label }}
           </b>
-          <div *ngIf="!hasChild(node) && projectService.isInstanceSegmentation">
+          } 
+          @if(!hasChild(node) && projectService.isInstanceSegmentation){
+          <div>
             <app-instance-label [label]="node.data"></app-instance-label>
           </div>
+          }
         </ng-template>
       </p-tree>
     </p-fieldset>
-
+    @if(projectService.hasTextDescription){
     <p-fieldset
       legend="Text"
-      *ngIf="projectService.hasTextDescription"
       [toggleable]="true"
       class="m-0"
       [collapsed]="true"
     >
-      <ng-container *ngFor="let task of labelsService.listTextLabels">
+    @for(task of labelsService.listTextLabels; track task.name){
         <p-divider align="left" type="solid">
           <b>{{ task.name }}</b>
         </p-divider>
@@ -172,8 +166,9 @@
           pTextarea
           [(ngModel)]="task.text"
         ></textarea>
-      </ng-container>
+      }
     </p-fieldset>
+    }
   </div>
 </p-panel>
 

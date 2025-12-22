@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { path } from '@tauri-apps/api';
-import { loadImageFile } from '../../Core/save_load';
+import { loadImageFile } from '../Core/save_load';
 
 @Injectable({
   providedIn: 'root',

@@ -9,7 +9,6 @@ export interface ToolContext {
   canvasManager: CanvasManagerService;
   stateService: StateManagerService;
   editorService: EditorService;
-  openCV: OpenCVService;
   
   // Scoped Data
   color: string;

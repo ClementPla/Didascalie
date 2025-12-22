@@ -1,5 +1,5 @@
 import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
-import { LabelsService } from '../../../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../../../Services/Labels/labels.service';
 import { BboxLabel, Rect } from '../../../../../../Core/interface';
 import { BboxManagerService } from '../../service/bbox-manager.service';
 import {  NgClass } from '@angular/common';

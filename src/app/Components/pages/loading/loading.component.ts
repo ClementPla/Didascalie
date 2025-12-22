@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { ProgressBarModule } from 'primeng/progressbar';
-import { ViewService } from '../../../Services/UI/view.service';
-
+import { UIStateService } from '../../../Services/uistate.service';
 @Component({
     selector: 'app-loading',
     imports: [ProgressBarModule],
@@ -10,6 +9,6 @@ import { ViewService } from '../../../Services/UI/view.service';
 })
 export class LoadingComponent {
 
-  constructor(public viewService: ViewService) { }
+  constructor(public uiStateService: UIStateService) { }
 
 }

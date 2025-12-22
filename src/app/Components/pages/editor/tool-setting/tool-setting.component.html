@@ -1,4 +1,9 @@
 <p-panel header="Advanced settings" class="w-96">
+  <app-labelled-switch
+        [(checked)]="editorService.webGPURendering"
+        (checkedChange)="editorService.requestCanvasRedraw()"
+        >Use WebGPU for rendering</app-labelled-switch
+      >
   <p-fieldset legend="Bounding box" [toggleable]="true" [collapsed]="true">
     <div class="gap-2 grid grid-cols-2 w-full">
       <app-labelled-switch

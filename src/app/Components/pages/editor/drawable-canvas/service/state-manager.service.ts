@@ -6,6 +6,7 @@ import { EditorService } from '../../services/editor.service';
   providedIn: 'root',
 })
 export class StateManagerService {
+  
   public width: number = 512;
   public height: number = 512;
 
@@ -88,5 +89,19 @@ export class StateManagerService {
     return this.editorService.isToolWithBrushSize()
       ? this.editorService.lineWidth / 2 + 2
       : 0;
+  }
+
+  getStateSnapshot(): any {
+    return {
+      width: this.width,
+      height: this.height,
+      isDrawing: this.isDrawing,
+      currentPoint: this.currentPoint,
+      previousPoint: this.previousPoint,
+      minPoint: this.minPoint,
+      maxPoint: this.maxPoint,
+      recomputeCanvasSum: this.recomputeCanvasSum,
+    };
+   
   }
 }

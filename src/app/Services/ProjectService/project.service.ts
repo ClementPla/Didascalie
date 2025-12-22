@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 
-import { ProjectConfig, ProjectFile } from '../../Core/interface';
-
+import { ProjectFile } from '../../Core/interface';
+import { ProjectConfig } from '../TauriEvent/interface';
 // Sub-services
 import { ProjectConfigService } from './project-config.service';
 import { ProjectFileService } from './project-file.service';
@@ -9,12 +9,12 @@ import { ProjectStorageService } from './project-storage.service';
 import { ProjectRevisionService } from './project-revision.service';
 
 // Related services
-import { ClassificationService } from '../Project/classification.service';
-import { MultiframesService } from '../Project/multiframes.service';
+import { ClassificationService } from '../Labels/classification.service';
+import { MultiframesService } from '../multiframes.service';
 
 /**
  * Main project service - facade that orchestrates project operations.
- * 
+ *
  * Delegates to specialized services:
  * - ProjectConfigService: Configuration and type flags
  * - ProjectFileService: File listing and path operations
@@ -48,49 +48,107 @@ export class ProjectService {
   // Config Proxies (for backward compatibility)
   // ==========================================
 
-  get isClassification(): boolean { return this.configService.isClassification; }
-  set isClassification(value: boolean) { this.configService.isClassification = value; }
+  get isClassification(): boolean {
+    return this.configService.isClassification;
+  }
+  set isClassification(value: boolean) {
+    this.configService.isClassification = value;
+  }
 
-  get isSegmentation(): boolean { return this.configService.isSegmentation; }
-  set isSegmentation(value: boolean) { this.configService.isSegmentation = value; }
+  get isSegmentation(): boolean {
+    return this.configService.isSegmentation;
+  }
+  set isSegmentation(value: boolean) {
+    this.configService.isSegmentation = value;
+  }
 
-  get isInstanceSegmentation(): boolean { return this.configService.isInstanceSegmentation; }
-  set isInstanceSegmentation(value: boolean) { this.configService.isInstanceSegmentation = value; }
+  get isInstanceSegmentation(): boolean {
+    return this.configService.isInstanceSegmentation;
+  }
+  set isInstanceSegmentation(value: boolean) {
+    this.configService.isInstanceSegmentation = value;
+  }
 
-  get isBoundingBoxDetection(): boolean { return this.configService.isBoundingBoxDetection; }
-  set isBoundingBoxDetection(value: boolean) { this.configService.isBoundingBoxDetection = value; }
+  get isBoundingBoxDetection(): boolean {
+    return this.configService.isBoundingBoxDetection;
+  }
+  set isBoundingBoxDetection(value: boolean) {
+    this.configService.isBoundingBoxDetection = value;
+  }
 
-  get hasTextDescription(): boolean { return this.configService.hasTextDescription; }
-  set hasTextDescription(value: boolean) { this.configService.hasTextDescription = value; }
+  get hasTextDescription(): boolean {
+    return this.configService.hasTextDescription;
+  }
+  set hasTextDescription(value: boolean) {
+    this.configService.hasTextDescription = value;
+  }
 
-  get projectName(): string { return this.configService.projectName; }
-  set projectName(value: string) { this.configService.projectName = value; }
+  get projectName(): string {
+    return this.configService.projectName;
+  }
+  set projectName(value: string) {
+    this.configService.projectName = value;
+  }
 
-  get inputFolder(): string { return this.configService.inputFolder; }
-  set inputFolder(value: string) { this.configService.inputFolder = value; }
+  get inputFolder(): string {
+    return this.configService.inputFolder;
+  }
+  set inputFolder(value: string) {
+    this.configService.inputFolder = value;
+  }
 
-  get outputFolder(): string { return this.configService.outputFolder; }
-  set outputFolder(value: string) { this.configService.outputFolder = value; }
+  get outputFolder(): string {
+    return this.configService.outputFolder;
+  }
+  set outputFolder(value: string) {
+    this.configService.outputFolder = value;
+  }
 
-  get inputRegex(): string { return this.configService.inputRegex; }
-  set inputRegex(value: string) { this.configService.inputRegex = value; }
+  get inputRegex(): string {
+    return this.configService.inputRegex;
+  }
+  set inputRegex(value: string) {
+    this.configService.inputRegex = value;
+  }
 
-  get recursive(): boolean { return this.configService.recursive; }
-  set recursive(value: boolean) { this.configService.recursive = value; }
+  get recursive(): boolean {
+    return this.configService.recursive;
+  }
+  set recursive(value: boolean) {
+    this.configService.recursive = value;
+  }
 
-  get folderAsMultiframes(): boolean { return this.configService.folderAsMultiframes; }
-  set folderAsMultiframes(value: boolean) { this.configService.folderAsMultiframes = value; }
+  get folderAsMultiframes(): boolean {
+    return this.configService.folderAsMultiframes;
+  }
+  set folderAsMultiframes(value: boolean) {
+    this.configService.folderAsMultiframes = value;
+  }
 
-  get groupLabels(): boolean { return this.configService.groupLabels; }
-  set groupLabels(value: boolean) { this.configService.groupLabels = value; }
+  get groupLabels(): boolean {
+    return this.configService.groupLabels;
+  }
+  set groupLabels(value: boolean) {
+    this.configService.groupLabels = value;
+  }
 
-  get maxInstances(): number { return this.configService.maxInstances; }
-  set maxInstances(value: number) { this.configService.maxInstances = value; }
+  get maxInstances(): number {
+    return this.configService.maxInstances;
+  }
+  set maxInstances(value: number) {
+    this.configService.maxInstances = value;
+  }
 
-  get generateThumbnails(): boolean { return this.configService.generateThumbnails; }
-  set generateThumbnails(value: boolean) { this.configService.generateThumbnails = value; }
+  get generateThumbnails(): boolean {
+    return this.configService.generateThumbnails;
+  }
+  set generateThumbnails(value: boolean) {
+    this.configService.generateThumbnails = value;
+  }
 
-  get projectFolder(): string { return this.configService.projectFolder; }
+  get projectFolder(): string {
+    return this.configService.projectFolder;
+  }
 
   // Storage proxies
   get localStoragesProjectsFilepaths(): ProjectFile[] {
@@ -184,7 +242,6 @@ export class ProjectService {
       this.configService.inputRegex,
       this.configService.recursive
     );
-
     if (this.configService.folderAsMultiframes) {
       await this.multiframesService.groupFrames(
         this.configService.inputFolder,
@@ -216,7 +273,10 @@ export class ProjectService {
    * @deprecated Use fileService.extractRelativeNames directly
    */
   extractImagesName(files: string[]): string[] {
-    return this.fileService.extractRelativeNames(files, this.configService.inputFolder);
+    return this.fileService.extractRelativeNames(
+      files,
+      this.configService.inputFolder
+    );
   }
 
   // ==========================================
@@ -266,5 +326,29 @@ export class ProjectService {
    */
   hasImageBeenOpened(imageName: string): boolean {
     return this.revisionService.hasBeenOpened(imageName);
+  }
+  /**
+   * Create a new project from CLI configuration.
+   * Handles all domain logic for project initialization.
+   */
+  createProjectFromCLI(config: ProjectConfig): void {
+    this.createProject(config);
+    this.isProjectStarted = true;
+    console.log('Project created from CLI:', config);
+  }
+
+  /**
+   * Register an image in the project.
+   * Returns true if image was newly added, false if already present.
+   */
+  registerImage(relativePath: string): boolean {
+    if (this.imagesName.includes(relativePath)) {
+      console.log(`Image already registered: ${relativePath}`);
+      return false;
+    }
+
+    this.imagesName.push(relativePath);
+    console.log(`Image registered: ${relativePath}`);
+    return true;
   }
 }

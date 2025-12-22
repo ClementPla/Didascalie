@@ -1,0 +1,11 @@
+@if(service.metrics | async; as m){
+<div class="fps-monitor">
+  <div class="fps" [class.low]="m.fps < 30" [class.frozen]="m.frozen">
+    {{ m.frozen ? "⚠️ FROZEN" : m.fps + " FPS" }}
+  </div>
+  <div class="detail">{{ m.frameTime.toFixed(1) }}ms/frame</div>
+  @if(m.frozen){
+  <div class="frozen-time">Blocked: {{ m.frozenFor }}ms</div>
+  }
+</div>
+}

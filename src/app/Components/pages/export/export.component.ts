@@ -7,7 +7,7 @@ import { ProjectService } from '../../../Services/ProjectService/project.service
 import { FloatLabelModule } from 'primeng/floatlabel';
 import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
-import { LabelsService } from '../../../Services/Project/labels.service';
+import { LabelsService } from '../../../Services/Labels/labels.service';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
 import { listen } from '@tauri-apps/api/event';

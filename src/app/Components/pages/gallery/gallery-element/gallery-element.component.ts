@@ -1,15 +1,22 @@
-import { Component, Input, OnInit, Output, EventEmitter } from '@angular/core';
+// gallery-element.component.ts
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
 import { SelectButtonModule } from 'primeng/selectbutton';
+
 import { ProjectService } from '../../../../Services/ProjectService/project.service';
-import { invoke } from '@tauri-apps/api/core';
-import { path } from '@tauri-apps/api';
-import { loadImageFile } from '../../../../Core/save_load';
-import { LabelsService } from '../../../../Services/Project/labels.service';
-import { ViewService } from '../../../../Services/UI/view.service';
-import { ClassificationService } from '../../../../Services/Project/classification.service';
+import { NavigationService } from '../../../../Services/Navigation/navigation.service';
+import { UIStateService } from '../../../../Services/uistate.service';
+import { ThumbnailService } from '../../../../Services/thumbnail.service';
+import { LabelsService } from '../../../../Services/Labels/labels.service';
+import { ClassificationService } from '../../../../Services/Labels/classification.service';
+
+export interface ThumbnailSelectionEvent {
+  id: number;
+  selected: boolean;
+  isShiftClick: boolean;
+}
 
 @Component({
   selector: 'app-gallery-element',
@@ -22,73 +29,135 @@ export class GalleryElementComponent implements OnInit {
   @Input() id: number;
   @Input() status: string;
   @Input() imgSize: number;
-  @Output() thumbnailSelected = new EventEmitter<[number, boolean, boolean]>();
-  imagePath: string = '';
   @Input() selected: boolean = false;
+
+  @Output() thumbnailSelected = new EventEmitter<ThumbnailSelectionEvent>();
+
+  public imagePath: string = '';
+  private hoverTimer: any;
+  private loopInterval: any;
+  public currentImgIndex: number = 0;
+  public isFading: boolean = false;
+
   constructor(
     public projectService: ProjectService,
     public labelsService: LabelsService,
-    public classificatorService: ClassificationService,
-    private viewService: ViewService
+    public classificationService: ClassificationService,
+    private navigationService: NavigationService,
+    private uiState: UIStateService,
+    private thumbnailService: ThumbnailService
   ) {}
 
-  ngOnInit(): void {
-    this.getThumbnail().then((path) => {
-      this.imagePath = path;
+  async ngOnInit(): Promise<void> {
+    try {
+      this.imagePath = await this.loadThumbnailForIndex(0);
+    } catch (error) {
+      console.error('Failed to load thumbnail:', error);
+      // Keep imagePath empty - template should handle this
+    }
+  }
+
+  private async startLoop(): Promise<void> {
+    this.loopInterval = setInterval(async () => {
+      this.isFading = false; // Reset animation state
+
+      this.currentImgIndex = (this.currentImgIndex + 1) % this.img.length;
+      const nextPath = await this.loadThumbnailForIndex(this.currentImgIndex);
+
+      this.imagePath = nextPath;
+
+      // Small timeout to allow the DOM to register the reset before re-applying
+      setTimeout(() => {
+        this.isFading = true;
+      }, 10);
+    }, 1500);
+  }
+
+  // ==========================================
+  // User Actions
+  // ==========================================
+
+  /**
+   * Open editor at this image's index.
+   */
+  public async openEditor(): Promise<void> {
+    const imageName = this.getImageName();
+    const imageIndex = this.projectService.imagesName.indexOf(imageName);
+
+    if (imageIndex === -1) {
+      console.error(`Image not found in project: ${imageName}`);
+      return;
+    }
+
+    this.uiState.setLoading(true, 'Opening image');
+
+    try {
+      await this.navigationService.navigateToIndex(imageIndex);
+      await this.uiState.navigateToEditor();
+    } catch (error) {
+      console.error('Failed to open editor:', error);
+    } finally {
+      this.uiState.endLoading();
+    }
+  }
+
+  /**
+   * Handle thumbnail selection with optional shift-click for range selection.
+   */
+  public select(event: MouseEvent): void {
+    this.selected = !this.selected;
+
+    this.thumbnailSelected.emit({
+      id: this.id,
+      selected: this.selected,
+      isShiftClick: event.shiftKey,
     });
   }
 
-  getCardStyleClass() {
-    if (this.selected) {
-      return 'bg-primary';
-    }
-    return '';
-  }
-  async openEditor() {
-    let id = this.projectService.imagesName.indexOf(this.getImageName());
+  // ==========================================
+  // View Helpers
+  // ==========================================
 
-    this.viewService.openEditor(id);
-  }
-  select(event: MouseEvent) {
-    this.selected = !this.selected;
-    if (event.shiftKey) {
-      this.thumbnailSelected.emit([this.id, this.selected, true]);
-    } else {
-      this.thumbnailSelected.emit([this.id, this.selected, false]);
-    }
+  public getCardStyleClass(): string {
+    return this.selected ? 'bg-primary' : '';
   }
 
-  getImageName() {
+  public getImageName(): string {
     return this.img[0];
   }
 
-  async getThumbnail(): Promise<string> {
-    let imageName = this.getImageName();
-    let imageInput = await path.resolve(
-      this.projectService.inputFolder,
-      imageName
-    );
-    if (this.projectService.generateThumbnails) {
-      let thumbnailPath = await path.resolve(
-        this.projectService.inputFolder,
-        '.thumbnails',
-        imageName
-      );
-      await invoke('create_cache_thumbnail', {
-        imagePath: imageInput,
-        thumbnailPath: thumbnailPath,
-        width: 256,
-        height: 256,
-      });
-      return loadImageFile(thumbnailPath);
-    } else {
-      let data = await invoke('create_thumbnail', {
-        imagePath: imageInput,
-        width: 256,
-        height: 256,
-      });
+  // ==========================================
+  // Thumbnail Loading
+  // ==========================================
 
-      return 'data:image/png;base64,' + data;
-    }
+  /**
+   * Load thumbnail for this gallery element.
+   * Delegates to ThumbnailService for actual loading logic.
+   */
+
+  public async onMouseEnter(): Promise<void> {
+    if (this.img.length <= 1) return;
+
+    // Start loop after 400ms delay
+    this.hoverTimer = setTimeout(() => {
+      this.startLoop();
+    }, 400);
+  }
+
+  public onMouseLeave(): void {
+    clearTimeout(this.hoverTimer);
+    clearInterval(this.loopInterval);
+    this.isFading = false; // Stop animation
+    this.resetLoop();
+  }
+
+  private async resetLoop(): Promise<void> {
+    this.currentImgIndex = 0;
+    this.imagePath = await this.loadThumbnailForIndex(0);
+  }
+
+  private async loadThumbnailForIndex(index: number): Promise<string> {
+    const imageName = this.img[index];
+    return await this.thumbnailService.getThumbnail(imageName);
   }
 }

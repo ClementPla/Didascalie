@@ -3,7 +3,7 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 // Services
-import { LabelsService } from '../../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { ProjectService } from '../../../../../Services/ProjectService/project.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { EditorService } from '../../services/editor.service';
@@ -162,7 +162,6 @@ export class DrawService implements OnDestroy {
       canvasManager: this.canvasManagerService,
       stateService: this.stateService,
       editorService: this.editorService,
-      openCV: this.openCVService,
       color: this.getFillColor(),
       getCoords: (e) => this.zoomPanService.getImageCoordinates(e),
       // Provide swap function directly instead of circular reference

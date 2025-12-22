@@ -5,21 +5,22 @@ import { path } from '@tauri-apps/api';
 import { invoke } from '@tauri-apps/api/core';
 
 // Services
-import { ProjectService } from '../ProjectService/project.service';
-import { LabelsService } from './labels.service';
-import { CanvasManagerService } from '../../Components/pages/editor/drawable-canvas/service/canvas-manager.service';
-import { StateManagerService } from '../../Components/pages/editor/drawable-canvas/service/state-manager.service';
-import { ClassificationService } from './classification.service';
+import { ProjectService } from './ProjectService/project.service';
+import { LabelsService } from './Labels/labels.service';
+import { CanvasManagerService } from '../Components/pages/editor/drawable-canvas/service/canvas-manager.service';
+import { StateManagerService } from '../Components/pages/editor/drawable-canvas/service/state-manager.service';
+import { ClassificationService } from './Labels/classification.service';
 import { MultiframesService } from './multiframes.service';
 
 // Core
-import { LabelFormat, ImageFromCLI } from '../../Core/interface';
+import { LabelFormat } from '../Core/interface';
+import { ImageFromCLI } from './TauriEvent/interface';
 import {
   blobToDataURL,
   invokeSaveCSVFile,
   invokeSaveXmlFile,
   invokeLoadCsvFile,
-} from '../../Core/save_load';
+} from '../Core/save_load';
 
 @Injectable({
   providedIn: 'root',
@@ -157,7 +158,9 @@ export class IOService implements OnDestroy {
   // Path Generation
   // ==========================================
 
-  public async getMaskSavePath(imageName: string | null = null): Promise<string> {
+  public async getMaskSavePath(
+    imageName: string | null = null
+  ): Promise<string> {
     const name = imageName ?? this.getCurrentImageName();
     const svgName = this.replaceExtension(name, '.svg');
 
@@ -334,8 +337,7 @@ export class IOService implements OnDestroy {
 
   private shouldSaveToMultipleFrames(): boolean {
     return !!(
-      this.projectService.groupLabels &&
-      this.multiframesService.activeGroup
+      this.projectService.groupLabels && this.multiframesService.activeGroup
     );
   }
 
@@ -421,5 +423,41 @@ export class IOService implements OnDestroy {
   private replaceExtension(filename: string, newExtension: string): string {
     const nameWithoutExtension = filename.split('.').slice(0, -1).join('.');
     return nameWithoutExtension + newExtension;
+  }
+  // io.service.ts (additions)
+
+  /**
+   * Load an image from CLI command.
+   * Handles path resolution, validation, and persistence.
+   */
+  async loadImageFromCLI(imageConfig: ImageFromCLI): Promise<void> {
+    // Resolve absolute path
+    const absolutePath = await path.resolve(imageConfig.image_path);
+
+    // Calculate relative path from project input folder
+    const relativePath = this.getRelativePathFromInputFolder(absolutePath);
+
+    // Register image in project
+    this.projectService.registerImage(relativePath);
+
+    // Persist image data
+    await this.saveFromCLI(imageConfig, relativePath);
+  }
+
+  /**
+   * Extract relative path from absolute image path.
+   * Validates that image is within the project's input folder.
+   */
+  private getRelativePathFromInputFolder(absolutePath: string): string {
+    const inputFolder = this.projectService.inputFolder;
+
+    if (!absolutePath.startsWith(inputFolder)) {
+      throw new Error(
+        `Image path ${absolutePath} is outside input folder ${inputFolder}`
+      );
+    }
+
+    // Remove input folder prefix to get relative path
+    return absolutePath.substring(inputFolder.length);
   }
 }

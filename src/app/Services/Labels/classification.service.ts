@@ -87,4 +87,33 @@ export class ClassificationService {
       }
     }
   }
+   public setMulticlassChoicesForImage(
+    imageName: string,
+    choices: Array<string | null>
+  ): void {
+    // Get or initialize the choices array for this image
+    let existingChoices = this.multiclassChoices.get(imageName);
+
+    if (!existingChoices) {
+      // Initialize with nulls if image doesn't have choices yet
+      existingChoices = new Array(choices.length).fill(null);
+      this.multiclassChoices.set(imageName, existingChoices);
+    }
+
+    // Apply each choice, respecting the array length
+    const maxLength = Math.min(choices.length, existingChoices.length);
+    for (let i = 0; i < maxLength; i++) {
+      if (choices[i] !== null && choices[i] !== undefined) {
+        existingChoices[i] = choices[i];
+      }
+    }
+
+    // Warn if there's a length mismatch
+    if (choices.length !== existingChoices.length) {
+      console.warn(
+        `Choice array length mismatch for ${imageName}: ` +
+        `expected ${existingChoices.length}, got ${choices.length}`
+      );
+    }
+  }
 }

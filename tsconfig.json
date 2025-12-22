@@ -20,14 +20,10 @@
     "target": "ES2022",
     "module": "ES2022",
     "useDefineForClassFields": false,
-    "lib": [
-      "ES2022",
-      "dom"
-    ],
+    "types": ["@webgpu/types"],
+    "lib": ["ES2022", "dom", "DOM.Iterable"],
     "paths": {
-      "path": [
-        "./node_modules/path-browserify"
-      ]
+      "path": ["./node_modules/path-browserify"]
     }
   },
   "angularCompilerOptions": {

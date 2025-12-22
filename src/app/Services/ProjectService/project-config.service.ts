@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
-import { ProjectConfig, SegLabel } from '../../Core/interface';
+import { SegLabel } from '../../Core/interface';
+import { ProjectConfig } from '../TauriEvent/interface';
 import { MulticlassTask, MultilabelTask } from '../../Core/task';
 import { getDefaultColor } from '../../Core/misc/colors';
 import { invokeLoadJsonFile, saveProjectConfigFile } from '../../Core/save_load';
-import { LabelsService } from '../Project/labels.service';
+import { LabelsService } from '../Labels/labels.service';
 import { ProjectFileService } from './project-file.service';
 
 const CONFIG_FILENAME = 'project_config.json';
@@ -290,4 +291,6 @@ export class ProjectConfigService {
       shades: null,
     };
   }
+
+  
 }

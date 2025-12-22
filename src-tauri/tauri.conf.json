@@ -1,8 +1,9 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "LabelMed",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "identifier": "Annotator",
+  
   "build": {
     "frontendDist": "../dist/client/browser",
     "devUrl": "http://localhost:4200",

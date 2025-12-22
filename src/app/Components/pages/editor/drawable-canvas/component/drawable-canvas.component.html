@@ -112,8 +112,8 @@
       <div
         class="absolute h-full skeleton w-full z-50"
         [ngClass]="{
-          invisible: !viewService.isLoading,
-          visible: viewService.isLoading
+          invisible: !isLoading,
+          visible: isLoading
         }"
       ></div>
     </div>

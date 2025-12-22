@@ -44,12 +44,10 @@ export class PenTool extends BaseTool {
   }
 
   async end(context: ToolContext) {
-    // 1. Binarize to clean up alpha
-    this.binarizeBuffer(context);
 
-    // 2. Decide how to commit (Standard vs Swap Markers)
     if (!context.editorService.penPostProcess) {
       if (context.editorService.swapMarkers) {
+        this.binarizeBuffer(context);
         context.swapMarkers();
       } else {
         this.commitBufferToActive(context);

@@ -1,14 +1,14 @@
 <p-toolbar>
   <ng-template #start>
     <span class="toolbar"> Annotator </span>
-    <ng-container *ngIf="projectService.isProjectStarted">
+    @if(isProjectStarted()){
+    <ng-container>
       <p-divider layout="vertical" />
-      @if(projectService.isProjectStarted){
       <span class="toolbar">
         {{ projectService.projectName }}
       </span>
-      }
     </ng-container>
+    }
   </ng-template>
 
   <ng-template #center>
@@ -62,8 +62,10 @@
   </ng-template>
   <ng-template pTemplate="end"> </ng-template>
 </p-toolbar>
-@if(viewService.isLoading){
+@if(uiStateService.isLoading){
 <app-loading> </app-loading>
+} @if(uiStateService.showFpsCounter){
+<app-fps-display></app-fps-display>
 }
 <!-- <app-testing></app-testing> -->
 

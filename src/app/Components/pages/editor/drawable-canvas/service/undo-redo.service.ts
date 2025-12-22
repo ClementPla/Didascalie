@@ -3,7 +3,7 @@ import { UndoRedo } from '../../../../../Core/misc/undo-redo';
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
 import { EditorService } from '../../services/editor.service';
-import { LabelsService } from '../../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { BehaviorSubject } from 'rxjs';
 
 interface LayerUndoRedoState {

@@ -16,17 +16,15 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { FieldsetModule } from 'primeng/fieldset';
 import { ButtonModule } from 'primeng/button';
 import { ProjectService } from '../../../Services/ProjectService/project.service';
-import { LabelsService } from '../../../Services/Project/labels.service';
+import { LabelsService } from '../../../Services/Labels/labels.service';
 import { ColorPickerModule } from 'primeng/colorpicker';
 import { CheckboxModule } from 'primeng/checkbox';
-import { CLIService } from '../../../Services/cli.service';
 import { ClassificationConfigurationComponent } from './classification-configuration/classification-configuration.component';
 import { TableModule } from 'primeng/table';
 import { path } from '@tauri-apps/api';
 import { GenericsModule } from '../../../generics/generics.module';
 import { TextConfigurationComponent } from './text-configuration/text-configuration.component';
 import { PixelsConfigurationComponent } from './pixels-configuration/pixels-configuration.component';
-import { ViewService } from '../../../Services/UI/view.service';
 import { EditorService } from '../editor/services/editor.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { CommonModule } from '@angular/common';
@@ -35,6 +33,9 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { PostProcessOption } from '../../../Core/tools';
 import { ProgressBarModule } from 'primeng/progressbar';
+import { UIStateService } from '../../../Services/uistate.service';
+import { NavigationService } from '../../../Services/Navigation/navigation.service';
+import { debounceTime, Subject, switchMap, tap } from 'rxjs';
 
 @Component({
   selector: 'app-project-configuration',
@@ -65,30 +66,49 @@ import { ProgressBarModule } from 'primeng/progressbar';
   templateUrl: './project-configuration.component.html',
   styleUrl: './project-configuration.component.scss',
 })
-export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
+export class ProjectConfigurationComponent implements AfterViewInit {
   isInputValid: boolean = true;
   isOutputValid: boolean = true;
   isNameValid: boolean = true;
   fileLoading: boolean = false;
-
+  private searchTrigger$ = new Subject<void>();
   constructor(
     public projectService: ProjectService,
     public labelService: LabelsService,
-    private cli: CLIService,
-    private cdr: ChangeDetectorRef,
-    private viewService: ViewService,
     public editorService: EditorService,
+    public uiStateService: UIStateService,
     private clipboard: Clipboard,
-    private messageService: MessageService
-  ) {}
+    private messageService: MessageService,
+    private navigationService: NavigationService,
+    private cdr: ChangeDetectorRef
+  ) {
+    this.setupSearchDebounce();
+  }
 
-  ngOnInit(): void {
-    this.cli.commandProcessed.subscribe((value) => {
-      if (value) {
+
+  setupSearchDebounce() {
+    // 2. Setup the pipeline
+    this.searchTrigger$.pipe(
+      debounceTime(300), // Wait for user to stop typing/clicking
+      tap(() => {
+        this.fileLoading = true;
+        this.cdr.detectChanges(); // Ensure bar shows up immediately
+      }),
+      // switchMap handles the async call and cancels previous "in-flight" requests
+      switchMap(() => this.projectService.listFiles())
+    ).subscribe({
+      next: () => {
+        this.fileLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        this.fileLoading = false;
         this.cdr.detectChanges();
       }
     });
   }
+
 
   openInputFolder() {
     const file = open({ directory: true });
@@ -116,7 +136,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
 
     if (this.isInputValid && this.isOutputValid) {
       await this.projectService.startProject();
-      this.viewService.navigateToGallery();
+      this.uiStateService.navigateToGallery();
     }
   }
 
@@ -131,7 +151,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     await this.projectService.loadProjectFile(filepath, start).then;
     this.updateFileCounter();
     if (start) {
-      await this.viewService.navigateToGallery();
+      await this.uiStateService.navigateToGallery();
     }
   }
 
@@ -144,12 +164,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
     });
   }
   async updateFileCounter() {
-    if (this.fileLoading) return;
-
-    this.fileLoading = true;
-    this.projectService.listFiles().then(() => {
-      this.fileLoading = false;
-    });
+    this.searchTrigger$.next();
   }
   removeProjectFromFilepath(filepath: string) {
     this.projectService.removeProjectFile(filepath);
@@ -169,9 +184,7 @@ export class ProjectConfigurationComponent implements OnInit, AfterViewInit {
         "C:/Users/cleme/Documents/data/multiImageTest/Multi-ImageTest/project_config.json",
         true
       )
-      .then(() => {
-        // this.viewService.navigateToExport();
-        this.viewService.openEditor(1);
-      });
+    await this.uiStateService.navigateToGallery();
+
   }
 }

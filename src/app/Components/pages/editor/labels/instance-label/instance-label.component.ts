@@ -3,7 +3,7 @@ import { SegLabel } from '../../../../../Core/interface';
 import { ProjectService } from '../../../../../Services/ProjectService/project.service';
 import { generate_shades } from '../../../../../Core/misc/colors';
 import { NgFor, NgClass } from '@angular/common';
-import { LabelsService } from '../../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../../Services/Labels/labels.service';
 
 
 @Component({

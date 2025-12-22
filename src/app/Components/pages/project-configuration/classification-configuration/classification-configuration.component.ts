@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { LabelsService } from '../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../Services/Labels/labels.service';
 import { FormsModule } from '@angular/forms';
 import { CheckboxModule } from 'primeng/checkbox';
 import { ButtonModule } from 'primeng/button';

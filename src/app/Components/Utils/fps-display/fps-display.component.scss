@@ -1,0 +1,42 @@
+.fps-monitor {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #0f0;
+  padding: 8px 12px;
+  font-family: "Consolas", "Monaco", monospace;
+  font-size: 13px;
+  border-radius: 4px;
+  z-index: 99999;
+  pointer-events: none;
+  min-width: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.fps {
+  font-weight: bold;
+  font-size: 14px;
+}
+.fps.low {
+  color: #ffa500;
+}
+.fps.frozen {
+  color: #ff0000;
+  animation: blink 0.5s infinite;
+}
+.detail {
+  color: #888;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.frozen-time {
+  color: #ff6b6b;
+  font-size: 11px;
+  margin-top: 4px;
+  font-weight: bold;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.5;
+  }
+}

@@ -2,7 +2,7 @@
   (dblclick)="openEditor()"
   [ngClass]="{ panel_selected: true }"
   (click)="select($event)"
-  [styleClass]="getCardStyleClass()"
+  [class]="getCardStyleClass()"
 >
   <ng-template #title
     ><p class="text-center">
@@ -13,40 +13,34 @@
     </p>
   </ng-template>
   <div
-    class="align-middle flex flex-col hover:brightness-125 hover:contrast-75 hover:scale-110 justify-center rounded-md"
+    class="align-middle flex flex-col hover:brightness-125 hover:contrast-75 hover:scale-110 items-center justify-center rounded-md"
+    (mouseenter)="onMouseEnter()"
+    (mouseleave)="onMouseLeave()"
     [ngClass]="{
       annotated: this.status == 'annotated',
       reviewed: this.status == 'reviewed',
       unannotated: !(this.status == 'annotated' || this.status == 'reviewed')
     }"
   >
-    <div class="stacked" *ngIf="img.length > 1">
+    @if(img.length > 1){
+    <div class="stacked">
       <img
-        class="aspect-auto flex flex-col"
+        class="aspect-auto border border-gray-200 rounded-md shadow-sm"
+        [class.fade-anim]="isFading"
         [src]="imagePath"
         [width]="imgSize"
       />
+      <span class="img-count"> +{{ img.length }} </span>
     </div>
-    <img
-      *ngIf="img.length === 1"
-      class="aspect-auto flex flex-col"
-      [src]="imagePath"
-      [width]="imgSize"
-    />
-    <ng-container *ngIf="projectService.isClassification">
-      <ng-container
-        *ngFor="
-          let task of labelsService.listClassificationTasks;
-          let i = index
-        "
-      >
-        <small
-          *ngIf="classificatorService.multiclassChoices.get(getImageName())![i]"
-        >
-          <b>{{ task.taskName }}: </b>
-          {{ classificatorService.multiclassChoices.get(getImageName())![i] }}
-        </small>
-      </ng-container>
-    </ng-container>
+    } @if(img.length === 1){
+    <img [src]="imagePath" [width]="imgSize" />
+    } @if(projectService.isClassification){ @for(task of
+    labelsService.listClassificationTasks; track task.taskName){
+    @if(classificationService.multiclassChoices.get(getImageName())![$index]){
+    <small>
+      <b>{{ task.taskName }}: </b>
+      {{ classificationService.multiclassChoices.get(getImageName())![$index] }}
+    </small>
+    } } }
   </div>
 </p-card>

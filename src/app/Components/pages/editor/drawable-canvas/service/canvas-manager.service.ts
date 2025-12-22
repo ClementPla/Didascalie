@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
 import { StateManagerService } from './state-manager.service';
-import { LabelsService } from '../../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { OpenCVService } from '../../../../../Services/open-cv.service';
 import { EditorService } from '../../services/editor.service';
 import { Subject } from 'rxjs';
 import { BboxManagerService } from './bbox-manager.service';
 import { CombinedLabel } from '../../../../../Core/interface';
+import { WebGPUCanvasCompositorService } from './web-gpucanvas-compositor.service';
 
 @Injectable({
   providedIn: 'root',
@@ -21,14 +22,77 @@ export class CanvasManagerService {
   bufferCtx: OffscreenCanvasRenderingContext2D;
 
   requestRedraw: Subject<boolean> = new Subject<boolean>();
-
+  private useWebGPU = false;
   constructor(
     private stateService: StateManagerService,
     private labelService: LabelsService,
     private openCVService: OpenCVService,
     private editorService: EditorService,
-    private bboxManager: BboxManagerService
-  ) {}
+    private bboxManager: BboxManagerService,
+    private webgpuCompositor: WebGPUCanvasCompositorService
+  ) {
+    this.initializeWebGPU();
+  }
+
+  private async initializeWebGPU(): Promise<void> {
+    this.useWebGPU = await this.webgpuCompositor.initialize();
+    console.log(
+      `Using ${this.useWebGPU ? 'WebGPU' : 'CPU'} for canvas composition`
+    );
+  }
+  debugCheckBinary(ctx: OffscreenCanvasRenderingContext2D, label: string) {
+    const imgData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const data = imgData.data;
+
+    let nonBinaryCount = 0;
+    const nonBinaryValues = new Set<number>();
+
+    for (let i = 3; i < data.length; i += 4) {
+      const alpha = data[i];
+      if (alpha !== 0 && alpha !== 255) {
+        nonBinaryCount++;
+        nonBinaryValues.add(alpha);
+      }
+    }
+
+    if (nonBinaryCount > 0) {
+      console.warn(
+        `${label}: Found ${nonBinaryCount} non-binary alpha pixels. Values:`,
+        [...nonBinaryValues].sort((a, b) => a - b)
+      );
+    } else {
+      console.log(`${label}: All pixels are binary (0 or 255)`);
+    }
+  }
+
+  async computeCombinedCanvas() {
+   
+    this.bboxManager.clear();
+    if (this.useWebGPU && this.editorService.webGPURendering) {
+      await this.computeCombinedCanvasGPU();
+    } else {
+      this.computeCombinedCanvasCPU();
+    }
+    if (this.editorService.showBoundingBox) {
+      if (this.editorService.labelledCombinedBoundingBox) {
+        let boundingBox = this.openCVService.findBoundingBox(this.combinedCtx);
+        this.bboxManager.addBboxes(boundingBox, CombinedLabel);
+      } else {
+        this.labelCanvas.forEach((canvas, index) => {
+          if (!this.labelService.listSegmentationLabels[index].isVisible) {
+            return;
+          }
+          let boundingBox = this.openCVService.findBoundingBox(
+            this.canvasCtx[index]
+          );
+          this.bboxManager.addBboxes(
+            boundingBox,
+            this.labelService.listSegmentationLabels[index]
+          );
+        });
+      }
+    }
+  }
 
   initCanvas() {
     this.labelCanvas = [];
@@ -58,7 +122,34 @@ export class CanvasManagerService {
     })!;
   }
 
-  computeCombinedCanvas() {
+  private async computeCombinedCanvasGPU() {
+    const width = this.stateService.width;
+    const height = this.stateService.height;
+    try {
+      if (this.webgpuCompositor.isInitialized) {
+        // 1. GPU Composite
+        const visibility = this.labelService.listSegmentationLabels.map(
+          (l) => l.isVisible
+        );
+
+        // 1. Await the actual GPU processing
+        const imageData = await this.webgpuCompositor.compositeCanvases(
+          this.labelCanvas,
+          visibility,
+          width,
+          height,
+          this.editorService.edgesOnly
+        );
+
+        this.combinedCtx.putImageData(imageData, 0, 0);
+      }
+    } catch (error) {
+      console.error('WebGPU composition failed, falling back to CPU:', error);
+      this.computeCombinedCanvasCPU();
+    }
+  }
+
+  computeCombinedCanvasCPU() {
     this.combinedCtx.clearRect(
       0,
       0,
@@ -87,13 +178,7 @@ export class CanvasManagerService {
         );
       }
     });
-    if (
-      this.editorService.showBoundingBox &&
-      this.editorService.labelledCombinedBoundingBox
-    ) {
-      let boundingBox = this.openCVService.findBoundingBox(this.combinedCtx);
-      this.bboxManager.addBboxes(boundingBox, CombinedLabel);
-    }
+
     if (this.editorService.edgesOnly) {
       let edge = this.openCVService.edgeDetection_v2(this.combinedCtx);
       this.combinedCtx.clearRect(
@@ -241,7 +326,12 @@ export class CanvasManagerService {
     this.bboxManager.clear();
   }
 
-  updateCanvasesDimensions() {
+  async updateCanvasesDimensions() {
+    await this.webgpuCompositor.prepareResources(
+      this.stateService.width,
+      this.stateService.height,
+      this.labelCanvas.length
+    );
     if (this.labelCanvas.length == 0) {
       this.initCanvas();
     }
