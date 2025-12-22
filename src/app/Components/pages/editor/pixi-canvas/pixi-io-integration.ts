@@ -7,7 +7,7 @@ import { Injectable } from '@angular/core';
 import { path } from '@tauri-apps/api';
 import { invoke } from '@tauri-apps/api/core';
 import { PixiCanvasComponent } from './pixi-canvas.component';
-import { LabelsService } from '../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../Services/Labels/labels.service';
 import { ProjectService } from '../../../../Services/ProjectService/project.service';
 
 @Injectable({

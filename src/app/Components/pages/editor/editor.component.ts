@@ -32,17 +32,25 @@ import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.
 
 // Services
 import { EditorService } from './services/editor.service';
-import { LabelsService } from '../../../Services/Project/labels.service';
-import { ViewService, ProgressInfo } from '../../../Services/UI/view.service';
+import { LabelsService } from '../../../Services/Labels/labels.service';
+import {
+  NavigationService,
+  ProgressInfo,
+} from '../../../Services/Navigation/navigation.service';
+import { UIStateService } from '../../../Services/uistate.service';
 import { ProjectService } from '../../../Services/ProjectService/project.service';
 import { ZoomPanService } from './drawable-canvas/service/zoom-pan.service';
 import { CanvasManagerService } from './drawable-canvas/service/canvas-manager.service';
 import { KeyboardShortcutService } from './services/keyboard-shortcut.service';
-import { DownloadProgress, TauriEventService } from '../../../Services/tauri-event.service';
-import { IOService } from '../../../Services/Project/io.service';
-
+import {
+  DownloadProgress,
+  TauriEventService,
+} from '../../../Services/TauriEvent/';
+import { IOService } from '../../../Services/io.service';
+import { OrchestratorService } from './drawable-canvas/service/orchestrator.service';
 // Core
 import { Tools } from '../../../Core/tools';
+import { MultiframesService } from '../../../Services/multiframes.service';
 
 @Component({
   selector: 'app-editor',
@@ -70,13 +78,14 @@ import { Tools } from '../../../Core/tools';
 })
 export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild(DrawableCanvasComponent) canvas: DrawableCanvasComponent;
-  @ViewChild(MultiFramesOptionsComponent) multiFramesOptions: MultiFramesOptionsComponent;
+  @ViewChild(MultiFramesOptionsComponent)
+  multiFramesOptions: MultiFramesOptionsComponent;
   @ViewChild('quickAccessMenu') quickAccessMenu: QuickAccessMenuComponent;
 
   public viewPortSize = 800;
   public displayDownloadDialog = false;
   public downloadProgress = 0;
-  public progressItems: MeterItem[] =  [];
+  public progressItems: MeterItem[] = [];
 
   private destroy$ = new Subject<void>();
   private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
@@ -84,13 +93,16 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private editorService: EditorService,
     private labelService: LabelsService,
-    private viewService: ViewService,
+    private uiStateService: UIStateService,
+    private navigationService: NavigationService,
     public projectService: ProjectService,
     private zoomPanService: ZoomPanService,
     private canvasManagerService: CanvasManagerService,
     private keyboardService: KeyboardShortcutService,
     private tauriEvents: TauriEventService,
-    private ioService: IOService
+    private ioService: IOService,
+    private orchestratorService: OrchestratorService,
+    private multiframeService: MultiframesService
   ) {}
 
   async ngOnInit() {
@@ -115,11 +127,11 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private initSubscriptions() {
     this.keyboardService.action$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(action => this.handleShortcutAction(action));
+      .subscribe((action) => this.handleShortcutAction(action));
 
     this.ioService.requestedReload
       .pipe(takeUntil(this.destroy$))
-      .subscribe(shouldReload => {
+      .subscribe((shouldReload) => {
         if (shouldReload) {
           this.loadCanvas(shouldReload);
         }
@@ -127,57 +139,63 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.tauriEvents.downloadProgress$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(info => this.handleDownloadProgress(info));
+      .subscribe((info) => this.handleDownloadProgress(info));
 
     this.tauriEvents.segmentationStarted$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        this.viewService.setLoading(true, 'Performing mask segmentation (first call may take longer)');
+        this.uiStateService.setLoading(
+          true,
+          'Performing mask segmentation (first call may take longer)'
+        );
       });
 
     this.tauriEvents.segmentationCompleted$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        this.viewService.endLoading();
+        this.uiStateService.endLoading();
       });
 
-    this.viewService.progress$
+    this.navigationService.progress$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(progress => this.updateProgressDisplay(progress));
+      .subscribe((progress) => this.updateProgressDisplay(progress));
   }
 
   private handleShortcutAction(action: string) {
     const actionHandlers: Record<string, () => void | Promise<void>> = {
-      'selectPen': () => this.editorService.selectTool(Tools.PEN),
-      'selectEraser': () => this.editorService.selectTool(Tools.ERASER),
-      'selectLasso': () => this.editorService.selectTool(Tools.LASSO),
-      'selectLassoEraser': () => this.editorService.selectTool(Tools.LASSO_ERASER),
-      'selectLine': () => this.editorService.selectTool(Tools.LINE),
-      'selectPan': () => this.editorService.selectTool(Tools.PAN),
+      selectPen: () => this.editorService.selectTool(Tools.PEN),
+      selectEraser: () => this.editorService.selectTool(Tools.ERASER),
+      selectLasso: () => this.editorService.selectTool(Tools.LASSO),
+      selectLassoEraser: () =>
+        this.editorService.selectTool(Tools.LASSO_ERASER),
+      selectLine: () => this.editorService.selectTool(Tools.LINE),
+      selectPan: () => this.editorService.selectTool(Tools.PAN),
 
-      'undo': () => this.editorService.requestUndo(),
-      'redo': () => this.editorService.requestRedo(),
+      undo: () => this.editorService.requestUndo(),
+      redo: () => this.editorService.requestRedo(),
 
-      'toggleAllVisibility': () => {
+      toggleAllVisibility: () => {
         this.labelService.switchVisibilityAllSegLabels();
         this.editorService.requestCanvasRedraw();
       },
-      'nextLabel': () => this.cycleToNextLabel(),
-      'toggleEdges': () => {
+      nextLabel: () => this.cycleToNextLabel(),
+      toggleEdges: () => {
         this.editorService.edgesOnly = !this.editorService.edgesOnly;
         this.editorService.requestCanvasRedraw();
       },
-      'toggleImageProcessing': () => {
+      toggleImageProcessing: () => {
         this.editorService.useProcessing = !this.editorService.useProcessing;
         this.editorService.requestCanvasRedraw();
       },
-      'togglePostProcessing': () => this.togglePostProcessing(),
-      'zoomIn': () => this.zoomPanService.zoomIn(1.2),
-      'zoomOut': () => this.zoomPanService.zoomOut(1.2),
+      togglePostProcessing: () => this.togglePostProcessing(),
+      zoomIn: () => this.zoomPanService.zoomIn(1.2),
+      zoomOut: () => this.zoomPanService.zoomOut(1.2),
 
-      'save': async () => { await this.save(); },
-      'nextImage': () => this.navigateNext(),
-      'previousImage': () => this.navigatePrevious(),
+      save: async () => {
+        await this.save();
+      },
+      nextImage: () => this.navigateNext(),
+      previousImage: () => this.navigatePrevious(),
 
       'panMode:start': () => this.editorService.activatePanMode(),
       'panMode:end': () => this.editorService.restoreLastTool(),
@@ -201,36 +219,45 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     try {
-      await this.viewService.loadCurrentImage(reload);
-      this.canvas.redrawAllCanvas();
-      this.updateProgressDisplay(this.viewService.getProgress());
+      await this.navigationService.loadCurrentImage(reload);
+      this.orchestratorService.requestRedraw();
+      this.updateProgressDisplay(this.navigationService.getProgress());
     } catch (error) {
       console.error('Error loading canvas:', error);
     }
   }
 
-  public async navigateNext() {
-    const success = await this.viewService.navigate('next');
-    if (success) {
-      this.resetFrameIfNeeded();
-      this.canvas.redrawAllCanvas();
+  public async navigateNext(): Promise<void> {
+    this.uiStateService.setLoading(true, 'Loading next image');
+
+    const result = await this.navigationService.navigate('next');
+
+    if (result) {
+      this.handleNavigationSuccess();
     }
+
+    this.uiStateService.endLoading();
   }
 
-  public async navigatePrevious() {
-    const success = await this.viewService.navigate('previous');
-    if (success) {
-      this.resetFrameIfNeeded();
-      this.canvas.redrawAllCanvas();
+  public async navigatePrevious(): Promise<void> {
+    this.uiStateService.setLoading(true, 'Loading previous image');
+
+    const result = await this.navigationService.navigate('previous');
+
+    if (result) {
+      this.handleNavigationSuccess();
     }
+
+    this.uiStateService.endLoading();
   }
 
-  public async changedOfFrame(newFrame: number) {
-    const success = await this.viewService.navigateToFrame(newFrame);
-    if (success) {
-      this.canvas.redrawAllCanvas();
+  public async changedOfFrame(newFrame: number): Promise<void> {
+    const result = await this.navigationService.navigateToFrame(newFrame);
+
+    if (result) {
+      this.orchestratorService.requestRedraw();
     } else {
-      this.resetFrameIfNeeded();
+      this.syncFrameFromService();
     }
   }
 
@@ -241,7 +268,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public async save(): Promise<boolean> {
-    const success = await this.viewService.save();
+    const success = await this.navigationService.save();
     if (success) {
       console.log('Annotations saved');
     }
@@ -260,7 +287,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.editorService.penPostProcess = !this.editorService.penPostProcess;
     }
     if (this.editorService.isEraser()) {
-      this.editorService.eraserPostProcess = !this.editorService.eraserPostProcess;
+      this.editorService.eraserPostProcess =
+        !this.editorService.eraserPostProcess;
     }
   }
 
@@ -279,15 +307,17 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.progressItems = [{
-      label: `Current image: ${progress.imageName} - ${progress.currentIndex} / ${progress.total} images done`,
-      value: progress.percentage,
-      color: 'var(--p-primary-color)',
-    }];
+    this.progressItems = [
+      {
+        label: `Current image: ${progress.imageName} - ${progress.currentIndex} / ${progress.total} images done`,
+        value: progress.percentage,
+        color: 'var(--p-primary-color)',
+      },
+    ];
   }
 
   get isMultiframeActive(): boolean {
-    return this.viewService.isMultiframeActive;
+    return this.navigationService.isMultiframeActive;
   }
 
   get totalImages(): number {
@@ -301,10 +331,34 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   get isLoading(): boolean {
-    return this.viewService.isLoading;
+    return this.uiStateService.isLoading;
   }
 
   get loadingStatus(): string {
-    return this.viewService.loadingStatus;
+    return this.uiStateService.loadingStatus;
+  }
+
+  private handleNavigationSuccess(): void {
+    this.resetFrameIfNeeded();
+    this.orchestratorService.requestRedraw();
+  }
+
+  private syncFrameFromService(): void {
+    if (this.multiFramesOptions && this.multiframeService.activeGroup) {
+      // Get the actual current frame index from the service
+      const currentImageName =
+        this.projectService.imagesName[this.projectService.activeIndex!];
+      const frames = this.multiframeService.groupedFrames.get(
+        this.multiframeService.activeGroup
+      );
+      if (frames) {
+        const frameIndex = frames.findIndex(
+          (f) => f.includes(currentImageName) || currentImageName.includes(f)
+        );
+        if (frameIndex !== -1) {
+          this.multiFramesOptions.currentFrame = frameIndex;
+        }
+      }
+    }
   }
 }

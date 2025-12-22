@@ -18,7 +18,7 @@ export class ProjectFileService {
 
   // ==========================================
   // File Listing
-  // ==========================================
+  // ========================================== 
 
   /**
    * Lists files in a folder matching a regex pattern.
@@ -29,7 +29,7 @@ export class ProjectFileService {
     recursive: boolean = true
   ): Promise<string[]> {
     try {
-      return await invoke<string[]>('list_files_in_folder', {
+      return invoke<string[]>('list_files_in_folder', {
         folder,
         regexfilter: regexFilter,
         recursive,

@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { NgFor } from '@angular/common';
-import { LabelsService } from '../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../Services/Labels/labels.service';
 import { TextLabel } from '../../../../Core/interface';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';

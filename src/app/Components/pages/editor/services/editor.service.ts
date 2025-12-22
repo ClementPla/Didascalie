@@ -39,6 +39,7 @@ export class EditorService {
 
   public floodFillTolerance: number = 3.0;
 
+  public webGPURendering: boolean = false;
   constructor() {}
 
   public activatePanMode() {

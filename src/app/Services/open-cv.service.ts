@@ -576,53 +576,6 @@ export class OpenCVService {
     return boundingBoxes;
   }
 
-  binarizeCanvasAlphaBased(
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-    bbox: Rect | null,
-    color: string
-  ) {
-    const [r, g, b] = from_hex_to_rgb(color);
-    if (!bbox) {
-      bbox = { x: 0, y: 0, width: ctx.canvas.width, height: ctx.canvas.height };
-    }
-
-    const imgData = ctx.getImageData(bbox.x, bbox.y, bbox.width, bbox.height);
-    const src = cv.matFromImageData(imgData);
-
-    // Extract alpha channel
-    const channels = new cv.MatVector();
-    cv.split(src, channels);
-    const alpha = channels.get(3);
-
-    // Create color matrix
-    const colorMat = new cv.Mat(
-      src.rows,
-      src.cols,
-      src.type(),
-      new cv.Scalar(r, g, b, 255)
-    );
-
-    // Create output matrix
-    const output = new cv.Mat();
-
-    // Use bitwise operations to combine color and alpha
-    cv.bitwise_and(colorMat, colorMat, output, alpha);
-
-    // Convert back to ImageData
-    const processedImageData = new ImageData(
-      new Uint8ClampedArray(output.data),
-      bbox.width,
-      bbox.height
-    );
-    ctx.putImageData(processedImageData, bbox.x, bbox.y);
-
-    // Cleanup
-    src.delete();
-    output.delete();
-    channels.delete();
-    alpha.delete();
-    colorMat.delete();
-  }
 
   getMaskOfConnectedComponentsById(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,

@@ -1,15 +1,12 @@
 <div class="flex flex-row gap-4 items-start justify-center">
-  <p-panel *ngIf="projectService.isClassification">
+  @if(projectService.isClassification){
+  <p-panel>
     <ng-template #header>
       <b>Batch annotate</b>
     </ng-template>
     <div class="flex flex-col gap-4 justify-center">
-      <div
-        *ngFor="
-          let task of labelsService.listClassificationTasks;
-          let i = index
-        "
-      >
+      @for(task of labelsService.listClassificationTasks; track task.taskName){
+      <div>
         <h4>{{ task.taskName }}</h4>
         <p-selectButton
           #batchChoices
@@ -17,6 +14,7 @@
           [size]="'small'"
         ></p-selectButton>
       </div>
+      }
       <button
         pButton
         type="button"
@@ -25,6 +23,7 @@
       ></button>
     </div>
   </p-panel>
+  }
 
   <p-dataview
     #dv
@@ -40,13 +39,14 @@
     <ng-template #header>
       <div class="flex gap-8 items-center justify-end">
         <p class="flex flex-row gap-4 items-center justify-center mr-auto">
+          @if(projectService.isClassification){
           <button
-            *ngIf="projectService.isClassification"
             pButton
             type="button"
             label="Deselect all"
             (click)="deselectAll()"
-          ></button>
+          ></button
+          >}
 
           <p-slider
             [(ngModel)]="imgSize"
@@ -101,14 +101,10 @@
 
     <ng-template #grid let-items let-rowIndexValue="rowIndex">
       <div
-        class="flex flex-row flex-wrap justify-left max-h-[70vh] overflow-y-scroll"
+        class="flex flex-row flex-wrap justify-left max-h-[70vh] overflow-x-clip overflow-y-scroll"
       >
+        @for(item of items; track item.img[0]){
         <app-gallery-element
-          *ngFor="
-            let item of items as GalleryItem;
-            let index = index;
-            let first = first
-          "
           [img]="item.img"
           [status]="item.status"
           [selected]="
@@ -121,6 +117,7 @@
           [imgSize]="imgSize"
         >
         </app-gallery-element>
+        }
       </div>
     </ng-template>
 

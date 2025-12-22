@@ -1,12 +1,12 @@
 import { Component, EventEmitter, HostListener, Output } from '@angular/core';
-import { ViewService } from '../../../../Services/UI/view.service';
-import { MultiframesService } from '../../../../Services/Project/multiframes.service';
+import { MultiframesService } from '../../../../Services/multiframes.service';
 import { ProjectService } from '../../../../Services/ProjectService/project.service';
 import { CommonModule } from '@angular/common';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { FormsModule } from '@angular/forms';
 import { SliderModule } from 'primeng/slider';
 import { PanelModule } from 'primeng/panel';
+import { UIStateService } from '../../../../Services/uistate.service';
 @Component({
     selector: 'app-multi-frames-options',
     imports: [
@@ -27,17 +27,17 @@ export class MultiFramesOptionsComponent {
 
   constructor(
     public projectService: ProjectService,
-    private viewService: ViewService,
-    public multiframeService: MultiframesService
+    public multiframeService: MultiframesService,
+    private uiStateService: UIStateService
   ) {}
 
   preload() {
-    this.viewService.setLoading(true, 'Preloading frames');
+    this.uiStateService.setLoading(true, 'Preloading frames');
     this.multiframeService.cacheActiveGroupFrames();
-    this.viewService.endLoading();
+    this.uiStateService.endLoading();
   }
 
-  async multiFrameChanged() {
+  multiFrameChanged() {
     if (!this._isLoaded) {
       return;
     }

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { auditTime, BehaviorSubject, Subject } from 'rxjs';
+import { auditTime, BehaviorSubject, merge, Subject } from 'rxjs';
 
 // Services
 import { CanvasManagerService } from './canvas-manager.service';
@@ -17,10 +17,9 @@ export interface ViewTransform {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class OrchestratorService {
-  
   // State signals
   private isReadySubject = new BehaviorSubject<boolean>(false);
   public isReady$ = this.isReadySubject.asObservable();
@@ -48,32 +47,25 @@ export class OrchestratorService {
    * The component only needs to subscribe to one observable.
    */
   private initializeRedrawAggregation() {
-    this.zoomPan.redrawRequest
-    .pipe(auditTime(0, animationFrameScheduler))
-    .subscribe((value) => {
-      if (value) this.redrawRequest.next();
-    });
 
     this.canvasManager.requestRedraw
-    .pipe(auditTime(0, animationFrameScheduler))
-    .subscribe((value) => {
-      if (value) {
-        this.drawService.refreshAllColors();
-        this.redrawRequest.next();
-      }
-    });
+      .pipe(auditTime(0, animationFrameScheduler))
+      .subscribe((value) => {
+        if (value) {
+          this.drawService.refreshAllColors();
+          this.redrawRequest.next();
+        }
+      });
 
-    this.drawService.redrawRequest
-    .pipe(auditTime(0, animationFrameScheduler))
-    .subscribe((value) => {
-      if (value) this.redrawRequest.next();
-    });
-
-    this.undoRedo.redrawRequest
-    .pipe(auditTime(0, animationFrameScheduler))
-    .subscribe((value) => {
-      if (value) this.redrawRequest.next();
-    });
+    merge(
+      this.zoomPan.redrawRequest,
+      this.drawService.redrawRequest,
+      this.undoRedo.redrawRequest
+    )
+      .pipe(auditTime(0, animationFrameScheduler))
+      .subscribe((value) => {
+        if (value) this.redrawRequest.next();
+      });
   }
   public requestRedraw() {
     this.redrawRequest.next();
@@ -83,39 +75,45 @@ export class OrchestratorService {
    * Single entry point for loading a new image.
    */
   public async loadImage(imgSrc: string): Promise<HTMLImageElement> {
-    this.isReadySubject.next(false);
+  this.isReadySubject.next(false);
+  try {
+    const img = await this.preloadImage(imgSrc);
+    this.loadedImage = img;
 
-    try {
-      const img = await this.preloadImage(imgSrc);
-      this.loadedImage = img;
+    // 1. Sync dimensions across all services
+    this.state.setWidthAndHeight(img.width, img.height);
+    await this.canvasManager.updateCanvasesDimensions();
 
-      // 1. Sync dimensions across all services
-      this.state.setWidthAndHeight(img.width, img.height);
-      this.canvasManager.updateCanvasesDimensions();
+    // 2. Initialize internal states
+    this.imageProc.setImage(img);
+    this.postProcess.featuresExtracted = false;
+    this.state.recomputeCanvasSum = true;
 
-      // 2. Initialize internal states
-      this.imageProc.setImage(img);
-      this.postProcess.featuresExtracted = false;
-      this.state.recomputeCanvasSum = true;
+    // 3. Reset view
+    const maxDim = Math.max(img.width, img.height);
+    this.zoomPan.smooth = maxDim < 2048;
+    this.zoomPan.resetZoomAndPan(true, true);
 
-      // 3. Reset view
-      const maxDim = Math.max(img.width, img.height);
-      this.zoomPan.smooth = maxDim < 2048;
-      this.zoomPan.resetZoomAndPan(true, true);
+    // 4. Clear history (but don't capture yet - annotations not loaded)
+    this.undoRedo.empty();
 
-      // 4. History (first snapshot)
-      this.undoRedo.empty();
-      await this.undoRedo.captureInitialStates();
+    this.isReadySubject.next(true);
+    this.redrawRequest.next();
 
-      this.isReadySubject.next(true);
-      this.redrawRequest.next();
-
-      return img;
-    } catch (e) {
-      console.error('Orchestrator failed to load image:', e);
-      throw e;
-    }
+    return img;
+  } catch (e) {
+    console.error('Orchestrator failed to load image:', e);
+    throw e;
   }
+}
+
+/**
+ * Capture initial undo/redo state after annotations are loaded.
+ * Must be called after loadImage() and after annotations are loaded into canvases.
+ */
+public async captureInitialHistory(): Promise<void> {
+  await this.undoRedo.captureInitialStates();
+}
 
   private preloadImage(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
@@ -145,7 +143,7 @@ export class OrchestratorService {
   public getViewTransform(): ViewTransform {
     return {
       scale: this.zoomPan.getScale(),
-      offset: this.zoomPan.getOffset()
+      offset: this.zoomPan.getOffset(),
     };
   }
 
@@ -161,9 +159,9 @@ export class OrchestratorService {
     return this.imageProc.getCurrentCanvas();
   }
 
-  public getCombinedLabelCanvas(): OffscreenCanvas {
+  public async getCombinedLabelCanvas(): Promise<OffscreenCanvas> {
     if (this.state.recomputeCanvasSum) {
-      this.canvasManager.computeCombinedCanvas();
+      await this.canvasManager.computeCombinedCanvas();
       this.state.recomputeCanvasSum = false;
     }
     return this.canvasManager.getCombinedCanvas();

@@ -11,10 +11,14 @@ export class GalleryService {
 
   getFirstPage() {
     const activeIndex = this.projectService.activeIndex;
+
     if (activeIndex) {
       // Calculate the first page based on the active index and items per page
-      return activeIndex;
+      const activePage = Math.floor(activeIndex / this.itemPerPage);
+      const activeFirst = activePage * this.itemPerPage;
+      return activeFirst;
+    } else {  
+      return 0;
     }
-    return 0;
   }
 }

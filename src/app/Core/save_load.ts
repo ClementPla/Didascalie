@@ -1,4 +1,4 @@
-import { ProjectConfig } from './interface';
+import { ProjectConfig } from '../Services/TauriEvent/interface';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
 

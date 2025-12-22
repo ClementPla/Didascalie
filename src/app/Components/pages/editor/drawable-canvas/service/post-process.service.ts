@@ -12,7 +12,7 @@ import {
 } from '../../../../../Core/misc/binarize';
 import { OpenCVService } from '../../../../../Services/open-cv.service';
 import { PostProcessOption } from '../../../../../Core/tools';
-import { LabelsService } from '../../../../../Services/Project/labels.service';
+import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { from_hex_to_rgb } from '../../../../../Core/misc/colors';
 import { ZoomPanService } from './zoom-pan.service';
 

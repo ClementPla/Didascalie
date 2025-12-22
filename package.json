@@ -1,6 +1,6 @@
 {
   "name": "labelmed",
-  "version": "0.2.3",
+  "version": "0.2.5",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -51,6 +51,7 @@
     "@types/node": "^22.9.0",
     "@types/path-browserify": "^1.0.3",
     "@types/webpack-env": "^1.18.5",
+    "@webgpu/types": "^0.1.68",
     "autoprefixer": "^10.4.20",
     "jasmine-core": "~5.1.0",
     "karma": "~6.4.0",
