@@ -9,21 +9,21 @@
 </p-dialog>
 
 <app-toolbar></app-toolbar>
-
-<div
-  class="editor flex gap-8 justify-around relative w-full"
-  (mousemove)="updateMousePosition($event)"
->
-  <app-quick-access-menu #quickAccessMenu> </app-quick-access-menu>
-  @if(projectService.isSegmentation || projectService.isInstanceSegmentation ||
-  projectService.isClassification || projectService.hasTextDescription){
-  <app-labels class="max-w-128"></app-labels>
+<div class="editor flex gap-8 justify-around overflow-hidden relative w-full">
+  <app-quick-access-menu #quickAccessMenu></app-quick-access-menu>
+  
+  @if(shouldShowLabels){
+    <app-labels class="flex-shrink-0 max-w-128"></app-labels>
   }
-  <div class="w-full">
-    <app-drawable-canvas class="overflow-hidden w-full"></app-drawable-canvas>
-    <p-metergroup [value]="progressItems"> </p-metergroup>
+  
+  <!-- Center column: canvas - should take remaining space but not overflow -->
+  <div class="flex-1 min-w-0 overflow-hidden">
+    <app-drawable-canvas class="block h-full overflow-hidden w-full"></app-drawable-canvas>
+    <p-metergroup [value]="progressItems"></p-metergroup>
   </div>
-  <div class="flex flex-col gap-4 min-w-96 overflow-y-auto">
+  
+  <!-- Right column: tools - fixed width, should not be pushed out -->
+  <div class="flex flex-col flex-shrink-0 gap-4 overflow-y-auto w-96">
     <app-tool-setting></app-tool-setting>
     <app-multi-frames-options
       (changeOfFrame)="changedOfFrame($event)"

@@ -60,14 +60,10 @@
 
   <!-- Main canvas -->
   <div
-    class="bg-gray-800 flex flex-grow relative w-full"
-    [ngStyle]="{
-        'aspect-ratio': orchestrator.width / orchestrator.height,
-      }"
+    class="bg-gray-800 flex items-center justify-center overflow-hidden relative"
     [ngClass]="{
-      relative: !isFullscreen,
-      'fixed h-full max-w-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black box-shadow z-[2500]':
-        isFullscreen
+      'relative': !isFullscreen,
+      'fixed h-full max-w-full top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black box-shadow z-[2500]': isFullscreen
     }"
   >
     <div
@@ -75,6 +71,8 @@
       #myCanvasContainer
       [style.width.px]="canvasWidth"
       [style.height.px]="canvasHeight"
+      [style.maxWidth.%]="100"
+      [style.maxHeight.%]="100"
     >
       <app-svgelements #svg>
       </app-svgelements>

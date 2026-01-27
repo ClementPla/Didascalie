@@ -1,69 +1,66 @@
 <div class="gap-4 grid grid-cols-[1fr_1fr_1fr] w-full">
-  @if(projectService.localStoragesProjectsFilepaths.length > 0){
-  <p-panel header="Load recent" class="flex flex-col">
-    <p-table
-      [value]="projectService.localStoragesProjectsFilepaths"
-      [tableStyle]="{ 'max-width': '25rem' }"
-    >
-      <ng-template #header>
-        <tr>
-          <th>Project Name</th>
-          <th style="width: 100px">Filepath</th>
-          <th>Load</th>
-          <th>Clear history</th>
-        </tr>
-      </ng-template>
+  <!-- Recent Projects Panel -->
+  @if (recentProjects.length > 0) {
+    <p-panel header="Load recent" class="flex flex-col">
+      <p-table
+        [value]="recentProjects"
+        [tableStyle]="{ 'max-width': '25rem' }"
+      >
+        <ng-template #header>
+          <tr>
+            <th>Project Name</th>
+            <th style="width: 100px">Filepath</th>
+            <th>Load</th>
+            <th>Clear history</th>
+          </tr>
+        </ng-template>
 
-      <ng-template #body let-rows>
-        <tr class="table-row">
-          <td
-            (click)="loadProjectFromFilepath(rows.root, false)"
-            (dblclick)="loadProjectFromFilepath(rows.root, true)"
-          >
-            {{ rows.project_name }}
-          </td>
-          <td
-            class="long-row-cut"
-            (click)="loadProjectFromFilepath(rows.root, false)"
-            (dblclick)="loadProjectFromFilepath(rows.root, true)"
-          >
-            {{ rows.root }}
-          </td>
-          <td>
-            <p-button
-              icon="pi pi-folder-open"
-              [rounded]="true"
-              [text]="true"
-              severity="success"
-              (click)="loadProjectFromFilepath(rows.root, true)"
-            />
-          </td>
-
-          <td>
-            <p-button
-              icon="pi pi-times"
-              [rounded]="true"
-              [text]="true"
-              severity="danger"
-              (click)="removeProjectFromFilepath(rows.root)"
-            />
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </p-panel>
+        <ng-template #body let-project>
+          <tr class="table-row">
+            <td
+              (click)="openRecentProject(project)"
+              (dblclick)="openRecentProject(project)"
+            >
+              {{ project.name }}
+            </td>
+            <td
+              class="long-row-cut"
+              (click)="openRecentProject(project)"
+              (dblclick)="openRecentProject(project)"
+            >
+              {{ project.path }}
+            </td>
+            <td>
+              <p-button
+                icon="pi pi-folder-open"
+                [rounded]="true"
+                [text]="true"
+                severity="success"
+                (click)="openRecentProject(project)"
+              />
+            </td>
+            <td>
+              <p-button
+                icon="pi pi-times"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                (click)="removeRecentProject(project)"
+              />
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-panel>
   }
 
-  <p-toast
-    key="pathCopiedToClipboard"
-    [baseZIndex]="5000"
-    position="bottom-left"
-  >
+  <p-toast key="pathCopiedToClipboard" [baseZIndex]="5000" position="bottom-left">
     <ng-template let-message #message>
       Filepath copied to clipboard
     </ng-template>
   </p-toast>
 
+  <!-- Input/Output Panel -->
   <div class="flex flex-col gap-8">
     <p-panel header="Input/Output">
       <p-fieldset legend="Input" [toggleable]="true">
@@ -74,38 +71,34 @@
               class="w-full"
               id="inputPath"
               aria-describedby="inputPath-help"
-              [(ngModel)]="projectService.inputFolder"
-              (ngModelChange)="updateFileCounter()"
-              [class]="{ 'ng-invalid ng-dirty': !isInputValid }"
+              [ngModel]="inputFolder"
+              (ngModelChange)="inputFolder = $event"
+              [class]="{ 'ng-invalid ng-dirty': !isInputValid() }"
             />
             <label for="inputPath">Input path</label>
           </p-floatLabel>
 
-          <p-button (click)="openInputFolder()">Choose folder</p-button>
+          <p-button (click)="selectInputFolder()">Choose folder</p-button>
 
           <div class="flex flex-col gap-2 items-center">
             <p-toggleswitch
               id="recursiveLoad"
               ariaLabelledBy="recursiveLoad"
-              [(ngModel)]="projectService.recursive"
-              (ngModelChange)="updateFileCounter()"
+              [(ngModel)]="recursive"
             />
             <small>
-              <label for="recursiveLoad" id="recursiveLoad"
-                >Recursive loading</label
-              >
+              <label for="recursiveLoad" id="recursiveLoad">Recursive loading</label>
             </small>
           </div>
+
           <div class="flex flex-col gap-2 items-center">
             <p-toggleswitch
-              id="folderAsMultiframes"
-              ariaLabelledBy="folderAsMultiframes"
-              [(ngModel)]="projectService.folderAsMultiframes"
+              id="foldersAsSequences"
+              ariaLabelledBy="foldersAsSequences"
+              [(ngModel)]="foldersAsSequences"
             />
             <small>
-              <label for="folderAsMultiframes" id="folderAsMultiframes"
-                >Folders as multi-frames</label
-              >
+              <label for="foldersAsSequences" id="foldersAsSequences">Folders as sequences</label>
             </small>
           </div>
 
@@ -114,150 +107,103 @@
               pInputText
               id="fileExtension"
               aria-describedby="fileExtension-help"
-              [(ngModel)]="projectService.inputRegex"
-              (change)="updateFileCounter()"
+              [(ngModel)]="inputRegex"
             />
             <label for="fileExtension">Regex</label>
           </p-floatLabel>
         </div>
+
         <div class="flex gap-8 items-center justify-center m-2 w-full">
-          @if(!this.fileLoading){
-          <small> Found {{ projectService.imagesName.length }} images</small>
-          } @else{
-          <p-progressbar mode="indeterminate" class="h-[6px] w-1/5" />
+          @if (isLoading()) {
+            <p-progressbar mode="indeterminate" class="h-[6px] w-1/5" />
+          } @else if (projectService.isOpen()) {
+            <small>Found {{ projectService.framesCount() }} images in {{ projectService.sequencesCount() }} sequences</small>
           }
         </div>
       </p-fieldset>
 
-      <p-fieldset legend="Output" [toggleable]="true" [collapsed]="false">
+      <p-fieldset legend="Project File" [toggleable]="true" [collapsed]="false">
         <div class="flex flex-col gap-2 items-center mt-4">
-          <p-floatLabel class="w-full">
-            <input
-              pInputText
-              id="outputPath"
-              aria-describedby="outputPath-help"
-              [(ngModel)]="projectService.outputFolder"
-              class="w-full"
-              [class]="{ 'ng-invalid ng-dirty': !isOutputValid }"
+          <small class="text-gray-500">
+            Project will be saved as a single .labelmed file
+          </small>
+          <div class="flex flex-col gap-2 items-center">
+            <p-toggleswitch
+              id="embedImages"
+              ariaLabelledBy="embedImages"
+              [(ngModel)]="imagesEmbedded"
             />
-            <label for="outputPath">Output path</label>
-          </p-floatLabel>
-
-          <p-button (click)="openOutputFolder()">Choose folder</p-button>
+            <small>
+              <label for="embedImages" id="embedImages">Embed images in project file</label>
+            </small>
+          </div>
         </div>
       </p-fieldset>
     </p-panel>
+
     <p-button
       class="w-full"
       styleClass="w-full"
       (click)="startProject()"
       [raised]="true"
+      [disabled]="isLoading()"
       label="Start"
-    >
-    </p-button>
+    />
   </div>
 
+  <!-- Settings Panel -->
   <p-panel header="Settings">
     <p-panel header="Project Configuration">
       <div class="flex flex-col">
-        <p-button class="m-auto" (click)="findAndLoadProjectFile()"
-          >Load from disk</p-button
-        >
-        <p-divider align="left" type="solid"
-          ><b>Configure project</b></p-divider
-        >
+        <p-button class="m-auto" (click)="openProjectFile()">Load from disk</p-button>
+
+        <p-divider align="left" type="solid"><b>Configure project</b></p-divider>
+
         <div class="flex flex-col flex-column gap-8 items-center">
           <p-floatLabel>
             <input
               pInputText
-              [class]="{ 'ng-invalid ng-dirty': !isNameValid }"
+              [class]="{ 'ng-invalid ng-dirty': !isNameValid() }"
               id="projectName"
               aria-describedby="projectName-help"
-              [(ngModel)]="projectService.projectName"
+              [(ngModel)]="projectName"
             />
             <label for="projectName">Project name</label>
           </p-floatLabel>
-          <div class="flex flex-wrap gap-8 items-center">
-            <app-labelled-switch [(checked)]="projectService.isClassification"
-              >Classification</app-labelled-switch
-            >
-            <app-labelled-switch [(checked)]="projectService.isSegmentation"
-              >Segmentation</app-labelled-switch
-            >
-            <app-labelled-switch
-              [(checked)]="projectService.isInstanceSegmentation"
-              >Instance segmentation</app-labelled-switch
-            >
-            <app-labelled-switch
-              [(checked)]="projectService.isBoundingBoxDetection"
-              >Bounding box</app-labelled-switch
-            >
 
-            <app-labelled-switch [(checked)]="projectService.hasTextDescription"
-              >Text description</app-labelled-switch
-            >
+          <div class="flex flex-wrap gap-8 items-center">
+            <app-labelled-switch [(checked)]="classificationEnabled">
+              Classification
+            </app-labelled-switch>
+            <app-labelled-switch [(checked)]="segmentationEnabled">
+              Segmentation
+            </app-labelled-switch>
+            <app-labelled-switch [(checked)]="instanceSegmentationEnabled">
+              Instance segmentation
+            </app-labelled-switch>
           </div>
         </div>
-        @if(projectService.isClassification){
-        <p-fieldset
-          legend="Classification configuration"
-          [toggleable]="true"
-          [collapsed]="true"
-        >
-          <app-classification-configuration></app-classification-configuration>
-        </p-fieldset>
-        } @if(projectService.isSegmentation ||
-        projectService.isInstanceSegmentation ||
-        projectService.isBoundingBoxDetection){
-        <p-fieldset
-          legend="Pixel-level configuration"
-          [toggleable]="true"
-          [collapsed]="false"
-        >
-          <app-pixels-configuration></app-pixels-configuration>
-        </p-fieldset>
-        } @if(projectService.hasTextDescription){
-        <p-fieldset
-          legend="Text description"
-          [toggleable]="true"
-          [collapsed]="true"
-        >
-          <app-text-configuration></app-text-configuration>
-        </p-fieldset>
+
+        @if (classificationEnabled) {
+          <p-fieldset
+            legend="Classification configuration"
+            [toggleable]="true"
+            [collapsed]="true"
+          >
+            <app-classification-configuration />
+          </p-fieldset>
+        }
+
+        @if (segmentationEnabled || instanceSegmentationEnabled) {
+          <p-fieldset
+            legend="Pixel-level configuration"
+            [toggleable]="true"
+            [collapsed]="false"
+          >
+            <app-pixels-configuration />
+          </p-fieldset>
         }
       </div>
     </p-panel>
-    <div>
-      <p-fieldset
-        legend="Advanced options"
-        [toggleable]="true"
-        [collapsed]="false"
-      >
-        <div class="flex flex-col gap-2 items-center">
-          <p-toggleswitch
-            id="generateThumbnails"
-            ariaLabelledBy="generateThumbnails"
-            [(ngModel)]="projectService.generateThumbnails"
-          />
-          <small>
-            <label for="generateThumbnails" id="generateThumbnails"
-              >Create thumbnails</label
-            >
-          </small>
-        </div>
-        <div class="flex flex-col gap-2 items-center">
-          <p-toggleswitch
-            id="showFpsCounter"
-            ariaLabelledBy="showFpsCounter"
-            [(ngModel)]="uiStateService.showFpsCounter"
-          />
-          <small>
-            <label for="showFpsCounter" id="showFpsCounter"
-              >Show FPS Counter</label
-            >
-          </small>
-        </div>
-      </p-fieldset>
-    </div>
   </p-panel>
 </div>

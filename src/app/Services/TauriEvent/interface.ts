@@ -21,6 +21,7 @@ export interface ProjectConfig {
   classification_multilabel: null | MultilabelInterface;
   text_names: null | string[];
   default_colors: null | string[];
+  folders_as_sequences: boolean;  // NEW: default to flat mode
 }
 
 export interface ImageFromCLI {

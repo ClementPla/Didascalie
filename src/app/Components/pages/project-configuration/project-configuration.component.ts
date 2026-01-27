@@ -1,190 +1,297 @@
-import {
-  AfterViewInit,
-  ChangeDetectorRef,
-  Component,
-  OnInit,
-} from '@angular/core';
+import { AfterViewInit, Component, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+
+// PrimeNG
+import { CardModule } from 'primeng/card';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { FloatLabelModule } from 'primeng/floatlabel';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
+import { CheckboxModule } from 'primeng/checkbox';
+import { FieldsetModule } from 'primeng/fieldset';
 import { DividerModule } from 'primeng/divider';
 import { PanelModule } from 'primeng/panel';
-import { FloatLabelModule } from 'primeng/floatlabel';
-import { FormsModule } from '@angular/forms';
-import { CardModule } from 'primeng/card';
-
-import { ToggleSwitchModule } from 'primeng/toggleswitch';
-import { InputTextModule } from 'primeng/inputtext';
-import { open } from '@tauri-apps/plugin-dialog';
-import { FieldsetModule } from 'primeng/fieldset';
-import { ButtonModule } from 'primeng/button';
-import { ProjectService } from '../../../Services/ProjectService/project.service';
-import { LabelsService } from '../../../Services/Labels/labels.service';
-import { ColorPickerModule } from 'primeng/colorpicker';
-import { CheckboxModule } from 'primeng/checkbox';
-import { ClassificationConfigurationComponent } from './classification-configuration/classification-configuration.component';
-import { TableModule } from 'primeng/table';
-import { path } from '@tauri-apps/api';
-import { GenericsModule } from '../../../generics/generics.module';
-import { TextConfigurationComponent } from './text-configuration/text-configuration.component';
-import { PixelsConfigurationComponent } from './pixels-configuration/pixels-configuration.component';
-import { EditorService } from '../editor/services/editor.service';
-import { SelectButtonModule } from 'primeng/selectbutton';
-import { CommonModule } from '@angular/common';
-import { Clipboard } from '@angular/cdk/clipboard';
-import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
-import { PostProcessOption } from '../../../Core/tools';
 import { ProgressBarModule } from 'primeng/progressbar';
+import { ToastModule } from 'primeng/toast';
+import { TableModule } from 'primeng/table';
+import { MessageService } from 'primeng/api';
+import { LabelledSwitchComponent } from '../../../generics/labelled-switch/labelled-switch.component';
+// Tauri
+import { open, save } from '@tauri-apps/plugin-dialog';
+
+// Services
+import { ProjectService, RecentProject } from '../../../Services/ProjectService/project.service';
+import { LabelsService } from '../../../Services/Labels/labels.service';
+
+// Components
+import { ClassificationConfigurationComponent } from './classification-configuration/classification-configuration.component';
+import { PixelsConfigurationComponent } from './pixels-configuration/pixels-configuration.component';
 import { UIStateService } from '../../../Services/uistate.service';
-import { NavigationService } from '../../../Services/Navigation/navigation.service';
-import { debounceTime, Subject, switchMap, tap } from 'rxjs';
+import { SequenceService } from '../../../Services/sequence.service';
 
 @Component({
   selector: 'app-project-configuration',
+  standalone: true,
   imports: [
-    CardModule,
-    TableModule,
     CommonModule,
-    ClassificationConfigurationComponent,
-    DividerModule,
-    ColorPickerModule,
-    CheckboxModule,
-    ButtonModule,
-    FloatLabelModule,
     FormsModule,
-    PanelModule,
-    ToggleSwitchModule,
+    LabelledSwitchComponent,
+    CardModule,
+    ButtonModule,
     InputTextModule,
+    FloatLabelModule,
+    ToggleSwitchModule,
+    CheckboxModule,
     FieldsetModule,
-    TextConfigurationComponent,
+    DividerModule,
+    PanelModule,
+    ProgressBarModule,
+    ToastModule,
+    TableModule,
     ClassificationConfigurationComponent,
     PixelsConfigurationComponent,
-    GenericsModule,
-    ToastModule,
-    SelectButtonModule,
-    ProgressBarModule,
   ],
   providers: [MessageService],
   templateUrl: './project-configuration.component.html',
   styleUrl: './project-configuration.component.scss',
 })
 export class ProjectConfigurationComponent implements AfterViewInit {
-  isInputValid: boolean = true;
-  isOutputValid: boolean = true;
-  isNameValid: boolean = true;
-  fileLoading: boolean = false;
-  private searchTrigger$ = new Subject<void>();
+  // Validation state
+  readonly isNameValid = signal(true);
+  readonly isInputValid = signal(true);
+  readonly isLoading = signal(false);
+
+  // Recent projects
+  recentProjects: RecentProject[] = [];
+
   constructor(
     public projectService: ProjectService,
     public labelService: LabelsService,
-    public editorService: EditorService,
-    public uiStateService: UIStateService,
-    private clipboard: Clipboard,
     private messageService: MessageService,
-    private navigationService: NavigationService,
-    private cdr: ChangeDetectorRef
+    private router: Router,
+    private uiStateService: UIStateService,
+    private sequenceService: SequenceService,
   ) {
-    this.setupSearchDebounce();
+    this.recentProjects = this.projectService.getRecentProjects();
   }
 
+  // ==========================================
+  // Folder Selection
+  // ==========================================
 
-  setupSearchDebounce() {
-    // 2. Setup the pipeline
-    this.searchTrigger$.pipe(
-      debounceTime(300), // Wait for user to stop typing/clicking
-      tap(() => {
-        this.fileLoading = true;
-        this.cdr.detectChanges(); // Ensure bar shows up immediately
-      }),
-      // switchMap handles the async call and cancels previous "in-flight" requests
-      switchMap(() => this.projectService.listFiles())
-    ).subscribe({
-      next: () => {
-        this.fileLoading = false;
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error(err);
-        this.fileLoading = false;
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-
-  openInputFolder() {
-    const file = open({ directory: true });
-    file.then((value) => {
-      if (value) {
-        if (value != this.projectService.inputFolder) {
-          this.projectService.resetProject();
-        }
-        this.projectService.inputFolder = value;
-      }
-    });
-  }
-  openOutputFolder() {
-    const file = open({ directory: true });
-    file.then((value) => {
-      if (value) this.projectService.outputFolder = value;
-    });
-  }
-
-  async startProject() {
-    // Validate input
-    this.isInputValid = this.projectService.inputFolder !== '';
-    this.isOutputValid = this.projectService.outputFolder !== '';
-    this.isNameValid = this.projectService.projectName !== '';
-
-    if (this.isInputValid && this.isOutputValid) {
-      await this.projectService.startProject();
-      this.uiStateService.navigateToGallery();
+  async selectInputFolder(): Promise<void> {
+    const folder = await open({ directory: true });
+    if (folder) {
+      this.projectService.setInputFolder(folder as string);
+      this.isInputValid.set(true);
     }
   }
 
-  async loadProjectFromFilepath(filepath: string, start: boolean) {
-    this.messageService.add({
-      key: 'pathCopiedToClipboard',
-      severity: 'success',
-      summary: 'Filepath copied to clipboard',
-    });
-    this.clipboard.copy(filepath);
-    filepath = await path.join(filepath, 'project_config.json');
-    await this.projectService.loadProjectFile(filepath, start).then;
-    this.updateFileCounter();
-    if (start) {
-      await this.uiStateService.navigateToGallery();
+  async ngAfterViewInit(): Promise<void> {
+    // For debugging
+    // await this.loadProjectFile('c:/Users/cleme/Documents/data/multiImageTest/125/C.labelmed')
+    // console.log('Loaded test project');
+    // await this.sequenceService.loadSequences();
+    // await this.sequenceService.selectSequence(this.sequenceService.sequences()[1]);
+    // this.uiStateService.navigateToEditor();
+  }
+  // ==========================================
+  // Config Bindings (two-way via signals)
+  // ==========================================
+
+  get projectName(): string {
+    return this.projectService.projectName();
+  }
+  set projectName(value: string) {
+    this.projectService.setName(value);
+    this.isNameValid.set(!!value);
+  }
+
+  get inputFolder(): string {
+    return this.projectService.inputFolder() ?? '';
+  }
+  set inputFolder(value: string) {
+    this.projectService.setInputFolder(value);
+    this.isInputValid.set(!!value);
+  }
+
+  get inputRegex(): string {
+    return this.projectService.inputRegex();
+  }
+  set inputRegex(value: string) {
+    this.projectService.setInputRegex(value);
+  }
+
+  get recursive(): boolean {
+    return this.projectService.recursive();
+  }
+  set recursive(value: boolean) {
+    this.projectService.setRecursive(value);
+  }
+
+  get foldersAsSequences(): boolean {
+    return this.projectService.foldersAsSequences();
+  }
+
+  set foldersAsSequences(value: boolean) {
+    this.projectService.setFoldersAsSequences(value);
+  }
+
+
+  get imagesEmbedded(): boolean {
+    return this.projectService.imagesEmbedded();
+  }
+  set imagesEmbedded(value: boolean) {
+    this.projectService.setImagesEmbedded(value);
+  }
+
+  get segmentationEnabled(): boolean {
+    return this.projectService.isSegmentation();
+  }
+  set segmentationEnabled(value: boolean) {
+    this.projectService.setSegmentationEnabled(value);
+  }
+
+  get classificationEnabled(): boolean {
+    return this.projectService.isClassification();
+  }
+  set classificationEnabled(value: boolean) {
+    this.projectService.setClassificationEnabled(value);
+  }
+
+  get instanceSegmentationEnabled(): boolean {
+    return this.projectService.isInstanceSegmentation();
+  }
+  set instanceSegmentationEnabled(value: boolean) {
+    this.projectService.setInstanceSegmentationEnabled(value);
+  }
+
+  // ==========================================
+  // Project Actions
+  // ==========================================
+
+  async startProject(): Promise<void> {
+    // Validate
+    const config = this.projectService.config();
+    this.isNameValid.set(!!config.name);
+    this.isInputValid.set(!!config.input_folder);
+
+    if (!this.projectService.isConfigValid()) {
+      return;
+    }
+
+    this.isLoading.set(true);
+
+    try {
+      // Ask user where to save the project file
+      const projectPath = await save({
+        defaultPath: `${config.name}.labelmed`,
+        filters: [{ name: 'LabelMed Project', extensions: ['labelmed'] }],
+      });
+
+      if (!projectPath) {
+        this.isLoading.set(false);
+        return;
+      }
+
+      // Create project
+      await this.projectService.create(projectPath);
+
+      // Scan folder and import images
+      const result = await this.projectService.scanFolder();
+
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Project Created',
+        detail: `Imported ${result.frames_created} images in ${result.sequences_created} sequences`,
+      });
+      console.log('Scan result:', result);
+      // Navigate to editor
+      this.router.navigate(['/gallery']);
+    } catch (error) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: String(error),
+      });
+    } finally {
+      this.isLoading.set(false);
     }
   }
 
-  findAndLoadProjectFile() {
-    const file = open({ directory: false });
-    file.then((value) => {
-      if (value) {
-        this.projectService.loadProjectFile(value);
-      }
+  async openRecentProject(project: RecentProject): Promise<void> {
+    this.isLoading.set(true);
+
+    try {
+      await this.projectService.open(project.path);
+      this.router.navigate(['/gallery']);
+    } catch (error) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error opening project',
+        detail: String(error),
+      });
+      // Remove from recent if it failed (file might not exist)
+      this.projectService.removeFromRecentProjects(project.path);
+      this.recentProjects = this.projectService.getRecentProjects();
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
+
+  async openProjectFile(): Promise<void> {
+    const path = await open({
+      filters: [{ name: 'LabelMed Project', extensions: ['labelmed'] }],
     });
-  }
-  async updateFileCounter() {
-    this.searchTrigger$.next();
-  }
-  removeProjectFromFilepath(filepath: string) {
-    this.projectService.removeProjectFile(filepath);
+
+    if (path) {
+      this.isLoading.set(true);
+      try {
+        await this.projectService.open(path as string);
+        this.router.navigate(['/gallery']);
+      } catch (error) {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: String(error),
+        });
+      } finally {
+        this.isLoading.set(false);
+      }
+    }
   }
 
-  async ngAfterViewInit() {
-    // this.debug();
-    // this.viewService.navigateToTestZone();
+  async loadProjectFile(path: string): Promise<void> {
+    this.isLoading.set(true);
+    try {
+      await this.projectService.open(path);
+      this.router.navigate(['/gallery']);
+    } catch (error) {
+      console.error('Error loading project file:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: String(error),
+      });
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
-  async debug() {
-    this.editorService.penPostProcess = false;
-    this.editorService.postProcessOption = PostProcessOption.OTSU;
-    this.editorService.lineWidth = 50;
-    await this.projectService
-      .loadProjectFile(
-        "C:/Users/cleme/Documents/data/multiImageTest/Multi-ImageTest/project_config.json",
-        true
-      )
-    await this.uiStateService.navigateToGallery();
+  removeRecentProject(project: RecentProject): void {
+    this.projectService.removeFromRecentProjects(project.path);
+    this.recentProjects = this.projectService.getRecentProjects();
+  }
 
+  // ==========================================
+  // Reset
+  // ==========================================
+
+  resetProject(): void {
+    this.projectService.reset();
+    this.isNameValid.set(true);
+    this.isInputValid.set(true);
   }
 }

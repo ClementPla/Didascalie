@@ -1,6 +1,5 @@
-// labels.component.ts
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Component, OnDestroy, OnInit, effect } from '@angular/core';
+import { Subject } from 'rxjs';
 import { TreeModule } from 'primeng/tree';
 import { ColorPickerModule } from 'primeng/colorpicker';
 import { CommonModule } from '@angular/common';
@@ -18,10 +17,12 @@ import { TagModule } from 'primeng/tag';
 import { LabelsService } from '../../../../Services/Labels/labels.service';
 import { ClassificationService } from '../../../../Services/Labels/classification.service';
 import { ProjectService } from '../../../../Services/ProjectService/project.service';
-import { NavigationService } from '../../../../Services/Navigation/navigation.service';
+import { SequenceService } from '../../../../Services/sequence.service';
 import { EditorService } from '../services/editor.service';
 import { SegLabel } from '../../../../Core/interface';
 import { InstanceLabelComponent } from './instance-label/instance-label.component';
+import { TextLabel } from '../../../../Core/task';
+import { api } from '../../../../lib/api';
 
 @Component({
   selector: 'app-labels',
@@ -41,37 +42,35 @@ import { InstanceLabelComponent } from './instance-label/instance-label.componen
     TagModule,
   ],
   templateUrl: './labels.component.html',
-  styleUrl: './labels.component.scss'
+  styleUrl: './labels.component.scss',
+  standalone: true,
 })
 export class LabelsComponent implements OnInit, OnDestroy {
   public classificationChoices: Array<string | null> = [];
-  
+  public multilabelChoices: string[] = [];
+  public textContents: Map<string, string> = new Map();
+
   private destroy$ = new Subject<void>();
 
   constructor(
     public labelsService: LabelsService,
     public editorService: EditorService,
     public projectService: ProjectService,
-    public classificationService: ClassificationService,
-    private navigationService: NavigationService,
-    private cdr: ChangeDetectorRef,
-  ) {}
+    public sequenceService: SequenceService,
+    private classificationService: ClassificationService,
+  ) {
+    effect(() => {
+      const frame = this.sequenceService.currentFrame();
+      if (frame) {
+        this.loadFrameData(frame.id);
+      }
+    });
+  }
 
   ngOnInit(): void {
-    // Subscribe to navigation progress to detect when image changes
-    this.navigationService.progress$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
-        this.bindCurrentClassificationChoices();
-      });
-
-    // Set initial active label
     if (this.labelsService.listSegmentationLabels.length > 0) {
       this.labelsService.activeLabel = this.labelsService.listSegmentationLabels[0];
     }
-
-    // Initialize classification choices for current image
-    this.bindCurrentClassificationChoices();
   }
 
   ngOnDestroy(): void {
@@ -79,16 +78,81 @@ export class LabelsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  /**
-   * Bind classification choices for the currently active image.
-   */
-  private bindCurrentClassificationChoices(): void {
-    this.classificationChoices = this.getMulticlassValues();
-    this.cdr.detectChanges();
+  // ==========================================
+  // Frame Data Loading
+  // ==========================================
+
+  private async loadFrameData(frameId: number): Promise<void> {
+    // Load classifications
+    const taskCount = this.labelsService.listClassificationTasks.length;
+    await this.classificationService.loadForFrame(frameId, taskCount);
+    
+    this.classificationChoices = this.classificationService.getMulticlassChoices(frameId);
+    this.multilabelChoices = this.classificationService.getMultilabelChoices(frameId);
+
+    // Load text descriptions
+    const textData = await api.loadTextDescriptions(frameId);
+    this.textContents.clear();
+    for (const t of textData) {
+      this.textContents.set(t.fieldName, t.content);
+    }
+    
+    // Sync to labels service text fields
+    for (const label of this.labelsService.listTextLabels) {
+      label.text = this.textContents.get(label.name) ?? '';
+    }
   }
 
   // ==========================================
-  // Label Tree Management
+  // Classification Management
+  // ==========================================
+
+  private get currentFrameId(): number | null {
+    return this.sequenceService.currentFrame()?.id ?? null;
+  }
+
+  public async setMulticlassValue(taskIndex: number, value: string): Promise<void> {
+    const frameId = this.currentFrameId;
+    if (!frameId) return;
+
+    this.classificationChoices[taskIndex] = value;
+    this.classificationService.setMulticlassChoice(frameId, taskIndex, value);
+
+    const task = this.labelsService.listClassificationTasks[taskIndex];
+    await this.classificationService.saveMulticlass(frameId, task.taskName, value);
+  }
+
+  public async onMultilabelChange(): Promise<void> {
+    const frameId = this.currentFrameId;
+    if (!frameId || !this.labelsService.multiLabelTask) return;
+
+    this.classificationService.setMultilabelChoices(frameId, this.multilabelChoices);
+    await this.classificationService.saveMultilabel(
+      frameId,
+      this.labelsService.multiLabelTask.taskName,
+      this.multilabelChoices
+    );
+  }
+
+  public async removeChoiceFromMultilabel(choice: string): Promise<void> {
+    this.multilabelChoices = this.multilabelChoices.filter(v => v !== choice);
+    await this.onMultilabelChange();
+  }
+
+  // ==========================================
+  // Text Description Management
+  // ==========================================
+
+  public async onTextChange(label: TextLabel): Promise<void> {
+    const frameId = this.currentFrameId;
+    if (!frameId) return;
+
+    this.textContents.set(label.name, label.text);
+    await api.saveTextDescription(frameId, label.name, label.text);
+  }
+
+  // ==========================================
+  // Label Tree Management (unchanged)
   // ==========================================
 
   public hasChild(node: TreeNode): boolean {
@@ -96,28 +160,24 @@ export class LabelsComponent implements OnInit, OnDestroy {
   }
 
   public changeActiveLabel(event: TreeNode[] | TreeNode | null): void {
-    // Handle array or null case
-    if (Array.isArray(event) || !event) {
-      return;
-    }
+    if (Array.isArray(event) || !event) return;
 
-    // Set active label and instance
     this.labelsService.activeLabel = event.data as SegLabel;
     this.labelsService.activeSegInstance = {
       label: this.labelsService.activeLabel,
       instance: -1,
       shade: this.labelsService.activeLabel.color,
+      id: this.labelsService.activeLabel.id
     };
   }
 
   // ==========================================
-  // Canvas Operations
+  // Canvas Operations (unchanged)
   // ==========================================
 
   public clearCanvas(node: TreeNode): void {
     const label = node.data as SegLabel;
     const index = this.labelsService.listSegmentationLabels.indexOf(label);
-    
     if (index !== -1) {
       this.editorService.requestCanvasClear(index);
     }
@@ -140,59 +200,5 @@ export class LabelsComponent implements OnInit, OnDestroy {
 
   public updateOpacity(): void {
     this.editorService.requestCanvasRedraw();
-  }
-
-  // ==========================================
-  // Classification Management
-  // ==========================================
-
-  public removeChoiceFromMultilabel(choice: string): void {
-    this.multilabelValues = this.multilabelValues.filter(
-      (value) => value !== choice
-    );
-  }
-
-  public set multilabelValues(values: string[]) {
-    const activeIndex = this.projectService.activeIndex;
-    if (activeIndex === null) {
-      return;
-    }
-
-    const imageName = this.projectService.imagesName[activeIndex];
-    this.classificationService.multilabelChoices.set(imageName, values);
-  }
-
-  public get multilabelValues(): string[] {
-    const activeIndex = this.projectService.activeIndex;
-    if (activeIndex === null) {
-      return [];
-    }
-
-    const imageName = this.projectService.imagesName[activeIndex];
-    return this.classificationService.multilabelChoices.get(imageName) || [];
-  }
-
-  public getMulticlassValues(): Array<string | null> {
-    const activeIndex = this.projectService.activeIndex;
-    if (activeIndex === null) {
-      return [];
-    }
-
-    const imageName = this.projectService.imagesName[activeIndex];
-    return this.classificationService.multiclassChoices.get(imageName) || [];
-  }
-
-  public setMulticlassValues(taskIndex: number, value: string): void {
-    const activeIndex = this.projectService.activeIndex;
-    if (activeIndex === null) {
-      return;
-    }
-
-    const imageName = this.projectService.imagesName[activeIndex];
-    const choices = this.classificationService.multiclassChoices.get(imageName);
-    
-    if (choices) {
-      choices[taskIndex] = value;
-    }
   }
 }

@@ -6,18 +6,19 @@ import {
   ViewChild,
   HostListener,
   OnDestroy,
+  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
-// UI Services (component still needs direct access)
+// UI Services
 import { EditorService } from '../../services/editor.service';
 import { LabelsService } from '../../../../../Services/Labels/labels.service';
-import { ProjectService } from '../../../../../Services/ProjectService/project.service';
+import { SequenceService } from '../../../../../Services/sequence.service';
 
-// Orchestrator + Draw (the only "editor" services needed)
+// Orchestrator + Draw
 import { OrchestratorService } from '../service/orchestrator.service';
 import { DrawService } from '../service/draw.service';
 import { ZoomPanService } from '../service/zoom-pan.service';
@@ -35,6 +36,7 @@ import { UIStateService } from '../../../../../Services/uistate.service';
   imports: [CommonModule, FormsModule, Button, SVGElementsComponent, CanvasInputDirective],
   templateUrl: './drawable-canvas.component.html',
   styleUrl: './drawable-canvas.component.scss',
+  standalone: true,
 })
 export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   // View state
@@ -68,14 +70,22 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   constructor(
     public editorService: EditorService,
     public labelService: LabelsService,
-    public projectService: ProjectService,
+    public sequenceService: SequenceService,
     public orchestrator: OrchestratorService,
     private drawService: DrawService,
-    public zoomPanService: ZoomPanService, // Only needed for currentPixel setter
+    public zoomPanService: ZoomPanService,
     private changeDetectorRef: ChangeDetectorRef,
     private uiStateService: UIStateService
   ) {
-      this.initSubscriptions();
+    this.initSubscriptions();
+
+    // React to frame image changes
+    effect(() => {
+      const frameImage = this.sequenceService.currentFrameImage();
+      if (frameImage && this.ctxImage) {
+        this.loadImage(frameImage.image_base64);
+      }
+    });
   }
 
   ngAfterViewInit() {
@@ -84,8 +94,10 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     this.orchestrator.setCanvasContext(this.imgCanvas.nativeElement);
 
-    if (this.projectService.activeImage) {
-      this.loadImage(this.projectService.activeImage);
+    // Load initial image if available
+    const frameImage = this.sequenceService.currentFrameImage();
+    if (frameImage) {
+      this.loadImage(frameImage.image_base64);
     }
   }
 
@@ -242,16 +254,15 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   public async redrawAllCanvas() {
     const img = this.orchestrator.image;
-    if (!img || !img.complete || img.naturalWidth === 0)
-    {
+    if (!img || !img.complete || img.naturalWidth === 0) {
       console.warn('Image not loaded yet, skipping redraw.');
       return;
-    } 
-    
-    if (!this.ctxImage || !this.ctxLabel){
+    }
+
+    if (!this.ctxImage || !this.ctxLabel) {
       console.error('Canvas contexts not initialized.');
       return;
-    };
+    }
 
     this.viewBox = this.orchestrator.getViewBox();
     this.svg.setViewBox(this.orchestrator.getSVGViewBox());
@@ -267,7 +278,9 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.ctxImage.scale(scale, scale);
     this.ctxImage.imageSmoothingEnabled = false;
     this.ctxImage.drawImage(this.orchestrator.getProcessedImage(), 0, 0, width, height);
+
     const combinedLabelCanvas = await this.orchestrator.getCombinedLabelCanvas();
+
     // Draw label canvas
     this.ctxLabel.resetTransform();
     this.ctxLabel.clearRect(0, 0, this.ctxLabel.canvas.width, this.ctxLabel.canvas.height);
@@ -305,18 +318,17 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     const rect = this.ctxLabel.canvas.getBoundingClientRect();
     const { scale } = this.orchestrator.getViewTransform();
-    // Adjust cursor size based on current scale
-    // We need to 
-    // 
-    // We need to adjust for the canvas size in the DOM as well
+
     const domScaleX = rect.width / this.ctxLabel.canvas.width;
     const domScaleY = rect.height / this.ctxLabel.canvas.height;
     const domScale = (domScaleX + domScaleY) / 2;
-    return this.editorService.lineWidth * scale * domScale; 
+    return this.editorService.lineWidth * scale * domScale;
   }
+
   public get isLoading(): boolean {
-    return this.uiStateService.isLoading;
+    return this.uiStateService.isLoading || this.sequenceService.loading();
   }
+
   public getCursorStyle() {
     const cursorSize = this.getCursorSize();
     if (cursorSize <= 0) return {};
@@ -333,5 +345,18 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     return this.editorService.edgesOnly
       ? 'drop-shadow( 1px  0px 0px black) drop-shadow(-1px  0px 0px black) drop-shadow( 0px  1px 0px black) drop-shadow( 0px -1px 0px black)'
       : '';
+  }
+
+  // ==========================================
+  // Getters for Template
+  // ==========================================
+
+  get hasImage(): boolean {
+    return this.sequenceService.currentFrameImage() !== null;
+  }
+
+  get currentFrameName(): string | null {
+    const frame = this.sequenceService.currentFrame();
+    return frame?.relative_path ?? null;
   }
 }

@@ -1,8 +1,9 @@
 // cli.service.ts
 import { Injectable, NgZone } from '@angular/core';
 import { from, Subject } from 'rxjs';
-import { ImageFromCLI, ProjectConfig } from './interface'
+import { ImageFromCLI } from './interface'
 import { TauriEventBase } from './tauri-event-base';
+import { ProjectConfig } from '../../lib/api';
 
 @Injectable({
   providedIn: 'root',

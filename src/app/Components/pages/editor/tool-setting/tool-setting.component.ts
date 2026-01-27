@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { PanelModule } from 'primeng/panel';
-
+import { AccordionModule } from 'primeng/accordion';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { EditorService } from '../services/editor.service';
 import { FormsModule } from '@angular/forms';
@@ -29,10 +29,12 @@ import { CommonModule } from '@angular/common';
         CardModule,
         GenericsModule,
         FieldsetModule,
+        AccordionModule,
         MessageModule,
     ],
     templateUrl: './tool-setting.component.html',
-    styleUrl: './tool-setting.component.scss'
+    styleUrl: './tool-setting.component.scss',
+    standalone: true,
 })
 export class ToolSettingComponent {
   postProcessingOptions = postProcessingOptions;

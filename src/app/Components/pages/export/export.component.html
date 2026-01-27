@@ -1,66 +1,77 @@
-<div class="flex flex-row items-stretch justify-around my-14">
-  <p-panel header="Export options" class="flex flex-col items-stretch w-1/2">
-    <p-divider> General </p-divider>
-    <div class="flex flex-col gap-2 items-center">
-      <p>Results with be saved in the following folder:</p>
-      <p-floatLabel variant="on">
-        <input
-          pInputText
-          fluid="true"
-          id="outputPath"
-          [(ngModel)]="projectService.outputFolder"
-        />
-        <label for="outputPath">Output path</label>
-      </p-floatLabel>
-    </div>
-    <p-divider> Segmentation </p-divider>
-    <div class="flex flex-row gap-2 items-center justify-center">
-      <div class="flex flex-row gap-1 items-start">
-        <p-toggleswitch
-          inputId="individualMask"
-          [(ngModel)]="exportIndividualMask"
-        ></p-toggleswitch>
-        <label for="individualMask"><small>Individual mask</small></label>
+<p-panel header="Export Annotations">
+  <div class="flex flex-col gap-4">
+    <!-- Export Options -->
+    <div class="flex flex-col gap-2">
+      <h4>Export Options</h4>
+      
+      <div class="flex gap-2 items-center">
+        <p-toggleswitch [(ngModel)]="exportIndividualMask" inputId="individualMask" />
+        <label for="individualMask">Individual masks (one per label)</label>
       </div>
-      <div class="flex flex-row gap-1 items-start">
-        <p-toggleswitch
-          inputId="combinedMask"
-          [(ngModel)]="exportCombinedMask"
-        ></p-toggleswitch>
-        <label for="combinedMask"><small>Combined mask</small></label>
+
+      <div class="flex gap-2 items-center">
+        <p-toggleswitch [(ngModel)]="exportCombinedMask" inputId="combinedMask" />
+        <label for="combinedMask">Combined mask</label>
       </div>
-      <div class="flex flex-row gap-1 items-start">
-        <p-toggleswitch
-          inputId="colorMap"
-          [(ngModel)]="exportColorMap"
-        ></p-toggleswitch>
-        <label for="colorMap"><small>Color mask</small></label>
+
+      <div class="flex gap-2 items-center">
+        <p-toggleswitch [(ngModel)]="exportColorMap" inputId="colorMap" />
+        <label for="colorMap">Color map</label>
       </div>
-      <div class="flex flex-row gap-1 items-start">
-        <p-selectbutton
-          [options]="exportOptionsDefinedRevisions"
-          [(ngModel)]="exportOption"
-          optionLabel="label"
-          optionValue="value"
-          aria-labelledby="basic"
-        />
+      <div class="flex gap-2 items-center">
+        <p-toggleswitch [(ngModel)]="exportClassifications" inputId="classifications" />
+        <label for="classifications">Classifications</label>
       </div>
     </div>
-    <p-divider> Classification </p-divider>
 
-    <p-divider> Bounding boxes </p-divider>
-    <p-divider></p-divider>
+    <p-divider />
 
-    <p-button class="flex justify-center" (click)="export()">
-      Start export
-    </p-button>
-    <p-divider></p-divider>
-    <p-knob
-      class="flex justify-center"
-      [(ngModel)]="filesExported"
-      [showValue]="true"
-      [min]="0"
-      [max]="totalFiles"
-    ></p-knob>
-  </p-panel>
-</div>
+    <!-- Frame Selection -->
+    <div class="flex flex-col gap-2">
+      <h4>Frames to Export</h4>
+      <p-selectbutton
+        [options]="exportOptionsDefinedRevisions"
+        [(ngModel)]="exportOnlyReviewed"
+        optionLabel="label"
+        optionValue="value"
+      />
+    </div>
+
+    <p-divider />
+
+    <!-- Progress -->
+    @if (isExporting) {
+      <div class="flex flex-col gap-2 items-center">
+        <p-knob
+          [ngModel]="exportProgress"
+          [readonly]="true"
+          [size]="100"
+          valueTemplate="{value}%"
+        />
+        <small>{{ filesExported }} / {{ totalFiles }} files exported</small>
+      </div>
+    }
+
+    <!-- Error Message -->
+    @if (exportError) {
+      <div class="bg-red-100 p-3 rounded text-red-700">
+        {{ exportError }}
+      </div>
+    }
+
+    <!-- Export Button -->
+    <p-button
+      label="Export"
+      icon="pi pi-download"
+      [disabled]="!canExport"
+      [loading]="isExporting"
+      (onClick)="export()"
+    />
+
+    <!-- Info -->
+    <small class="text-gray-500">
+      Project: {{ projectName }}<br />
+      Labels: {{ labelService.listSegmentationLabels.length }}
+    </small>
+  </div>
+</p-panel>

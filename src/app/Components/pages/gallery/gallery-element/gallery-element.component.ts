@@ -1,16 +1,13 @@
-// gallery-element.component.ts
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { invoke } from '@tauri-apps/api/core';
 
-import { ProjectService } from '../../../../Services/ProjectService/project.service';
-import { NavigationService } from '../../../../Services/Navigation/navigation.service';
 import { UIStateService } from '../../../../Services/uistate.service';
-import { ThumbnailService } from '../../../../Services/thumbnail.service';
-import { LabelsService } from '../../../../Services/Labels/labels.service';
-import { ClassificationService } from '../../../../Services/Labels/classification.service';
+import { ProjectService } from '../../../../Services/ProjectService/project.service';
+import { api } from '../../../../lib/api';
 
 export interface ThumbnailSelectionEvent {
   id: number;
@@ -25,52 +22,125 @@ export interface ThumbnailSelectionEvent {
   styleUrl: './gallery-element.component.scss',
 })
 export class GalleryElementComponent implements OnInit {
-  @Input() img: string[];
-  @Input() id: number;
-  @Input() status: string;
-  @Input() imgSize: number;
+  // Frame data
+  @Input() frameId!: number;
+  @Input() title: string = '';
+  @Input() status: 'empty' | 'annotated' | 'reviewed' = 'empty';
+  @Input() frameCount: number = 1;
+
+  // Display options
+  @Input() id!: number; // Sequence ID for selection tracking
+  @Input() imgSize: number = 256;
   @Input() selected: boolean = false;
 
+  // Events
   @Output() thumbnailSelected = new EventEmitter<ThumbnailSelectionEvent>();
+  @Output() thumbnailClicked = new EventEmitter<void>();
 
+  // Internal state
   public imagePath: string = '';
-  private hoverTimer: any;
-  private loopInterval: any;
-  public currentImgIndex: number = 0;
+  public isLoading: boolean = true;
+  public loadError: boolean = false;
+  public isLooping: boolean = false;
+  // Hover preview state
+  private hoverTimer: ReturnType<typeof setTimeout> | null = null;
+  public loopInterval: ReturnType<typeof setInterval> | null = null;
+  public currentFrameIndex: number = 0;
   public isFading: boolean = false;
+  public frameIds: number[] = [];
 
-  constructor(
-    public projectService: ProjectService,
-    public labelsService: LabelsService,
-    public classificationService: ClassificationService,
-    private navigationService: NavigationService,
-    private uiState: UIStateService,
-    private thumbnailService: ThumbnailService
-  ) {}
+  constructor(private projectService: ProjectService) {}
 
   async ngOnInit(): Promise<void> {
+    await this.loadThumbnail(this.frameId);
+    this.frameIds = await this.getFrameIds();
+  }
+
+  // ==========================================
+  // Thumbnail Loading
+  // ==========================================
+
+  private async loadThumbnail(frameId: number): Promise<void> {
+    this.isLoading = true;
+    this.loadError = false;
+
     try {
-      this.imagePath = await this.loadThumbnailForIndex(0);
+      // const result = await api.getFrameThumbnail(frameId, this.imgSize);
+      const result = await api.getFrameThumbnail(frameId, this.imgSize);
+      this.imagePath = result.image_base64;
     } catch (error) {
-      console.error('Failed to load thumbnail:', error);
-      // Keep imagePath empty - template should handle this
+      console.error('Error loading thumbnail:', error);
+      this.loadError = true;
+
+      // Fallback: try loading full image
+      try {
+        const fullImage = await api.getFrameImage(frameId);
+        this.imagePath = fullImage.image_base64;
+      } catch (fallbackError) {
+        console.error('Fallback image load also failed:', fallbackError);
+      }
+    } finally {
+      this.isLoading = false;
     }
   }
 
-  private async startLoop(): Promise<void> {
-    this.loopInterval = setInterval(async () => {
-      this.isFading = false; // Reset animation state
+  // ==========================================
+  // Hover Preview (for sequences with multiple frames)
+  // ==========================================
 
-      this.currentImgIndex = (this.currentImgIndex + 1) % this.img.length;
-      const nextPath = await this.loadThumbnailForIndex(this.currentImgIndex);
+  public onMouseEnter(): void {
+    const frameIds = this.frameIds; // Use cached, don't await here
+    if (frameIds.length <= 1) return;
 
-      this.imagePath = nextPath;
+    if (this.hoverTimer || this.loopInterval) return; // Already active
 
-      // Small timeout to allow the DOM to register the reset before re-applying
-      setTimeout(() => {
-        this.isFading = true;
-      }, 10);
-    }, 1500);
+    this.hoverTimer = setTimeout(() => {
+      this.hoverTimer = null;
+      this.startLoop();
+    }, 400);
+  }
+
+  public onMouseLeave(): void {
+    const frameIds = this.frameIds; // Use cached, don't await here
+    if (frameIds.length <= 1) return;
+
+    if (this.hoverTimer) {
+      clearTimeout(this.hoverTimer);
+      this.hoverTimer = null;
+    }
+    if (this.loopInterval) {
+      clearInterval(this.loopInterval);
+      this.loopInterval = null;
+    }
+    this.isLooping = false;
+    this.resetToFirstFrame();
+  }
+
+  private startLoop(): void {
+    if (this.loopInterval) return; // Guard: already looping
+
+    this.isLooping = true;
+    this.loopInterval = setInterval(() => {
+      this.advanceFrame();
+    }, 750);
+  }
+
+  private async advanceFrame(): Promise<void> {
+    if (this.isLoading) return; // Guard: previous frame still loading
+
+    this.isLoading = true;
+    try {
+      const frameIds = await this.getFrameIds();
+      this.currentFrameIndex = (this.currentFrameIndex + 1) % frameIds.length;
+      await this.loadThumbnail(frameIds[this.currentFrameIndex]);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private async resetToFirstFrame(): Promise<void> {
+    this.currentFrameIndex = 0;
+    await this.loadThumbnail(this.frameId);
   }
 
   // ==========================================
@@ -78,33 +148,18 @@ export class GalleryElementComponent implements OnInit {
   // ==========================================
 
   /**
-   * Open editor at this image's index.
+   * Open editor at this sequence.
    */
-  public async openEditor(): Promise<void> {
-    const imageName = this.getImageName();
-    const imageIndex = this.projectService.imagesName.indexOf(imageName);
-
-    if (imageIndex === -1) {
-      console.error(`Image not found in project: ${imageName}`);
-      return;
-    }
-
-    this.uiState.setLoading(true, 'Opening image');
-
-    try {
-      await this.navigationService.navigateToIndex(imageIndex);
-      await this.uiState.navigateToEditor();
-    } catch (error) {
-      console.error('Failed to open editor:', error);
-    } finally {
-      this.uiState.endLoading();
-    }
+  public openEditor(): void {
+    this.thumbnailClicked.emit();
   }
 
   /**
    * Handle thumbnail selection with optional shift-click for range selection.
    */
   public select(event: MouseEvent): void {
+    event.stopPropagation();
+
     this.selected = !this.selected;
 
     this.thumbnailSelected.emit({
@@ -119,45 +174,49 @@ export class GalleryElementComponent implements OnInit {
   // ==========================================
 
   public getCardStyleClass(): string {
-    return this.selected ? 'bg-primary' : '';
+    const classes: string[] = [];
+
+    if (this.selected) {
+      classes.push('ring-2', 'ring-primary', 'ring-offset-2');
+    }
+
+    return classes.join(' ');
   }
 
-  public getImageName(): string {
-    return this.img[0];
+  public getStatusBadgeClass(): string {
+    switch (this.status) {
+      case 'reviewed':
+        return 'bg-green-500';
+      case 'annotated':
+        return 'bg-yellow-500';
+      case 'empty':
+      default:
+        return 'bg-gray-400';
+    }
   }
 
-  // ==========================================
-  // Thumbnail Loading
-  // ==========================================
-
-  /**
-   * Load thumbnail for this gallery element.
-   * Delegates to ThumbnailService for actual loading logic.
-   */
-
-  public async onMouseEnter(): Promise<void> {
-    if (this.img.length <= 1) return;
-
-    // Start loop after 400ms delay
-    this.hoverTimer = setTimeout(() => {
-      this.startLoop();
-    }, 400);
+  public getStatusLabel(): string {
+    switch (this.status) {
+      case 'reviewed':
+        return 'Reviewed';
+      case 'annotated':
+        return 'Annotated';
+      case 'empty':
+      default:
+        return 'Not started';
+    }
   }
 
-  public onMouseLeave(): void {
-    clearTimeout(this.hoverTimer);
-    clearInterval(this.loopInterval);
-    this.isFading = false; // Stop animation
-    this.resetLoop();
+  public get displayTitle(): string {
+    return this.title || `Sequence ${this.id}`;
   }
 
-  private async resetLoop(): Promise<void> {
-    this.currentImgIndex = 0;
-    this.imagePath = await this.loadThumbnailForIndex(0);
+  public get hasMultipleFrames(): boolean {
+    return this.frameCount > 1;
   }
 
-  private async loadThumbnailForIndex(index: number): Promise<string> {
-    const imageName = this.img[index];
-    return await this.thumbnailService.getThumbnail(imageName);
+  async getFrameIds(): Promise<number[]> {
+    const frames = await api.getSequenceFrames(this.id);
+    return frames.map((f) => f.id);
   }
 }

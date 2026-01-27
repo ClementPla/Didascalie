@@ -19,3 +19,9 @@ export class MultilabelTask{
     }
 
 }
+
+
+export interface TextLabel {
+  name: string;
+  text: string;
+}

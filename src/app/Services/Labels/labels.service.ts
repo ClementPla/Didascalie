@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
-import { SegInstance, SegLabel, TextLabel } from '../../Core/interface';
+import { SegInstance, SegLabel } from '../../Core/interface';
 import { constructLabelTreeNode } from './labelTreeNode';
 import { TreeNode } from 'primeng/api';
-import { MulticlassTask, MultilabelTask } from '../../Core/task';
+import { MulticlassTask, MultilabelTask, TextLabel } from '../../Core/task';
+import { api, ProjectConfig } from '../../lib/api';
 @Injectable({
   providedIn: 'root',
 })
@@ -21,7 +22,14 @@ export class LabelsService {
   activeSegInstance: SegInstance | null = null;
   showAllLabels: boolean = true;
 
+  maxID = 0;
+
   constructor() {}
+
+  generateNewSegLabelID(): number {
+    this.maxID += 1;
+    return this.maxID;
+  }
 
   addClassificationTask(task: MulticlassTask) {
     if (
@@ -140,6 +148,7 @@ export class LabelsService {
         label: this.activeLabel,
         instance: 1,
         shade: '',
+        id: this.activeLabel.id,
       };
     } else {
       let current_instance = this.activeSegInstance.instance;
@@ -153,6 +162,7 @@ export class LabelsService {
         label: this.activeLabel,
         instance: current_instance,
         shade: new_shade,
+        id: this.activeLabel.id,
       };
     }
   }
@@ -166,5 +176,78 @@ export class LabelsService {
     this.activeLabel = null;
     this.activeSegInstance = null;
     this.showAllLabels = true;
+    this.maxID = 0;
+  }
+
+  private generateShades(baseColor: string, count: number = 10): string[] {
+    // Generate instance shades from base color
+    // Implement based on your existing shade logic
+    return [baseColor]; // placeholder
+  }
+  getDefinitions(): Pick<
+    ProjectConfig,
+    | 'segmentation_labels'
+    | 'classification_tasks'
+    | 'multilabel_task'
+    | 'text_fields'
+  > {
+    return {
+      segmentation_labels: this.listSegmentationLabels.map((l) => ({
+        name: l.label,
+        color: l.color,
+        shades: l.shades ?? undefined,
+        id: l.id,
+      })),
+      classification_tasks: this.listClassificationTasks.map((t) => ({
+        name: t.taskName,
+        classes: t.classLabels,
+      })),
+      multilabel_task: this.multiLabelTask
+        ? {
+            name: this.multiLabelTask.taskName,
+            classes: this.multiLabelTask.taskLabels,
+          }
+        : undefined,
+      text_fields: this.listTextLabels.map((l) => l.name),
+    };
+  }
+
+  async setDefinitions(config: ProjectConfig): Promise<void> {
+    this.resetAll();
+    
+    // Load labels from database (includes IDs)
+    const dbLabels = await api.getLabels();
+    console.log('API returned labels:', dbLabels);
+    console.log('Loaded labels from DB:', dbLabels);
+
+    for (const label of dbLabels) {
+      this.addSegLabel({
+        id: label.id,
+        label: label.name,
+        color: label.color,
+        isVisible: true,
+        shades: label.isInstance ? this.generateShades(label.color) : null,
+      });
+    }
+
+    // Load classification tasks from config
+    for (const task of config.classification_tasks ?? []) {
+      this.addClassificationTask(new MulticlassTask(task.name, task.classes));
+    }
+
+    if (config.multilabel_task) {
+      this.addMultilabelTask(
+        new MultilabelTask(
+          config.multilabel_task.name,
+          config.multilabel_task.classes
+        )
+      );
+    }
+
+    for (const name of config.text_fields ?? []) {
+      this.addTextLabel({ name, text: '' });
+    }
+
+    this.rebuildTreeNodes();
   }
 }

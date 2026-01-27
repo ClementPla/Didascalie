@@ -1,354 +1,255 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, computed } from '@angular/core';
+import { api, ProjectConfig, ScanResult } from '../../lib/api';
+import { LabelsService } from '../Labels/labels.service';
+// ==========================================
+// Types
+// ==========================================
 
-import { ProjectFile } from '../../Core/interface';
-import { ProjectConfig } from '../TauriEvent/interface';
-// Sub-services
-import { ProjectConfigService } from './project-config.service';
-import { ProjectFileService } from './project-file.service';
-import { ProjectStorageService } from './project-storage.service';
-import { ProjectRevisionService } from './project-revision.service';
+export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
+  name: '',
+  input_folder: null,
+  images_embedded: false,
+  embed_threshold_kb: 100,
+  segmentation_enabled: true,
+  classification_enabled: false,
+  instance_segmentation_enabled: false,
+  text_description_enabled: false, // Add this
+  input_regex: '\\.(png|jpe?g|bmp|tiff?)$',
+  recursive: true,
+  folders_as_sequences: false,
+  segmentation_labels: [],
+  classification_tasks: [],
+  multilabel_task: undefined,
+  text_fields: [],
+};
 
-// Related services
-import { ClassificationService } from '../Labels/classification.service';
-import { MultiframesService } from '../multiframes.service';
+export interface RecentProject {
+  name: string;
+  path: string;
+}
 
-/**
- * Main project service - facade that orchestrates project operations.
- *
- * Delegates to specialized services:
- * - ProjectConfigService: Configuration and type flags
- * - ProjectFileService: File listing and path operations
- * - ProjectStorageService: Recent projects in localStorage
- * - ProjectRevisionService: Tracking reviewed images
- */
-@Injectable({
-  providedIn: 'root',
-})
+// ==========================================
+// Service
+// ==========================================
+
+@Injectable({ providedIn: 'root' })
 export class ProjectService {
+  // Private state
+  private readonly _config = signal<ProjectConfig>(DEFAULT_PROJECT_CONFIG);
+  private readonly _projectPath = signal<string | null>(null);
+  private readonly _isOpen = signal(false);
+  private readonly _framesCount = signal(0);
+  private readonly _sequencesCount = signal(0);
+  // Add to computed conveniences section
+  readonly isTextDescriptionEnabled = computed(
+    () => this._config().text_description_enabled
+  );
+
+  // Public readonly signals
+  readonly config = this._config.asReadonly();
+  readonly projectPath = this._projectPath.asReadonly();
+  readonly isOpen = this._isOpen.asReadonly();
+  readonly framesCount = this._framesCount.asReadonly();
+  readonly sequencesCount = this._sequencesCount.asReadonly();
+
+  // Computed conveniences (for template binding)
+  readonly projectName = computed(() => this._config().name);
+  readonly inputFolder = computed(() => this._config().input_folder);
+  readonly isSegmentation = computed(() => this._config().segmentation_enabled);
+  readonly isClassification = computed(
+    () => this._config().classification_enabled
+  );
+  readonly isInstanceSegmentation = computed(
+    () => this._config().instance_segmentation_enabled
+  );
+  readonly inputRegex = computed(() => this._config().input_regex);
+  readonly recursive = computed(() => this._config().recursive);
+  readonly foldersAsSequences = computed(
+    () => this._config().folders_as_sequences
+  );
+  readonly imagesEmbedded = computed(() => this._config().images_embedded);
+  // For backward compatibility in templates
+  readonly hasTextDescription = this.isTextDescriptionEnabled;
+
   // ==========================================
-  // Project State
+  // Config Updates (before project is created)
   // ==========================================
 
-  isProjectStarted = false;
-  imagesName: string[] = [];
-  annotationsName: string[] = [];
-  activeIndex: number | null = null;
-  activeImage: string | null = null;
+  constructor(private labelService: LabelsService) {}
 
-  constructor(
-    private configService: ProjectConfigService,
-    private fileService: ProjectFileService,
-    private storageService: ProjectStorageService,
-    private revisionService: ProjectRevisionService,
-    private classificationService: ClassificationService,
-    private multiframesService: MultiframesService
-  ) {}
-
-  // ==========================================
-  // Config Proxies (for backward compatibility)
-  // ==========================================
-
-  get isClassification(): boolean {
-    return this.configService.isClassification;
-  }
-  set isClassification(value: boolean) {
-    this.configService.isClassification = value;
+  updateConfig(partial: Partial<ProjectConfig>): void {
+    this._config.update((current) => ({ ...current, ...partial }));
   }
 
-  get isSegmentation(): boolean {
-    return this.configService.isSegmentation;
-  }
-  set isSegmentation(value: boolean) {
-    this.configService.isSegmentation = value;
+  setName(name: string): void {
+    this.updateConfig({ name });
   }
 
-  get isInstanceSegmentation(): boolean {
-    return this.configService.isInstanceSegmentation;
-  }
-  set isInstanceSegmentation(value: boolean) {
-    this.configService.isInstanceSegmentation = value;
-  }
-
-  get isBoundingBoxDetection(): boolean {
-    return this.configService.isBoundingBoxDetection;
-  }
-  set isBoundingBoxDetection(value: boolean) {
-    this.configService.isBoundingBoxDetection = value;
+  setInputFolder(folder: string): void {
+    this.updateConfig({ input_folder: folder });
+    // Auto-set project name from folder if empty
+    if (!this._config().name) {
+      const folderName = folder.split(/[/\\]/).pop() ?? 'Project';
+      this.updateConfig({ name: folderName });
+    }
   }
 
-  get hasTextDescription(): boolean {
-    return this.configService.hasTextDescription;
-  }
-  set hasTextDescription(value: boolean) {
-    this.configService.hasTextDescription = value;
+  setSegmentationEnabled(enabled: boolean): void {
+    this.updateConfig({ segmentation_enabled: enabled });
   }
 
-  get projectName(): string {
-    return this.configService.projectName;
-  }
-  set projectName(value: string) {
-    this.configService.projectName = value;
+  setClassificationEnabled(enabled: boolean): void {
+    this.updateConfig({ classification_enabled: enabled });
   }
 
-  get inputFolder(): string {
-    return this.configService.inputFolder;
-  }
-  set inputFolder(value: string) {
-    this.configService.inputFolder = value;
+  setInstanceSegmentationEnabled(enabled: boolean): void {
+    this.updateConfig({ instance_segmentation_enabled: enabled });
   }
 
-  get outputFolder(): string {
-    return this.configService.outputFolder;
-  }
-  set outputFolder(value: string) {
-    this.configService.outputFolder = value;
+  setInputRegex(regex: string): void {
+    this.updateConfig({ input_regex: regex });
   }
 
-  get inputRegex(): string {
-    return this.configService.inputRegex;
-  }
-  set inputRegex(value: string) {
-    this.configService.inputRegex = value;
+  setRecursive(recursive: boolean): void {
+    this.updateConfig({ recursive });
   }
 
-  get recursive(): boolean {
-    return this.configService.recursive;
-  }
-  set recursive(value: boolean) {
-    this.configService.recursive = value;
+  setFoldersAsSequences(asSequences: boolean): void {
+    this.updateConfig({ folders_as_sequences: asSequences });
   }
 
-  get folderAsMultiframes(): boolean {
-    return this.configService.folderAsMultiframes;
-  }
-  set folderAsMultiframes(value: boolean) {
-    this.configService.folderAsMultiframes = value;
+  setImagesEmbedded(embedded: boolean): void {
+    this.updateConfig({ images_embedded: embedded });
   }
 
-  get groupLabels(): boolean {
-    return this.configService.groupLabels;
-  }
-  set groupLabels(value: boolean) {
-    this.configService.groupLabels = value;
-  }
-
-  get maxInstances(): number {
-    return this.configService.maxInstances;
-  }
-  set maxInstances(value: number) {
-    this.configService.maxInstances = value;
-  }
-
-  get generateThumbnails(): boolean {
-    return this.configService.generateThumbnails;
-  }
-  set generateThumbnails(value: boolean) {
-    this.configService.generateThumbnails = value;
-  }
-
-  get projectFolder(): string {
-    return this.configService.projectFolder;
-  }
-
-  // Storage proxies
-  get localStoragesProjectsFilepaths(): ProjectFile[] {
-    return [...this.storageService.recentProjects];
-  }
-
-  // Revision proxies
-  get imagesHasBeenOpened(): readonly string[] {
-    return this.revisionService.openedImages;
+  // Add setter method
+  setTextDescriptionEnabled(enabled: boolean): void {
+    this.updateConfig({ text_description_enabled: enabled });
   }
 
   // ==========================================
   // Project Lifecycle
   // ==========================================
 
-  /**
-   * Starts the current project configuration.
-   */
-  async startProject(): Promise<void> {
-    // Resolve paths
-    await this.configService.resolvePaths();
+  async create(path: string): Promise<void> {
+    const config = { ...this._config(), ...this.labelService.getDefinitions() };
+    try {
+      await api.createProject(config.name, path, config);
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      throw error;
+    }
 
-    // Save configuration
-    await this.configService.saveConfig();
+    this._projectPath.set(path);
+    this._isOpen.set(true);
 
-    // Register in recent projects
-    this.storageService.addProject({
-      project_name: this.configService.projectName,
-      root: this.configService.projectFolder,
+    // Add to recent projects
+    this.addToRecentProjects(config.name, path);
+  }
+
+  async open(path: string): Promise<void> {
+    const config = await api.openProject(path);
+    this._config.set(config);
+    await this.labelService.setDefinitions(config);  // Now async
+    this._projectPath.set(path);
+    this._isOpen.set(true);
+    // Update counts
+    await this.refreshCounts();
+    // Add to recent projects
+    this.addToRecentProjects(config.name, path);
+  }
+
+  async close(): Promise<void> {
+    if (this._isOpen()) {
+      await api.closeProject();
+    }
+    this.labelService.resetAll();
+    this.reset();
+  }
+
+  // ==========================================
+  // Folder Scanning
+  // ==========================================
+
+  async scanFolder(): Promise<ScanResult> {
+    const config = this._config();
+    if (!config.input_folder) {
+      throw new Error('No input folder set');
+    }
+
+    const result = await api.scanAndImportFolder({
+      folder_path: config.input_folder,
+      embed_images: config.images_embedded,
+      embed_threshold_kb: config.embed_threshold_kb,
+      input_regex: config.input_regex,
+      recursive: config.recursive,
+      folders_as_sequences: config.folders_as_sequences,
     });
 
-    // List files
-    await this.listFiles();
+    // Update counts after scan
+    await this.refreshCounts();
 
-    // Initialize revision tracking
-    await this.revisionService.initialize(this.configService.projectFolder);
-
-    this.isProjectStarted = true;
+    return result;
   }
 
-  /**
-   * Creates a project from a configuration object.
-   */
-  async createProject(config: ProjectConfig, start = true): Promise<boolean> {
-    await this.configService.applyConfig(config);
+  async refreshCounts(): Promise<void> {
+    if (!this._isOpen()) return;
 
-    if (start) {
-      await this.startProject();
-    }
+    const framesCount = await api.getFramesCount();
+    const sequencesCount = await api.getSequencesCount();
 
-    return true;
-  }
-
-  /**
-   * Loads a project from a config file.
-   */
-  async loadProjectFile(filepath: string, start = true): Promise<boolean> {
-    const config = await this.configService.loadConfigFile(filepath);
-
-    if (!config) {
-      return false;
-    }
-
-    return this.createProject(config, start);
-  }
-
-  /**
-   * Resets the project to initial state.
-   */
-  resetProject(): void {
-    this.isProjectStarted = false;
-    this.imagesName = [];
-    this.annotationsName = [];
-    this.activeIndex = null;
-    this.activeImage = null;
-
-    this.configService.reset();
-    this.revisionService.reset();
+    this._framesCount.set(framesCount);
+    this._sequencesCount.set(sequencesCount);
   }
 
   // ==========================================
-  // File Operations
+  // Recent Projects (localStorage)
   // ==========================================
 
-  /**
-   * Lists all image files in the input folder.
-   */
-  async listFiles(): Promise<void> {
-    const fileList = await this.fileService.listFiles(
-      this.configService.inputFolder,
-      this.configService.inputRegex,
-      this.configService.recursive
-    );
-    if (this.configService.folderAsMultiframes) {
-      await this.multiframesService.groupFrames(
-        this.configService.inputFolder,
-        fileList
-      );
-    }
+  private readonly STORAGE_KEY = 'labelmed_recent_projects';
 
-    this.imagesName = this.fileService.extractRelativeNames(
-      fileList,
-      this.configService.inputFolder
-    );
-
-    if (this.configService.isClassification) {
-      this.classificationService.initMaps(this.imagesName);
+  getRecentProjects(): RecentProject[] {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
     }
   }
 
-  /**
-   * Lists all annotation files in the project folder.
-   */
-  async listAnnotations(): Promise<void> {
-    this.annotationsName = await this.fileService.listAnnotations(
-      this.configService.projectFolder
-    );
+  addToRecentProjects(name: string, path: string): void {
+    const recent = this.getRecentProjects().filter((p) => p.path !== path);
+    recent.unshift({ name, path });
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recent.slice(0, 10)));
   }
 
-  /**
-   * Extracts relative image names from full file paths.
-   * @deprecated Use fileService.extractRelativeNames directly
-   */
-  extractImagesName(files: string[]): string[] {
-    return this.fileService.extractRelativeNames(
-      files,
-      this.configService.inputFolder
-    );
+  removeFromRecentProjects(path: string): void {
+    const recent = this.getRecentProjects().filter((p) => p.path !== path);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recent));
   }
 
   // ==========================================
-  // Revision Tracking
+  // Validation
   // ==========================================
 
-  /**
-   * Updates the list of reviewed images.
-   */
-  async updateReviewedStatus(): Promise<void> {
-    if (this.activeIndex !== null) {
-      const currentImage = this.imagesName[this.activeIndex];
-      if (currentImage) {
-        await this.revisionService.markAsOpened(currentImage);
-      }
-    }
+  isConfigValid(): boolean {
+    const config = this._config();
+    return !!(config.name && config.input_folder);
   }
 
   // ==========================================
-  // Storage Operations
+  // Reset
   // ==========================================
 
-  /**
-   * Removes a project from the recent projects list.
-   */
-  removeProjectFile(projectRoot: string): void {
-    this.storageService.removeProject(projectRoot);
+  reset(): void {
+    this._config.set(DEFAULT_PROJECT_CONFIG);
+    this._projectPath.set(null);
+    this._isOpen.set(false);
+    this._framesCount.set(0);
+    this._sequencesCount.set(0);
   }
 
-  // ==========================================
-  // Utility Methods
-  // ==========================================
-
-  getTotalImages(): number {
-    return this.imagesName.length;
-  }
-
-  /**
-   * Gets the progress of reviewed images.
-   */
-  getReviewProgress(): { opened: number; total: number; percentage: number } {
-    return this.revisionService.getProgress(this.imagesName.length);
-  }
-
-  /**
-   * Checks if an image has been reviewed.
-   */
-  hasImageBeenOpened(imageName: string): boolean {
-    return this.revisionService.hasBeenOpened(imageName);
-  }
-  /**
-   * Create a new project from CLI configuration.
-   * Handles all domain logic for project initialization.
-   */
-  createProjectFromCLI(config: ProjectConfig): void {
-    this.createProject(config);
-    this.isProjectStarted = true;
-    console.log('Project created from CLI:', config);
-  }
-
-  /**
-   * Register an image in the project.
-   * Returns true if image was newly added, false if already present.
-   */
-  registerImage(relativePath: string): boolean {
-    if (this.imagesName.includes(relativePath)) {
-      console.log(`Image already registered: ${relativePath}`);
-      return false;
-    }
-
-    this.imagesName.push(relativePath);
-    console.log(`Image registered: ${relativePath}`);
-    return true;
+  get maxInstances(): number {
+    return 100; // Placeholder value; replace with actual logic if needed
   }
 }
