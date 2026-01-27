@@ -1,0 +1,210 @@
+use rusqlite::{params, Connection, OpenFlags};
+use std::path::Path;
+use crate::utils::AppError;
+use crate::utils::error::Result;
+use crate::types::project::ProjectConfig;
+use crate::types::image::{AnnotationData, MaskEncoding};
+
+/// Common configuration for all connections
+fn configure_connection(conn: &Connection) -> Result<()> {
+    // Use execute_batch for PRAGMAs that return values to avoid the "results returned" error
+    conn.execute_batch("
+        PRAGMA journal_mode = WAL;
+        PRAGMA synchronous = NORMAL;
+        PRAGMA foreign_keys = ON;
+    ").map_err(AppError::Database)?;
+    
+    Ok(())
+}
+
+pub fn create_database(path: &Path) -> Result<Connection> {
+    // Instead of deleting, we use SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE
+    // If you WANT to overwrite, your logic is fine, but usually, 
+    // apps should prompt "File exists, overwrite?" in the UI first.
+    let conn = Connection::open(path)
+        .map_err(|e| AppError::Database(e))?;
+
+    // Initialize schema
+    conn.execute_batch(super::schema::SCHEMA)
+        .map_err(|e| AppError::Database(e))?;
+
+    configure_connection(&conn)?;
+    
+    Ok(conn)
+}
+
+/// Open an existing database file
+pub fn open_database(path: &Path) -> Result<Connection> {
+    if !path.exists() {
+        return Err(AppError::Generic(format!("Project not found: {}", path.display())));
+    }
+
+    // Open read/write but DO NOT create if missing
+    let conn = Connection::open_with_flags(
+        path, 
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX
+    ).map_err(|e| AppError::Database(e))?;
+
+    configure_connection(&conn)?;
+
+    Ok(conn)
+}
+
+/// Insert project config as JSON
+pub fn insert_project(conn: &Connection, config: &ProjectConfig) -> Result<()> {
+    let config_json = serde_json::to_string(config)
+        .map_err(|e| AppError::Generic(format!("Failed to serialize config: {}", e)))?;
+
+    conn.execute(
+        "INSERT INTO project (id, config) VALUES (1, ?1)",
+        params![config_json],
+    ).map_err(|e| AppError::Database(e))?;
+
+    Ok(())
+}
+
+/// Get total frame count
+pub fn get_frames_count(conn: &Connection) -> Result<i64> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM frames",
+        [],
+        |row| row.get(0),
+    ).map_err(|e| AppError::Database(e))?;
+
+    Ok(count)
+}
+
+/// Get sequence count
+pub fn get_sequences_count(conn: &Connection) -> Result<i64> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM sequences",
+        [],
+        |row| row.get(0),
+    ).map_err(|e| AppError::Database(e))?;
+
+    Ok(count)
+}
+
+pub fn get_project_config(conn: &Connection) -> Result<ProjectConfig> {
+    let json: String = conn.query_row(
+        "SELECT config FROM project WHERE id = 1",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(serde_json::from_str(&json)?)
+}
+
+
+
+pub fn sync_labels_from_config(conn: &Connection, config: &ProjectConfig) -> Result<()> {
+    let labels = match &config.segmentation_labels {
+        Some(labels) => labels,
+        None => return Ok(()),
+    };
+
+    // Upsert each label
+    for (i, label) in labels.iter().enumerate() {
+        let is_instance = label.shades.is_some();
+        conn.execute(
+            "INSERT INTO labels (name, color, is_instance, sort_order)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(name) DO UPDATE SET
+                color = excluded.color,
+                is_instance = excluded.is_instance,
+                sort_order = excluded.sort_order",
+            params![label.name, label.color, is_instance, i as i32],
+        )?;
+    }
+
+    // Remove labels not in config (only if no annotations reference them)
+    let label_names: Vec<String> = labels.iter().map(|l| l.name.clone()).collect();
+    if !label_names.is_empty() {
+        let placeholders = label_names.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "DELETE FROM labels 
+             WHERE name NOT IN ({}) 
+             AND id NOT IN (SELECT DISTINCT label_id FROM annotations)",
+            placeholders
+        );
+        let params: Vec<&dyn rusqlite::ToSql> = label_names
+            .iter()
+            .map(|s| s as &dyn rusqlite::ToSql)
+            .collect();
+        conn.execute(&sql, params.as_slice())?;
+    }
+
+    Ok(())
+}
+
+
+
+// ============ Images ============
+
+
+// ============ Annotations ============
+
+pub fn save_annotation(
+    conn: &Connection,
+    frame_id: i64,
+    label_id: i64,
+    mask_data: &[u8],
+    encoding: MaskEncoding,
+) -> Result<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO annotations 
+         (frame_id, label_id, encoding, mask_data, modified_at)
+         VALUES (?1, ?2, ?3, ?4, datetime('now'))",
+        params![frame_id, label_id, encoding.as_str(), mask_data],
+    )?;
+    Ok(())
+}
+
+pub fn get_frame_dimensions(conn: &Connection, frame_id: i64) -> Result<(u32, u32)> {
+    let (width, height): (u32, u32) = conn.query_row(
+        "SELECT width, height FROM frames WHERE id = ?1",
+        params![frame_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    Ok((width, height))
+}
+
+pub fn load_annotations(conn: &Connection, frame_id: i64) -> Result<Vec<AnnotationData>> {
+    let mut stmt = conn.prepare(
+        "SELECT l.id, l.name, l.color, a.encoding, a.mask_data
+         FROM annotations a
+         JOIN labels l ON a.label_id = l.id
+         WHERE a.frame_id = ?1
+         ORDER BY l.sort_order"
+    )?;
+    
+    let rows = stmt.query_map(params![frame_id], |row| {
+        Ok(AnnotationData {
+            label_id: row.get(0)?,
+            label_name: row.get(1)?,
+            color: row.get(2)?,
+            encoding: MaskEncoding::from_str(&row.get::<_, String>(3)?),
+            mask_data: row.get(4)?,
+        })
+    })?;
+    
+    Ok(rows.filter_map(|r| r.ok()).collect())
+}
+
+// ============ Review ============
+
+pub fn mark_image_opened(conn: &Connection, image_id: i64) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO review_status (image_id) VALUES (?1)",
+        params![image_id],
+    )?;
+    Ok(())
+}
+
+pub fn mark_image_reviewed(conn: &Connection, image_id: i64, reviewed: bool) -> Result<()> {
+    conn.execute(
+        "UPDATE review_status SET reviewed = ?1 WHERE image_id = ?2",
+        params![reviewed, image_id],
+    )?;
+    Ok(())
+}
+
