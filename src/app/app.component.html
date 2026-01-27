@@ -5,7 +5,7 @@
     <ng-container>
       <p-divider layout="vertical" />
       <span class="toolbar">
-        {{ projectService.projectName }}
+        {{ projectService.projectName() }}
       </span>
     </ng-container>
     }
@@ -27,7 +27,7 @@
         icon="pi pi-list"
         [rounded]="true"
         [text]="true"
-        [disabled]="!projectService.isProjectStarted"
+        [disabled]="!isProjectStarted()"
         [raised]="true"
       >
       </p-button>
@@ -37,7 +37,7 @@
         icon="pi pi-pencil"
         [rounded]="true"
         [text]="true"
-        [disabled]="!projectService.isProjectStarted"
+        [disabled]="!isProjectStarted()"
         [raised]="true"
       >
       </p-button>
@@ -46,7 +46,7 @@
         icon="pi pi-file-export"
         [rounded]="true"
         [text]="true"
-        [disabled]="!projectService.isProjectStarted"
+        [disabled]="!isProjectStarted()"
         [raised]="true"
       >
       </p-button>

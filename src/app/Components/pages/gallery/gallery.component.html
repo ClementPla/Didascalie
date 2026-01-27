@@ -1,26 +1,61 @@
 <div class="flex flex-row gap-4 items-start justify-center">
-  @if(projectService.isClassification){
-  <p-panel>
-    <ng-template #header>
-      <b>Batch annotate</b>
-    </ng-template>
-    <div class="flex flex-col gap-4 justify-center">
-      @for(task of labelsService.listClassificationTasks; track task.taskName){
+  <!-- gallery.component.html - Batch annotation section -->
+
+  @if(projectService.isClassification() && hasSelection) {
+  <p-panel header="Batch Annotation" [toggleable]="true" [collapsed]="false">
+    <div class="flex flex-col gap-4">
+      <!-- Multiclass tasks -->
+      @for(task of labelsService.listClassificationTasks; track task.taskName;
+      let i = $index) {
       <div>
-        <h4>{{ task.taskName }}</h4>
+        <label class="block font-bold mb-2">{{ task.taskName }}</label>
         <p-selectButton
-          #batchChoices
           [options]="task.classLabels"
-          [size]="'small'"
+          [ngModel]="batchMulticlassChoices[i]"
+          (onOptionClick)="setBatchMulticlassChoice(i, $event.option)"
+          size="small"
+          style="display: flex; flex-wrap: wrap"
         ></p-selectButton>
       </div>
       }
-      <button
-        pButton
-        type="button"
-        label="Apply to selected"
-        (click)="annotateBatch()"
-      ></button>
+
+      <!-- Multilabel task -->
+      @if(labelsService.multiLabelTask) {
+      <div>
+        <label class="block font-bold mb-2">{{
+          labelsService.multiLabelTask.taskName
+        }}</label>
+        <p-selectButton
+          [options]="labelsService.multiLabelTask.taskLabels"
+          [multiple]="true"
+          [(ngModel)]="batchMultilabelChoices"
+          size="small"
+          style="display: flex; flex-wrap: wrap"
+        ></p-selectButton>
+      </div>
+      }
+
+      <!-- Actions -->
+      <div class="flex gap-2">
+        <p-button
+          label="Apply to {{ selectedCount }} items"
+          icon="pi pi-check"
+          (click)="annotateBatch()"
+          [disabled]="!hasBatchChoices"
+        ></p-button>
+        <p-button
+          label="Mark as Reviewed"
+          icon="pi pi-verified"
+          severity="success"
+          (click)="markSelectedAsReviewed(true)"
+        ></p-button>
+        <p-button
+          label="Clear Selection"
+          icon="pi pi-times"
+          severity="secondary"
+          (click)="deselectAll()"
+        ></p-button>
+      </div>
     </div>
   </p-panel>
   }
@@ -32,22 +67,31 @@
     [rows]="galleryService.itemPerPage"
     [paginator]="true"
     [showJumpToPageDropdown]="true"
-    filterBy="status,title,id"
+    filterBy="status,title"
     [paginatorPosition]="'both'"
     [first]="galleryService.getFirstPage()"
   >
     <ng-template #header>
       <div class="flex gap-8 items-center justify-end">
         <p class="flex flex-row gap-4 items-center justify-center mr-auto">
-          @if(projectService.isClassification){
+          @if (projectService.config().classification_enabled) {
           <button
             pButton
             type="button"
             label="Deselect all"
+            [disabled]="!hasSelection"
             (click)="deselectAll()"
-          ></button
-          >}
-
+          ></button>
+          <button
+            pButton
+            type="button"
+            label="Select all"
+            (click)="selectAll()"
+          ></button>
+          }
+          <span class="text-gray-500 text-sm" *ngIf="hasSelection">
+            {{ selectedCount }} selected
+          </span>
           <p-slider
             [(ngModel)]="imgSize"
             [min]="128"
@@ -56,9 +100,8 @@
           />
         </p>
         <app-labelled-switch [(checked)]="showAdvancedFilters">
-          Advanced filters</app-labelled-switch
-        >
-
+          Advanced filters
+        </app-labelled-switch>
         <input
           type="search"
           pInputText
@@ -72,14 +115,12 @@
           [ngModel]="filterOptions[0]"
           (onChange)="toggleFilter($event.value)"
         ></p-selectbutton>
-
         <app-labelled-switch
           [(checked)]="autoRefresh"
           (checkedChange)="setupAutoRefresh()"
         >
-          Auto-refresh</app-labelled-switch
-        >
-
+          Auto-refresh
+        </app-labelled-switch>
         <button
           pButton
           type="button"
@@ -88,7 +129,7 @@
           class="p-button-success"
           (click)="refresh()"
         >
-          @if(autoRefresh){
+          @if (autoRefresh) {
           <p-knob
             [(ngModel)]="percentageBeforeRefresh"
             [size]="15"
@@ -99,22 +140,21 @@
       </div>
     </ng-template>
 
-    <ng-template #grid let-items let-rowIndexValue="rowIndex">
+    <ng-template #grid let-items>
       <div
         class="flex flex-row flex-wrap justify-left max-h-[70vh] overflow-x-clip overflow-y-scroll"
       >
-        @for(item of items; track item.img[0]){
+        @for (item of items; track item.sequenceId) {
         <app-gallery-element
-          [img]="item.img"
+          [frameId]="item.thumbnailFrameId"
+          [title]="item.title"
           [status]="item.status"
-          [selected]="
-            selectedItems.includes(
-              projectService.imagesName.indexOf(item.img[0])
-            )
-          "
-          (thumbnailSelected)="handleSelect($event)"
-          [id]="projectService.imagesName.indexOf(item.img[0])"
+          [frameCount]="item.frameCount"
+          [selected]="selectedItems.includes(item.sequenceId)"
+          [id]="item.sequenceId"
           [imgSize]="imgSize"
+          (thumbnailSelected)="handleSelect($event)"
+          (thumbnailClicked)="openItem(item)"
         >
         </app-gallery-element>
         }
@@ -123,7 +163,10 @@
 
     <ng-template #footer>
       <div class="flex justify-between w-full">
-        <small>{{ galleryItems.length || 0 }} images</small>
+        <small>{{ totalItems }} sequences</small>
+        @if (hasSelection) {
+        <small>{{ selectedCount }} selected</small>
+        }
       </div>
     </ng-template>
   </p-dataview>

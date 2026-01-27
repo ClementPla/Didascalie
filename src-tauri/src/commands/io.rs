@@ -1,337 +1,312 @@
-use crate::commands::images::{
-    filter_aliasing, from_multiples_masks_to_multiclass, from_rgb_to_binary, merge_multiple_images,
-};
-use base64::{engine::general_purpose, Engine as _};
-use image::ImageBuffer;
-use rayon::prelude::*;
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+
 use regex::Regex;
-use roxmltree;
-use std;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
-use tauri::command;
-use tauri::{AppHandle, Emitter};
+use rusqlite::params;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use tauri::State;
 
-#[command]
-pub fn list_files_in_folder(folder: &str, regexfilter: &str, recursive: bool) -> Vec<String> {
-    let mut __files__ = Vec::new();
+use crate::storage::DbState;
+use crate::utils::error::{AppError, Result};
 
-    if !std::path::Path::new(folder).exists() {
-        return __files__;
+// ==========================================
+// Types
+// ==========================================
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ScanOptions {
+    pub folder_path: String,
+    pub embed_images: bool,
+    pub embed_threshold_kb: u32,
+    pub input_regex: String,
+    pub recursive: bool,
+    pub folders_as_sequences: bool,  // NEW: if true, subfolders become sequences
+}
+
+#[derive(Serialize, Debug)]
+pub struct ScanResult {
+    pub sequences_created: usize,
+    pub frames_imported: usize,
+    pub frames_embedded: usize,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug)]
+struct ImageFile {
+    absolute_path: PathBuf,
+    relative_path: String,
+    parent_folder: Option<String>,
+}
+
+// ==========================================
+// Commands
+// ==========================================
+
+/// Scan a folder for images and import them into the database.
+/// 
+/// Behavior depends on `folders_as_sequences`:
+/// - true: Subfolders become sequences with multiple frames, loose images become single-frame sequences
+/// - false: Each image becomes its own single-frame sequence (flat mode)
+#[tauri::command]
+pub fn scan_and_import_folder(
+    db: State<DbState>,
+    options: ScanOptions,
+) -> Result<ScanResult> {
+    let folder_path = PathBuf::from(&options.folder_path);
+    dbg!("Scanning folder:", &folder_path);
+    if !folder_path.exists() {
+        return Err(AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Folder not found: {}", options.folder_path),
+        )));
     }
 
-    // Handle read_dir error gracefully - folder might have been deleted/moved
-    let paths = match std::fs::read_dir(folder) {
-        Ok(paths) => paths,
-        Err(_) => return __files__,
-    };
+    // Compile regex for matching image files
+    let regex = Regex::new(&options.input_regex)
+        .map_err(|e| AppError::Generic(format!("Invalid regex: {}", e)))?;
 
-    let formatted_regex = format!(r"(?i){}", regexfilter);
-    let re = match Regex::new(&formatted_regex) {
-        Ok(re) => re,
-        Err(_) => {
-            println!("Invalid regex: {}", regexfilter);
-            return __files__;
-        }
-    };
+    // Scan for image files
+    let image_files = scan_for_images(&folder_path, &folder_path, &regex, options.recursive)?;
+    // Debug the options and number of images found
+    dbg!("Scan options:", &options);
+    dbg!("Number of images found:", image_files.len());
+    // Group into sequences based on configuration
+    let sequences = group_into_sequences(image_files, options.folders_as_sequences);
+    dbg!("Found sequences:", sequences.keys().collect::<Vec<_>>());
+    // Import into database
+    let result = import_sequences(
+        &db,
+        sequences,
+        options.embed_images,
+        options.embed_threshold_kb,
+    )?;
 
-    for path_result in paths {
-        // THIS IS THE CRITICAL FIX - handle the DirEntry error
-        let entry = match path_result {
-            Ok(entry) => entry,
-            Err(_) => continue, // Skip entries we can't read
-        };
+    Ok(result)
+}
 
+
+// ==========================================
+// Internal Functions
+// ==========================================
+
+/// Recursively scan folder for image files matching the regex
+fn scan_for_images(
+    root: &Path,
+    current: &Path,
+    regex: &Regex,
+    recursive: bool,
+) -> Result<Vec<ImageFile>> {
+    let mut images = Vec::new();
+
+    let entries = fs::read_dir(current)
+        .map_err(|e| AppError::Io(e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| AppError::Io(e))?;
         let path = entry.path();
+        let file_type = entry.file_type().map_err(|e| AppError::Io(e))?;
 
-        // Handle file_name extraction errors
-        let file_name = match path.file_name().and_then(|n| n.to_str()) {
-            Some(name) => name,
-            None => continue,
-        };
-
-        if file_name.starts_with('.') {
-            continue;
-        }
-
-        // Handle path.to_str() errors
-        let path_str = match path.to_str() {
-            Some(s) => s,
-            None => continue,
-        };
-
-        if path.is_file() && re.is_match(path_str) {
-            __files__.push(path.display().to_string());
-        }
-
-        if path.is_dir() && recursive {
-            __files__.append(&mut list_files_in_folder(path_str, regexfilter, recursive));
-        }
-    }
-
-    __files__
-}
-#[command]
-pub fn save_xml_file(filepath: String, xml_content: String) -> Result<(), String> {
-    // Validate the filepath
-    let path = Path::new(&filepath);
-
-    // Ensure the directory exists
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
-    }
-
-    // Open the file for writing
-    let mut file = File::create(&path).map_err(|e| format!("Failed to create file: {}", e))?;
-
-    // Write the XML content to the file
-    file.write_all(xml_content.as_bytes())
-        .map_err(|e| format!("Failed to write XML content: {}", e))?;
-    dbg!("Sucessfully saved file");
-    Ok(())
-}
-
-#[command]
-pub fn save_json_file(filepath: String, json_content: String) -> Result<(), String> {
-    // Validate the filepath
-    let path = Path::new(&filepath);
-
-    // Ensure the directory exists
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
-    }
-
-    println!("Creating file: {:?}", path);
-
-    // Open the file for writing
-    let mut file = File::create(&path).map_err(|e| format!("Failed to create file: {}", e))?;
-
-    // Write the JSON content to the file
-    file.write_all(json_content.as_bytes())
-        .map_err(|e| format!("Failed to write JSON content: {}", e))?;
-
-    Ok(())
-}
-
-#[command]
-pub fn load_xml_file(filepath: String) -> Result<String, String> {
-    // Open the file for reading
-    let mut file = File::open(&filepath).map_err(|e| format!("Failed to open file: {}", e))?;
-
-    // Read the file contents
-    let mut xml_content = String::new();
-    file.read_to_string(&mut xml_content)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
-
-    Ok(xml_content)
-}
-
-#[command]
-pub fn load_json_file(filepath: String) -> Result<String, String> {
-    // Print the filepath for debugging
-    println!("Loading JSON file from: {}", filepath);
-
-    // Open the file for reading
-
-    let mut file = File::open(&filepath).map_err(|e| format!("Failed to open file: {}", e))?;
-
-    // Read the file contents
-    let mut json_content = String::new();
-    file.read_to_string(&mut json_content)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
-
-    Ok(json_content)
-}
-#[command]
-pub fn save_csv_file(filepath: String, csv_content: String) {
-    // Validate the filepath
-    let path = Path::new(&filepath);
-
-    // Ensure the directory exists
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).unwrap();
-    }
-
-    // Open the file for writing
-    let mut file = File::create(&path).unwrap();
-
-    // Write the CSV content to the file
-    file.write_all(csv_content.as_bytes()).unwrap();
-}
-
-#[command]
-pub fn load_csv_file(filepath: String) -> String {
-    // Open the file for reading
-    let path = Path::new(&filepath);
-    if path.exists() {
-        let mut file = File::open(&filepath).unwrap();
-
-        // Read the file contents
-        let mut csv_content = String::new();
-        file.read_to_string(&mut csv_content).unwrap();
-
-        csv_content
-    } else {
-        println!("{}", format!("Failed to read file: {}", filepath));
-        String::new()
-    }
-}
-
-#[command]
-pub fn check_file_exists(filepath: String) -> Result<bool, String> {
-    let path = Path::new(&filepath);
-    Ok(path.exists())
-}
-
-#[command]
-pub async fn export(
-    app: AppHandle,
-    input_folder: String,
-    output_folder: String,
-    files_reviewed: Vec<String>,
-    individual_mask: bool,
-    combined_mask: bool,
-    colormap: bool,
-    only_reviewed: bool,
-) {
-    let mut all_files = list_files_in_folder(&input_folder, r".*\.svg", true);
-    if only_reviewed {
-        // Filter the files to only include those that have been reviewed
-        // We need to remove the extension of the files reviewed and compare
-        // with all the files also without extension
-        let reviewed_basenames: Vec<String> = files_reviewed
-            .iter()
-            .filter_map(|file| {
-                let path = Path::new(file);
-                path.file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .map(|stem| stem.to_string())
-            })
-            .collect();
-
-        all_files = all_files
-            .into_iter()
-            .filter(|file| {
-                let path = Path::new(file);
-                path.file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .map(|stem| stem.to_string())
-                    .map(|stem| reviewed_basenames.contains(&stem))
-                    .unwrap_or(false)
-            })
-            .collect();
-    }
-    app.emit("export", all_files.len()).unwrap();
-    // Iterate through the SVG files
-
-    all_files.par_iter().enumerate().for_each(|(_i, file)| {
-        // Load the SVG file as XML
-        let xml_content = load_xml_file(file.clone()).unwrap();
-        let xml: roxmltree::Document<'_> = roxmltree::Document::parse(&xml_content).unwrap();
-        let filename = Path::new(file);
-        // Strip the input folder from the filename
-        let filename = filename.strip_prefix(&input_folder).unwrap();
-        let filename = filename.to_str().unwrap();
-        let filename = filename.replace(".svg", ".png");
-
-        // Check if the SVG file has a mask
-        let has_mask = xml
-            .descendants()
-            .find(|n| n.has_tag_name("image"))
-            .is_some();
-        if has_mask {
-            read_mask_and_save(
-                &xml,
-                filename,
-                output_folder.clone(),
-                individual_mask,
-                combined_mask,
-                colormap,
-            );
-        }
-        app.emit("export-progress", 1).unwrap();
-    });
-}
-
-fn read_mask_and_save(
-    svg: &roxmltree::Document,
-    filename: String,
-    output_folder: String,
-    individual_mask: bool,
-    combined_mask: bool,
-    colormap: bool,
-) {
-    let mut masks: Vec<ImageBuffer<image::Rgb<u8>, Vec<u8>>> = Vec::new();
-    let mut mask_names: Vec<String> = Vec::new();
-    // Gather all the images in the SVG file
-
-    let images = svg
-        .descendants()
-        .filter(|n| n.has_tag_name("image"))
-        .collect::<Vec<_>>();
-
-    // For each image, extract the data
-    images.iter().for_each(|image| {
-        let image_data = image.attribute("href").unwrap();
-        let image_data = image_data.replace("data:image/png;base64,", "");
-        let mask_name = image.attribute("id").unwrap();
-        let image_data = general_purpose::STANDARD
-            .decode(image_data.as_bytes())
-            .unwrap();
-        let img = image::load_from_memory(&image_data).unwrap().to_rgba8();
-
-        let img = filter_aliasing(img, image.attribute("color").unwrap().to_string());
-        masks.push(img);
-        mask_names.push(mask_name.to_string());
-    });
-
-    // let mut combined_mask = ImageBuffer::new(dims.0, dims.1);
-    if colormap {
-        let mut output_path = Path::new(&output_folder).to_path_buf().join("colormaps");
-
-        output_path = output_path.join(filename.clone());
-        if !output_path.exists() {
-            let output_folder = output_path.parent().unwrap();
-            std::fs::create_dir_all(output_folder).unwrap();
-        }
-        let mask = merge_multiple_images(&masks);
-        println!("Saving colormap: {:?}", output_path);
-        mask.save(output_path).unwrap();
-    }
-    if combined_mask || individual_mask {
-        let binary_masks: Vec<ImageBuffer<image::Luma<u8>, Vec<u8>>> =
-            masks.iter().map(|mask| from_rgb_to_binary(mask)).collect();
-
-        if individual_mask {
-            let output_path = Path::new(&output_folder).to_path_buf().join("multilabel");
-            binary_masks.iter().enumerate().for_each(|(i, mask)| {
-                let mut output_path = output_path.clone();
-                output_path = output_path.join(mask_names[i].clone());
-
-                output_path = output_path.join(filename.clone());
-                if !output_path.exists() {
-                    // We separate the filename from the folder
-                    let output_folder = output_path.parent().unwrap();
-                    std::fs::create_dir_all(output_folder).unwrap();
-                }
-
-                mask.save(output_path).unwrap();
-            });
-        }
-        if combined_mask {
-            let mut output_path = Path::new(&output_folder).to_path_buf().join("multiclass");
-
-            output_path = output_path.join(filename.clone());
-            if !output_path.exists() {
-                let output_folder = output_path.parent().unwrap();
-
-                std::fs::create_dir_all(output_folder).unwrap();
+        if file_type.is_dir() {
+            if recursive {
+                let sub_images = scan_for_images(root, &path, regex, recursive)?;
+                images.extend(sub_images);
             }
-            let mask = from_multiples_masks_to_multiclass(&binary_masks);
-            mask.save(output_path).unwrap();
+        } else if file_type.is_file() {
+            let file_name = path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("");
+
+            // Check if filename matches regex
+            if regex.is_match(file_name) {
+                let relative_path = path.strip_prefix(root)
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .to_string();
+
+                // Get parent folder name (if not root)
+                let parent_folder = path.parent()
+                    .filter(|p| *p != root)
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str())
+                    .map(|s| s.to_string());
+
+                images.push(ImageFile {
+                    absolute_path: path,
+                    relative_path,
+                    parent_folder,
+                });
+            }
         }
     }
+
+    // Sort by path for consistent ordering
+    images.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+
+    Ok(images)
+}
+
+/// Group images into sequences
+/// 
+/// If `folders_as_sequences` is true:
+///   - Images in subfolders: grouped by subfolder name
+///   - Images in root: each becomes its own sequence
+/// 
+/// If `folders_as_sequences` is false:
+///   - Each image becomes its own single-frame sequence (flat mode)
+fn group_into_sequences(
+    images: Vec<ImageFile>,
+    folders_as_sequences: bool,
+) -> HashMap<String, Vec<ImageFile>> {
+    let mut sequences: HashMap<String, Vec<ImageFile>> = HashMap::new();
+    for image in images {
+        let sequence_name = if folders_as_sequences {
+            get_sequence_name_from_path(&image.relative_path)
+        } else {
+            // Flat mode: use full relative path as unique key
+            image.relative_path.clone()
+        };
+        sequences.entry(sequence_name).or_default().push(image);
+    }
+    for frames in sequences.values_mut() {
+        frames.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    }
+    sequences
+}
+
+/// Extract sequence name from image path (filename without extension)
+fn get_sequence_name_from_path(relative_path: &str) -> String {
+    Path::new(relative_path)
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| {
+            // No parent directory (root-level image), use filename stem
+            Path::new(relative_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("unnamed")
+                .to_string()
+        })
+}
+/// Import sequences and frames into database
+fn import_sequences(
+    db: &State<DbState>,
+    sequences: HashMap<String, Vec<ImageFile>>,
+    embed_images: bool,
+    embed_threshold_kb: u32,
+) -> Result<ScanResult> {
+    let mut result = ScanResult {
+        sequences_created: 0,
+        frames_imported: 0,
+        frames_embedded: 0,
+        errors: Vec::new(),
+    };
+
+    db.with_conn(|conn| {
+        // Sort sequences by name for consistent ordering
+        let mut sequence_names: Vec<_> = sequences.keys().collect();
+        sequence_names.sort();
+
+        for (sort_order, sequence_name) in sequence_names.iter().enumerate() {
+            let frames = sequences.get(*sequence_name).unwrap();
+
+            // Insert sequence
+            conn.execute(
+                "INSERT INTO sequences (name, sort_order) VALUES (?1, ?2)",
+                params![sequence_name, sort_order as i32],
+            )?;
+            let sequence_id = conn.last_insert_rowid();
+            result.sequences_created += 1;
+
+            // Insert frames
+            for (frame_index, image) in frames.iter().enumerate() {
+                match import_frame(
+                    conn,
+                    sequence_id,
+                    frame_index,
+                    image,
+                    embed_images,
+                    embed_threshold_kb,
+                ) {
+                    Ok(embedded) => {
+                        result.frames_imported += 1;
+                        if embedded {
+                            result.frames_embedded += 1;
+                        }
+                    }
+                    Err(e) => {
+                        result.errors.push(format!(
+                            "Failed to import {}: {}",
+                            image.relative_path, e
+                        ));
+                    }
+                }
+            }
+        }
+
+        Ok(result)
+    })
+}
+
+/// Import a single frame into database
+fn import_frame(
+    conn: &rusqlite::Connection,
+    sequence_id: i64,
+    frame_index: usize,
+    image: &ImageFile,
+    embed_images: bool,
+    embed_threshold_kb: u32,
+) -> Result<bool> {
+    // Read image file
+    let file_data = fs::read(&image.absolute_path)
+        .map_err(|e| AppError::Io(e))?;
+
+    // Calculate content hash
+    let mut hasher = Sha256::new();
+    hasher.update(&file_data);
+    let content_hash = format!("{:x}", hasher.finalize());
+
+    // Get image dimensions
+    let (width, height) = get_image_dimensions(&file_data)?;
+
+    // Determine if we should embed
+    let file_size_kb = file_data.len() as u32 / 1024;
+    let should_embed = embed_images || file_size_kb < embed_threshold_kb;
+
+    let embedded_data: Option<Vec<u8>> = if should_embed {
+        Some(file_data)
+    } else {
+        None
+    };
+
+    // Store relative path only if not embedded
+    let relative_path: Option<&str> = Some(&image.relative_path);
+
+    conn.execute(
+        "INSERT INTO frames (
+            sequence_id, frame_index, relative_path, content_hash,
+            embedded_data, width, height, reviewed
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
+        params![
+            sequence_id,
+            frame_index as i32,
+            relative_path,
+            content_hash,
+            embedded_data,
+            width,
+            height,
+        ],
+    )?;
+
+    Ok(should_embed)
+}
+
+/// Get image dimensions from raw bytes
+fn get_image_dimensions(data: &[u8]) -> Result<(i32, i32)> {
+    let img = image::load_from_memory(data)
+        .map_err(|e| AppError::Generic(format!("Failed to decode image: {}", e)))?;
+
+    Ok((img.width() as i32, img.height() as i32))
 }

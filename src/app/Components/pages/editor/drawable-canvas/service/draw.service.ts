@@ -24,6 +24,7 @@ import {
   LineTool,
   LassoEraserTool,
 } from '../tools';
+import { IOService } from '../../../../../Services/io.service';
 
 @Injectable({
   providedIn: 'root',
@@ -57,7 +58,8 @@ export class DrawService implements OnDestroy {
     private canvasManagerService: CanvasManagerService,
     private undoRedoService: UndoRedoService,
     private postProcessService: PostProcessService,
-    private openCVService: OpenCVService
+    private openCVService: OpenCVService,
+    private ioService: IOService
   ) {
     this.initializeSubscriptions();
   }
@@ -135,12 +137,12 @@ export class DrawService implements OnDestroy {
     // Global Post-Processing (Service Level)
     await this.handleGlobalPostProcessing();
     this.stateService.recomputeCanvasSum = true;
-
+    this.ioService.markDirty();
     // Finalize
     this.redrawRequest.next(true);
 
     if (
-      this.projectService.isInstanceSegmentation &&
+      this.projectService.isInstanceSegmentation() &&
       this.editorService.incrementAfterStroke
     ) {
       this.labelService.incrementActiveInstance();
@@ -251,7 +253,7 @@ export class DrawService implements OnDestroy {
    * Returns a fallback color if no active label is set.
    */
   public getFillColor(): string {
-    if (this.projectService.isInstanceSegmentation) {
+    if (this.projectService.isInstanceSegmentation()) {
       return this.labelService.activeSegInstance?.shade ?? '#ffffff';
     }
     return this.labelService.activeLabel?.color ?? '#ffffff';
@@ -272,7 +274,7 @@ export class DrawService implements OnDestroy {
     inputCtx: OffscreenCanvasRenderingContext2D | null = null,
     inputColor: string | null = null
   ): void {
-    if (this.projectService.isInstanceSegmentation) {
+    if (this.projectService.isInstanceSegmentation()) {
       this.redrawRequest.next(true);
       return;
     }
@@ -332,6 +334,7 @@ export class DrawService implements OnDestroy {
         if (value >= 0) {
           this.stateService.recomputeCanvasSum = true;
           this.canvasManagerService.clearCanvasAtIndex(value);
+          this.ioService.markDirty();
           this.redrawRequest.next(true);
         }
       });
@@ -373,6 +376,7 @@ export class DrawService implements OnDestroy {
     });
 
     this.stateService.recomputeCanvasSum = true;
+    this.ioService.markDirty();
     this.redrawRequest.next(true);
   }
 

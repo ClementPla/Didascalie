@@ -10,6 +10,7 @@ import { PostProcessService } from './post-process.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { DrawService } from './draw.service';
 import { animationFrameScheduler } from 'rxjs';
+import { IOService } from '../../../../../Services/io.service';
 
 export interface ViewTransform {
   scale: number;
@@ -37,7 +38,7 @@ export class OrchestratorService {
     private undoRedo: UndoRedoService,
     private postProcess: PostProcessService,
     private zoomPan: ZoomPanService,
-    private drawService: DrawService
+    private drawService: DrawService,
   ) {
     this.initializeRedrawAggregation();
   }
@@ -95,16 +96,23 @@ export class OrchestratorService {
     this.zoomPan.resetZoomAndPan(true, true);
 
     // 4. Clear history (but don't capture yet - annotations not loaded)
-    this.undoRedo.empty();
+    this.resetHistory();
 
     this.isReadySubject.next(true);
     this.redrawRequest.next();
+    // Reset Zoom And Pan after 200ms to ensure proper centering
+    setTimeout(() => {
+      this.zoomPan.resetZoomAndPan(true, true);
+    }, 200);
 
     return img;
   } catch (e) {
     console.error('Orchestrator failed to load image:', e);
     throw e;
   }
+}
+public resetHistory(): void {
+  this.undoRedo.empty();
 }
 
 /**

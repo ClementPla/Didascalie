@@ -1,4 +1,5 @@
 export interface SegLabel {
+  id: number;
   label: string;
   color: string;
   isVisible: boolean;
@@ -10,9 +11,11 @@ export const CombinedLabel = {
   color: '#ffffff',
   isVisible: true,
   shades: null,
+  id: -1,
 };
 
 export interface SegInstance {
+  id: number;
   label: SegLabel;
   instance: number;
   shade: string;
@@ -24,10 +27,6 @@ export interface BboxLabel {
   instance: number;
 }
 
-export interface TextLabel {
-  name: string;
-  text: string;
-}
 export interface Thumbnail {
   name: Promise<string>;
   thumbnailPath: Promise<string>;

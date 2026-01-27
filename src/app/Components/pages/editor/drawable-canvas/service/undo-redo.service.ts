@@ -5,6 +5,7 @@ import { StateManagerService } from './state-manager.service';
 import { EditorService } from '../../services/editor.service';
 import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { BehaviorSubject } from 'rxjs';
+import { IOService } from '../../../../../Services/io.service';
 
 interface LayerUndoRedoState {
   data: OffscreenCanvas;
@@ -31,7 +32,8 @@ export class UndoRedoService {
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService,
     private editorService: EditorService,
-    private labelService: LabelsService
+    private labelService: LabelsService,
+    private ioService: IOService
   ) {
     this.editorService.undo.subscribe((value) => {
       if (value) {
@@ -116,7 +118,7 @@ export class UndoRedoService {
     const sourceCanvas = element.data;
     ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
     ctx.drawImage(sourceCanvas, 0, 0);
-
+    this.ioService.markDirty();
     this.redrawRequest.next(true);
   }
 
@@ -137,7 +139,7 @@ export class UndoRedoService {
       ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
       ctx.drawImage(sourceCanvas, 0, 0);
     });
-
+    this.ioService.markDirty();
     this.redrawRequest.next(true);
   }
 
@@ -252,7 +254,6 @@ export class UndoRedoService {
       layerUndoRedo.push({ data: clone });
     });
 
-    console.log('Initial states captured for all layers');
   }
 
   /**
@@ -274,6 +275,5 @@ export class UndoRedoService {
     const layerUndoRedo = this.getLayerUndoRedo(layerIndex);
     layerUndoRedo.push({ data: clone });
 
-    console.log(`Initial state captured for layer ${layerIndex}`);
   }
 }

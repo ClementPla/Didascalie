@@ -1,54 +1,42 @@
-// navigation.service.ts
 import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
-import { path } from '@tauri-apps/api';
 
-import { ProjectService } from '../ProjectService/project.service';
-import { MultiframesService } from '../multiframes.service';
+import { SequenceService } from '../sequence.service';
 import { IOService } from '../io.service';
 import { OrchestratorService } from '../../Components/pages/editor/drawable-canvas/service/orchestrator.service';
-import { loadImageFile } from '../../Core/save_load';
-import { ProjectFileService } from '../ProjectService';
-
+import { Sequence } from '../../lib/api';
 export interface ProgressInfo {
   currentIndex: number;
   total: number;
-  imageName: string;
+  frameName: string;
+  sequenceName: string;
   percentage: number;
+  reviewedCount: number;
 }
 
 export interface NavigationResult {
   success: boolean;
-  imageIndex: number;
-  imageName: string;
+  frameIndex: number;
+  frameId: number;
+  sequenceId: number;
 }
 
 export type NavigationDirection = 'next' | 'previous';
 
 /**
- * Orchestrates image and frame navigation workflows.
- * Handles the complete navigation sequence: save → validate → load → update state.
- *
- * Responsibilities:
- * - Coordinate navigation between images/frames
- * - Manage save/load workflows
- * - Track navigation progress
- * - Validate navigation boundaries
+ * Orchestrates navigation workflows.
+ * Coordinates: save → navigate → load → update state.
  */
 @Injectable({
   providedIn: 'root',
 })
 export class NavigationService {
-  // Progress tracking
   public progress$ = new Subject<ProgressInfo | null>();
 
   constructor(
-    private projectService: ProjectService,
-    private multiframeService: MultiframesService,
+    private sequenceService: SequenceService,
     private ioService: IOService,
     private orchestrator: OrchestratorService,
-    private fileService: ProjectFileService
-    
   ) {}
 
   // ==========================================
@@ -56,30 +44,27 @@ export class NavigationService {
   // ==========================================
 
   /**
-   * Navigate to next or previous image.
-   * Handles save, validation, and loading workflow.
+   * Navigate to next or previous frame.
    */
-  public async navigate(
-    direction: NavigationDirection
-  ): Promise<NavigationResult | null> {
+  public async navigate(direction: NavigationDirection): Promise<NavigationResult | null> {
     try {
       // 1. Save current state
-      await this.save();
+      await this.saveIfNeeded();
 
       // 2. Perform navigation
-      const success =
-        direction === 'next'
-          ? await this.goNextInternal()
-          : await this.goPreviousInternal();
+      const success = direction === 'next'
+        ? await this.sequenceService.nextFrame()
+        : await this.sequenceService.prevFrame();
 
       if (!success) {
-        console.log(
-          `Cannot navigate ${direction}: at boundary or invalid state`
-        );
+        console.log(`Cannot navigate ${direction}: at boundary`);
         return null;
       }
 
-      // 3. Return result
+      // 3. Load new frame
+      await this.loadCurrentFrame();
+
+      // 4. Return result
       const result = this.createNavigationResult();
       this.emitProgress();
 
@@ -91,83 +76,13 @@ export class NavigationService {
   }
 
   /**
-   * Navigate to a specific image index.
-   * Opens and loads the image at the given index.
+   * Navigate to a specific frame index within current sequence.
    */
-  public async navigateToIndex(
-    index: number
-  ): Promise<NavigationResult | null> {
-    if (!this.isValidIndex(index)) {
-      console.warn(`Invalid image index: ${index}`);
-      return null;
-    }
-
+  public async navigateToFrame(frameIndex: number): Promise<NavigationResult | null> {
     try {
-      // Only save if there's currently an active image
-      if (
-        this.projectService.activeIndex !== null &&
-        this.projectService.activeImage
-      ) {
-        await this.save();
-      }
-
-      await this.openEditorInternal(index);
-
-      const result = this.createNavigationResult();
-      this.emitProgress();
-
-      return result;
-    } catch (error) {
-      console.error('Failed to navigate to index:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Navigate to a specific frame within a multiframe group.
-   */
-  public async navigateToFrame(
-    frameIndex: number
-  ): Promise<NavigationResult | null> {
-    if (!this.multiframeService.activeGroup) {
-      console.warn('No active multiframe group');
-      return null;
-    }
-    console.log(`Navigating to frame ${frameIndex} in group ${this.multiframeService.activeGroup}`);
-    try {
-      // 1. Save current state
-      await this.save();
-
-      // 2. Resolve frame path
-      const framePath =
-        this.multiframeService.getFramePathInActiveGroup(frameIndex);
-      if (!framePath) {
-        console.warn(`Frame ${frameIndex} not found in active group`);
-        return null;
-      }
-
-      // 3. Find image index in project
-      const frameName = this.fileService.extractRelativeNames([framePath], this.projectService.inputFolder)[0];
-      const index = this.projectService.imagesName.indexOf(frameName);
-
-      if (index === -1) {
-        throw new Error(`Frame not found in project: ${frameName}`);
-      }
-
-      // 4. Load frame image
-      const frameImage = await this.multiframeService.getFrameInActiveGroup(
-        frameIndex
-      );
-      if (!frameImage) {
-        throw new Error('Failed to load frame image');
-      }
-
-      // 5. Update project state
-      this.projectService.activeIndex = index;
-      this.projectService.activeImage = frameImage;
-
-      // 6. Load into orchestrator
-      await this.loadCurrentImage(!this.projectService.groupLabels);
+      await this.saveIfNeeded();
+      await this.sequenceService.selectFrame(frameIndex);
+      await this.loadCurrentFrame();
 
       const result = this.createNavigationResult();
       this.emitProgress();
@@ -179,60 +94,136 @@ export class NavigationService {
     }
   }
 
+  /**
+   * Navigate to a specific sequence.
+   */
+  public async navigateToSequence(sequence: Sequence): Promise<NavigationResult | null> {
+    try {
+      await this.saveIfNeeded();
+      await this.sequenceService.selectSequence(sequence);
+      await this.loadCurrentFrame();
+
+      const result = this.createNavigationResult();
+      this.emitProgress();
+
+      return result;
+    } catch (error) {
+      console.error('Failed to navigate to sequence:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Navigate to next sequence.
+   */
+  public async navigateToNextSequence(): Promise<NavigationResult | null> {
+    try {
+      await this.saveIfNeeded();
+
+      const success = await this.sequenceService.nextSequence();
+      if (!success) {
+        return null;
+      }
+
+      await this.loadCurrentFrame();
+
+      const result = this.createNavigationResult();
+      this.emitProgress();
+
+      return result;
+    } catch (error) {
+      console.error('Failed to navigate to next sequence:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Navigate to previous sequence.
+   */
+  public async navigateToPrevSequence(): Promise<NavigationResult | null> {
+    try {
+      await this.saveIfNeeded();
+
+      const success = await this.sequenceService.prevSequence();
+      if (!success) {
+        return null;
+      }
+
+      await this.loadCurrentFrame();
+
+      const result = this.createNavigationResult();
+      this.emitProgress();
+
+      return result;
+    } catch (error) {
+      console.error('Failed to navigate to previous sequence:', error);
+      return null;
+    }
+  }
+
   // ==========================================
   // Save & Load
   // ==========================================
 
   /**
-   * Save current annotations and update review status.
+   * Save current annotations if dirty.
    */
-  public async save(): Promise<boolean> {
-    // Don't save if there's no active image or no active index
-    if (
-      this.projectService.activeIndex === null ||
-      !this.projectService.activeImage
-    ) {
-      console.log('No active image to save, skipping save operation');
+  public async saveIfNeeded(): Promise<boolean> {
+    if (!this.sequenceService.currentFrame()) {
       return true;
     }
 
     try {
-      await this.projectService.updateReviewedStatus();
-      await this.ioService.save();
-      return true;
+      return await this.ioService.saveIfDirty();
     } catch (error) {
       console.error('Failed to save:', error);
-      // Continue despite save failure
       return false;
     }
   }
 
   /**
-   * Load the current active image into the orchestrator.
-   * Optionally reload annotations from disk.
+   * Force save current annotations.
    */
-  public async loadCurrentImage(
-    reloadAnnotations: boolean = true
-  ): Promise<void> {
-    const activeImage = this.projectService.activeImage;
-    if (!activeImage) {
-      throw new Error('No active image to load');
+  public async save(): Promise<boolean> {
+    if (!this.sequenceService.currentFrame()) {
+      return true;
     }
 
     try {
-      // Load image into canvas orchestrator
-      await this.orchestrator.loadImage(activeImage);
-
-      // Reload annotations if requested
-      if (reloadAnnotations) {
-        await this.ioService.load();
+      const success = await this.ioService.save();
+      if (success) {
+        await this.sequenceService.markCurrentReviewed(true);
       }
+      return success;
+    } catch (error) {
+      console.error('Failed to save:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Load current frame into orchestrator.
+   */
+  public async loadCurrentFrame(): Promise<void> {
+    const frameImage = this.sequenceService.currentFrameImage();
+    if (!frameImage) {
+      throw new Error('No current frame to load');
+    }
+
+    try {
+      // Load image into orchestrator
+      await this.orchestrator.loadImage(frameImage.image_base64);
+
+      // Load annotations
+      await this.ioService.load();
+
+      // Capture history and redraw
       await this.orchestrator.captureInitialHistory();
       this.orchestrator.requestRedraw();
 
       this.emitProgress();
     } catch (error) {
-      console.error('Failed to load image:', error);
+      console.error('Failed to load frame:', error);
       throw error;
     }
   }
@@ -241,155 +232,66 @@ export class NavigationService {
   // Progress & State Queries
   // ==========================================
 
-  public getProgress(): ProgressInfo | null {
-    const { imagesName, activeIndex } = this.projectService;
+  public async getProgress(): Promise<ProgressInfo | null> {
+    const frame = this.sequenceService.currentFrame();
+    const sequence = this.sequenceService.currentSequence();
 
-    if (imagesName.length === 0 || activeIndex === null) {
+    if (!frame || !sequence) {
       return null;
     }
 
-    const total = this.projectService.getTotalImages();
+    const frameIndex = this.sequenceService.currentFrameIndex();
+    const totalFrames = this.sequenceService.frameCount();
+    const progress = await this.sequenceService.getProgress();
+
     return {
-      currentIndex: activeIndex,
-      total,
-      imageName: imagesName[activeIndex],
-      percentage: (100 * activeIndex) / total,
+      currentIndex: frameIndex,
+      total: totalFrames,
+      frameName: frame.relative_path ?? `Frame ${frame.frame_index}`,
+      sequenceName: sequence.name,
+      percentage: totalFrames > 0 ? (100 * (frameIndex + 1)) / totalFrames : 0,
+      reviewedCount: progress.reviewed,
     };
   }
 
-  private emitProgress(): void {
-    this.progress$.next(this.getProgress());
+  private async emitProgress(): Promise<void> {
+    this.progress$.next(await this.getProgress());
   }
 
   public canGoNext(): boolean {
-    const { activeIndex, imagesName } = this.projectService;
-    return activeIndex !== null && activeIndex < imagesName.length - 1;
+    return !this.sequenceService.isLastFrame();
   }
 
   public canGoPrevious(): boolean {
-    const { activeIndex } = this.projectService;
-    return activeIndex !== null && activeIndex > 0;
+    return !this.sequenceService.isFirstFrame();
   }
 
   public get isMultiframeActive(): boolean {
-    return !!this.multiframeService.activeGroup;
+    return this.sequenceService.frameCount() > 1;
+  }
+
+  public get currentSequenceName(): string | null {
+    return this.sequenceService.currentSequence()?.name ?? null;
+  }
+
+  public get currentFrameName(): string | null {
+    const frame = this.sequenceService.currentFrame();
+    return frame?.relative_path ?? null;
   }
 
   // ==========================================
-  // Internal Navigation Logic
+  // Helpers
   // ==========================================
-
-  private async goNextInternal(): Promise<boolean> {
-    if (this.projectService.folderAsMultiframes) {
-      return this.goNextMultiframe();
-    }
-    return this.goNextSingle();
-  }
-
-  private async goPreviousInternal(): Promise<boolean> {
-    if (this.projectService.folderAsMultiframes) {
-      return this.goPreviousMultiframe();
-    }
-    return this.goPreviousSingle();
-  }
-
-  private async goNextSingle(): Promise<boolean> {
-    const { activeIndex, imagesName } = this.projectService;
-
-    if (activeIndex === null || activeIndex >= imagesName.length - 1) {
-      return false;
-    }
-
-    await this.openEditorInternal(activeIndex + 1);
-    return true;
-  }
-
-  private async goPreviousSingle(): Promise<boolean> {
-    const { activeIndex } = this.projectService;
-
-    if (activeIndex === null || activeIndex <= 0) {
-      return false;
-    }
-
-    await this.openEditorInternal(activeIndex - 1);
-    return true;
-  }
-
-  private async goNextMultiframe(): Promise<boolean> {
-    const currentGroup = this.multiframeService.activeGroup;
-    const groups = Array.from(this.multiframeService.groupedFrames.keys());
-    const currentIndex = groups.indexOf(currentGroup!);
-
-    if (currentIndex === -1 || currentIndex >= groups.length - 1) {
-      return false;
-    }
-
-    const nextGroup = groups[currentIndex + 1];
-    return this.switchToGroup(nextGroup);
-  }
-
-  private async goPreviousMultiframe(): Promise<boolean> {
-    const currentGroup = this.multiframeService.activeGroup;
-    const groups = Array.from(this.multiframeService.groupedFrames.keys());
-    const currentIndex = groups.indexOf(currentGroup!);
-
-    if (currentIndex <= 0) {
-      return false;
-    }
-
-    const previousGroup = groups[currentIndex - 1];
-    return this.switchToGroup(previousGroup);
-  }
-
-  private async switchToGroup(groupName: string): Promise<boolean> {
-    await this.multiframeService.setActiveGroup(groupName);
-
-    const frames = this.multiframeService.groupedFrames.get(groupName);
-    if (!frames || frames.length === 0) {
-      return false;
-    }
-
-    const imageName = frames[0];
-    const extractedName = this.fileService.extractRelativeNames([imageName], this.projectService.inputFolder)[0];
-    const index = this.projectService.imagesName.indexOf(extractedName);
-
-    if (index === -1) {
-      return false;
-    }
-
-    await this.openEditorInternal(index);
-    return true;
-  }
-
-  /**
-   * Internal helper to open editor at a specific index.
-   * Updates project state and loads image into orchestrator.
-   */
-  private async openEditorInternal(index: number): Promise<void> {
-    this.projectService.activeIndex = index;
-    await this.multiframeService.setActiveGroupFromFilepath(
-      this.projectService.imagesName[index]
-    );
-
-    const filepath = await path.join(
-      this.projectService.inputFolder,
-      this.projectService.imagesName[index]
-    );
-
-    this.projectService.activeImage = await loadImageFile(filepath);
-    await this.loadCurrentImage();
-  }
-
-  private isValidIndex(index: number): boolean {
-    return index >= 0 && index < this.projectService.getTotalImages();
-  }
 
   private createNavigationResult(): NavigationResult {
-    const index = this.projectService.activeIndex!;
+    const frame = this.sequenceService.currentFrame()!;
+    const sequence = this.sequenceService.currentSequence()!;
+
     return {
       success: true,
-      imageIndex: index,
-      imageName: this.projectService.imagesName[index],
+      frameIndex: this.sequenceService.currentFrameIndex(),
+      frameId: frame.id,
+      sequenceId: sequence.id,
     };
   }
 }

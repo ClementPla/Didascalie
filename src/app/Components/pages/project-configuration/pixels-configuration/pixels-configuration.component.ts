@@ -31,6 +31,7 @@ export class PixelsConfigurationComponent {
       color: color,
       isVisible: true,
       shades: null,
+      id: this.labelService.generateNewSegLabelID()
     });
   }
 

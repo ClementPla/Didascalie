@@ -38,7 +38,8 @@ export class InstanceLabelComponent {
 
   }
   changeActive(index: number){
-    this.labelService.activeSegInstance = {label: this.label, instance: index, shade: this.getShades()[index]};
+    this.labelService.activeSegInstance = {label: this.label, instance: index, shade: this.getShades()[index], 
+      id: this.label.id};
     
   }
   

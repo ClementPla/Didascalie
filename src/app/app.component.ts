@@ -3,7 +3,6 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ToolbarModule } from 'primeng/toolbar';
 import { LoadingComponent } from './Components/pages/loading/loading.component';
 import { RouterOutlet, RouterModule } from '@angular/router';
-import { ProjectService } from './Services/ProjectService/project.service';
 import { EditorService } from './Components/pages/editor/services/editor.service';
 import { AppInitializationService } from './Services/app-initialization.service';
 import { PrimeNG } from 'primeng/config';
@@ -13,6 +12,7 @@ import { BlockUIModule } from 'primeng/blockui';
 import { DividerModule } from 'primeng/divider';
 import { UIStateService } from './Services/uistate.service';
 import { FpsDisplayComponent } from "./Components/Utils/fps-display/fps-display.component";
+import { ProjectService } from './Services/ProjectService/project.service';
 @Component({
   selector: 'app-root',
   imports: [
@@ -33,10 +33,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   constructor(
     public uiStateService: UIStateService,
-    public projectService: ProjectService,
     public editorService: EditorService,
     private appInitialization: AppInitializationService,
-    private primeNG: PrimeNG
+    private primeNG: PrimeNG,
+    public projectService: ProjectService
   ) {
     this.configureTheme();
   }
@@ -52,6 +52,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.appInitialization.cleanup();
+    console.log('AppComponent destroyed and resources cleaned up.');
+    
   }
 
   private configureTheme(): void {
@@ -68,6 +70,6 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   public isProjectStarted(): boolean {
-    return this.projectService.isProjectStarted;
+    return this.projectService.isOpen();
   }
 }

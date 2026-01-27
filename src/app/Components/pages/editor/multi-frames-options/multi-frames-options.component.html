@@ -1,34 +1,21 @@
-<p-panel
-  header="{{ 'Multiframes: ' + multiframeService.getLengthOfActiveGroup() }}"
-  *ngIf="
-    projectService.folderAsMultiframes &&
-    multiframeService.getLengthOfActiveGroup() > 1
-  "
->
-  <div class="flex flex-col gap-4 m-2">
-    <p class="flex gap-2 items-center">
-      <p-toggle-switch
-        id="groupLabels"
-        ariaLabelledBy="groupLabels"
-        [(ngModel)]="projectService.groupLabels"
-      />
-      <small>
-        <label for="groupLabels" id="groupLabels">Shared labels across frames</label>
-      </small>
-    </p>
-
-
-    <input
-      type="text"
-      pInputText
-      [(ngModel)]="currentFrame"
-    />
-    <p-slider
-      [(ngModel)]="currentFrame"
-      [min]="0"
-      [max]="multiframeService.getLengthOfActiveGroup() - 1"
-      (ngModelChange)="multiFrameChanged()"
-    ></p-slider>
-    <button pButton size="small" (click)="preload()">Preload</button>
-  </div>
-</p-panel>
+@if (totalFrames > 1) {
+  <p-panel header="Navigation" [toggleable]="true" [collapsed]="false">
+    <!-- Frame slider (if multiple frames in current sequence) -->
+    @if (totalFrames > 1) {
+      <div class="frame-slider">
+        <label>Frame: {{ progress.current }} / {{ progress.total }}</label>
+        <p-slider
+          [(ngModel)]="currentFrame"
+          [min]="0"
+          [max]="maxFrameIndex"
+          [step]="1"
+          (onChange)="multiFrameChanged()"
+        />
+      </div>
+      
+      <div class="frame-info">
+        <small>Use ↑/↓ arrow keys to navigate frames</small>
+      </div>
+    }
+  </p-panel>
+}

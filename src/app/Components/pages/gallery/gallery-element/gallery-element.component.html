@@ -1,46 +1,79 @@
-<p-card
-  (dblclick)="openEditor()"
-  [ngClass]="{ panel_selected: true }"
-  (click)="select($event)"
+<div
+  class="cursor-pointer duration-200 gallery-element hover:scale-105 relative transition-all"
   [class]="getCardStyleClass()"
+  [style.width.px]="imgSize"
+  (dblclick)="openEditor()"
+  (mouseenter)="onMouseEnter()"
+  (mouseleave)="onMouseLeave()"
 >
-  <ng-template #title
-    ><p class="text-center">
-      <b>
-        {{ id }}
-      </b>
-      {{ getImageName() }}
-    </p>
-  </ng-template>
-  <div
-    class="align-middle flex flex-col hover:brightness-125 hover:contrast-75 hover:scale-110 items-center justify-center rounded-md"
-    (mouseenter)="onMouseEnter()"
-    (mouseleave)="onMouseLeave()"
-    [ngClass]="{
-      annotated: this.status == 'annotated',
-      reviewed: this.status == 'reviewed',
-      unannotated: !(this.status == 'annotated' || this.status == 'reviewed')
-    }"
+  <!-- Thumbnail Image -->
+  <div 
+    class="bg-gray-100 overflow-hidden relative rounded-t-lg"
+    [style.height.px]="imgSize"
   >
-    @if(img.length > 1){
-    <div class="stacked">
+    @if (isLoading) {
+      <div class="absolute flex inset-0 items-center justify-center">
+        <i class="pi pi-spin pi-spinner text-2xl text-gray-400"></i>
+      </div>
+    } @else if (loadError && !imagePath) {
+      <div class="absolute bg-gray-200 flex inset-0 items-center justify-center">
+        <i class="pi pi-image text-4xl text-gray-400"></i>
+      </div>
+    } @else {
       <img
-        class="aspect-auto border border-gray-200 rounded-md shadow-sm"
-        [class.fade-anim]="isFading"
         [src]="imagePath"
-        [width]="imgSize"
+        [alt]="displayTitle"
+        class="h-full object-cover w-full"
+        [class.animate-fade-in]="isFading"
       />
-      <span class="img-count"> +{{ img.length }} </span>
+    }
+
+    <!-- Status Badge -->
+    <span
+      class="absolute font-medium left-2 px-2 py-1 rounded-full text-white text-xs top-2"
+      [ngClass]="getStatusBadgeClass()"
+    >
+      {{ getStatusLabel() }}
+    </span>
+
+    <!-- Frame Count Badge -->
+    @if (hasMultipleFrames) {
+      <span class="absolute bg-blue-500 font-medium px-2 py-1 right-2 rounded-full text-white text-xs top-2">
+        {{ frameCount }} frames
+      </span>
+    }
+
+    <!-- Selection Checkbox -->
+    <div
+      class="absolute border-2 bottom-2 flex h-6 items-center justify-center right-2 rounded transition-colors w-6"
+      [class.bg-primary]="selected"
+      [class.border-primary]="selected"
+      [class.bg-white]="!selected"
+      [class.border-gray-300]="!selected"
+      (click)="select($event)"
+    >
+      @if (selected) {
+        <i class="pi pi-check text-sm text-white"></i>
+      }
     </div>
-    } @if(img.length === 1){
-    <img [src]="imagePath" [width]="imgSize" />
-    } @if(projectService.isClassification){ @for(task of
-    labelsService.listClassificationTasks; track task.taskName){
-    @if(classificationService.multiclassChoices.get(getImageName())![$index]){
-    <small>
-      <b>{{ task.taskName }}: </b>
-      {{ classificationService.multiclassChoices.get(getImageName())![$index] }}
-    </small>
-    } } }
+
+    <!-- Hover Preview Indicator -->
+    @if (hasMultipleFrames && isLooping) {
+      <div class="absolute bottom-2 flex gap-1 left-2">
+        @for (fId of frameIds; track fId) {
+          <span
+            class="h-2 rounded-full w-2"
+            [ngClass]="{'bg-white': frameIds.indexOf(fId) === currentFrameIndex, 'bg-white/50': frameIds.indexOf(fId) !== currentFrameIndex}"
+          ></span>
+        }
+      </div>
+    }
   </div>
-</p-card>
+
+  <!-- Title -->
+  <div class="p-2 rounded-b-lg">
+    <p class="font-medium text-sm" [title]="displayTitle">
+      {{ displayTitle }}
+    </p>
+  </div>
+</div>

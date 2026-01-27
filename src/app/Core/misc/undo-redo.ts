@@ -90,4 +90,5 @@ export class UndoRedo<T> {
   isEmpty(): boolean {
     return this.undoStack.isEmpty();
   }
+
 }

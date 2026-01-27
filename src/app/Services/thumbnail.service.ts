@@ -2,9 +2,8 @@
 import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
-import { ProjectService } from './ProjectService';
 import { loadImageFile } from '../Core/save_load';
-
+import { ProjectService } from './ProjectService/project.service';
 export interface ThumbnailOptions {
   width: number;
   height: number;
@@ -38,15 +37,12 @@ export class ThumbnailService {
     const opts = this.getOptions(options);
 
     const imageInputPath = await path.resolve(
-      this.projectService.inputFolder,
+      this.projectService.inputFolder()!,
       imageName
     );
 
-    if (this.projectService.generateThumbnails || opts.useCache) {
-      return await this.getCachedThumbnail(imageName, imageInputPath, opts);
-    } else {
-      return await this.generateInMemoryThumbnail(imageInputPath, opts);
-    }
+    return await this.getCachedThumbnail(imageName, imageInputPath, opts);
+   
   }
 
   /**
@@ -58,7 +54,7 @@ export class ThumbnailService {
     options: ThumbnailOptions
   ): Promise<string> {
     const thumbnailPath = await path.resolve(
-      this.projectService.inputFolder,
+      this.projectService.inputFolder()!,
       '.thumbnails',
       imageName
     );
@@ -141,13 +137,6 @@ export class ThumbnailService {
    * Clear thumbnail cache for specific images or all images.
    */
   public async clearCache(imageNames?: string[]): Promise<void> {
-    if (!this.projectService.generateThumbnails) {
-      console.warn('Thumbnail caching is not enabled');
-      return;
-    }
 
-    // TODO: Implement cache clearing logic
-    // Could invoke Rust backend to delete thumbnail files
-    console.log('Cache clearing not yet implemented');
   }
 }

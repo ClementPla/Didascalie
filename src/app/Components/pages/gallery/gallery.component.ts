@@ -6,31 +6,43 @@ import {
   ViewChild,
   ViewChildren,
 } from '@angular/core';
-import { ProjectService } from '../../../Services/ProjectService/project.service';
 import { CommonModule } from '@angular/common';
-import { GalleryElementComponent, ThumbnailSelectionEvent } from './gallery-element/gallery-element.component';
+import { FormsModule } from '@angular/forms';
+
+// PrimeNG
 import { PanelModule } from 'primeng/panel';
 import { DataViewModule, DataView } from 'primeng/dataview';
 import { ButtonModule } from 'primeng/button';
 import { KnobModule } from 'primeng/knob';
-import { FormsModule } from '@angular/forms';
-import { GenericsModule } from '../../../generics/generics.module';
 import { SelectButton, SelectButtonModule } from 'primeng/selectbutton';
 import { InputTextModule } from 'primeng/inputtext';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
-import { LabelsService } from '../../../Services/Labels/labels.service';
-import { ClassificationService } from '../../../Services/Labels/classification.service';
 import { SliderModule } from 'primeng/slider';
-import { MultiframesService } from '../../../Services/multiframes.service';
+
+// Services
+import { ProjectService } from '../../../Services/ProjectService/project.service';
+import { SequenceService } from '../../../Services/sequence.service';
+import { LabelsService } from '../../../Services/Labels/labels.service';
 import { GalleryService } from './gallery.service';
 import { BatchAnnotationService } from '../../../Services/Labels/batch-annotation.service';
 import { UIStateService } from '../../../Services/uistate.service';
+import { api, Frame, Sequence } from '../../../lib/api';
+
+// Components
+import {
+  GalleryElementComponent,
+  ThumbnailSelectionEvent,
+} from './gallery-element/gallery-element.component';
+import { GenericsModule } from '../../../generics/generics.module';
 
 interface GalleryItem {
-  img: string[];
-  status: string;
+  frameIds: number[];
+  status: 'empty' | 'annotated' | 'reviewed';
   title: string;
-  id: number; // Optional ID for easier selection
+  sequenceId: number;
+  sequenceName: string;
+  frameCount: number;
+  thumbnailFrameId: number;
 }
 
 @Component({
@@ -63,29 +75,33 @@ export class GalleryComponent implements OnInit, OnDestroy {
   galleryItems: GalleryItem[] = [];
   filterTitle: string = '';
   selectedItems: number[] = [];
+
+  // Batch annotation state
+  batchMulticlassChoices: Array<string | null> = [];
+  batchMultilabelChoices: string[] = [];
+
   @ViewChildren('batchChoices') batchChoices: QueryList<SelectButton>;
+  @ViewChild('dv') dataView: DataView;
 
   filterOptions = [
     { label: 'All', value: 0 },
-    { label: 'Images w. pre-annotations', value: 1 },
-    { label: 'Images w.o annotations', value: 2 },
-    { label: 'Images reviewed', value: 3 },
+    { label: 'Annotated', value: 1 },
+    { label: 'Not annotated', value: 2 },
+    { label: 'Reviewed', value: 3 },
   ];
-
-  @ViewChild('dv') dataView: DataView;
 
   constructor(
     public projectService: ProjectService,
+    public sequenceService: SequenceService,
     public labelsService: LabelsService,
-    public classificationService: ClassificationService,
-    private multiframesService: MultiframesService,
     public galleryService: GalleryService,
     private batchAnnotationService: BatchAnnotationService,
-    private uiState: UIStateService
+    private uiState: UIStateService,
   ) {}
 
   async ngOnInit(): Promise<void> {
-    this.refresh();
+    this.initBatchChoices();
+    await this.refresh();
   }
 
   ngOnDestroy(): void {
@@ -94,23 +110,40 @@ export class GalleryComponent implements OnInit, OnDestroy {
     }
   }
 
-  async refresh() {
+  // ==========================================
+  // Initialization
+  // ==========================================
+
+  private initBatchChoices(): void {
+    // Initialize multiclass choices array to match task count
+    this.batchMulticlassChoices =
+      this.labelsService.listClassificationTasks.map(() => null);
+    this.batchMultilabelChoices = [];
+  }
+
+  // ==========================================
+  // Refresh & Auto-refresh
+  // ==========================================
+
+  async refresh(): Promise<void> {
     this.percentageBeforeRefresh = 0;
     if (this.intervalFunction) {
       clearInterval(this.intervalFunction);
     }
+
     const newItems = await this.getItems();
-    // Check if the items are the same
+
     if (JSON.stringify(this.galleryItems) !== JSON.stringify(newItems)) {
       this.galleryItems = newItems;
     }
+
     if (this.autoRefresh) {
       this.intervalFunction = this.getInterval();
     }
   }
 
-  getInterval() {
-    let interval = 50;
+  getInterval(): ReturnType<typeof setInterval> {
+    const interval = 50;
     return setInterval(() => {
       this.percentageBeforeRefresh += 100 * (interval / this.refreshInterval);
       if (this.percentageBeforeRefresh >= 100) {
@@ -120,7 +153,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
     }, interval);
   }
 
-  setupAutoRefresh() {
+  setupAutoRefresh(): void {
     if (this.autoRefresh) {
       this.intervalFunction = this.getInterval();
     } else {
@@ -128,170 +161,309 @@ export class GalleryComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ==========================================
+  // Load Gallery Items
+  // ==========================================
+
   async getItems(): Promise<GalleryItem[]> {
-    this.uiState.setLoading(true, 'Loading gallery items...');
-    await this.projectService.listFiles();
-    await this.projectService.listAnnotations();
-    this.uiState.endLoading();
-    let items = [];
-    if (this.projectService.folderAsMultiframes) {
-      for (const key of this.multiframesService.groupedFrames.keys()) {
-        let frames = this.multiframesService.groupedFrames.get(key)!;
-
-        // Get the image name of the first frame
-        let imgPath = frames[0];
-        let imgName = this.projectService.extractImagesName([imgPath])[0];
-
-        let status = this.getStatusForImage(imgName);
-        // Get name without extension
-        let names = this.projectService.extractImagesName(frames);
-        items.push({
-          img: names,
-          status: status,
-          title: imgName,
-          id: this.projectService.imagesName.indexOf(imgName), // Assign an ID for easier selection
-        } as GalleryItem);
-      }
-    } else {
-      for (let i = 0; i < this.projectService.imagesName.length; i++) {
-        let imgName = this.projectService.imagesName[i];
-
-        let status = this.getStatusForImage(imgName);
-
-        items.push({
-          img: [this.projectService.imagesName[i]],
-          status: status,
-          title: imgName,
-          id: i, // Assign an ID for easier selection
-        } as GalleryItem);
-      }
-    }
+  this.uiState.setLoading(true, 'Loading gallery items...');
+  try {
+    // Two queries total instead of N+1
+    const [sequences, frameIdsBySequence] = await Promise.all([
+      api.getGallerySequences(),
+      api.getAllFrameIdsBySequence(),
+    ]);
+    
+    const items: GalleryItem[] = sequences
+      .filter(seq => seq.frame_count > 0)
+      .map(seq => ({
+        sequenceId: seq.id,
+        sequenceName: seq.name,
+        title: seq.name,
+        frameCount: seq.frame_count,
+        thumbnailFrameId: seq.first_frame_id!,
+        status: this.computeStatus(seq.reviewed_count, seq.frame_count),
+        frameIds: frameIdsBySequence[seq.id] ?? [],
+      }));
+    
     return items;
+  } catch (error) {
+    console.error('Failed to load gallery items:', error);
+    return [];
+  } finally {
+    this.uiState.endLoading();
+  }
+}
+
+  private computeStatus(
+    reviewed: number,
+    total: number,
+  ): 'empty' | 'annotated' | 'reviewed' {
+    if (reviewed === 0) return 'empty';
+    if (reviewed >= total) return 'reviewed';
+    return 'annotated';
   }
 
-  getStatusForImage(imgName: string): string {
-    // Get name without extension
-    let name = imgName.split('.').slice(0, -1).join('.');
-    if (this.projectService.imagesHasBeenOpened.includes(imgName)) {
-      return 'reviewed';
-    } else if (this.projectService.annotationsName.includes(name + '.svg')) {
-      return 'annotated';
-    } else {
-      return 'empty';
+  private async getFramesForSequence(sequenceId: number): Promise<Frame[]> {
+    const currentSequence = this.sequenceService.currentSequence();
+    if (currentSequence?.id === sequenceId) {
+      return this.sequenceService.frames();
     }
+
+    return api.getSequenceFrames(sequenceId);
   }
 
-  toggleFilter(event: any) {
-    if (event.value == 0) {
+  private getStatusForFrames(
+    frames: Frame[],
+  ): 'empty' | 'annotated' | 'reviewed' {
+    const allReviewed = frames.every((f) => f.reviewed);
+    if (allReviewed) {
+      return 'reviewed';
+    }
+
+    const anyReviewed = frames.some((f) => f.reviewed);
+    if (anyReviewed) {
+      return 'annotated';
+    }
+
+    return 'empty';
+  }
+
+  // ==========================================
+  // Filtering
+  // ==========================================
+
+  toggleFilter(event: { value: number }): void {
+    if (event.value === 0) {
       this.dataView.filter('');
-    } else if (event.value == 1) {
+    } else if (event.value === 1) {
       this.dataView.filter('annotated');
-    } else if (event.value == 2) {
+    } else if (event.value === 2) {
       this.dataView.filter('empty');
     } else {
       this.dataView.filter('reviewed');
     }
   }
 
-  addTitleFilter() {
+  addTitleFilter(): void {
     this.dataView.filter(this.filterTitle);
   }
 
-  handleSelect(event: ThumbnailSelectionEvent) {
-    let id = event.id;
-    let selected = event.selected;
-    let isShift = event.isShiftClick;
-    if (selected) {
-      if (isShift) {
-        let last = this.selectedItems[this.selectedItems.length - 1];
+  // ==========================================
+  // Selection
+  // ==========================================
 
-        for (let i = last + 1; i <= id; i++) {
-          if (this.dataView.filteredValue) {
-            if (this.dataView.filteredValue.includes(this.dataView.value![i])) {
-              if (!this.selectedItems.includes(i)) {
-                this.selectedItems.push(i);
-              }
-            }
-          } else {
-            if (!this.selectedItems.includes(i)) {
-              this.selectedItems.push(i);
-            }
+  handleSelect(event: ThumbnailSelectionEvent): void {
+    const sequenceId = event.id;
+    const selected = event.selected;
+    const isShift = event.isShiftClick;
+
+    if (selected) {
+      if (isShift && this.selectedItems.length > 0) {
+        // Range selection - find items between last selected and current
+        const lastSequenceId =
+          this.selectedItems[this.selectedItems.length - 1];
+        const lastIndex = this.galleryItems.findIndex(
+          (item) => item.sequenceId === lastSequenceId,
+        );
+        const currentIndex = this.galleryItems.findIndex(
+          (item) => item.sequenceId === sequenceId,
+        );
+
+        const start = Math.min(lastIndex, currentIndex);
+        const end = Math.max(lastIndex, currentIndex);
+
+        for (let i = start; i <= end; i++) {
+          const item = this.galleryItems[i];
+          if (
+            item &&
+            this.isItemVisible(item) &&
+            !this.selectedItems.includes(item.sequenceId)
+          ) {
+            this.selectedItems.push(item.sequenceId);
           }
         }
       } else {
-        if (!this.selectedItems.includes(id)) {
-          this.selectedItems.push(id);
+        if (!this.selectedItems.includes(sequenceId)) {
+          this.selectedItems.push(sequenceId);
         }
       }
     } else {
-      this.selectedItems = this.selectedItems.filter((i) => i !== id);
+      this.selectedItems = this.selectedItems.filter((id) => id !== sequenceId);
     }
   }
 
-  /**
-   * Apply batch classification choices to all selected images.
-   */
-  /**
-   * Apply batch classification choices to all selected images.
-   */
-  public async annotateBatch(): Promise<void> {
-    // Extract choices from UI
-    const choices = this.extractBatchChoices();
-    
-    if (choices.length === 0) {
-      console.warn('No batch choices to apply');
-      return;
+  private isItemVisible(item: GalleryItem): boolean {
+    if (!this.dataView.filteredValue) {
+      return true;
     }
+    return this.dataView.filteredValue.includes(item);
+  }
 
+  deselectAll(): void {
+    this.selectedItems = [];
+  }
+
+  selectAll(): void {
+    const visibleItems = this.dataView.filteredValue ?? this.galleryItems;
+    this.selectedItems = visibleItems.map((item) => item.sequenceId);
+  }
+  get selectedFrameCount(): number {
+    return this.getSelectedFrameIds().length;
+  }
+
+  // ==========================================
+  // Navigation
+  // ==========================================
+
+  async openItem(item: GalleryItem): Promise<void> {
+    const sequence = this.sequenceService
+      .sequences()
+      .find((s) => s.id === item.sequenceId);
+    if (sequence) {
+      await this.sequenceService.selectSequence(sequence);
+    }
+    this.uiState.navigateToEditor();
+  }
+
+  // ==========================================
+  // Batch Annotation
+  // ==========================================
+
+  public setBatchMulticlassChoice(taskIndex: number, value: string): void {
+    this.batchMulticlassChoices[taskIndex] = value;
+  }
+
+  public async annotateBatch(): Promise<void> {
     if (this.selectedItems.length === 0) {
       console.warn('No images selected for batch annotation');
       return;
     }
 
-    // Get image names for selected items
-    const imageNames = this.selectedItems
-      .map((id) => this.galleryItems[id]?.img?.[0])
-      .filter((name): name is string => !!name);
-
-    if (imageNames.length === 0) {
-      console.error('Failed to extract image names from selected items');
+    const frameIds = this.getSelectedFrameIds();
+    if (frameIds.length === 0) {
+      console.error('Failed to extract frame IDs from selected items');
       return;
     }
 
-    // Show loading state
-    this.uiState.setLoading(true, `Applying batch annotations to ${imageNames.length} images`);
+    this.uiState.setLoading(
+      true,
+      `Applying batch annotations to ${frameIds.length} frames`,
+    );
 
     try {
-      // Apply batch annotations
-      const result = await this.batchAnnotationService.applyBatchClassifications(
-        imageNames,
-        choices
+      // Apply multiclass classifications
+      const hasMulticlassChoices = this.batchMulticlassChoices.some(
+        (c) => c !== null,
       );
+      if (hasMulticlassChoices) {
+        const result =
+          await this.batchAnnotationService.applyBatchMulticlassToFrames(
+            frameIds,
+            this.batchMulticlassChoices,
+          );
 
-      // Handle result
-      if (result.success) {
-        console.log(`Batch annotation completed: ${result.processedCount} images annotated`);
-        this.deselectAll();
-      } else {
-        console.error('Batch annotation completed with errors:', result.errors);
-        // TODO: Show error notification to user
+        if (!result.success) {
+          console.error('Batch multiclass annotation failed:', result.errors);
+        }
       }
+
+      // Apply multilabel classifications
+      if (this.batchMultilabelChoices.length > 0) {
+        const result =
+          await this.batchAnnotationService.applyBatchMultilabelToFrames(
+            frameIds,
+            this.batchMultilabelChoices,
+          );
+
+        if (!result.success) {
+          console.error('Batch multilabel annotation failed:', result.errors);
+        }
+      }
+
+      this.deselectAll();
+      this.resetBatchChoices();
+      await this.refresh();
     } catch (error) {
       console.error('Failed to apply batch annotations:', error);
-      // TODO: Show error notification to user
     } finally {
       this.uiState.endLoading();
     }
   }
 
-  private extractBatchChoices(): Array<string | null> {
-    if (!this.batchChoices || this.batchChoices.length === 0) {
-      return [];
+  public async markSelectedAsReviewed(reviewed: boolean = true): Promise<void> {
+    if (this.selectedItems.length === 0) {
+      return;
     }
 
-    return this.batchChoices.toArray().map((component) => component.value);
+    const frameIds = this.selectedItems.flatMap(
+      (index) => this.galleryItems[index]?.frameIds ?? [],
+    );
+
+    this.uiState.setLoading(
+      true,
+      `Marking ${frameIds.length} frames as ${
+        reviewed ? 'reviewed' : 'unreviewed'
+      }`,
+    );
+
+    try {
+      const result = await this.batchAnnotationService.markFramesReviewed(
+        frameIds,
+        reviewed,
+      );
+
+      if (result.success) {
+        this.deselectAll();
+        await this.refresh();
+      } else {
+        console.error('Failed to mark frames as reviewed:', result.errors);
+      }
+    } catch (error) {
+      console.error('Failed to mark frames as reviewed:', error);
+    } finally {
+      this.uiState.endLoading();
+    }
   }
-  deselectAll() {
-    this.selectedItems = [];
+
+  private resetBatchChoices(): void {
+    this.batchMulticlassChoices =
+      this.labelsService.listClassificationTasks.map(() => null);
+    this.batchMultilabelChoices = [];
+  }
+
+  // ==========================================
+  // Getters for Template
+  // ==========================================
+
+  get totalItems(): number {
+    return this.galleryItems.length;
+  }
+
+  get selectedCount(): number {
+    return this.selectedItems.length;
+  }
+
+  get hasSelection(): boolean {
+    return this.selectedItems.length > 0;
+  }
+
+  get hasBatchChoices(): boolean {
+    return (
+      this.batchMulticlassChoices.some((c) => c !== null) ||
+      this.batchMultilabelChoices.length > 0
+    );
+  }
+
+  private getSelectedFrameIds(): number[] {
+    return this.selectedItems.flatMap((sequenceId) => {
+      const item = this.galleryItems.find((i) => i.sequenceId === sequenceId);
+      return item?.frameIds ?? [];
+    });
+  }
+
+  async getFrameIds(sequence: Sequence): Promise<number[]> {
+    const frames = await api.getSequenceFrames(sequence.id);
+    return frames.map((f) => f.id);
   }
 }

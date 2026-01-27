@@ -360,4 +360,6 @@ export class CanvasManagerService {
       this.bufferCanvas.height = this.stateService.height;
     }
   }
+
+  
 }
