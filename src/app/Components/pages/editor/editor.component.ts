@@ -83,10 +83,11 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public viewPortSize = 800;
   public displayDownloadDialog = false;
   public downloadProgress = 0;
-  public progressItems: MeterItem[] = [];
 
   private destroy$ = new Subject<void>();
   private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
+  public globalReviewed: number = 0;
+  public globalTotal: number = 0;
 
   constructor(
     private editorService: EditorService,
@@ -367,29 +368,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   // Progress Display
   // ==========================================
 
-  private async updateProgressDisplay(): Promise<void> {
-    const progress = this.sequenceService.sequenceProgress();
-    const frame = this.sequenceService.currentFrame();
-    const sequence = this.sequenceService.currentSequence();
-    
-    if (!frame || !sequence) {
-      this.progressItems = [];
-      return;
-    }
 
-    const globalProgress = await this.sequenceService.getProgress();
-    const percentage = globalProgress.total > 0 
-      ? Math.round((globalProgress.reviewed / globalProgress.total) * 100) 
-      : 0;
-
-    this.progressItems = [
-      {
-        label: `${sequence.name} - Frame ${progress.current}/${progress.total} | Total: ${globalProgress.reviewed}/${globalProgress.total} reviewed`,
-        value: percentage,
-        color: 'var(--p-primary-color)',
-      },
-    ];
-  }
 
   // ==========================================
   // Label Helpers
@@ -460,9 +439,40 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get currentFrameIndex(): number {
     return this.sequenceService.currentFrameIndex();
+    
   }
 
   get totalFrames(): number {
     return this.sequenceService.frameCount();
+  }
+
+  get currentSequenceName(): string {
+    return this.sequenceService.currentSequence()?.name ?? 'No sequence';
+  }
+
+  get currentSequenceIndex(): number {
+    const sequences = this.sequenceService.sequences();
+    const current = this.sequenceService.currentSequence();
+    if (!current) return 0;
+    return sequences.findIndex(s => s.id === current.id);
+  }
+
+  get totalSequences(): number {
+    return this.sequenceService.sequences().length;
+  }
+
+  get globalProgressPercent(): number {
+    if (this.globalTotal === 0) return 0;
+    return Math.round((this.globalReviewed / this.globalTotal) * 100);
+  }
+
+  // ==========================================
+  // Update Progress Display (revised)
+  // ==========================================
+
+  private async updateProgressDisplay(): Promise<void> {
+    const progress = await this.sequenceService.getProgress();
+    this.globalReviewed = progress.reviewed;
+    this.globalTotal = progress.total;
   }
 }

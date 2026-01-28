@@ -1,28 +1,45 @@
-<p-dialog
-  header="Downloading Resources"
-  [(visible)]="displayDownloadDialog"
-  [modal]="true"
-  [closable]="false"
-  [dismissableMask]="false"
->
-  <p-progressbar [value]="downloadProgress" />
-</p-dialog>
-
 <app-toolbar></app-toolbar>
 <div class="editor flex gap-8 justify-around overflow-hidden relative w-full">
   <app-quick-access-menu #quickAccessMenu></app-quick-access-menu>
-  
-  @if(shouldShowLabels){
+  @if (shouldShowLabels) {
     <app-labels class="flex-shrink-0 max-w-128"></app-labels>
   }
-  
-  <!-- Center column: canvas - should take remaining space but not overflow -->
-  <div class="flex-1 min-w-0 overflow-hidden">
-    <app-drawable-canvas class="block h-full overflow-hidden w-full"></app-drawable-canvas>
-    <p-metergroup [value]="progressItems"></p-metergroup>
+  <!-- Center column -->
+  <div class="flex flex-1 flex-col min-w-0 overflow-hidden relative">
+    <app-drawable-canvas
+      class="block h-full overflow-hidden w-full"
+    ></app-drawable-canvas>
+    <!-- Progress indicator - sticky at bottom -->
+    <div
+      class="backdrop-blur-sm bg-black/70 bottom-0 left-0 p-2 right-0 sticky z-10"
+    >
+      <div class="flex gap-4 items-center justify-between text-sm text-white">
+        <span class="font-semibold truncate">
+          {{ currentSequenceName }}
+        </span>
+        <div class="flex flex-shrink-0 gap-4 items-center">
+          <span class="text-white/70 text-xs">
+            Frame {{ currentFrameIndex + 1 }}/{{ totalFrames }}
+          </span>
+          <span class="text-white/70 text-xs">
+            Seq {{ currentSequenceIndex + 1 }}/{{ totalSequences }}
+          </span>
+          <div class="flex gap-2 items-center">
+            <div class="bg-white/30 h-1.5 overflow-hidden rounded-full w-24">
+              <div
+                class="bg-green-400 duration-300 h-full transition-all"
+                [style.width.%]="globalProgressPercent"
+              ></div>
+            </div>
+            <span class="text-right text-xs w-10"
+              >{{ globalProgressPercent }}%</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-  
-  <!-- Right column: tools - fixed width, should not be pushed out -->
+  <!-- Right column -->
   <div class="flex flex-col flex-shrink-0 gap-4 overflow-y-auto w-96">
     <app-tool-setting></app-tool-setting>
     <app-multi-frames-options
