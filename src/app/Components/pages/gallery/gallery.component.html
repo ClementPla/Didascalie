@@ -153,6 +153,7 @@
           [selected]="selectedItems.includes(item.sequenceId)"
           [id]="item.sequenceId"
           [imgSize]="imgSize"
+          [frameIds]="item.frameIds"
           (thumbnailSelected)="handleSelect($event)"
           (thumbnailClicked)="openItem(item)"
         >

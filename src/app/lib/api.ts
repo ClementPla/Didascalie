@@ -198,7 +198,6 @@ export const api = {
       maskData: Array.from(maskData),
       encoding,
     };
-    console.log('Payload:', payload);
     return invoke<void>('save_annotation', payload);
   },
 

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, ElementRef, OnDestroy, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
@@ -21,7 +21,7 @@ export interface ThumbnailSelectionEvent {
   templateUrl: './gallery-element.component.html',
   styleUrl: './gallery-element.component.scss',
 })
-export class GalleryElementComponent implements OnInit {
+export class GalleryElementComponent implements OnDestroy, AfterViewInit {
   // Frame data
   @Input() frameId!: number;
   @Input() title: string = '';
@@ -32,7 +32,7 @@ export class GalleryElementComponent implements OnInit {
   @Input() id!: number; // Sequence ID for selection tracking
   @Input() imgSize: number = 256;
   @Input() selected: boolean = false;
-
+  @Input() frameIds: number[] = [];
   // Events
   @Output() thumbnailSelected = new EventEmitter<ThumbnailSelectionEvent>();
   @Output() thumbnailClicked = new EventEmitter<void>();
@@ -47,13 +47,61 @@ export class GalleryElementComponent implements OnInit {
   public loopInterval: ReturnType<typeof setInterval> | null = null;
   public currentFrameIndex: number = 0;
   public isFading: boolean = false;
-  public frameIds: number[] = [];
 
-  constructor(private projectService: ProjectService) {}
+   // Lazy loading
+  private observer: IntersectionObserver | null = null;
+  private hasLoadedThumbnail: boolean = false;
 
-  async ngOnInit(): Promise<void> {
-    await this.loadThumbnail(this.frameId);
-    this.frameIds = await this.getFrameIds();
+
+   constructor(private elementRef: ElementRef) {}
+
+
+  ngAfterViewInit(): void {
+    this.setupIntersectionObserver();
+  }
+
+  ngOnDestroy(): void {
+    this.cleanupObserver();
+    this.cleanupTimers();
+  }
+  private setupIntersectionObserver(): void {
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !this.hasLoadedThumbnail) {
+            this.loadThumbnail(this.frameId);
+            this.hasLoadedThumbnail = true;
+            // Optionally disconnect after first load
+            // this.observer?.disconnect();
+          }
+        });
+      },
+      {
+        root: null, // viewport
+        rootMargin: '100px', // Load slightly before visible
+        threshold: 0.1,
+      }
+    );
+
+    this.observer.observe(this.elementRef.nativeElement);
+  }
+
+  private cleanupObserver(): void {
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+  }
+
+  private cleanupTimers(): void {
+    if (this.hoverTimer) {
+      clearTimeout(this.hoverTimer);
+      this.hoverTimer = null;
+    }
+    if (this.loopInterval) {
+      clearInterval(this.loopInterval);
+      this.loopInterval = null;
+    }
   }
 
   // ==========================================
