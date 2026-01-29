@@ -102,7 +102,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private tauriEvents: TauriEventService,
     private ioService: IOService,
     private orchestratorService: OrchestratorService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
   ) {}
 
   async ngOnInit() {
@@ -111,25 +111,29 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.ngZone.runOutsideAngular(() => {
       window.addEventListener('mousemove', this.updateMousePosition.bind(this));
     });
-
-    // Load sequences for the open project
-    if (this.projectService.isOpen()) {
-      await this.sequenceService.loadSequences();
-    }
   }
 
   async ngAfterViewInit() {
-    // Wait for frame image to be loaded
-    const frameImage = this.sequenceService.currentFrameImage();
-    if (frameImage) {
-      await this.initializeCanvas();
+    // All initialization happens here, in order
+    if (this.projectService.isOpen()) {
+      await this.sequenceService.loadSequences();
+
+      // Now frame should be loaded (loadSequences auto-selects first)
+      const frameImage = this.sequenceService.currentFrameImage();
+
+      if (frameImage) {
+        await this.initializeCanvas();
+      }
     }
   }
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
-    window.removeEventListener('mousemove', this.updateMousePosition.bind(this));
+    window.removeEventListener(
+      'mousemove',
+      this.updateMousePosition.bind(this),
+    );
   }
 
   private initSubscriptions() {
@@ -154,7 +158,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(() => {
         this.uiStateService.setLoading(
           true,
-          'Performing mask segmentation (first call may take longer)'
+          'Performing mask segmentation (first call may take longer)',
         );
       });
 
@@ -170,7 +174,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       selectPen: () => this.editorService.selectTool(Tools.PEN),
       selectEraser: () => this.editorService.selectTool(Tools.ERASER),
       selectLasso: () => this.editorService.selectTool(Tools.LASSO),
-      selectLassoEraser: () => this.editorService.selectTool(Tools.LASSO_ERASER),
+      selectLassoEraser: () =>
+        this.editorService.selectTool(Tools.LASSO_ERASER),
       selectLine: () => this.editorService.selectTool(Tools.LINE),
       selectPan: () => this.editorService.selectTool(Tools.PAN),
 
@@ -229,10 +234,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     // Update state manager with frame dimensions
     this.stateManagerService.width = frameImage.frame.width;
     this.stateManagerService.height = frameImage.frame.height;
-    console.log(this.labelService.listSegmentationLabels);
     // Initialize canvas manager
     this.canvasManagerService.initCanvas();
-
     // Load annotations
     await this.loadCanvas();
   }
@@ -250,7 +253,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Capture initial state for undo/redo
       await this.orchestratorService.captureInitialHistory();
-      
+
       this.orchestratorService.requestRedraw();
       await this.updateProgressDisplay();
     } catch (error) {
@@ -312,7 +315,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  public async selectSequence(sequence: { id: number; name: string; frame_count: number; sort_order: number }): Promise<void> {
+  public async selectSequence(sequence: {
+    id: number;
+    name: string;
+    frame_count: number;
+    sort_order: number;
+  }): Promise<void> {
     try {
       await this.ioService.saveIfDirty();
       await this.sequenceService.selectSequence(sequence);
@@ -328,10 +336,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       // Update dimensions if changed
       this.stateManagerService.width = frameImage.frame.width;
       this.stateManagerService.height = frameImage.frame.height;
-      
+
       // Update canvas dimensions
       await this.canvasManagerService.updateCanvasesDimensions();
-      
+
       // Clear and reload
       this.canvasManagerService.clearAllCanvas();
       await this.ioService.load();
@@ -339,7 +347,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.orchestratorService.resetHistory();
       await this.orchestratorService.captureInitialHistory();
     }
-    
+
     this.resetFrameIfNeeded();
     this.orchestratorService.requestRedraw();
     await this.updateProgressDisplay();
@@ -347,7 +355,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private resetFrameIfNeeded() {
     if (this.multiFramesOptions) {
-      this.multiFramesOptions.currentFrame = this.sequenceService.currentFrameIndex();
+      this.multiFramesOptions.currentFrame =
+        this.sequenceService.currentFrameIndex();
     }
   }
 
@@ -358,7 +367,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public async save(): Promise<boolean> {
     const success = await this.ioService.save();
     if (success) {
-      console.log('Annotations saved');
       await this.sequenceService.markCurrentReviewed(true);
     }
     return success;
@@ -367,8 +375,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   // ==========================================
   // Progress Display
   // ==========================================
-
-
 
   // ==========================================
   // Label Helpers
@@ -386,7 +392,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.editorService.penPostProcess = !this.editorService.penPostProcess;
     }
     if (this.editorService.isEraser()) {
-      this.editorService.eraserPostProcess = !this.editorService.eraserPostProcess;
+      this.editorService.eraserPostProcess =
+        !this.editorService.eraserPostProcess;
     }
   }
 
@@ -439,7 +446,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get currentFrameIndex(): number {
     return this.sequenceService.currentFrameIndex();
-    
   }
 
   get totalFrames(): number {
@@ -454,7 +460,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const sequences = this.sequenceService.sequences();
     const current = this.sequenceService.currentSequence();
     if (!current) return 0;
-    return sequences.findIndex(s => s.id === current.id);
+    return sequences.findIndex((s) => s.id === current.id);
   }
 
   get totalSequences(): number {
