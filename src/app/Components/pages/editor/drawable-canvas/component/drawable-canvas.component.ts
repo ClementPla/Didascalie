@@ -330,16 +330,37 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   public getCursorStyle() {
-    const cursorSize = this.getCursorSize();
-    if (cursorSize <= 0) return {};
+  const cursorSize = this.getCursorSize();
+  if (cursorSize <= 0) return {};
 
-    return {
-      'left.px': this.cursor.x,
-      'top.px': this.cursor.y,
-      'width.px': cursorSize,
-      'border-color': this.labelService.activeLabel?.color,
-    };
-  }
+  // Account for canvas scaling (CSS size vs internal resolution)
+  const rect = this.imgCanvas.nativeElement.getBoundingClientRect();
+  const canvas = this.imgCanvas.nativeElement;
+  
+  // Get the transform from zoom/pan
+  const { scale, offset } = this.orchestrator.getViewTransform();
+  
+  // Calculate DOM scale (CSS pixels to canvas pixels)
+  const domScaleX = rect.width / canvas.width;
+  const domScaleY = rect.height / canvas.height;
+  
+  // Get image coordinates (where brush actually draws)
+  const imageCoords = this.zoomPanService.currentPixel;
+  
+  // Transform image coordinates back to DOM coordinates
+  const cursorX = (imageCoords.x * scale + offset.x) * domScaleX;
+  const cursorY = (imageCoords.y * scale + offset.y) * domScaleY;
+
+  return {
+    'left.px': cursorX,
+    'top.px': cursorY,
+    'width.px': cursorSize,
+    'height.px': cursorSize,
+    'margin-left.px': -cursorSize / 2,
+    'margin-top.px': -cursorSize / 2,
+    'border-color': this.labelService.activeLabel?.color,
+  };
+}
 
   public getCSSFilterEdge(): string {
     return this.editorService.edgesOnly
