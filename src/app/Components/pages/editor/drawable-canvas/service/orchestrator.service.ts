@@ -11,6 +11,7 @@ import { ZoomPanService } from './zoom-pan.service';
 import { DrawService } from './draw.service';
 import { animationFrameScheduler } from 'rxjs';
 import { IOService } from '../../../../../Services/io.service';
+import { EditorService } from '../../services/editor.service';
 
 export interface ViewTransform {
   scale: number;
@@ -39,6 +40,7 @@ export class OrchestratorService {
     private postProcess: PostProcessService,
     private zoomPan: ZoomPanService,
     private drawService: DrawService,
+    private editorService: EditorService,
   ) {
     this.initializeRedrawAggregation();
   }
@@ -48,7 +50,6 @@ export class OrchestratorService {
    * The component only needs to subscribe to one observable.
    */
   private initializeRedrawAggregation() {
-
     this.canvasManager.requestRedraw
       .pipe(auditTime(0, animationFrameScheduler))
       .subscribe((value) => {
@@ -61,7 +62,7 @@ export class OrchestratorService {
     merge(
       this.zoomPan.redrawRequest,
       this.drawService.redrawRequest,
-      this.undoRedo.redrawRequest
+      this.undoRedo.redrawRequest,
     )
       .pipe(auditTime(0, animationFrameScheduler))
       .subscribe((value) => {
@@ -76,52 +77,53 @@ export class OrchestratorService {
    * Single entry point for loading a new image.
    */
   public async loadImage(imgSrc: string): Promise<HTMLImageElement> {
-  this.isReadySubject.next(false);
-  try {
-    const img = await this.preloadImage(imgSrc);
-    this.loadedImage = img;
+    this.isReadySubject.next(false);
+    try {
+      const img = await this.preloadImage(imgSrc);
+      this.loadedImage = img;
 
-    // 1. Sync dimensions across all services
-    this.state.setWidthAndHeight(img.width, img.height);
-    await this.canvasManager.updateCanvasesDimensions();
+      // 1. Sync dimensions across all services
+      this.state.setWidthAndHeight(img.width, img.height);
+      await this.canvasManager.updateCanvasesDimensions();
 
-    // 2. Initialize internal states
-    this.imageProc.setImage(img);
-    this.postProcess.featuresExtracted = false;
-    this.state.recomputeCanvasSum = true;
+      // 2. Initialize internal states
+      this.imageProc.setImage(img);
+      this.postProcess.featuresExtracted = false;
+      this.state.recomputeCanvasSum = true;
 
-    // 3. Reset view
-    const maxDim = Math.max(img.width, img.height);
-    this.zoomPan.smooth = maxDim < 2048;
-    this.zoomPan.resetZoomAndPan(true, true);
+      // 3. Reset view
+      const maxDim = Math.max(img.width, img.height);
+      this.zoomPan.smooth = maxDim < 2048;
 
-    // 4. Clear history (but don't capture yet - annotations not loaded)
-    this.resetHistory();
+      // 4. Clear history (but don't capture yet - annotations not loaded)
+      this.resetHistory();
 
-    this.isReadySubject.next(true);
-    this.redrawRequest.next();
-    // Reset Zoom And Pan after 200ms to ensure proper centering
-    setTimeout(() => {
-      this.zoomPan.resetZoomAndPan(true, true);
-    }, 200);
+      this.isReadySubject.next(true);
+      this.redrawRequest.next();
+      // Reset Zoom And Pan after 200ms to ensure proper centering
+      setTimeout(() => {
+        if (this.editorService.resetZoomAfterNavigation) {
+          this.zoomPan.resetZoomAndPan(true, true);
+        }
+      }, 200);
 
-    return img;
-  } catch (e) {
-    console.error('Orchestrator failed to load image:', e);
-    throw e;
+      return img;
+    } catch (e) {
+      console.error('Orchestrator failed to load image:', e);
+      throw e;
+    }
   }
-}
-public resetHistory(): void {
-  this.undoRedo.empty();
-}
+  public resetHistory(): void {
+    this.undoRedo.empty();
+  }
 
-/**
- * Capture initial undo/redo state after annotations are loaded.
- * Must be called after loadImage() and after annotations are loaded into canvases.
- */
-public async captureInitialHistory(): Promise<void> {
-  await this.undoRedo.captureInitialStates();
-}
+  /**
+   * Capture initial undo/redo state after annotations are loaded.
+   * Must be called after loadImage() and after annotations are loaded into canvases.
+   */
+  public async captureInitialHistory(): Promise<void> {
+    await this.undoRedo.captureInitialStates();
+  }
 
   private preloadImage(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {

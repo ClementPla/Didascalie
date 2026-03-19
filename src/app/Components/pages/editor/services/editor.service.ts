@@ -40,6 +40,7 @@ export class EditorService {
   public floodFillTolerance: number = 3.0;
 
   public webGPURendering: boolean = false;
+  public resetZoomAfterNavigation: boolean = true;
   constructor() {}
 
   public activatePanMode() {

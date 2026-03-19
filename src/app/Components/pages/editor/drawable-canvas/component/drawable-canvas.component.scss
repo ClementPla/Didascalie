@@ -7,7 +7,8 @@
   z-index: 1000;
   aspect-ratio: 1;
   transform-origin: center center;
-  
+  // transform: translate(0%, 0%);
+
   -webkit-animation: rotating 16s linear infinite;
   -moz-animation: rotating 16s linear infinite;
   -ms-animation: rotating 16s linear infinite;
@@ -17,21 +18,21 @@
 
 @keyframes rotating {
   from {
-    transform: translate(-50%, -50%) rotate(0deg);
+    transform: translate(0%, 0%) rotate(0deg);
   }
   to {
-    transform: translate(-50%, -50%) rotate(360deg);
+    transform: translate(0%, 0%) rotate(360deg);
   }
 }
 
 @-webkit-keyframes rotating {
   from {
-    -webkit-transform: translate(-50%, -50%) rotate(0deg);
-    transform: translate(-50%, -50%) rotate(0deg);
+    -webkit-transform: translate(0%, 0%) rotate(0deg);
+    transform: translate(0%, 0%) rotate(0deg);
   }
   to {
-    -webkit-transform: translate(-50%, -50%) rotate(360deg);
-    transform: translate(-50%, -50%) rotate(360deg);
+    -webkit-transform: translate(0%, 0%) rotate(360deg);
+    transform: translate(0%, 0%) rotate(360deg);
   }
 }
 
