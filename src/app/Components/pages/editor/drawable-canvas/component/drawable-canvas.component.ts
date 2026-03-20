@@ -61,6 +61,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   private wheelDecayTimeout?: number;
 
   // Cleanup
+  private edgeRecomputeTimeout?: number;
   private destroy$ = new Subject<void>();
 
   @ViewChild('imageCanvas') public imgCanvas: ElementRef<HTMLCanvasElement>;
@@ -105,6 +106,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     clearTimeout(this.wheelDecayTimeout);
+    clearTimeout(this.edgeRecomputeTimeout);
   }
 
   private initSubscriptions() {
@@ -222,6 +224,13 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     this.orchestrator.handleWheel(event);
     this.viewBox = this.orchestrator.getViewBox();
+    // Recompute edges after zoom settles
+    if (this.editorService.edgesOnly) {
+      clearTimeout(this.edgeRecomputeTimeout);
+      this.edgeRecomputeTimeout = window.setTimeout(() => {
+        this.orchestrator.requestRedrawAllCanvas(); // This will trigger edge recomputation in the CanvasManager service to adjust to the new zoom level
+      }, 150);
+    }
   }
 
   private handleBrushSizeWheel(event: WheelEvent) {

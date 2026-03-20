@@ -7,6 +7,7 @@ import { Subject } from 'rxjs';
 import { BboxManagerService } from './bbox-manager.service';
 import { CombinedLabel } from '../../../../../Core/interface';
 import { WebGPUCanvasCompositorService } from './web-gpucanvas-compositor.service';
+import { ZoomPanService } from './zoom-pan.service';
 
 @Injectable({
   providedIn: 'root',
@@ -29,7 +30,8 @@ export class CanvasManagerService {
     private openCVService: OpenCVService,
     private editorService: EditorService,
     private bboxManager: BboxManagerService,
-    private webgpuCompositor: WebGPUCanvasCompositorService
+    private webgpuCompositor: WebGPUCanvasCompositorService,
+    private zoomPan: ZoomPanService
   ) {
     this.initializeWebGPU();
   }
@@ -37,7 +39,7 @@ export class CanvasManagerService {
   private async initializeWebGPU(): Promise<void> {
     this.useWebGPU = await this.webgpuCompositor.initialize();
     console.log(
-      `Using ${this.useWebGPU ? 'WebGPU' : 'CPU'} for canvas composition`
+      `Using ${this.useWebGPU ? 'WebGPU' : 'CPU'} for canvas composition`,
     );
   }
   debugCheckBinary(ctx: OffscreenCanvasRenderingContext2D, label: string) {
@@ -58,7 +60,7 @@ export class CanvasManagerService {
     if (nonBinaryCount > 0) {
       console.warn(
         `${label}: Found ${nonBinaryCount} non-binary alpha pixels. Values:`,
-        [...nonBinaryValues].sort((a, b) => a - b)
+        [...nonBinaryValues].sort((a, b) => a - b),
       );
     } else {
       console.log(`${label}: All pixels are binary (0 or 255)`);
@@ -66,7 +68,6 @@ export class CanvasManagerService {
   }
 
   async computeCombinedCanvas() {
-   
     this.bboxManager.clear();
     if (this.useWebGPU && this.editorService.webGPURendering) {
       await this.computeCombinedCanvasGPU();
@@ -83,11 +84,11 @@ export class CanvasManagerService {
             return;
           }
           let boundingBox = this.openCVService.findBoundingBox(
-            this.canvasCtx[index]
+            this.canvasCtx[index],
           );
           this.bboxManager.addBboxes(
             boundingBox,
-            this.labelService.listSegmentationLabels[index]
+            this.labelService.listSegmentationLabels[index],
           );
         });
       }
@@ -100,14 +101,14 @@ export class CanvasManagerService {
     this.labelService.listSegmentationLabels.forEach((label) => {
       const canvas = new OffscreenCanvas(
         this.stateService.width,
-        this.stateService.height
+        this.stateService.height,
       );
       this.labelCanvas.push(canvas);
       this.canvasCtx.push(canvas.getContext('2d', { alpha: true })!);
     });
     this.combinedCanvas = new OffscreenCanvas(
       this.stateService.width,
-      this.stateService.height
+      this.stateService.height,
     );
     this.combinedCtx = this.combinedCanvas.getContext('2d', {
       alpha: true,
@@ -115,7 +116,7 @@ export class CanvasManagerService {
     })!;
     this.bufferCanvas = new OffscreenCanvas(
       this.stateService.width,
-      this.stateService.height
+      this.stateService.height,
     );
     this.bufferCtx = this.bufferCanvas.getContext('2d', {
       alpha: true,
@@ -129,7 +130,7 @@ export class CanvasManagerService {
       if (this.webgpuCompositor.isInitialized) {
         // 1. GPU Composite
         const visibility = this.labelService.listSegmentationLabels.map(
-          (l) => l.isVisible
+          (l) => l.isVisible,
         );
 
         // 1. Await the actual GPU processing
@@ -138,7 +139,7 @@ export class CanvasManagerService {
           visibility,
           width,
           height,
-          this.editorService.edgesOnly
+          this.editorService.edgesOnly,
         );
 
         this.combinedCtx.putImageData(imageData, 0, 0);
@@ -154,7 +155,7 @@ export class CanvasManagerService {
       0,
       0,
       this.stateService.width,
-      this.stateService.height
+      this.stateService.height,
     );
     this.bboxManager.clear();
 
@@ -170,36 +171,78 @@ export class CanvasManagerService {
         !this.editorService.labelledCombinedBoundingBox
       ) {
         let boundingBox = this.openCVService.findBoundingBox(
-          this.canvasCtx[index]
+          this.canvasCtx[index],
         );
         this.bboxManager.addBboxes(
           boundingBox,
-          this.labelService.listSegmentationLabels[index]
+          this.labelService.listSegmentationLabels[index],
         );
       }
     });
 
     if (this.editorService.edgesOnly) {
-      let edge = this.openCVService.edgeDetection_v2(this.combinedCtx);
-      this.combinedCtx.clearRect(
-        0,
-        0,
-        this.stateService.width,
-        this.stateService.height
-      );
-      const edgeCtx = edge.getContext(
-        '2d'
-      ) as OffscreenCanvasRenderingContext2D;
-
-      this.drawCanvasToCanvas(edgeCtx, this.combinedCtx);
+      this.extractEdges(this.combinedCtx, this.zoomPan.getScale());
     }
+  }
+  private extractEdges(
+    ctx: OffscreenCanvasRenderingContext2D,
+    scale: number,
+  ): void {
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const src = imgData.data;
+    const out = new Uint8ClampedArray(src.length);
+    const stride = w * 4;
+
+    // Target ~2px on screen → need ceil(2/scale) px in image space
+    const radius = Math.min(Math.max(1, Math.ceil(2 / scale)), 10);
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * stride + x * 4;
+        if (src[i + 3] === 0) continue;
+
+        let isEdge = false;
+
+        // Check if any non-filled pixel exists within radius
+        for (let dy = -radius; dy <= radius && !isEdge; dy++) {
+          const ny = y + dy;
+          if (ny < 0 || ny >= h) {
+            isEdge = true;
+            break;
+          }
+
+          for (let dx = -radius; dx <= radius && !isEdge; dx++) {
+            const nx = x + dx;
+            if (nx < 0 || nx >= w) {
+              isEdge = true;
+              break;
+            }
+
+            if (src[(ny * w + nx) * 4 + 3] === 0) {
+              isEdge = true;
+            }
+          }
+        }
+
+        if (isEdge) {
+          out[i] = src[i];
+          out[i + 1] = src[i + 1];
+          out[i + 2] = src[i + 2];
+          out[i + 3] = 255;
+        }
+      }
+    }
+
+    ctx.putImageData(new ImageData(out, w, h), 0, 0);
   }
 
   public drawCanvasToCanvas(
     sourceCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     targetCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     x = 0,
-    y = 0
+    y = 0,
   ) {
     // 1. Force integer dimensions to prevent the "long value range" error
     const w = Math.floor(sourceCtx.canvas.width);
@@ -220,7 +263,7 @@ export class CanvasManagerService {
   }
 
   public ensurePixelPerfectDrawing(
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   ) {
     ctx.imageSmoothingEnabled = false;
     // ctx.webkitImageSmoothingEnabled = false;
@@ -244,7 +287,7 @@ export class CanvasManagerService {
           transform.c,
           transform.d,
           roundedE,
-          roundedF
+          roundedF,
         );
       }
     }
@@ -330,7 +373,7 @@ export class CanvasManagerService {
     await this.webgpuCompositor.prepareResources(
       this.stateService.width,
       this.stateService.height,
-      this.labelCanvas.length
+      this.labelCanvas.length,
     );
     if (this.labelCanvas.length == 0) {
       this.initCanvas();
@@ -360,6 +403,4 @@ export class CanvasManagerService {
       this.bufferCanvas.height = this.stateService.height;
     }
   }
-
-  
 }

@@ -137,9 +137,10 @@ export class DrawService implements OnDestroy {
     // Global Post-Processing (Service Level)
     await this.handleGlobalPostProcessing();
     this.stateService.recomputeCanvasSum = true;
-    this.ioService.markDirty();
     // Finalize
     this.redrawRequest.next(true);
+    // Mark project as dirty after all processing is done 
+    this.ioService.markDirty();
 
     if (
       this.projectService.isInstanceSegmentation() &&
