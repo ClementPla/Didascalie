@@ -10,7 +10,6 @@ import { PostProcessService } from './post-process.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { DrawService } from './draw.service';
 import { animationFrameScheduler } from 'rxjs';
-import { IOService } from '../../../../../Services/io.service';
 import { EditorService } from '../../services/editor.service';
 
 export interface ViewTransform {
@@ -71,6 +70,10 @@ export class OrchestratorService {
   }
   public requestRedraw() {
     this.redrawRequest.next();
+  }
+  public requestRedrawAllCanvas() {
+    this.state.recomputeCanvasSum = true;
+    this.requestRedraw();
   }
 
   /**
@@ -176,7 +179,7 @@ export class OrchestratorService {
     }
     return this.canvasManager.getCombinedCanvas();
   }
-
+  
   // ==========================================
   // Canvas Operations
   // ==========================================

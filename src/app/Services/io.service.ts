@@ -121,10 +121,6 @@ export class IOService implements OnDestroy {
             canvas.width,
             canvas.height
           );
-          // Skip empty masks
-          if (!this.hasMaskContent(maskData)) {
-            continue;
-          }
 
           await api.saveAnnotation(frame.id, labels[i].id, maskData, 'Rle');
         }
@@ -205,7 +201,6 @@ export class IOService implements OnDestroy {
   private async getLabelIdByName(name: string): Promise<number | null> {
     try {
       const labels = await api.listLabels();
-      console.log(labels);
       const found = labels.find((l) => l.name === name);
       return found?.id ?? null;
     } catch {
