@@ -1,0 +1,119 @@
+<!-- image-adjustments.component.html -->
+<div class="adjustments-panel">
+  <p-tabs [(value)]="activeTab" scrollable>
+    <p-tablist>
+      @for (tab of tabs; track tab.id) {
+        <p-tab [value]="tab.id">
+          <span class="tab-label" [style.color]="tab.color">{{ tab.label }}</span>
+        </p-tab>
+      }
+    </p-tablist>
+
+    <p-tabpanels>
+      @for (tab of tabs; track tab.id) {
+        <p-tabpanel [value]="tab.id">
+          <div class="tab-content">
+
+            <!-- Sliders -->
+            <div class="slider-group">
+              <label class="slider-row">
+                <span class="slider-label">Brightness</span>
+                <p-slider
+                  [ngModel]="brightness(tab.sliderTarget)"
+                  (ngModelChange)="setBrightness(tab.sliderTarget, $event)"
+                  [min]="-100" [max]="100" [step]="1"
+                ></p-slider>
+                <input
+                  type="number"
+                  class="slider-value"
+                  [ngModel]="brightness(tab.sliderTarget)"
+                  (ngModelChange)="setBrightness(tab.sliderTarget, $event)"
+                  min="-100" max="100" step="1" pInputText
+                />
+              </label>
+
+              <label class="slider-row">
+                <span class="slider-label">Contrast</span>
+                <p-slider
+                  [ngModel]="contrast(tab.sliderTarget)"
+                  (ngModelChange)="setContrast(tab.sliderTarget, $event)"
+                  [min]="-100" [max]="100" [step]="1"
+                ></p-slider>
+                <input
+                  type="number"
+                  class="slider-value"
+                  [ngModel]="contrast(tab.sliderTarget)"
+                  (ngModelChange)="setContrast(tab.sliderTarget, $event)"
+                  min="-100" max="100" step="1" pInputText
+                />
+              </label>
+
+              <label class="slider-row">
+                <span class="slider-label">Gamma</span>
+                <p-slider
+                  [ngModel]="gamma(tab.sliderTarget)"
+                  (ngModelChange)="setGamma(tab.sliderTarget, $event)"
+                  [min]="0.1" [max]="3.0" [step]="0.01"
+                ></p-slider>
+                <input
+                  type="number"
+                  class="slider-value"
+                  [ngModel]="gamma(tab.sliderTarget)"
+                  (ngModelChange)="setGamma(tab.sliderTarget, $event)"
+                  min="0.1" max="3.0" step="0.01" pInputText
+                />
+              </label>
+            </div>
+
+            <!-- Curve editor -->
+            <div class="curve-wrapper">
+              <app-curve-editor
+                [curve]="curve(tab.curveTarget)"
+                (curveChange)="onCurveChange(tab.curveTarget, $event)"
+                [histogram]="histogramFor(tab.histKey)"
+                [color]="tab.color"
+              ></app-curve-editor>
+              <div class="curve-hints">
+                <span>Click to add a point · Drag to move · Double-click to delete</span>
+              </div>
+            </div>
+
+            <!-- Tab-level actions -->
+            <div class="tab-actions">
+              <p-button
+                size="small" severity="secondary"
+                icon="pi pi-refresh"
+                label="Reset {{ tab.label }}"
+                (click)="resetTab(tab)"
+              ></p-button>
+            </div>
+          </div>
+        </p-tabpanel>
+      }
+    </p-tabpanels>
+  </p-tabs>
+
+  <!-- Global action bar -->
+  <div class="panel-actions">
+    <p-button
+      size="small"
+      icon="pi pi-bolt"
+      label="Auto"
+      pTooltip="Stretch each channel to 5–95% percentile"
+      (click)="autoStretch()"
+    ></p-button>
+    <p-button
+      size="small"
+      icon="pi pi-chart-bar"
+      label="Equalize"
+      pTooltip="Histogram equalization (luma)"
+      (click)="equalize()"
+    ></p-button>
+    <p-button
+      size="small" severity="secondary"
+      icon="pi pi-times"
+      label="Reset all"
+      (click)="resetAll()"
+    ></p-button>
+  </div>
+</div>

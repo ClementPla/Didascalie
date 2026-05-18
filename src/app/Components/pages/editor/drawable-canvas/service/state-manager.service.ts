@@ -2,66 +2,53 @@ import { Injectable } from '@angular/core';
 import { Point2D } from '../interface';
 import { EditorService } from '../../services/editor.service';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class StateManagerService {
-  
-  public width: number = 512;
-  public height: number = 512;
+  /** Image native dimensions (px). */
+  public width: number = 0;
+  public height: number = 0;
 
   public isDrawing: boolean = false;
-
   public currentPoint: Point2D = { x: -1, y: -1 };
   public previousPoint: Point2D = { x: -1, y: -1 };
-
   public minPoint: Point2D = { x: Number.MAX_VALUE, y: Number.MAX_VALUE };
   public maxPoint: Point2D = { x: 0, y: 0 };
-
   public recomputeCanvasSum: boolean = false;
 
   constructor(private editorService: EditorService) {}
-
-  updatePreviousPoint(point: Point2D) {
-    this.previousPoint = point;
-  }
-
-  updateCurrentPoint(point: Point2D) {
-    this.currentPoint = point;
-  }
 
   setWidthAndHeight(width: number, height: number) {
     this.width = width;
     this.height = height;
   }
-  hasMoved() {
+
+  updatePreviousPoint(point: Point2D) { this.previousPoint = point; }
+  updateCurrentPoint(point: Point2D) { this.currentPoint = point; }
+
+  hasMoved(): boolean {
     return (
       this.currentPoint.x !== this.previousPoint.x ||
       this.currentPoint.y !== this.previousPoint.y
     );
   }
+
+  isFirstStroke(): boolean {
+    return this.previousPoint.x === -1 && this.previousPoint.y === -1;
+  }
+
   resetMinMaxPoints() {
     this.minPoint = { x: Number.MAX_VALUE, y: Number.MAX_VALUE };
     this.maxPoint = { x: 0, y: 0 };
   }
 
-  resetCurrentPoint() {
-    this.currentPoint = { x: -1, y: -1 };
-  }
-
-  resetPreviousPoint() {
-    this.previousPoint = { x: -1, y: -1 };
-  }
+  resetCurrentPoint() { this.currentPoint = { x: -1, y: -1 }; }
+  resetPreviousPoint() { this.previousPoint = { x: -1, y: -1 }; }
 
   reset() {
     this.isDrawing = false;
     this.resetMinMaxPoints();
     this.resetPreviousPoint();
     this.resetCurrentPoint();
-  }
-
-  isFirstStroke() {
-    return this.previousPoint.x === -1 && this.previousPoint.y === -1;
   }
 
   updateMinMaxPoints(point: Point2D) {
@@ -71,8 +58,8 @@ export class StateManagerService {
       y: Math.max(0, Math.min(this.minPoint.y, point.y - offset)),
     };
     this.maxPoint = {
-      x: Math.max(this.maxPoint.x, point.x + offset),
-      y: Math.max(this.maxPoint.y, point.y + offset),
+      x: Math.min(this.width,  Math.max(this.maxPoint.x, point.x + offset)),
+      y: Math.min(this.height, Math.max(this.maxPoint.y, point.y + offset)),
     };
   }
 
@@ -80,18 +67,18 @@ export class StateManagerService {
     return {
       x: this.minPoint.x,
       y: this.minPoint.y,
-      width: this.maxPoint.x - this.minPoint.x,
-      height: this.maxPoint.y - this.minPoint.y,
+      width:  Math.max(0, this.maxPoint.x - this.minPoint.x),
+      height: Math.max(0, this.maxPoint.y - this.minPoint.y),
     };
   }
 
-  getBrushSizeOffset() {
+  getBrushSizeOffset(): number {
     return this.editorService.isToolWithBrushSize()
       ? this.editorService.lineWidth / 2 + 2
       : 0;
   }
 
-  getStateSnapshot(): any {
+  getStateSnapshot() {
     return {
       width: this.width,
       height: this.height,
@@ -102,6 +89,5 @@ export class StateManagerService {
       maxPoint: this.maxPoint,
       recomputeCanvasSum: this.recomputeCanvasSum,
     };
-   
   }
 }

@@ -95,6 +95,10 @@ pub fn run() {
             commands::text_description::delete_text_description,
             // Export commands
             commands::export::export_annotations,
+            // Registration commands
+            commands::registration::save_registration,
+            commands::registration::load_registration,
+            commands::registration::delete_registration,
 
 
         ])

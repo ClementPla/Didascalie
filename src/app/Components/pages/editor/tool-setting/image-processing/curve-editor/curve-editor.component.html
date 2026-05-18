@@ -1,0 +1,9 @@
+<!-- curve-editor.component.html -->
+<canvas
+  #canvas
+  class="curve-canvas"
+  (mousedown)="onMouseDown($event)"
+  (mousemove)="onMouseMove($event)"
+  (mouseleave)="onMouseLeave()"
+  (dblclick)="onDoubleClick($event)"
+></canvas>

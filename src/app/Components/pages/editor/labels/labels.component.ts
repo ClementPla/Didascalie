@@ -21,7 +21,7 @@ import { SequenceService } from '../../../../Services/sequence.service';
 import { EditorService } from '../services/editor.service';
 import { SegLabel } from '../../../../Core/interface';
 import { InstanceLabelComponent } from './instance-label/instance-label.component';
-import { TextLabel } from '../../../../Core/task';
+import { TextLabel } from '../../../../Core/interface';
 import { api } from '../../../../lib/api';
 
 @Component({
@@ -99,7 +99,7 @@ export class LabelsComponent implements OnInit, OnDestroy {
     
     // Sync to labels service text fields
     for (const label of this.labelsService.listTextLabels) {
-      label.text = this.textContents.get(label.name) ?? '';
+      label.content = this.textContents.get(label.name) ?? '';
     }
   }
 
@@ -147,8 +147,8 @@ export class LabelsComponent implements OnInit, OnDestroy {
     const frameId = this.currentFrameId;
     if (!frameId) return;
 
-    this.textContents.set(label.name, label.text);
-    await api.saveTextDescription(frameId, label.name, label.text);
+    this.textContents.set(label.name, label.content);
+    await api.saveTextDescription(frameId, label.name, label.content);
   }
 
   // ==========================================

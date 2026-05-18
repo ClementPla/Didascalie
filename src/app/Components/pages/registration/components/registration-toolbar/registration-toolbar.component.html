@@ -1,0 +1,117 @@
+<!-- registration-toolbar.component.html -->
+<div class="reg-toolbar">
+  <div class="mode-buttons" role="tablist" aria-label="Visualization mode">
+    
+    @for (opt of modeOptions; track opt.value) {
+      <p-button
+        [label]="opt.label"
+        [icon]="opt.icon"
+        size="small"
+        [severity]="mode() === opt.value ? 'primary' : 'secondary'"
+        (click)="setMode(opt.value)"
+        [attr.aria-selected]="mode() === opt.value"
+        role="tab"
+      ></p-button>
+    }
+  </div>
+
+  <div class="mode-controls">
+    @if (mode() === "overlay") {
+      <div class="slider-control">
+        <label for="opacity-slider">Opacity</label>
+        <p-slider
+          id="opacity-slider"
+          [(ngModel)]="overlayOpacity"
+          [min]="0"
+          [max]="1"
+          [step]="0.01"
+          style="width: 140px"
+        ></p-slider>
+        <span class="slider-val"
+          >{{ overlayOpacity * 100 | number: "1.0-0" }}%</span
+        >
+      </div>
+    }
+
+    @if (mode() === "checkerboard") {
+      <div class="slider-control">
+        <label for="tile-slider">Tile size</label>
+        <p-slider
+          id="tile-slider"
+          [(ngModel)]="checkerTileSize"
+          [min]="16"
+          [max]="256"
+          [step]="8"
+          style="width: 140px"
+        ></p-slider>
+        <span class="slider-val">{{ checkerTileSize }} px</span>
+      </div>
+    }
+  </div>
+
+  @if (mode() === "side-by-side") {
+    <div class="sync-control">
+      <p-button
+        [icon]="syncPanZoom ? 'pi pi-lock' : 'pi pi-lock-open'"
+        [label]="syncPanZoom ? 'Pan/zoom synced' : 'Sync pan/zoom'"
+        [severity]="syncPanZoom ? 'info' : 'secondary'"
+        size="small"
+        [outlined]="!syncPanZoom"
+        [disabled]="vis().showMovingWarped"
+        
+        tooltipPosition="bottom"
+        (click)="syncPanZoom = !syncPanZoom"
+      ></p-button>
+      <p-button
+        icon="pi pi-external-link"
+        size="small"
+        [label]='"Composite view in new window"'
+        (click)="onOpenComposite()"
+      ></p-button>
+    </div>
+    <div class="warp-toggle">
+      <p-button
+        [icon]="showMovingWarped ? 'pi pi-eye' : 'pi pi-eye-slash'"
+        [label]="
+          showMovingWarped ? 'Showing warped (Tab)' : 'Show warped (Tab)'
+        "
+        [severity]="showMovingWarped ? 'info' : 'secondary'"
+        [outlined]="!showMovingWarped"
+        size="small"
+        (click)="showMovingWarped = !showMovingWarped"
+        pTooltip="Press Tab to toggle"
+        tooltipPosition="bottom"
+      ></p-button>
+    </div>
+  }
+  <!-- registration-toolbar.component.html — add at the end, after sync-control -->
+<div class="nav-control">
+  <p-button
+    icon="pi pi-chevron-left"
+    severity="secondary"
+    [text]="true"
+    size="small"
+    pTooltip="Previous sequence (Left arrow)"
+    tooltipPosition="bottom"
+    (click)="onPrevious()"
+  ></p-button>
+  <p-button
+    icon="pi pi-save"
+    severity="secondary"
+    [outlined]="true"
+    size="small"
+    pTooltip="Save (Ctrl+S)"
+    tooltipPosition="bottom"
+    (click)="onSave()"
+  ></p-button>
+  <p-button
+    icon="pi pi-chevron-right"
+    severity="secondary"
+    [text]="true"
+    size="small"
+    pTooltip="Next sequence (Right arrow)"
+    tooltipPosition="bottom"
+    (click)="onNext()"
+  ></p-button>
+</div>
+</div>

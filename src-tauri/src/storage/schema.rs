@@ -63,9 +63,48 @@ CREATE TABLE IF NOT EXISTS text_descriptions (
     modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(frame_id, label_name)
 );
+CREATE TABLE IF NOT EXISTS registrations (
+    id INTEGER PRIMARY KEY,
+    sequence_id INTEGER NOT NULL REFERENCES sequences(id) ON DELETE CASCADE,
+    reference_frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+    moving_frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+    -- 9 floats for a 3x3 homography (row-major), JSON-encoded.
+    -- NULL until fewer than 4 pairs have been placed.
+    homography JSON,
+    transform_type TEXT NOT NULL DEFAULT 'homography',
+    modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(reference_frame_id, moving_frame_id),
+    CHECK (reference_frame_id != moving_frame_id)
+);
+
+-- Individual keypoint correspondences within a registration.
+CREATE TABLE IF NOT EXISTS keypoint_pairs (
+    id INTEGER PRIMARY KEY,
+    registration_id INTEGER NOT NULL REFERENCES registrations(id) ON DELETE CASCADE,
+    -- Stable string id from the frontend (crypto.randomUUID()).
+    -- Lets the frontend round-trip its own ids without remapping.
+    client_uuid TEXT NOT NULL,
+    -- Image-native pixel coordinates. REAL not INTEGER — sub-pixel placement
+    -- happens when the user drags points around at high zoom.
+    ref_x REAL NOT NULL,
+    ref_y REAL NOT NULL,
+    moving_x REAL NOT NULL,
+    moving_y REAL NOT NULL,
+    -- For stable ordering in the UI list (matches insertion order).
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(registration_id, client_uuid)
+);
+
 
 CREATE INDEX IF NOT EXISTS idx_frames_sequence ON frames(sequence_id);
 CREATE INDEX IF NOT EXISTS idx_annotations_frame ON annotations(frame_id);
 CREATE INDEX IF NOT EXISTS idx_classifications_frame ON classifications(frame_id);
 CREATE INDEX IF NOT EXISTS idx_text_descriptions_frame ON text_descriptions(frame_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_sequence
+    ON registrations(sequence_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_ref_frame
+    ON registrations(reference_frame_id);
+CREATE INDEX IF NOT EXISTS idx_keypoint_pairs_registration
+    ON keypoint_pairs(registration_id);
 "#;

@@ -1,0 +1,16 @@
+// curve-editor.component.scss
+:host {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.curve-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  border-radius: 4px;
+  background: #0e0e0e;
+  user-select: none;
+}

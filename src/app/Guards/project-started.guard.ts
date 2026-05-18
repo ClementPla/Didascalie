@@ -8,10 +8,9 @@ export const projectStartedGuard: CanActivateFn = (route, state) => {
 
   const isOpen = projectService.isOpen();
 
-  console.log('Is project open?', isOpen);
 
   if (!isOpen) {
-    router.navigate(['/project-configuration']);
+    router.navigate(['']);
     return false;
   }
 

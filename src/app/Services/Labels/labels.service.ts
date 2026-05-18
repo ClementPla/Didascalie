@@ -2,7 +2,8 @@ import { Injectable } from '@angular/core';
 import { SegInstance, SegLabel } from '../../Core/interface';
 import { constructLabelTreeNode } from './labelTreeNode';
 import { TreeNode } from 'primeng/api';
-import { MulticlassTask, MultilabelTask, TextLabel } from '../../Core/task';
+import { MulticlassTask, MultilabelTask } from '../../Core/task';
+import {TextLabel} from "../../Core/interface";
 import { api, ProjectConfig } from '../../lib/api';
 @Injectable({
   providedIn: 'root',
@@ -245,7 +246,7 @@ export class LabelsService {
     }
 
     for (const name of config.text_fields ?? []) {
-      this.addTextLabel({ name, text: '' });
+      this.addTextLabel({ name: name, content: '' });
     }
 
     this.rebuildTreeNodes();

@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
-import { Subject } from 'rxjs';
+import { Subject, Observable } from 'rxjs';
 
 import { SequenceService } from '../sequence.service';
 import { IOService } from '../io.service';
 import { OrchestratorService } from '../../Components/pages/editor/drawable-canvas/service/orchestrator.service';
 import { Sequence } from '../../lib/api';
+
 export interface ProgressInfo {
   currentIndex: number;
   total: number;
@@ -26,12 +27,22 @@ export type NavigationDirection = 'next' | 'previous';
 /**
  * Orchestrates navigation workflows.
  * Coordinates: save → navigate → load → update state.
+ * Dual-system compatible: Maintains orchestrator state while exposing lifecycle hooks.
  */
 @Injectable({
   providedIn: 'root',
 })
 export class NavigationService {
-  public progress$ = new Subject<ProgressInfo | null>();
+  private readonly progressSource = new Subject<ProgressInfo | null>();
+  private readonly frameChangedSource = new Subject<NavigationResult>();
+
+  /** Stream for tracking current position metrics */
+  public readonly progress$: Observable<ProgressInfo | null> =
+    this.progressSource.asObservable();
+
+  /** Hook for secondary systems (like Image Registration) to react to global navigation changes */
+  public readonly frameChanged$: Observable<NavigationResult> =
+    this.frameChangedSource.asObservable();
 
   constructor(
     private sequenceService: SequenceService,
@@ -46,27 +57,33 @@ export class NavigationService {
   /**
    * Navigate to next or previous frame.
    */
-  public async navigate(direction: NavigationDirection): Promise<NavigationResult | null> {
+  public async navigate(
+    direction: NavigationDirection,
+  ): Promise<NavigationResult | null> {
     try {
-      // 1. Save current state
+      // 1. Save current state safely
       await this.saveIfNeeded();
 
-      // 2. Perform navigation
-      const success = direction === 'next'
-        ? await this.sequenceService.nextFrame()
-        : await this.sequenceService.prevFrame();
+      // 2. Perform navigation step
+      const success =
+        direction === 'next'
+          ? await this.sequenceService.nextFrame()
+          : await this.sequenceService.prevFrame();
 
       if (!success) {
-        console.log(`Cannot navigate ${direction}: at boundary`);
+        console.warn(`Cannot navigate ${direction}: at boundary layout limit`);
         return null;
       }
 
-      // 3. Load new frame
+      // 3. Load new frame assets
       await this.loadCurrentFrame();
 
-      // 4. Return result
+      // 4. Build, dispatch, and return sync data updates
       const result = this.createNavigationResult();
-      this.emitProgress();
+      if (result) {
+        await this.emitProgress();
+        this.frameChangedSource.next(result);
+      }
 
       return result;
     } catch (error) {
@@ -78,14 +95,19 @@ export class NavigationService {
   /**
    * Navigate to a specific frame index within current sequence.
    */
-  public async navigateToFrame(frameIndex: number): Promise<NavigationResult | null> {
+  public async navigateToFrame(
+    frameIndex: number,
+  ): Promise<NavigationResult | null> {
     try {
       await this.saveIfNeeded();
       await this.sequenceService.selectFrame(frameIndex);
       await this.loadCurrentFrame();
 
       const result = this.createNavigationResult();
-      this.emitProgress();
+      if (result) {
+        await this.emitProgress();
+        this.frameChangedSource.next(result);
+      }
 
       return result;
     } catch (error) {
@@ -95,16 +117,21 @@ export class NavigationService {
   }
 
   /**
-   * Navigate to a specific sequence.
+   * Navigate to a specific sequence context.
    */
-  public async navigateToSequence(sequence: Sequence): Promise<NavigationResult | null> {
+  public async navigateToSequence(
+    sequence: Sequence,
+  ): Promise<NavigationResult | null> {
     try {
       await this.saveIfNeeded();
       await this.sequenceService.selectSequence(sequence);
       await this.loadCurrentFrame();
 
       const result = this.createNavigationResult();
-      this.emitProgress();
+      if (result) {
+        await this.emitProgress();
+        this.frameChangedSource.next(result);
+      }
 
       return result;
     } catch (error) {
@@ -121,14 +148,15 @@ export class NavigationService {
       await this.saveIfNeeded();
 
       const success = await this.sequenceService.nextSequence();
-      if (!success) {
-        return null;
-      }
+      if (!success) return null;
 
       await this.loadCurrentFrame();
 
       const result = this.createNavigationResult();
-      this.emitProgress();
+      if (result) {
+        await this.emitProgress();
+        this.frameChangedSource.next(result);
+      }
 
       return result;
     } catch (error) {
@@ -145,14 +173,15 @@ export class NavigationService {
       await this.saveIfNeeded();
 
       const success = await this.sequenceService.prevSequence();
-      if (!success) {
-        return null;
-      }
+      if (!success) return null;
 
       await this.loadCurrentFrame();
 
       const result = this.createNavigationResult();
-      this.emitProgress();
+      if (result) {
+        await this.emitProgress();
+        this.frameChangedSource.next(result);
+      }
 
       return result;
     } catch (error) {
@@ -162,11 +191,11 @@ export class NavigationService {
   }
 
   // ==========================================
-  // Save & Load
+  // Save & Load Operations
   // ==========================================
 
   /**
-   * Save current annotations if dirty.
+   * Save current annotations automatically if marked dirty.
    */
   public async saveIfNeeded(): Promise<boolean> {
     if (!this.sequenceService.currentFrame()) {
@@ -176,13 +205,16 @@ export class NavigationService {
     try {
       return await this.ioService.saveIfDirty();
     } catch (error) {
-      console.error('Failed to save:', error);
+      console.error(
+        'Failed evaluation during automatic checkpoint save:',
+        error,
+      );
       return false;
     }
   }
 
   /**
-   * Force save current annotations.
+   * Force save current structural canvas annotations.
    */
   public async save(): Promise<boolean> {
     if (!this.sequenceService.currentFrame()) {
@@ -196,40 +228,47 @@ export class NavigationService {
       }
       return success;
     } catch (error) {
-      console.error('Failed to save:', error);
+      console.error('Force save execution failure:', error);
       return false;
     }
   }
-
+  public get currentSequenceId(): number | null {
+    return this.sequenceService.currentSequence()?.id ?? null;
+  }
   /**
-   * Load current frame into orchestrator.
+   * Load current frame data safely into canvas orchestrator matrix.
    */
   public async loadCurrentFrame(): Promise<void> {
     const frameImage = this.sequenceService.currentFrameImage();
     if (!frameImage) {
-      throw new Error('No current frame to load');
+      throw new Error(
+        'Navigation failed: No valid frame image reference targets discovered',
+      );
     }
 
     try {
-      // Load image into orchestrator
+      // Load raw background image layer into native system canvas orchestrator
       await this.orchestrator.loadImage(frameImage.image_base64);
 
-      // Load annotations
+      // Extract existing annotation vectors from previous save systems
       await this.ioService.load();
 
-      // Capture history and redraw
+      // Initialize snapshot timeline state and schedule drawing tick
       await this.orchestrator.captureInitialHistory();
       this.orchestrator.requestRedraw();
 
-      this.emitProgress();
+      await this.emitProgress();
     } catch (error) {
-      console.error('Failed to load frame:', error);
+      console.error(
+        'Failed structural synchronization inside orchestrator boundary:',
+        error,
+      );
       throw error;
     }
   }
 
   // ==========================================
-  // Progress & State Queries
+  // Progress & State Calculations
   // ==========================================
 
   public async getProgress(): Promise<ProgressInfo | null> {
@@ -255,7 +294,8 @@ export class NavigationService {
   }
 
   private async emitProgress(): Promise<void> {
-    this.progress$.next(await this.getProgress());
+    const progressData = await this.getProgress();
+    this.progressSource.next(progressData);
   }
 
   public canGoNext(): boolean {
@@ -275,17 +315,20 @@ export class NavigationService {
   }
 
   public get currentFrameName(): string | null {
-    const frame = this.sequenceService.currentFrame();
-    return frame?.relative_path ?? null;
+    return this.sequenceService.currentFrame()?.relative_path ?? null;
   }
 
   // ==========================================
-  // Helpers
+  // Internal Helpers
   // ==========================================
 
-  private createNavigationResult(): NavigationResult {
-    const frame = this.sequenceService.currentFrame()!;
-    const sequence = this.sequenceService.currentSequence()!;
+  private createNavigationResult(): NavigationResult | null {
+    const frame = this.sequenceService.currentFrame();
+    const sequence = this.sequenceService.currentSequence();
+
+    if (!frame || !sequence) {
+      return null;
+    }
 
     return {
       success: true,
@@ -294,4 +337,39 @@ export class NavigationService {
       sequenceId: sequence.id,
     };
   }
+  public async navigateToNextSequenceForRegistration(): Promise<NavigationResult | null> {
+  try {
+    await this.saveIfNeeded();
+    const success = await this.sequenceService.nextSequence();
+    if (!success) return null;
+
+    const result = this.createNavigationResult();
+    if (result) {
+      await this.emitProgress();
+      this.frameChangedSource.next(result);
+    }
+    return result;
+  } catch (error) {
+    console.error('Failed to navigate to next sequence (registration):', error);
+    return null;
+  }
+}
+
+public async navigateToPrevSequenceForRegistration(): Promise<NavigationResult | null> {
+  try {
+    await this.saveIfNeeded();
+    const success = await this.sequenceService.prevSequence();
+    if (!success) return null;
+
+    const result = this.createNavigationResult();
+    if (result) {
+      await this.emitProgress();
+      this.frameChangedSource.next(result);
+    }
+    return result;
+  } catch (error) {
+    console.error('Failed to navigate to previous sequence (registration):', error);
+    return null;
+  }
+}
 }

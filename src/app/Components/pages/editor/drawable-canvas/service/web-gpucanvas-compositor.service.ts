@@ -1,60 +1,116 @@
 import { Injectable } from '@angular/core';
 import { from_hex_to_rgb } from '../../../../../Core/misc/colors';
 
-
 @Injectable({ providedIn: 'root' })
 export class WebGPUCanvasCompositorService {
   private device: GPUDevice | null = null;
+
+  // Pipelines
   private compositePipeline: GPUComputePipeline | null = null;
   private edgePipeline: GPUComputePipeline | null = null;
+  private binarizePipeline: GPUComputePipeline | null = null;
   private initialized = false;
 
-  // Persistent Resources
+  // Persistent resources (sized by prepareResources)
   private outputTexture: GPUTexture | null = null;
   private edgeOutputTexture: GPUTexture | null = null;
+  private inputTextureArray: GPUTexture | null = null;
   private uniformBuffer: GPUBuffer | null = null;
   private edgeUniformBuffer: GPUBuffer | null = null;
   private stagingBuffer: GPUBuffer | null = null;
   private visibilityBuffer: GPUBuffer | null = null;
 
-  // Concurrency control
+  // Concurrency
   private isProcessing = false;
 
-  // Cache dimensions
+  // Cached dimensions
   private cachedWidth = 0;
   private cachedHeight = 0;
   private cachedLayerCount = 0;
-  private binarizePipeline: GPUComputePipeline | null = null;
 
-  async prepareResources(width: number, height: number, layerCount: number): Promise<void> {
-    if (!this.device) return;
+  // ==========================================
+  // Init / teardown
+  // ==========================================
 
-    if (
-      this.cachedWidth === width &&
-      this.cachedHeight === height &&
-      this.cachedLayerCount === layerCount &&
-      this.outputTexture &&
-      this.stagingBuffer &&
-      this.visibilityBuffer
-    ) {
-      return;
+  async initialize(): Promise<boolean> {
+    if (this.initialized) return true;
+    if (!navigator.gpu) return false;
+
+    try {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) return false;
+      this.device = await adapter.requestDevice();
+
+      await this.createCompositePipeline();
+      await this.createEdgePipeline();
+      await this.createBinarizePipeline();
+
+      this.initialized = true;
+      return true;
+    } catch (error) {
+      console.error('WebGPU initialization failed:', error);
+      return false;
     }
+  }
 
-    while (this.isProcessing) {
-      await new Promise(resolve => setTimeout(resolve, 1));
-    }
-
-    const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
-
-    // Destroy old resources
+  destroy(): void {
     this.outputTexture?.destroy();
     this.edgeOutputTexture?.destroy();
+    this.inputTextureArray?.destroy();
     this.stagingBuffer?.destroy();
     this.visibilityBuffer?.destroy();
     this.uniformBuffer?.destroy();
     this.edgeUniformBuffer?.destroy();
 
-    // Composite output (also used as edge input)
+    this.outputTexture = null;
+    this.edgeOutputTexture = null;
+    this.inputTextureArray = null;
+    this.stagingBuffer = null;
+    this.visibilityBuffer = null;
+    this.uniformBuffer = null;
+    this.edgeUniformBuffer = null;
+
+    this.cachedWidth = 0;
+    this.cachedHeight = 0;
+    this.cachedLayerCount = 0;
+  }
+
+  public get isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  // ==========================================
+  // Resource preparation
+  // ==========================================
+
+  async prepareResources(width: number, height: number, layerCount: number): Promise<void> {
+    if (!this.device) return;
+
+    const cacheHit =
+      this.cachedWidth === width &&
+      this.cachedHeight === height &&
+      this.cachedLayerCount === layerCount &&
+      this.outputTexture &&
+      this.stagingBuffer &&
+      this.visibilityBuffer &&
+      this.inputTextureArray;
+
+    if (cacheHit) return;
+
+    await this.waitForCompletion();
+
+    // Destroy old resources
+    this.outputTexture?.destroy();
+    this.edgeOutputTexture?.destroy();
+    this.inputTextureArray?.destroy();
+    this.stagingBuffer?.destroy();
+    this.visibilityBuffer?.destroy();
+    this.uniformBuffer?.destroy();
+    this.edgeUniformBuffer?.destroy();
+
+    const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
+    const arrayLayers = Math.max(1, layerCount);
+
     this.outputTexture = this.device.createTexture({
       size: [width, height],
       format: 'rgba8unorm',
@@ -64,11 +120,19 @@ export class WebGPUCanvasCompositorService {
         GPUTextureUsage.COPY_SRC,
     });
 
-    // Edge detection output
     this.edgeOutputTexture = this.device.createTexture({
       size: [width, height],
       format: 'rgba8unorm',
       usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
+    });
+
+    this.inputTextureArray = this.device.createTexture({
+      size: { width, height, depthOrArrayLayers: arrayLayers },
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
     });
 
     this.uniformBuffer = this.device.createBuffer({
@@ -96,24 +160,19 @@ export class WebGPUCanvasCompositorService {
     this.cachedLayerCount = layerCount;
   }
 
-  async initialize(): Promise<boolean> {
-    if (this.initialized) return true;
-    if (!navigator.gpu) return false;
-
-    try {
-      const adapter = await navigator.gpu.requestAdapter();
-      if (!adapter) return false;
-      this.device = await adapter.requestDevice();
-
-      await this.createCompositePipeline();
-      await this.createEdgePipeline();
-      this.initialized = true;
-      return true;
-    } catch (error) {
-      console.error('WebGPU initialization failed:', error);
-      return false;
-    }
+  private waitForCompletion(): Promise<void> {
+    return new Promise(resolve => {
+      const check = () => {
+        if (!this.isProcessing) resolve();
+        else requestAnimationFrame(check);
+      };
+      check();
+    });
   }
+
+  // ==========================================
+  // Pipeline creation
+  // ==========================================
 
   private async createCompositePipeline(): Promise<void> {
     const shaderCode = `
@@ -142,7 +201,6 @@ export class WebGPUCanvasCompositorService {
 
           let layerColor = textureLoad(inputTextures, vec2<i32>(i32(x), i32(y)), i32(i), 0);
 
-          // Standard source-over alpha compositing
           let srcAlpha = layerColor.a;
           let dstAlpha = finalColor.a;
           let outAlpha = srcAlpha + dstAlpha * (1.0 - srcAlpha);
@@ -159,10 +217,10 @@ export class WebGPUCanvasCompositorService {
       }
     `;
 
-    const shaderModule = this.device!.createShaderModule({ code: shaderCode });
+    const module = this.device!.createShaderModule({ code: shaderCode });
     this.compositePipeline = this.device!.createComputePipeline({
       layout: 'auto',
-      compute: { module: shaderModule, entryPoint: 'main' },
+      compute: { module, entryPoint: 'main' },
     });
   }
 
@@ -179,18 +237,7 @@ export class WebGPUCanvasCompositorService {
       @group(0) @binding(1) var inputTexture: texture_2d<f32>;
       @group(0) @binding(2) var outputTexture: texture_storage_2d<rgba8unorm, write>;
 
-      // Sobel kernels for edge detection
       fn sobel_edge(x: i32, y: i32) -> f32 {
-        // Sobel X kernel
-        // -1  0  1
-        // -2  0  2
-        // -1  0  1
-        
-        // Sobel Y kernel
-        // -1 -2 -1
-        //  0  0  0
-        //  1  2  1
-
         let tl = textureLoad(inputTexture, vec2<i32>(x - 1, y - 1), 0).a;
         let tc = textureLoad(inputTexture, vec2<i32>(x,     y - 1), 0).a;
         let tr = textureLoad(inputTexture, vec2<i32>(x + 1, y - 1), 0).a;
@@ -202,7 +249,6 @@ export class WebGPUCanvasCompositorService {
 
         let gx = -tl - 2.0 * ml - bl + tr + 2.0 * mr + br;
         let gy = -tl - 2.0 * tc - tr + bl + 2.0 * bc + br;
-
         return sqrt(gx * gx + gy * gy);
       }
 
@@ -210,12 +256,11 @@ export class WebGPUCanvasCompositorService {
       fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let x = i32(global_id.x);
         let y = i32(global_id.y);
-        
+
         if (u32(x) >= uniforms.width || u32(y) >= uniforms.height) { return; }
 
-        // Skip border pixels
         if (x < 1 || y < 1 || u32(x) >= uniforms.width - 1u || u32(y) >= uniforms.height - 1u) {
-          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(0.0, 0.0, 0.0, 0.0));
+          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(0.0));
           return;
         }
 
@@ -223,21 +268,61 @@ export class WebGPUCanvasCompositorService {
         let edge = sobel_edge(x, y);
 
         if (edge > uniforms.threshold) {
-          // Edge detected - keep original color with full alpha
           textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(center.rgb, 1.0));
         } else {
-          // Not an edge - make transparent
-          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(0.0, 0.0, 0.0, 0.0));
+          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(0.0));
         }
       }
     `;
 
-    const shaderModule = this.device!.createShaderModule({ code: shaderCode });
+    const module = this.device!.createShaderModule({ code: shaderCode });
     this.edgePipeline = this.device!.createComputePipeline({
       layout: 'auto',
-      compute: { module: shaderModule, entryPoint: 'main' },
+      compute: { module, entryPoint: 'main' },
     });
   }
+
+  private async createBinarizePipeline(): Promise<void> {
+    const shaderCode = `
+      struct Uniforms {
+        width: u32,
+        height: u32,
+        r: f32,
+        g: f32,
+        b: f32,
+        _pad: f32,
+      }
+
+      @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+      @group(0) @binding(1) var inputTexture: texture_2d<f32>;
+      @group(0) @binding(2) var outputTexture: texture_storage_2d<rgba8unorm, write>;
+
+      @compute @workgroup_size(8, 8)
+      fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+        let x = global_id.x;
+        let y = global_id.y;
+        if (x >= uniforms.width || y >= uniforms.height) { return; }
+
+        let pixel = textureLoad(inputTexture, vec2<i32>(i32(x), i32(y)), 0);
+        if (pixel.a > 0.0) {
+          textureStore(outputTexture, vec2<i32>(i32(x), i32(y)),
+            vec4<f32>(uniforms.r, uniforms.g, uniforms.b, pixel.a));
+        } else {
+          textureStore(outputTexture, vec2<i32>(i32(x), i32(y)), vec4<f32>(0.0));
+        }
+      }
+    `;
+
+    const module = this.device!.createShaderModule({ code: shaderCode });
+    this.binarizePipeline = this.device!.createComputePipeline({
+      layout: 'auto',
+      compute: { module, entryPoint: 'main' },
+    });
+  }
+
+  // ==========================================
+  // Composite (with optional edge detection)
+  // ==========================================
 
   async compositeCanvases(
     canvases: OffscreenCanvas[],
@@ -256,55 +341,71 @@ export class WebGPUCanvasCompositorService {
       !this.outputTexture ||
       !this.stagingBuffer ||
       !this.visibilityBuffer ||
-      !this.edgeOutputTexture
+      !this.edgeOutputTexture ||
+      !this.inputTextureArray
     ) {
-      throw new Error('GPU Resources not prepared');
+      throw new Error('GPU resources not prepared');
+    }
+
+    if (canvases.length === 0) {
+      return new ImageData(width, height);
+    }
+
+    if (canvases.length > this.cachedLayerCount) {
+      throw new Error(
+        `Layer count (${canvases.length}) exceeds prepared count (${this.cachedLayerCount}). Call prepareResources first.`
+      );
     }
 
     this.isProcessing = true;
 
     try {
-      // Update visibility buffer
-      const visibilityData = new Uint32Array(visibilityFlags.map(v => (v ? 1 : 0)));
+      // Upload each canvas into its slice of the cached array texture
+      for (let i = 0; i < canvases.length; i++) {
+        this.device.queue.copyExternalImageToTexture(
+          { source: canvases[i] },
+          { texture: this.inputTextureArray, origin: { x: 0, y: 0, z: i } },
+          { width, height }
+        );
+      }
+
+      // Visibility flags (zero-pad to cachedLayerCount so stale slots aren't read)
+      const visibilityData = new Uint32Array(this.cachedLayerCount);
+      for (let i = 0; i < canvases.length; i++) {
+        visibilityData[i] = visibilityFlags[i] ? 1 : 0;
+      }
       this.device.queue.writeBuffer(this.visibilityBuffer, 0, visibilityData);
 
-      const commandEncoder = this.device.createCommandEncoder();
-      const inputTextures = await this.createTextureArray(canvases, width, height);
+      const encoder = this.device.createCommandEncoder();
 
-      // === PASS 1: Composite all layers ===
-      const compositeUniformData = new Uint32Array([width, height, canvases.length, 0]);
-      this.device.queue.writeBuffer(this.uniformBuffer!, 0, compositeUniformData);
+      // Pass 1: composite
+      const compositeUniforms = new Uint32Array([width, height, canvases.length, 0]);
+      this.device.queue.writeBuffer(this.uniformBuffer!, 0, compositeUniforms);
 
       const compositeBindGroup = this.device.createBindGroup({
         layout: this.compositePipeline!.getBindGroupLayout(0),
         entries: [
           { binding: 0, resource: { buffer: this.uniformBuffer! } },
-          { binding: 1, resource: inputTextures.createView({ dimension: '2d-array' }) },
+          { binding: 1, resource: this.inputTextureArray.createView({ dimension: '2d-array' }) },
           { binding: 2, resource: this.outputTexture.createView() },
           { binding: 3, resource: { buffer: this.visibilityBuffer } },
         ],
       });
 
-      const compositePass = commandEncoder.beginComputePass();
+      const compositePass = encoder.beginComputePass();
       compositePass.setPipeline(this.compositePipeline!);
       compositePass.setBindGroup(0, compositeBindGroup);
       compositePass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
       compositePass.end();
 
-      // Determine which texture to read from
-      let finalTexture = this.outputTexture;
+      let finalTexture: GPUTexture = this.outputTexture;
 
-      // === PASS 2: Edge detection (if enabled) ===
+      // Pass 2: edge detection
       if (edgesOnly) {
-        // Update edge uniforms
-        const edgeUniformData = new ArrayBuffer(16);
-        const edgeUniformU32 = new Uint32Array(edgeUniformData);
-        const edgeUniformF32 = new Float32Array(edgeUniformData);
-        edgeUniformU32[0] = width;
-        edgeUniformU32[1] = height;
-        edgeUniformF32[2] = edgeThreshold; // threshold
-        edgeUniformF32[3] = 1.0; // edge width (reserved for future use)
-        this.device.queue.writeBuffer(this.edgeUniformBuffer!, 0, edgeUniformData);
+        const edgeUniforms = new ArrayBuffer(16);
+        new Uint32Array(edgeUniforms, 0, 2).set([width, height]);
+        new Float32Array(edgeUniforms, 8, 2).set([edgeThreshold, 1.0]);
+        this.device.queue.writeBuffer(this.edgeUniformBuffer!, 0, edgeUniforms);
 
         const edgeBindGroup = this.device.createBindGroup({
           layout: this.edgePipeline!.getBindGroupLayout(0),
@@ -315,7 +416,7 @@ export class WebGPUCanvasCompositorService {
           ],
         });
 
-        const edgePass = commandEncoder.beginComputePass();
+        const edgePass = encoder.beginComputePass();
         edgePass.setPipeline(this.edgePipeline!);
         edgePass.setBindGroup(0, edgeBindGroup);
         edgePass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
@@ -324,30 +425,25 @@ export class WebGPUCanvasCompositorService {
         finalTexture = this.edgeOutputTexture;
       }
 
-      // === Copy result to staging buffer ===
+      // Copy result to staging
       const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
-      commandEncoder.copyTextureToBuffer(
+      encoder.copyTextureToBuffer(
         { texture: finalTexture },
         { buffer: this.stagingBuffer, bytesPerRow },
         { width, height }
       );
 
-      this.device.queue.submit([commandEncoder.finish()]);
-      await this.device.queue.onSubmittedWorkDone();
-
-      // Read back result
+      this.device.queue.submit([encoder.finish()]);
       await this.stagingBuffer.mapAsync(GPUMapMode.READ);
-      const mapped = new Uint8ClampedArray(this.stagingBuffer.getMappedRange());
 
+      const mapped = new Uint8ClampedArray(this.stagingBuffer.getMappedRange());
       const result = new ImageData(width, height);
       for (let y = 0; y < height; y++) {
         const srcOffset = y * bytesPerRow;
         const dstOffset = y * width * 4;
         result.data.set(mapped.subarray(srcOffset, srcOffset + width * 4), dstOffset);
       }
-
       this.stagingBuffer.unmap();
-      inputTextures.destroy();
 
       return result;
     } finally {
@@ -355,187 +451,99 @@ export class WebGPUCanvasCompositorService {
     }
   }
 
-  private waitForCompletion(): Promise<void> {
-    return new Promise(resolve => {
-      const check = () => {
-        if (!this.isProcessing) {
-          resolve();
-        } else {
-          requestAnimationFrame(check);
-        }
-      };
-      check();
-    });
-  }
+  // ==========================================
+  // Binarize (recolor non-transparent pixels)
+  // ==========================================
 
-  private async createTextureArray(
-    canvases: OffscreenCanvas[],
-    width: number,
-    height: number
-  ): Promise<GPUTexture> {
-    const texture = this.device!.createTexture({
-      size: { width, height, depthOrArrayLayers: canvases.length },
+  async binarizeCanvas(
+    canvas: OffscreenCanvas,
+    bbox: { x: number; y: number; width: number; height: number } | null,
+    color: string
+  ): Promise<ImageData> {
+    if (!this.device || !this.binarizePipeline) {
+      throw new Error('GPU not initialized');
+    }
+
+    const [r, g, b] = from_hex_to_rgb(color);
+    const x0 = bbox?.x ?? 0;
+    const y0 = bbox?.y ?? 0;
+    const width = bbox?.width ?? canvas.width;
+    const height = bbox?.height ?? canvas.height;
+
+    const inputTexture = this.device.createTexture({
+      size: [width, height],
       format: 'rgba8unorm',
-      usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
 
-    for (let i = 0; i < canvases.length; i++) {
-      this.device!.queue.copyExternalImageToTexture(
-        { source: canvases[i] },
-        { texture, origin: { x: 0, y: 0, z: i } },
-        { width, height }
-      );
+    // GPU-side copy, no CPU readback
+    this.device.queue.copyExternalImageToTexture(
+      { source: canvas, origin: { x: x0, y: y0 } },
+      { texture: inputTexture },
+      { width, height }
+    );
+
+    const outputTexture = this.device.createTexture({
+      size: [width, height],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
+    });
+
+    const uniformBuffer = this.device.createBuffer({
+      size: 32,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    const uniformData = new ArrayBuffer(32);
+    new Uint32Array(uniformData, 0, 2).set([width, height]);
+    new Float32Array(uniformData, 8, 4).set([r / 255, g / 255, b / 255, 0]);
+    this.device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+
+    const bindGroup = this.device.createBindGroup({
+      layout: this.binarizePipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: uniformBuffer } },
+        { binding: 1, resource: inputTexture.createView() },
+        { binding: 2, resource: outputTexture.createView() },
+      ],
+    });
+
+    const encoder = this.device.createCommandEncoder();
+    const pass = encoder.beginComputePass();
+    pass.setPipeline(this.binarizePipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
+    pass.end();
+
+    const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
+    const stagingBuffer = this.device.createBuffer({
+      size: bytesPerRow * height,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+
+    encoder.copyTextureToBuffer(
+      { texture: outputTexture },
+      { buffer: stagingBuffer, bytesPerRow },
+      { width, height }
+    );
+
+    this.device.queue.submit([encoder.finish()]);
+    await stagingBuffer.mapAsync(GPUMapMode.READ);
+
+    const mapped = new Uint8ClampedArray(stagingBuffer.getMappedRange());
+    const result = new ImageData(width, height);
+    for (let y = 0; y < height; y++) {
+      const srcOffset = y * bytesPerRow;
+      const dstOffset = y * width * 4;
+      result.data.set(mapped.subarray(srcOffset, srcOffset + width * 4), dstOffset);
     }
-    return texture;
+    stagingBuffer.unmap();
+
+    inputTexture.destroy();
+    outputTexture.destroy();
+    stagingBuffer.destroy();
+    uniformBuffer.destroy();
+
+    return result;
   }
-
-  public get isInitialized(): boolean {
-    return this.initialized;
-  }
-
-  private async createBinarizePipeline(): Promise<void> {
-  const shaderCode = `
-    struct Uniforms {
-      width: u32,
-      height: u32,
-      r: f32,
-      g: f32,
-      b: f32,
-      _pad: f32,
-    }
-
-    @group(0) @binding(0) var<uniform> uniforms: Uniforms;
-    @group(0) @binding(1) var inputTexture: texture_2d<f32>;
-    @group(0) @binding(2) var outputTexture: texture_storage_2d<rgba8unorm, write>;
-
-    @compute @workgroup_size(8, 8)
-    fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-      let x = global_id.x;
-      let y = global_id.y;
-      if (x >= uniforms.width || y >= uniforms.height) { return; }
-
-      let pixel = textureLoad(inputTexture, vec2<i32>(i32(x), i32(y)), 0);
-      
-      if (pixel.a > 0.0) {
-        // Replace color, keep alpha
-        textureStore(outputTexture, vec2<i32>(i32(x), i32(y)), 
-          vec4<f32>(uniforms.r, uniforms.g, uniforms.b, pixel.a));
-      } else {
-        textureStore(outputTexture, vec2<i32>(i32(x), i32(y)), vec4<f32>(0.0));
-      }
-    }
-  `;
-
-  const shaderModule = this.device!.createShaderModule({ code: shaderCode });
-  this.binarizePipeline = this.device!.createComputePipeline({
-    layout: 'auto',
-    compute: { module: shaderModule, entryPoint: 'main' },
-  });
-}
-
-async binarizeCanvas(
-  canvas: OffscreenCanvas,
-  bbox: { x: number; y: number; width: number; height: number } | null,
-  color: string
-): Promise<ImageData> {
-  if (!this.device || !this.binarizePipeline) {
-    throw new Error('GPU not initialized');
-  }
-
-  const [r, g, b] = from_hex_to_rgb(color);
-  const width = bbox?.width ?? canvas.width;
-  const height = bbox?.height ?? canvas.height;
-
-  // Create input texture from canvas region
-  const inputTexture = this.device.createTexture({
-    size: [width, height],
-    format: 'rgba8unorm',
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-  });
-
-  // Copy canvas region to texture
-  const ctx = canvas.getContext('2d')!;
-  const imgData = ctx.getImageData(bbox?.x ?? 0, bbox?.y ?? 0, width, height);
-  this.device.queue.writeTexture(
-    { texture: inputTexture },
-    imgData.data,
-    { bytesPerRow: width * 4 },
-    { width, height }
-  );
-
-  // Output texture
-  const outputTexture = this.device.createTexture({
-    size: [width, height],
-    format: 'rgba8unorm',
-    usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
-  });
-
-  // Uniforms
-  const uniformBuffer = this.device.createBuffer({
-    size: 32, // 2 u32 + 4 f32 (padded)
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  });
-  
-  const uniformData = new ArrayBuffer(32);
-  new Uint32Array(uniformData, 0, 2).set([width, height]);
-  new Float32Array(uniformData, 8, 4).set([r / 255, g / 255, b / 255, 0]);
-  this.device.queue.writeBuffer(uniformBuffer, 0, uniformData);
-
-  // Bind group
-  const bindGroup = this.device.createBindGroup({
-    layout: this.binarizePipeline.getBindGroupLayout(0),
-    entries: [
-      { binding: 0, resource: { buffer: uniformBuffer } },
-      { binding: 1, resource: inputTexture.createView() },
-      { binding: 2, resource: outputTexture.createView() },
-    ],
-  });
-
-  // Execute
-  const commandEncoder = this.device.createCommandEncoder();
-  const passEncoder = commandEncoder.beginComputePass();
-  passEncoder.setPipeline(this.binarizePipeline);
-  passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
-  passEncoder.end();
-
-  // Read back
-  const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
-  const stagingBuffer = this.device.createBuffer({
-    size: bytesPerRow * height,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-  });
-
-  commandEncoder.copyTextureToBuffer(
-    { texture: outputTexture },
-    { buffer: stagingBuffer, bytesPerRow },
-    { width, height }
-  );
-
-  this.device.queue.submit([commandEncoder.finish()]);
-  await this.device.queue.onSubmittedWorkDone();
-
-  await stagingBuffer.mapAsync(GPUMapMode.READ);
-  const mapped = new Uint8ClampedArray(stagingBuffer.getMappedRange());
-
-  const result = new ImageData(width, height);
-  for (let y = 0; y < height; y++) {
-    const srcOffset = y * bytesPerRow;
-    const dstOffset = y * width * 4;
-    result.data.set(mapped.subarray(srcOffset, srcOffset + width * 4), dstOffset);
-  }
-
-  stagingBuffer.unmap();
-
-  // Cleanup
-  inputTexture.destroy();
-  outputTexture.destroy();
-  stagingBuffer.destroy();
-  uniformBuffer.destroy();
-
-  return result;
-}
 }

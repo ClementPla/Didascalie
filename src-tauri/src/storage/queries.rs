@@ -33,19 +33,20 @@ pub fn create_database(path: &Path) -> Result<Connection> {
     Ok(conn)
 }
 
-/// Open an existing database file
 pub fn open_database(path: &Path) -> Result<Connection> {
     if !path.exists() {
         return Err(AppError::Generic(format!("Project not found: {}", path.display())));
     }
 
-    // Open read/write but DO NOT create if missing
     let conn = Connection::open_with_flags(
-        path, 
+        path,
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX
     ).map_err(|e| AppError::Database(e))?;
 
     configure_connection(&conn)?;
+
+    conn.execute_batch(super::schema::SCHEMA)
+        .map_err(|e| AppError::Database(e))?;
 
     Ok(conn)
 }

@@ -1,0 +1,49 @@
+<!-- registration.component.html -->
+<div class="reg-layout">
+  <app-registration-sidebar
+    [frameOptions]="frameOptions()"
+    (referenceFrameChange)="onReferenceFrameChange($event)"
+    (movingFrameChange)="onMovingFrameChange($event)"
+    (backClicked)="goBack()"
+  ></app-registration-sidebar>
+
+  <div class="reg-main">
+    <app-registration-toolbar
+      (previousClicked)="navigatePrevious()"
+      (nextClicked)="navigateNext()"
+      (saveClicked)="save()"
+      (openCompositeClicked)="openCompositeInNewWindow()"
+    ></app-registration-toolbar>
+    <div class="workspace">
+      @if (mode() === "side-by-side") {
+        <div class="split-workspace">
+          <app-viewport-pane
+            side="ref"
+            [controller]="refVP"
+            [pyramid]="refPyramid()"
+            label="Reference"
+          ></app-viewport-pane>
+          <app-viewport-pane
+            side="moving"
+            [controller]="movingVP"
+            [pyramid]="movingPyramid()"
+            [movingImageUrl]="movingImageUrl()"
+            label="Moving"
+          ></app-viewport-pane>
+        </div>
+      } @else {
+        @if (refPyramid() || movingPyramid()) {
+          <app-composite-viewport
+            [refController]="refVP"
+            [movingController]="movingVP"
+            [refPyramid]="refPyramid()"
+            [movingPyramid]="movingPyramid()"
+            [movingImageUrl]="movingImageUrl()"
+          ></app-composite-viewport>
+        } @else {
+          <div class="viewport-loading">Loading Viewport Engines...</div>
+        }
+      }
+    </div>
+  </div>
+</div>

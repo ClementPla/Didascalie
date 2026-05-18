@@ -1,0 +1,23 @@
+<div
+  class="popout-viewport-wrapper"
+  style="width: 100vw; height: 100vh; background-color: #1a1a1a"
+>
+  @if (initialized()) {
+    <app-popout-toolbar></app-popout-toolbar>
+    <app-composite-viewport
+      [refController]="popoutRefController"
+      [movingController]="popoutMovingController"
+      [refPyramid]="refPyramid()"
+      [movingPyramid]="movingPyramid()"
+      [movingImageUrl]="movingImageUrl()"
+    ></app-composite-viewport>
+  } @else {
+    <div
+      class="popout-loading-screen"
+      style="padding: 2rem; text-align: center; color: #666"
+    >
+      <h3>Syncing Viewport Session...</h3>
+      <p>Please wait while data transfers from the main window.</p>
+    </div>
+  }
+</div>

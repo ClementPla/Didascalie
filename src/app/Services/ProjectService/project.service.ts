@@ -26,6 +26,7 @@ export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
 export interface RecentProject {
   name: string;
   path: string;
+  last_opened: number;
 }
 
 // ==========================================
@@ -35,6 +36,7 @@ export interface RecentProject {
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
   // Private state
+  private readonly STORAGE_KEY = 'labelmed_recent_projects';
   private readonly _config = signal<ProjectConfig>(DEFAULT_PROJECT_CONFIG);
   private readonly _projectPath = signal<string | null>(null);
   private readonly _isOpen = signal(false);
@@ -42,7 +44,7 @@ export class ProjectService {
   private readonly _sequencesCount = signal(0);
   // Add to computed conveniences section
   readonly isTextDescriptionEnabled = computed(
-    () => this._config().text_description_enabled
+    () => this._config().text_description_enabled,
   );
 
   // Public readonly signals
@@ -57,15 +59,15 @@ export class ProjectService {
   readonly inputFolder = computed(() => this._config().input_folder);
   readonly isSegmentation = computed(() => this._config().segmentation_enabled);
   readonly isClassification = computed(
-    () => this._config().classification_enabled
+    () => this._config().classification_enabled,
   );
   readonly isInstanceSegmentation = computed(
-    () => this._config().instance_segmentation_enabled
+    () => this._config().instance_segmentation_enabled,
   );
   readonly inputRegex = computed(() => this._config().input_regex);
   readonly recursive = computed(() => this._config().recursive);
   readonly foldersAsSequences = computed(
-    () => this._config().folders_as_sequences
+    () => this._config().folders_as_sequences,
   );
   readonly imagesEmbedded = computed(() => this._config().images_embedded);
   // For backward compatibility in templates
@@ -150,7 +152,7 @@ export class ProjectService {
   async open(path: string): Promise<void> {
     const config = await api.openProject(path);
     this._config.set(config);
-    await this.labelService.setDefinitions(config);  // Now async
+    await this.labelService.setDefinitions(config); // Now async
     this._projectPath.set(path);
     this._isOpen.set(true);
     // Update counts
@@ -206,20 +208,30 @@ export class ProjectService {
   // Recent Projects (localStorage)
   // ==========================================
 
-  private readonly STORAGE_KEY = 'labelmed_recent_projects';
-
   getRecentProjects(): RecentProject[] {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      const parsed = JSON.parse(stored) as Array<Partial<RecentProject>>;
+      // Migration: older entries lack `last_opened`. Fill with 0 so they sort
+      // to the bottom but don't crash any consumer.
+      return parsed
+        .filter((p) => p && p.path && p.name)
+        .map((p) => ({
+          name: p.name!,
+          path: p.path!,
+          last_opened: typeof p.last_opened === 'number' ? p.last_opened : 0,
+        }))
+        .sort((a, b) => b.last_opened - a.last_opened);
     } catch {
       return [];
     }
   }
 
   addToRecentProjects(name: string, path: string): void {
+    const now = Date.now();
     const recent = this.getRecentProjects().filter((p) => p.path !== path);
-    recent.unshift({ name, path });
+    recent.unshift({ name, path, last_opened: now });
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recent.slice(0, 10)));
   }
 
@@ -227,7 +239,6 @@ export class ProjectService {
     const recent = this.getRecentProjects().filter((p) => p.path !== path);
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recent));
   }
-
   // ==========================================
   // Validation
   // ==========================================

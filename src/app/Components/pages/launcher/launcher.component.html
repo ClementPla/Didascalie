@@ -1,0 +1,65 @@
+<!-- launcher.component.html -->
+<div class="launcher">
+  <header class="launcher-header">
+    <h1>LabelMed</h1>
+    <p class="tagline">Open a project or start a new one.</p>
+  </header>
+
+  <div class="primary-actions">
+    <p-button
+      icon="pi pi-plus"
+      label="New project"
+      size="large"
+      [disabled]="isLoading()"
+      (click)="newProject()"
+    ></p-button>
+    <p-button
+      icon="pi pi-folder-open"
+      label="Open from disk"
+      severity="secondary"
+      size="large"
+      [disabled]="isLoading()"
+      (click)="openFromDisk()"
+    ></p-button>
+  </div>
+
+  @if (recentProjects().length > 0) {
+    <section class="recent">
+      <h2>Recent</h2>
+      <ul class="recent-list">
+        @for (project of recentProjects(); track project.path) {
+          <li
+            class="recent-row"
+            (click)="openRecent(project)"
+            (keydown.enter)="openRecent(project)"
+            tabindex="0"
+          >
+            <div class="recent-info">
+              <div class="recent-name">{{ project.name }}</div>
+              <div class="recent-path" [title]="project.path">{{ formatPath(project.path) }}</div>
+            </div>
+            @if (project.last_opened) {
+              <div class="recent-time">{{ relativeTime(project.last_opened) }}</div>
+            }
+            <button
+              class="recent-remove"
+              type="button"
+              aria-label="Remove from recent"
+              (click)="removeRecent($event, project)"
+            >
+              <i class="pi pi-times"></i>
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+  } @else {
+    <section class="recent-empty">
+      <i class="pi pi-folder-open"></i>
+      <p>No recent projects yet.</p>
+      <p class="hint">Start a new project or open one from disk to begin.</p>
+    </section>
+  }
+
+  <p-toast position="bottom-left"></p-toast>
+</div>

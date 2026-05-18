@@ -2,7 +2,6 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
-// Services
 import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { ProjectService } from '../../../../../Services/ProjectService/project.service';
 import { ZoomPanService } from './zoom-pan.service';
@@ -13,29 +12,18 @@ import { UndoRedoService } from './undo-redo.service';
 import { PostProcessService } from './post-process.service';
 import { OpenCVService } from '../../../../../Services/open-cv.service';
 
-// Models & Tools
 import { Tools } from '../../../../../Core/tools';
 import { BboxLabel } from '../../../../../Core/interface';
 import { Point2D, DrawingTool, ToolContext } from '../interface';
-import {
-  PenTool,
-  EraserTool,
-  LassoTool,
-  LineTool,
-  LassoEraserTool,
-} from '../tools';
+import { PenTool, EraserTool, LassoTool, LineTool, LassoEraserTool } from '../tools';
 import { IOService } from '../../../../../Services/io.service';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class DrawService implements OnDestroy {
-  // Public streams for UI updates
   public redrawRequest = new Subject<boolean>();
   public singleDrawRequest = new Subject<OffscreenCanvasRenderingContext2D | null>();
   public previewPoints$ = new BehaviorSubject<Point2D[]>([]);
 
-  // Strategy Map
   private tools = new Map<Tools, DrawingTool>([
     [Tools.PEN, new PenTool()],
     [Tools.ERASER, new EraserTool()],
@@ -44,9 +32,7 @@ export class DrawService implements OnDestroy {
     [Tools.LASSO_ERASER, new LassoEraserTool()],
   ]);
 
-  // Cached context for current stroke - created once per stroke, not per event
   private currentToolContext: ToolContext | null = null;
-
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -70,39 +56,30 @@ export class DrawService implements OnDestroy {
   }
 
   // ==========================================
-  // Core Lifecycle (Delegation to Tools)
+  // Core lifecycle
   // ==========================================
 
   public startDraw(event: MouseEvent): void {
     this.stateService.reset();
     this.stateService.isDrawing = true;
 
-    // Initialize the points
     const coords = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updateCurrentPoint(coords);
     this.stateService.updatePreviousPoint(coords);
 
-    // Clear buffer to prepare for new stroke
     this.clearCanvas(this.canvasManagerService.bufferCtx);
-
-    // Create tool context once for the entire stroke
     this.currentToolContext = this.createToolContext();
 
     const tool = this.tools.get(this.editorService.selectedTool);
-    if (tool) {
-      tool.start(event, this.currentToolContext);
-    }
+    tool?.start(event, this.currentToolContext);
   }
 
   public draw(event: MouseEvent): void {
-    if (!this.stateService.isDrawing || !this.labelService.activeLabel) {
-      return;
-    }
+    if (!this.stateService.isDrawing || !this.labelService.activeLabel) return;
 
     const tool = this.tools.get(this.editorService.selectedTool);
     if (!tool || !this.currentToolContext) return;
 
-    // Update global state tracking (Min/Max points for bbox)
     const imageCoord = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updatePreviousPoint(this.stateService.currentPoint);
     this.stateService.updateCurrentPoint(imageCoord);
@@ -112,17 +89,13 @@ export class DrawService implements OnDestroy {
       this.stateService.recomputeCanvasSum = true;
     }
 
-    // Update context's dynamic properties
     this.currentToolContext.color = this.getFillColor();
-
-    // Delegate drawing logic to tool
     tool.draw(event, this.currentToolContext);
   }
 
   public async endDraw(event: MouseEvent): Promise<void> {
     if (!this.stateService.isDrawing) return;
 
-    // Final update for the release point
     const imageCoord = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updateCurrentPoint(imageCoord);
 
@@ -132,14 +105,12 @@ export class DrawService implements OnDestroy {
     }
 
     this.stateService.isDrawing = false;
-    this.currentToolContext = null; // Clear cached context
+    this.currentToolContext = null;
 
-    // Global Post-Processing (Service Level)
     await this.handleGlobalPostProcessing();
     this.stateService.recomputeCanvasSum = true;
-    // Finalize
+
     this.redrawRequest.next(true);
-    // Mark project as dirty after all processing is done 
     this.ioService.markDirty();
 
     if (
@@ -152,14 +123,10 @@ export class DrawService implements OnDestroy {
     await this.undoRedoService.updateUndoRedo();
   }
 
-
   // ==========================================
-  // Context Helper
+  // Context helper
   // ==========================================
 
-  /**
-   * Creates the tool context. Called once per stroke in startDraw().
-   */
   private createToolContext(): ToolContext {
     return {
       canvasManager: this.canvasManagerService,
@@ -167,7 +134,6 @@ export class DrawService implements OnDestroy {
       editorService: this.editorService,
       color: this.getFillColor(),
       getCoords: (e) => this.zoomPanService.getImageCoordinates(e),
-      // Provide swap function directly instead of circular reference
       swapMarkers: () => this.swapMarkers(),
       singleDrawRequest: (ctx) => this.singleDrawRequest.next(ctx),
       redrawRequest: () => this.redrawRequest.next(true),
@@ -176,13 +142,9 @@ export class DrawService implements OnDestroy {
   }
 
   // ==========================================
-  // Shared Actions / Utilities
+  // Shared actions
   // ==========================================
 
-  /**
-   * Swaps markers between active label and others.
-   * Note: This temporarily modifies edgesOnly state for computation.
-   */
   public swapMarkers(): void {
     const activeIndex = this.labelService.getActiveIndex();
     const ctx = this.canvasManagerService.getBufferCtx();
@@ -193,7 +155,6 @@ export class DrawService implements OnDestroy {
     ctx.globalCompositeOperation = 'source-in';
     this.stateService.recomputeCanvasSum = true;
 
-    // Compute combined canvas without edges for swap calculation
     const combinedCanvas = this.computeCombinedCanvasWithoutEdges();
 
     ctx.drawImage(
@@ -205,12 +166,9 @@ export class DrawService implements OnDestroy {
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
     ctx.globalCompositeOperation = 'source-over';
 
-    // Remove the overlapped shape from other class canvases
     this.canvasManagerService.getAllCanvasCtx().forEach((classCtx, index) => {
-      classCtx.globalCompositeOperation = index === activeIndex
-        ? 'source-over'
-        : 'destination-out';
-
+      classCtx.globalCompositeOperation =
+        index === activeIndex ? 'source-over' : 'destination-out';
       classCtx.drawImage(
         bufferCanvas,
         rect.x, rect.y, rect.width, rect.height,
@@ -222,13 +180,8 @@ export class DrawService implements OnDestroy {
     this.stateService.recomputeCanvasSum = true;
   }
 
-  /**
-   * Computes combined canvas without edges effect.
-   * Isolates the edgesOnly state mutation to a single method.
-   */
   private computeCombinedCanvasWithoutEdges(): OffscreenCanvas {
     const edgesOnly = this.editorService.edgesOnly;
-
     if (edgesOnly) {
       this.editorService.edgesOnly = false;
       this.canvasManagerService.computeCombinedCanvas();
@@ -236,7 +189,6 @@ export class DrawService implements OnDestroy {
     } else {
       this.canvasManagerService.computeCombinedCanvas();
     }
-
     return this.canvasManagerService.getCombinedCanvas();
   }
 
@@ -249,10 +201,6 @@ export class DrawService implements OnDestroy {
     }
   }
 
-  /**
-   * Gets the fill color for the current label/instance.
-   * Returns a fallback color if no active label is set.
-   */
   public getFillColor(): string {
     if (this.projectService.isInstanceSegmentation()) {
       return this.labelService.activeSegInstance?.shade ?? '#ffffff';
@@ -266,11 +214,6 @@ export class DrawService implements OnDestroy {
     ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
   }
 
-  /**
-   * Refreshes the color of a canvas layer.
-   * @param inputCtx - Optional specific context to refresh. Uses active context if not provided.
-   * @param inputColor - Optional color override. Uses active label color if not provided.
-   */
   public refreshColor(
     inputCtx: OffscreenCanvasRenderingContext2D | null = null,
     inputColor: string | null = null
@@ -297,20 +240,13 @@ export class DrawService implements OnDestroy {
   public refreshAllColors(): void {
     this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
       const label = this.labelService.listSegmentationLabels[index];
-      if (label) {
-        this.refreshColor(ctx, label.color);
-      }
+      if (label) this.refreshColor(ctx, label.color);
     });
   }
 
-  public wheel(event: WheelEvent): void {
-    if (event.ctrlKey) {
-      const delta = event.deltaY > 0 ? -2 : 2;
-      this.editorService.lineWidth += delta;
-    } else {
-      this.zoomPanService.wheel(event);
-    }
-  }
+  // ==========================================
+  // Subscriptions
+  // ==========================================
 
   private initializeSubscriptions(): void {
     this.editorService.canvasSumRefresh
@@ -341,31 +277,23 @@ export class DrawService implements OnDestroy {
       });
   }
 
-  /**
-   * Erases a connected component by bounding box click.
-   * This is an action utility, not a drawing tool.
-   */
+  // ==========================================
+  // Bbox actions
+  // ==========================================
+
   public eraseOnBboxClick(bbox: BboxLabel): void {
     const id = bbox.instance;
     const isCombined = this.editorService.labelledCombinedBoundingBox;
-
-    // Get the source canvas for mask detection
-    const sourceCtx = isCombined
-      ? this.getCombinedCtxWithoutEdges()
-      : null;
+    const sourceCtx = isCombined ? this.getCombinedCtxWithoutEdges() : null;
 
     this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
-      // Skip non-matching labels when not using combined mode
       if (!isCombined) {
         const label = this.labelService.listSegmentationLabels[index];
         if (label?.label !== bbox.label.label) return;
       }
 
       const maskSource = isCombined ? sourceCtx! : ctx;
-      const maskCanvas = this.openCVService.getMaskOfConnectedComponentsById(
-        maskSource,
-        id
-      );
+      const maskCanvas = this.openCVService.getMaskOfConnectedComponentsById(maskSource, id);
 
       ctx.globalCompositeOperation = 'destination-out';
       ctx.drawImage(
@@ -381,9 +309,6 @@ export class DrawService implements OnDestroy {
     this.redrawRequest.next(true);
   }
 
-  /**
-   * Gets combined context, temporarily disabling edges if needed.
-   */
   private getCombinedCtxWithoutEdges(): OffscreenCanvasRenderingContext2D {
     if (this.editorService.edgesOnly) {
       this.editorService.edgesOnly = false;

@@ -1,39 +1,34 @@
 import { Injectable } from '@angular/core';
-import { auditTime, BehaviorSubject, merge, Subject } from 'rxjs';
+import { auditTime, BehaviorSubject, merge, Subject, animationFrameScheduler } from 'rxjs';
 
-// Services
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
-import { ImageProcessingService } from './image-processing.service';
+import { ImageAdjustmentService } from './image-adjustment/image-adjustment.service';
 import { UndoRedoService } from './undo-redo.service';
 import { PostProcessService } from './post-process.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { DrawService } from './draw.service';
-import { animationFrameScheduler } from 'rxjs';
 import { EditorService } from '../../services/editor.service';
+import { Point2D } from '../interface';
 
 export interface ViewTransform {
   scale: number;
-  offset: { x: number; y: number };
+  offset: Point2D;
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class OrchestratorService {
-  // State signals
   private isReadySubject = new BehaviorSubject<boolean>(false);
   public isReady$ = this.isReadySubject.asObservable();
 
-  // Unified redraw request - component subscribes to this single stream
+  /** Single redraw stream the component subscribes to. */
   public redrawRequest = new Subject<void>();
 
-  // Expose the loaded image for the component to draw
   private loadedImage: HTMLImageElement | null = null;
 
   constructor(
     private state: StateManagerService,
-    private imageProc: ImageProcessingService,
+    private imageProc: ImageAdjustmentService,
     private canvasManager: CanvasManagerService,
     private undoRedo: UndoRedoService,
     private postProcess: PostProcessService,
@@ -44,10 +39,10 @@ export class OrchestratorService {
     this.initializeRedrawAggregation();
   }
 
-  /**
-   * Aggregates all redraw requests into a single stream.
-   * The component only needs to subscribe to one observable.
-   */
+  // ==========================================
+  // Redraw aggregation
+  // ==========================================
+
   private initializeRedrawAggregation() {
     this.canvasManager.requestRedraw
       .pipe(auditTime(0, animationFrameScheduler))
@@ -68,47 +63,47 @@ export class OrchestratorService {
         if (value) this.redrawRequest.next();
       });
   }
+
   public requestRedraw() {
     this.redrawRequest.next();
   }
+
   public requestRedrawAllCanvas() {
     this.state.recomputeCanvasSum = true;
     this.requestRedraw();
   }
 
-  /**
-   * Single entry point for loading a new image.
-   */
+  // ==========================================
+  // Image lifecycle
+  // ==========================================
+
   public async loadImage(imgSrc: string): Promise<HTMLImageElement> {
     this.isReadySubject.next(false);
     try {
       const img = await this.preloadImage(imgSrc);
       this.loadedImage = img;
 
-      // 1. Sync dimensions across all services
       this.state.setWidthAndHeight(img.width, img.height);
       await this.canvasManager.updateCanvasesDimensions();
 
-      // 2. Initialize internal states
       this.imageProc.setImage(img);
       this.postProcess.featuresExtracted = false;
       this.state.recomputeCanvasSum = true;
 
-      // 3. Reset view
+      // Smooth pan/zoom only for smaller images; large ones tear.
       const maxDim = Math.max(img.width, img.height);
       this.zoomPan.smooth = maxDim < 2048;
 
-      // 4. Clear history (but don't capture yet - annotations not loaded)
       this.resetHistory();
 
       this.isReadySubject.next(true);
       this.redrawRequest.next();
-      // Reset Zoom And Pan after 200ms to ensure proper centering
-      setTimeout(() => {
-        if (this.editorService.resetZoomAfterNavigation) {
-          this.zoomPan.resetZoomAndPan(true, true);
-        }
-      }, 200);
+
+      if (this.editorService.resetZoomAfterNavigation) {
+        // Wait for the component's ResizeObserver to have pushed a viewport
+        // size at least once before fitting. One rAF is enough.
+        requestAnimationFrame(() => this.zoomPan.resetZoomAndPan(true, true));
+      }
 
       return img;
     } catch (e) {
@@ -116,14 +111,11 @@ export class OrchestratorService {
       throw e;
     }
   }
+
   public resetHistory(): void {
     this.undoRedo.empty();
   }
 
-  /**
-   * Capture initial undo/redo state after annotations are loaded.
-   * Must be called after loadImage() and after annotations are loaded into canvases.
-   */
   public async captureInitialHistory(): Promise<void> {
     await this.undoRedo.captureInitialStates();
   }
@@ -138,37 +130,21 @@ export class OrchestratorService {
   }
 
   // ==========================================
-  // Delegated Getters (Facade Pattern)
+  // Facade getters
   // ==========================================
 
-  public get width(): number {
-    return this.state.width;
-  }
-
-  public get height(): number {
-    return this.state.height;
-  }
-
-  public get image(): HTMLImageElement | null {
-    return this.loadedImage;
-  }
+  public get width(): number { return this.state.width; }
+  public get height(): number { return this.state.height; }
+  public get image(): HTMLImageElement | null { return this.loadedImage; }
 
   public getViewTransform(): ViewTransform {
-    return {
-      scale: this.zoomPan.getScale(),
-      offset: this.zoomPan.getOffset(),
-    };
+    return { scale: this.zoomPan.getScale(), offset: this.zoomPan.getOffset() };
   }
 
-  public getViewBox() {
-    return this.zoomPan.getViewBox();
-  }
+  public getViewBox()    { return this.zoomPan.getViewBox(); }
+  public getSVGViewBox() { return this.zoomPan.getSVGViewBox(); }
 
-  public getSVGViewBox() {
-    return this.zoomPan.getSVGViewBox();
-  }
-
-  public getProcessedImage(): HTMLCanvasElement | OffscreenCanvas {
+  public getProcessedImage(): HTMLCanvasElement | OffscreenCanvas | null {
     return this.imageProc.getCurrentCanvas();
   }
 
@@ -179,9 +155,9 @@ export class OrchestratorService {
     }
     return this.canvasManager.getCombinedCanvas();
   }
-  
+
   // ==========================================
-  // Canvas Operations
+  // Canvas operations
   // ==========================================
 
   public loadCanvas(data: string, index: number) {
@@ -201,11 +177,27 @@ export class OrchestratorService {
   }
 
   // ==========================================
-  // View Controls
+  // View controls
   // ==========================================
 
+  /** Element used for client→viewport coordinate conversion. */
+  public setViewportRef(el: HTMLElement) {
+    this.zoomPan.setViewportRef(el);
+  }
+
+  /** Pushed from the component's ResizeObserver. */
+  public setViewportSize(width: number, height: number) {
+    this.zoomPan.setViewportSize(width, height);
+  }
+
+  /** Apply the view transform to a display canvas context (DPR-aware). */
+  public applyViewTransform(ctx: CanvasRenderingContext2D, dpr: number) {
+    this.zoomPan.applyViewTransform(ctx, dpr);
+  }
+
+  /** @deprecated Use setViewportRef. */
   public setCanvasContext(canvas: HTMLCanvasElement) {
-    this.zoomPan.setContext(canvas);
+    this.zoomPan.setViewportRef(canvas);
   }
 
   public resetView(resetZoom: boolean, resetPan: boolean) {

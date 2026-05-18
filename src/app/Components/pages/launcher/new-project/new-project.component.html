@@ -1,0 +1,130 @@
+<!-- new-project.component.html -->
+<div class="page">
+  <header class="page-header">
+    <p-button
+      icon="pi pi-arrow-left"
+      severity="secondary"
+      [text]="true"
+      label="Back"
+      (click)="goBack()"
+    ></p-button>
+    <h1>New project</h1>
+  </header>
+
+  <div class="sections">
+
+    <!-- Project section -->
+    <p-fieldset legend="Project" [toggleable]="true" class="section-project">
+      <div class="field-stack">
+        <p-floatLabel>
+          <input
+            pInputText
+            id="projectName"
+            class="w-full"
+            [class.ng-invalid.ng-dirty]="nameError()"
+            [(ngModel)]="projectName"
+          />
+          <label for="projectName">Name</label>
+        </p-floatLabel>
+
+        <div class="save-row">
+          <div class="save-label">Save as</div>
+          <div class="save-path-wrap" [class.error]="savePathError()">
+            @if (savePath(); as p) {
+              <span class="save-path-text" [title]="p">{{ savePathDisplay() }}</span>
+            } @else {
+              <span class="save-path-placeholder">Not chosen yet</span>
+            }
+          </div>
+          <p-button
+            icon="pi pi-folder"
+            label="Browse..."
+            size="small"
+            severity="secondary"
+            (click)="chooseSavePath()"
+          ></p-button>
+        </div>
+
+        <app-labelled-switch [(checked)]="imagesEmbedded">
+          Embed images in project file
+        </app-labelled-switch>
+      </div>
+    </p-fieldset>
+
+    <!-- Input section -->
+    <p-fieldset legend="Input data" [toggleable]="true" class="section-input">
+      <div class="field-stack">
+        <app-folder-drop-zone
+          [folderPath]="inputFolder || null"
+          [compact]="!!inputFolder"
+          (folderChange)="onFolderChange($event)"
+        ></app-folder-drop-zone>
+
+        <div class="input-options">
+          <p-floatLabel class="flex-1">
+            <input
+              pInputText
+              id="inputRegex"
+              class="w-full"
+              [(ngModel)]="inputRegex"
+            />
+            <label for="inputRegex">Filename pattern (regex)</label>
+          </p-floatLabel>
+
+          <app-labelled-switch [(checked)]="recursive">
+            Recursive
+          </app-labelled-switch>
+          <app-labelled-switch [(checked)]="foldersAsSequences">
+            Folders as sequences
+          </app-labelled-switch>
+        </div>
+
+        @if (projectService.isOpen()) {
+          <small class="scan-summary">
+            {{ projectService.framesCount() }} images in {{ projectService.sequencesCount() }} sequences
+          </small>
+        }
+      </div>
+    </p-fieldset>
+
+    <!-- Task section -->
+    <p-fieldset legend="Task" [toggleable]="true" class="section-task">
+      <div class="task-switches">
+        <app-labelled-switch [(checked)]="classificationEnabled">
+          Classification
+        </app-labelled-switch>
+        <app-labelled-switch [(checked)]="segmentationEnabled">
+          Segmentation
+        </app-labelled-switch>
+        <app-labelled-switch [(checked)]="instanceSegmentationEnabled">
+          Instance segmentation
+        </app-labelled-switch>
+      </div>
+
+      @if (classificationEnabled) {
+        <p-divider align="left"><b>Classification</b></p-divider>
+        <app-classification-configuration></app-classification-configuration>
+      }
+
+      @if (segmentationEnabled || instanceSegmentationEnabled) {
+        <p-divider align="left"><b>Pixel-level</b></p-divider>
+        <app-pixels-configuration></app-pixels-configuration>
+      }
+    </p-fieldset>
+  </div>
+
+  <footer class="page-footer">
+    @if (isLoading()) {
+      <p-progressbar mode="indeterminate" class="footer-progress"></p-progressbar>
+    }
+    <p-button
+      label="Start project"
+      icon="pi pi-arrow-right"
+      iconPos="right"
+      [disabled]="!canStart()"
+      (click)="startProject()"
+    ></p-button>
+  </footer>
+
+  <p-toast position="bottom-left"></p-toast>
+</div>

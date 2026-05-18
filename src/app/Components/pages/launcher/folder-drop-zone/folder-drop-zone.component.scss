@@ -1,0 +1,111 @@
+// folder-drop-zone.component.scss
+:host {
+  display: block;
+  border: 2px dashed var(--surface-border, rgba(255, 255, 255, 0.15));
+  border-radius: 10px;
+  padding: 1.5rem;
+  background: var(--surface-section, rgba(255, 255, 255, 0.02));
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+
+  &.is-hovering {
+    border-color: var(--primary-color, #4c8df6);
+    background: rgba(76, 141, 246, 0.08);
+  }
+
+  &.is-compact {
+    padding: 0.85rem 1rem;
+  }
+
+  &.has-folder {
+    border-style: solid;
+    border-color: var(--surface-border, rgba(255, 255, 255, 0.1));
+  }
+}
+
+.drop-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  color: var(--text-color-secondary, #aaa);
+  pointer-events: none; // pass drags through to the host
+  > * {
+    pointer-events: auto;
+  } // but let the button work
+}
+
+.empty-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+.empty-title {
+  font-weight: 500;
+}
+.empty-or {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.folder-display {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--surface-card, #1d2026);
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  min-width: 0; // ← lets children shrink below intrinsic size
+  width: 100%; // ← claim only the row, no more
+
+  i.pi-folder {
+    color: var(--primary-color, #4c8df6);
+    flex-shrink: 0;
+  }
+}
+.folder-path {
+  flex: 1 1 0;
+  min-width: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.clear-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-color-secondary, #888);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+
+  &:hover {
+    color: var(--red-400, #e35d6a);
+  }
+}
+
+.drop-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary, #888);
+  justify-content: center;
+
+  i {
+    opacity: 0.5;
+  }
+}

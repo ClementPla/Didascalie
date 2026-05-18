@@ -1,38 +1,42 @@
-<svg #svg class="absolute min-w-[128px] pointer-events-none w-full z-50">
-  @if(formattedPoints && isLassoTool()){
-  <polygon
-    class="animatedPath"
-    [attr.points]="formattedPoints"
-    [attr.fill]="labelService.activeLabel?.color + '20'"
-    [attr.stroke]="labelService.activeLabel?.color"
-    [style]="getPolygonStyle()"
-    [attr.stroke-linecap]="'round'"
-  />
+<svg
+  #svg
+  class="absolute h-full inset-0 pointer-events-none w-full"
+  preserveAspectRatio="none"
+>
+  @if (formattedPoints && isLassoTool()) {
+    <polygon
+      class="animatedPath"
+      [attr.points]="formattedPoints"
+      [attr.fill]="labelService.activeLabel?.color + '20'"
+      [attr.stroke]="labelService.activeLabel?.color"
+      [style]="getPolygonStyle()"
+      [attr.stroke-linecap]="'round'"
+      [attr.vector-effect]="'non-scaling-stroke'"
+    />
+  } @else if (formattedPoints && isLineTool()) {
+    <polyline
+      class="animatedPath"
+      [attr.points]="formattedPoints"
+      fill="none"
+      [attr.stroke]="labelService.activeLabel?.color"
+      [style]="getPolygonStyle()"
+      [attr.stroke-linecap]="'round'"
+    />
   }
-  @else if(formattedPoints && isLineTool()){
-  <polyline
-    class="animatedPath"
-    [attr.points]="formattedPoints"
-    [attr.fill]="'none'"
-    [attr.stroke]="labelService.activeLabel?.color"
-    [style]="getPolygonStyle()"
-    [attr.stroke-linecap]="'round'"
-  />
-  }
-
-  @for(rectLabel of bboxManager.listBbox; track rectLabel.instance){
-  <rect
-    class="bbox"
-    [ngClass]="{ 'cursor-pointer': isBboxClickable() }"
-    [attr.x]="rectLabel.bbox.x"
-    [attr.y]="rectLabel.bbox.y"
-    [attr.width]="rectLabel.bbox.width"
-    [attr.height]="rectLabel.bbox.height"
-    [attr.fill]="rectLabel.label.color + getBboxOpacityAsString()"
-    [attr.stroke]="rectLabel.label.color"
-    [attr.stroke-width]="2"
-    [attr.pointer-events]="this.isBboxClickable() ? 'fill' : 'none'"
-    (mousedown)="boundingBoxClick($event, rectLabel)"
-  ></rect>
+  @for (rectLabel of bboxManager.listBbox; track rectLabel.instance) {
+    <rect
+      class="bbox"
+      [ngClass]="{ 'cursor-pointer': isBboxClickable() }"
+      [attr.x]="rectLabel.bbox.x"
+      [attr.y]="rectLabel.bbox.y"
+      [attr.width]="rectLabel.bbox.width"
+      [attr.height]="rectLabel.bbox.height"
+      [attr.fill]="rectLabel.label.color + getBboxOpacityAsString()"
+      [attr.stroke]="rectLabel.label.color"
+      [attr.stroke-width]="2"
+      [attr.vector-effect]="'non-scaling-stroke'"
+      [attr.pointer-events]="isBboxClickable() ? 'fill' : 'none'"
+      (mousedown)="boundingBoxClick($event, rectLabel)"
+    ></rect>
   }
 </svg>
