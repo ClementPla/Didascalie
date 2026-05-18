@@ -1,13 +1,23 @@
-import { Component, OnInit, OnDestroy, signal, inject, Input } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  signal,
+  inject,
+  Input,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { listen, emitTo, UnlistenFn } from '@tauri-apps/api/event';
 import { CompositeViewportComponent } from '../composite-viewport/composite-viewport.component';
 import { ViewportController } from '../../viewport-controller';
-import { RegistrationStateService, VisualizationMode } from '../../registration-state.service';
+import {
+  RegistrationStateService,
+  VisualizationMode,
+} from '../../registration-state.service';
 import { Pyramid, PyramidService } from '../../pyramid.service';
 import { FrameLoaderService } from '../../frame-loader.service';
-import { ButtonModule } from "primeng/button";
-import { PopoutToolbarComponent } from "./popout-toolbar/popout-toolbar.component";
+import { ButtonModule } from 'primeng/button';
+import { PopoutToolbarComponent } from './popout-toolbar/popout-toolbar.component';
 interface ModeOption {
   label: string;
   value: VisualizationMode;
@@ -17,7 +27,12 @@ interface ModeOption {
 @Component({
   selector: 'app-composite-popout',
   standalone: true,
-  imports: [CommonModule, CompositeViewportComponent, ButtonModule, PopoutToolbarComponent],
+  imports: [
+    CommonModule,
+    CompositeViewportComponent,
+    ButtonModule,
+    PopoutToolbarComponent,
+  ],
   providers: [RegistrationStateService],
   templateUrl: './popout-composite-viewport.component.html',
 })
@@ -34,7 +49,8 @@ export class CompositePopoutComponent implements OnInit, OnDestroy {
   private readonly state = inject(RegistrationStateService);
   private readonly pyramidSvc = inject(PyramidService);
   private readonly frameLoader = inject(FrameLoaderService);
-  @Input() availableModes: VisualizationMode[] = ['side-by-side', 'overlay', 'checkerboard'];
+  private syncStateRequestId = 0;
+ 
   readonly modeOptions: ModeOption[] = [
     { label: 'Side by side', value: 'side-by-side', icon: 'pi pi-table' },
     { label: 'Overlay', value: 'overlay', icon: 'pi pi-clone' },
@@ -42,12 +58,9 @@ export class CompositePopoutComponent implements OnInit, OnDestroy {
   ];
 
   async ngOnInit() {
-    // 1. Establish the main data initializer listener immediately
     const initUnlisten = await listen<any>(
       'init-viewport-data',
       async (event) => {
-        console.log('[Popout] received init:', event.payload);
-        console.log('[Popout] pairs in payload:', event.payload.pairs?.length);
         const payload = event.payload;
 
         this.state.startSession(
@@ -67,20 +80,18 @@ export class CompositePopoutComponent implements OnInit, OnDestroy {
           this.applyTransforms(payload.scale, payload.offset);
         }
         this.state.setMode('overlay');
-        this.movingImageUrl.set(payload.movingImageUrl);
 
         this.initialized.set(true);
       },
     );
-    this.tauriUnlisteners.push(initUnlisten);
     this.tauriUnlisteners.push(initUnlisten);
 
     const stateUnlisten = await listen<any>(
       'sync-state-data',
       async (event) => {
         const payload = event.payload;
+        const myRequestId = ++this.syncStateRequestId;
 
-        // If the frame ids changed, reload pyramids and update state session.
         const currentRefId = this.state.referenceFrameId();
         const currentMovId = this.state.movingFrameId();
         const frameChanged =
@@ -95,9 +106,17 @@ export class CompositePopoutComponent implements OnInit, OnDestroy {
           );
           this.movingImageUrl.set(payload.movingImageUrl);
           await this.loadPyramidsForCurrentFrames();
+          if (myRequestId !== this.syncStateRequestId) return;
+        } else if (
+          payload.movingImageUrl &&
+          payload.movingImageUrl !== this.movingImageUrl()
+        ) {
+          // Same frames, but URL refreshed (e.g., re-encoded image).
+          this.movingImageUrl.set(payload.movingImageUrl);
         }
 
         if (payload.pairs) {
+          if (myRequestId !== this.syncStateRequestId) return;
           this.state.loadPairs(payload.pairs);
         }
       },

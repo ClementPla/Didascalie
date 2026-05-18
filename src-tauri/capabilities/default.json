@@ -2,16 +2,14 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": [
-    "main",
-    "composite-view"
-  ],
+  "windows": ["main", "composite-view"],
   "permissions": [
     "core:default",
     "dialog:default",
     "fs:default",
     "core:path:allow-is-absolute",
     "core:path:allow-resolve",
-    "core:webview:allow-create-webview-window"
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-set-always-on-top"
   ]
 }
