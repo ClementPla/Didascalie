@@ -1,0 +1,147 @@
+<!-- registration-sidebar.component.html -->
+<aside class="reg-sidebar">
+  <!-- Frame pickers -->
+  <div class="sidebar-section">
+    <h3>Frames</h3>
+
+    <label for="ref-frame-select" class="frame-label">Reference</label>
+    <select
+      id="ref-frame-select"
+      class="frame-select"
+      [(ngModel)]="selectedReferenceFrameId"
+    >
+      @for (f of frameOptions; track f.id) {
+        <option [value]="f.id">{{ f.label }}</option>
+      }
+    </select>
+
+    <label for="moving-frame-select" class="frame-label">Moving</label>
+    <select
+      id="moving-frame-select"
+      class="frame-select"
+      [(ngModel)]="selectedMovingFrameId"
+    >
+      @for (f of frameOptions; track f.id) {
+        <option [value]="f.id">{{ f.label }}</option>
+      }
+    </select>
+  </div>
+
+  <p-divider></p-divider>
+
+  <!-- Pairs -->
+  <div class="pairs-section sidebar-section">
+    <div class="pairs-header">
+      <h3>
+        Pairs
+        <p-tag [value]="pairCount().toString()" severity="secondary"></p-tag>
+      </h3>
+      @if (pairCount() > 0) {
+        <p-button
+          icon="pi pi-trash"
+          size="small"
+          severity="danger"
+          [text]="true"
+          pTooltip="Clear all pairs"
+          tooltipPosition="top"
+          (click)="state.clearPairs()"
+        ></p-button>
+      }
+    </div>
+
+    @if (isAwaiting()) {
+      <div class="awaiting placement-hint">
+        <i class="pi pi-map-marker"></i>
+        Click on the <strong>moving</strong> image to place the matching point.
+        <p-button
+          size="small"
+          severity="secondary"
+          [text]="true"
+          label="Cancel (Esc)"
+          (click)="state.cancelPlacement()"
+        ></p-button>
+      </div>
+    } @else if (framesReady()) {
+      <div class="placement-hint">
+        <i class="pi pi-info-circle"></i>
+        Click on the <strong>reference</strong> image to begin a pair.
+      </div>
+    }
+
+    <ul class="pair-list">
+      @for (pair of pairs(); track pair.id; let i = $index) {
+        <li
+          class="pair-row"
+          [class.hovered]="hoveredPairId() === pair.id"
+          (mouseenter)="setHovered(pair.id)"
+          (mouseleave)="setHovered(null)"
+        >
+          <span class="pair-dot" [style.background]="colorForIndex(i)"></span>
+          <span class="pair-idx">{{ i + 1 }}</span>
+          <span class="pair-coords">
+            ({{ pair.ref.x | number: "1.0-0" }},
+            {{ pair.ref.y | number: "1.0-0" }}) → ({{
+              pair.moving.x | number: "1.0-0"
+            }}, {{ pair.moving.y | number: "1.0-0" }})
+          </span>
+          @if (fitSummary()) {
+            <span
+              class="pair-error"
+              [style.color]="residualColor(pair.id)"
+              [pTooltip]="
+                'Residual: ' +
+                (residualForPair(pair.id) | number: '1.1-1') +
+                ' px'
+              "
+              tooltipPosition="top"
+            >
+              {{ residualForPair(pair.id) | number: "1.1-1" }}
+            </span>
+          }
+          <p-button
+            icon="pi pi-times"
+            size="small"
+            severity="danger"
+            [text]="true"
+            (click)="state.deletePair(pair.id)"
+          ></p-button>
+        </li>
+      }
+    </ul>
+  </div>
+
+  <p-divider></p-divider>
+
+  <!-- Fit summary -->
+  @if (fitSummary(); as s) {
+    <div class="sidebar-section">
+      <h3>Fit</h3>
+      <div class="fit-stat">
+        <span class="fit-label">RMSE</span>
+        <span class="fit-value">{{ s.rmse | number: "1.2-2" }} px</span>
+      </div>
+      <div class="fit-stat">
+        <span class="fit-label">Max error</span>
+        <span class="fit-value">{{ s.maxError | number: "1.2-2" }} px</span>
+      </div>
+    </div>
+  }@else if (framesReady() && !canFit()) {
+  <div class="sidebar-section">
+    <p class="hint-text">
+      Place {{ pairsNeeded() }} more
+      {{ pairsNeeded() === 1 ? 'pair' : 'pairs' }} to fit a homography.
+    </p>
+  </div>
+}
+
+  <div class="sidebar-footer">
+    <p-button
+      icon="pi pi-arrow-left"
+      label="Back to gallery"
+      severity="secondary"
+      [text]="true"
+      size="small"
+      (click)="backClicked.emit()"
+    ></p-button>
+  </div>
+</aside>

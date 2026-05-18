@@ -24,7 +24,7 @@ import { ProgressBarModule } from 'primeng/progressbar';
 
 // Components
 import { DrawableCanvasComponent } from './drawable-canvas/component/drawable-canvas.component';
-import { ToolbarComponent } from './toolbar/toolbar.component';
+import { EditorToolbarComponent } from './editor-toolbar/editor-toolbar.component';
 import { LabelsComponent } from './labels/labels.component';
 import { ToolSettingComponent } from './tool-setting/tool-setting.component';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
@@ -65,7 +65,7 @@ import { Tools } from '../../../Core/tools';
     DialogModule,
     ProgressBarModule,
     DrawableCanvasComponent,
-    ToolbarComponent,
+    EditorToolbarComponent,
     LabelsComponent,
     ToolSettingComponent,
     MultiFramesOptionsComponent,

@@ -1,0 +1,152 @@
+<div
+  #host
+  class="viewport-pane"
+  [style.cursor]="cursorStyle()"
+  (mousedown)="onMouseDown($event)"
+  (mousemove)="onMouseMove($event)"
+  (mouseup)="onMouseUp()"
+  (mouseleave)="onMouseLeave()"
+  (wheel)="onWheel($event)"
+>
+  <canvas #canvas class="display-canvas"></canvas>
+
+  @if (showWarpedImg()) {
+    <img
+      class="warped-moving-overlay"
+      [src]="movingImageUrl!"
+      [style.width.px]="movingNativeWidth"
+      [style.height.px]="movingNativeHeight"
+      [style.transform]="warpedTransform()!"
+      alt=""
+      draggable="false"
+    />
+  }
+
+  <svg #svg class="interaction-svg" preserveAspectRatio="none">
+    @for (pair of pairs(); track pair.id; let i = $index) {
+      @let point = pointFor(pair);
+      @let isHovered = hoveredPairId() === pair.id;
+      @let isOther = hoveredPairId() !== null && hoveredPairId() !== pair.id;
+      <g
+        class="marker-group"
+        [class.hovered]="isHovered"
+        [class.dimmed]="isOther"
+      >
+        <circle
+          [attr.cx]="point.x"
+          [attr.cy]="point.y"
+          [attr.r]="isHovered ? 9 : 6"
+          [attr.fill]="colorForIndex(i)"
+          stroke="white"
+          [attr.stroke-width]="isHovered ? 3 : 1.5"
+          vector-effect="non-scaling-stroke"
+        ></circle>
+        <text
+          [attr.x]="point.x + 10"
+          [attr.y]="point.y - 10"
+          [attr.fill]="colorForIndex(i)"
+          class="pair-label"
+        >
+          {{ i + 1 }}
+        </text>
+      </g>
+    }
+
+    @if (showPendingRef) {
+      @let pending = pendingRef()!;
+      <g class="marker-group pending">
+        <circle
+          [attr.cx]="pending.x"
+          [attr.cy]="pending.y"
+          r="6"
+          fill="#00ffff"
+          stroke="white"
+          stroke-width="1.5"
+          vector-effect="non-scaling-stroke"
+        >
+          <animate
+            attributeName="opacity"
+            values="0.4;1;0.4"
+            dur="2s"
+            repeatCount="indefinite"
+          />
+        </circle>
+      </g>
+    }
+    @if (showPendingMoving) {
+      @let pending = pendingMoving()!;
+      <g class="marker-group pending">
+        <circle
+          [attr.cx]="pending.x"
+          [attr.cy]="pending.y"
+          r="6"
+          fill="#00ffff"
+          stroke="white"
+          stroke-width="1.5"
+          vector-effect="non-scaling-stroke"
+        >
+          <animate
+            attributeName="opacity"
+            values="0.4;1;0.4"
+            dur="2s"
+            repeatCount="indefinite"
+          />
+        </circle>
+      </g>
+    }
+
+    @if (showPredictedRef) {
+      @let pred = predictedRef()!;
+      <g class="marker-group predictive-guide">
+        <circle
+          [attr.cx]="pred.x"
+          [attr.cy]="pred.y"
+          r="10"
+          fill="none"
+          stroke="#00ffff"
+          stroke-width="1.5"
+          stroke-dasharray="3,3"
+          vector-effect="non-scaling-stroke"
+        ></circle>
+        <circle
+          [attr.cx]="pred.x"
+          [attr.cy]="pred.y"
+          r="3"
+          fill="#00ffff"
+        ></circle>
+      </g>
+    }
+
+    @if (showPredictedMoving) {
+      @let pred = predictedMoving()!;
+      <g class="marker-group predictive-guide">
+        <circle
+          [attr.cx]="pred.x"
+          [attr.cy]="pred.y"
+          r="10"
+          fill="none"
+          stroke="#00ffff"
+          stroke-width="1.5"
+          stroke-dasharray="3,3"
+          vector-effect="non-scaling-stroke"
+        ></circle>
+        <circle
+          [attr.cx]="pred.x"
+          [attr.cy]="pred.y"
+          r="3"
+          fill="#00ffff"
+        ></circle>
+      </g>
+    }
+  </svg>
+  @if (warpedDiagnostic(); as reason) {
+    <div class="diagnostic-warning">
+      <i class="pi pi-exclamation-triangle"></i>
+      Cannot render warp: {{ reason }}
+    </div>
+  }
+
+  @if (label) {
+    <div class="pane-tag">{{ label }}</div>
+  }
+</div>

@@ -2,9 +2,8 @@ import { Injectable, input } from '@angular/core';
 import { EditorService } from '../../services/editor.service';
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
-import { ImageProcessingService } from './image-processing.service';
+import { ImageAdjustmentService } from './image-adjustment/image-adjustment.service';
 import { invoke } from '@tauri-apps/api/core';
-import { BboxManagerService } from './bbox-manager.service';
 import {
   binarizeArray,
   colorizeArray,
@@ -23,7 +22,7 @@ export class PostProcessService {
   public featuresExtracted: boolean = false;
   constructor(
     private editorService: EditorService,
-    private imageProcessingService: ImageProcessingService,
+    private imageProcessingService: ImageAdjustmentService,
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService,
     private openCVService: OpenCVService,
@@ -52,10 +51,9 @@ export class PostProcessService {
     // Binary mask
     let currentColor = out.color;
     let binaryMask = out.data;
-
-    const imgData = this.imageProcessingService
-      .getCurrentCanvas()
-      .getContext('2d', { alpha: false })!
+    const canvas = this.imageProcessingService.getCurrentCanvas();
+    if (!canvas) return;
+    const imgData = (canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null)!
       .getImageData(
         0,
         0,
@@ -110,10 +108,11 @@ export class PostProcessService {
     const rect = this.stateService.getBoundingBox();
     let bufferCtx = this.canvasManagerService.getBufferCtx();
 
-    const imageData = this.imageProcessingService
-      .getCurrentCanvas()
-      .getContext('2d', { alpha: false })!
-      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    const canvas = this.imageProcessingService.getCurrentCanvas();
+    if (!canvas) return;
+
+    const imageData = (canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null)?.getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    if (!imageData) return;
 
     const maskData = bufferCtx.getImageData(
       rect.x,
@@ -158,10 +157,11 @@ export class PostProcessService {
       const rect = this.stateService.getBoundingBox();
       let bufferCtx = this.canvasManagerService.getBufferCtx();
 
-      const imageData = this.imageProcessingService
-        .getCurrentCanvas()
-        .getContext('2d', { alpha: false })!
-        .getImageData(rect.x, rect.y, rect.width, rect.height).data;
+      const canvas = this.imageProcessingService.getCurrentCanvas();
+      if (!canvas) return;
+
+      const imageData = (canvas.getContext('2d', { alpha: false }) as
+  CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null)!.getImageData(rect.x, rect.y, rect.width, rect.height).data;
 
       const maskData = bufferCtx.getImageData(
         rect.x,
@@ -204,11 +204,11 @@ export class PostProcessService {
   async flood_fill_post_process() {
     let rect = this.stateService.getBoundingBox();
     let bufferCtx = this.canvasManagerService.getBufferCtx();
+    const canvas = this.imageProcessingService.getCurrentCanvas();
+    if (!canvas) return;
 
-    const imageData = this.imageProcessingService
-      .getCurrentCanvas()
-      .getContext('2d', { alpha: false })!
-      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    const imageData = (canvas.getContext('2d', { alpha: false }) as
+  CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null)!.getImageData(rect.x, rect.y, rect.width, rect.height).data;
 
     const clickX = Math.floor(this.zoomPanService.currentPixel.x - rect.x);
     const clickY = Math.floor(this.zoomPanService.currentPixel.y - rect.y);
@@ -217,7 +217,6 @@ export class PostProcessService {
       return;
     }
     let rgbColor = from_hex_to_rgb(currentColor);
-    console.log(rgbColor);
     return invoke<Uint8ClampedArray>('flood_fill_mask', {
       image: imageData.buffer,
       width: rect.width,

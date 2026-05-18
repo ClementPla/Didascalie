@@ -152,6 +152,25 @@ export interface GallerySequence {
   first_frame_id: number | null;
 }
 
+export interface KeypointPair {
+  clientUuid: string;
+  refX: number;
+  refY: number;
+  movingX: number;
+  movingY: number;
+}
+
+export interface RegistrationData {
+  referenceFrameId: number;
+  movingFrameId: number;
+  /** 9 floats for a 3x3 homography (row-major), or null if no fit yet. */
+  homography: [number, number, number,
+               number, number, number,
+               number, number, number] | null;
+  transformType: 'homography' | 'tps' | 'bspline-grid';
+  pairs: KeypointPair[];
+}
+
 
 export const api = {
   getLabels: () => invoke<LabelInfo[]>('get_labels'),
@@ -272,4 +291,15 @@ export const api = {
 
   exportAnnotations: (options: ExportOptions) =>
     invoke<ExportResult>('export_annotations', { options }),
+  saveRegistration(sequenceId: number, data: RegistrationData): Promise<void> {
+    return invoke('save_registration', { sequenceId, data });
+  },
+
+  loadRegistration(referenceFrameId: number, movingFrameId: number): Promise<RegistrationData | null> {
+    return invoke('load_registration', { referenceFrameId, movingFrameId });
+  },
+
+  deleteRegistration(referenceFrameId: number, movingFrameId: number): Promise<void> {
+    return invoke('delete_registration', { referenceFrameId, movingFrameId });
+  },
 };

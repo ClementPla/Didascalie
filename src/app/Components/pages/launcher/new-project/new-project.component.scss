@@ -1,0 +1,127 @@
+// new-project.component.scss
+:host {
+  display: block;
+  min-height: 100vh;
+  background: var(--surface-ground, #15171b);
+}
+
+.page {
+  max-width: 64rem;     // was 48rem
+  margin: 0 auto;
+  padding: 2rem 1.5rem 6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sections {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 900px) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "project input"
+      "task    task";
+  }
+}
+.section-project { grid-area: project; }
+.section-input   { grid-area: input; }
+.section-task    { grid-area: task; }
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+}
+
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 0.5rem;
+}
+
+// Save-as row
+.save-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+.save-label {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #a0a0a0);
+}
+.save-path-wrap {
+  background: var(--surface-card, #1d2026);
+  border: 1px solid var(--surface-border, rgba(255,255,255,0.08));
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  min-width: 0;
+
+  &.error { border-color: var(--red-400, #e35d6a); }
+}
+.save-path-text {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.save-path-placeholder {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #777);
+  font-style: italic;
+}
+
+// Input-data options
+.input-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  .flex-1 { flex: 1 1 14rem; }
+}
+
+.scan-summary {
+  color: var(--text-color-secondary, #888);
+  font-size: 0.8rem;
+}
+
+// Task switches
+.task-switches {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+// Footer
+.page-footer {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--surface-ground, #15171b);
+  border-top: 1px solid var(--surface-border, rgba(255,255,255,0.08));
+  margin: 0 -1.5rem -6rem;
+}
+
+.footer-progress {
+  flex: 1;
+  max-width: 200px;
+}

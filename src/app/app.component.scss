@@ -1,0 +1,28 @@
+/* app.component.scss — create the file if it doesn't exist, and reference it in the @Component decorator */
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+p-toolbar {
+  flex: 0 0 auto;
+}
+
+.route-host {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  position: relative;     /* anchor for fixed overlays the registration might use */
+}
+
+/* Angular inserts the route component as a sibling of <router-outlet> inside
+ * .route-host. Both the outlet (invisible, zero size) and the inserted
+ * component sit here. We want the inserted component to fill the column. */
+.route-host > *:not(router-outlet) {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}

@@ -1,0 +1,195 @@
+// registration-sidebar.component.scss
+
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0; // ← let the grid cell drive height
+}
+
+.reg-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0; // ← same, for the flex container
+  border-right: 1px solid var(--surface-border, rgba(255, 255, 255, 0.08));
+  background: var(--surface-ground, #15171b);
+  overflow: hidden; // ← was overflow-y: auto, now hidden
+  padding: 0.75rem 0;
+}
+
+// Make the pair list the scroll container — not the whole sidebar.
+.pairs-section {
+  flex: 1;
+  min-height: 0; // ← critical, lets flex child shrink
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // contains the inner scroll
+}
+
+// Only the list itself scrolls.
+.pair-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar-section {
+  padding: 0 0.9rem 0.75rem;
+
+  h3 {
+    margin: 0 0 0.6rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-color-secondary, #a0a0a0);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+}
+
+.frame-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary, #a0a0a0);
+  margin-bottom: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.frame-select {
+  width: 100%;
+  background: var(--surface-card, #1d2026);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid var(--surface-border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color, #4c8df6);
+  }
+}
+
+// ── Pairs ──────────────────────────────────────────────────────────────────
+
+.pairs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.placement-hint {
+  font-size: 0.78rem;
+  color: var(--text-color-secondary, #a0a0a0);
+  background: var(--surface-card, #1d2026);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  line-height: 1.4;
+
+  i {
+    opacity: 0.7;
+  }
+
+  &.awaiting {
+    border: 1px solid var(--primary-color, #4c8df6);
+    color: var(--text-color, #e0e0e0);
+  }
+}
+
+.pair-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 6px;
+  background: var(--surface-card, #1d2026);
+  font-size: 0.78rem;
+
+  transition: background 0.12s ease;
+
+  &.hovered {
+    background: var(--surface-hover, #262931);
+    outline: 1px solid var(--primary-color, #4c8df6);
+    outline-offset: -1px;
+  }
+}
+
+.pair-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pair-idx {
+  color: var(--text-color-secondary, #a0a0a0);
+  min-width: 1rem;
+  text-align: right;
+}
+
+.pair-coords {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.pair-error {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  cursor: default;
+  font-weight: 500;
+}
+
+// ── Fit stats ──────────────────────────────────────────────────────────────
+
+.fit-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--surface-border, rgba(255, 255, 255, 0.05));
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.fit-label {
+  color: var(--text-color-secondary, #a0a0a0);
+}
+.fit-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.hint-text {
+  font-size: 0.82rem;
+  color: var(--text-color-secondary, #a0a0a0);
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 0.5rem 0.9rem;
+  border-top: 1px solid var(--surface-border, rgba(255, 255, 255, 0.05));
+}

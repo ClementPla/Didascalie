@@ -3,9 +3,9 @@ import {
   ChangeDetectorRef,
   Component,
   ElementRef,
-  ViewChild,
   HostListener,
   OnDestroy,
+  ViewChild,
   effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -13,23 +13,20 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
-// UI Services
 import { EditorService } from '../../services/editor.service';
 import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { SequenceService } from '../../../../../Services/sequence.service';
+import { UIStateService } from '../../../../../Services/uistate.service';
 
-// Orchestrator + Draw
 import { OrchestratorService } from '../service/orchestrator.service';
 import { DrawService } from '../service/draw.service';
 import { ZoomPanService } from '../service/zoom-pan.service';
 
-// Components & Directives
 import { SVGElementsComponent } from './svgelements/svgelements.component';
 import { CanvasInputDirective } from '../directives/canvas-input.directive';
 import { Button } from 'primeng/button';
 
 import { Point2D, Viewbox } from '../interface';
-import { UIStateService } from '../../../../../Services/uistate.service';
 
 @Component({
   selector: 'app-drawable-canvas',
@@ -39,34 +36,35 @@ import { UIStateService } from '../../../../../Services/uistate.service';
   standalone: true,
 })
 export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
-  // View state
-  public cursor: Point2D = { x: 25, y: 25 };
+  // UI state
+  public cursor: Point2D = { x: 0, y: 0 };          // viewport CSS px
   public viewBox: Viewbox = { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
-  public isFullscreen: boolean = false;
-  public rulerSize: number = 16;
+  public isFullscreen = false;
+  public rulerSize = 16;
 
-  // Canvas sizing
-  public canvasWidth = 1;
-  public canvasHeight = 1;
-  public canvasLeft = 0;
-  public canvasTop = 0;
+  // Viewport CSS dimensions (drive both canvas style and internal resolution)
+  public viewportWidth = 0;
+  public viewportHeight = 0;
 
   // Contexts
   private ctxImage: CanvasRenderingContext2D | null = null;
   private ctxLabel: CanvasRenderingContext2D | null = null;
+  private dpr: number = Math.max(1, window.devicePixelRatio || 1);
 
-  // Brush size wheel acceleration
+  // Brush wheel acceleration
   private lastWheelTime = 0;
   private wheelVelocity = 0;
   private wheelDecayTimeout?: number;
 
   // Cleanup
   private edgeRecomputeTimeout?: number;
+  private resizeObserver?: ResizeObserver;
   private destroy$ = new Subject<void>();
 
-  @ViewChild('imageCanvas') public imgCanvas: ElementRef<HTMLCanvasElement>;
-  @ViewChild('labelCanvas') public labelCanvas: ElementRef<HTMLCanvasElement>;
-  @ViewChild('svg') public svg: SVGElementsComponent;
+  @ViewChild('viewport', { static: true })   public viewportRef: ElementRef<HTMLDivElement>;
+  @ViewChild('imageCanvas', { static: true }) public imgCanvas: ElementRef<HTMLCanvasElement>;
+  @ViewChild('labelCanvas', { static: true }) public labelCanvas: ElementRef<HTMLCanvasElement>;
+  @ViewChild('svg')                           public svg: SVGElementsComponent;
 
   constructor(
     public editorService: EditorService,
@@ -76,129 +74,132 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     private drawService: DrawService,
     public zoomPanService: ZoomPanService,
     private changeDetectorRef: ChangeDetectorRef,
-    private uiStateService: UIStateService
+    private uiStateService: UIStateService,
   ) {
     this.initSubscriptions();
 
-    // React to frame image changes
     effect(() => {
-      const frameImage = this.sequenceService.currentFrameImage();
-      if (frameImage && this.ctxImage) {
-        this.loadImage(frameImage.image_base64);
-      }
+      const frame = this.sequenceService.currentFrameImage();
+      if (frame && this.ctxImage) this.loadImage(frame.image_base64);
     });
   }
 
+  // ==========================================
+  // Lifecycle
+  // ==========================================
+
   ngAfterViewInit() {
-    this.ctxImage = this.imgCanvas.nativeElement.getContext('2d', { alpha: false })!;
+    this.ctxImage = this.imgCanvas.nativeElement.getContext('2d', { alpha: true })!;
     this.ctxLabel = this.labelCanvas.nativeElement.getContext('2d', { alpha: true })!;
 
-    this.orchestrator.setCanvasContext(this.imgCanvas.nativeElement);
+    this.orchestrator.setViewportRef(this.viewportRef.nativeElement);
 
-    // Load initial image if available
-    const frameImage = this.sequenceService.currentFrameImage();
-    if (frameImage) {
-      this.loadImage(frameImage.image_base64);
-    }
+    // ResizeObserver drives viewport size. Pushes into ZoomPanService and
+    // resizes display canvases to (CSS px × DPR) so the bitmap matches what's
+    // on screen. The image and label layers stay at native resolution offscreen.
+    this.resizeObserver = new ResizeObserver(entries => {
+      const rect = entries[0].contentRect;
+      this.setViewportSize(rect.width, rect.height);
+    });
+    this.resizeObserver.observe(this.viewportRef.nativeElement);
+
+    // Initial size sync (in case observer hasn't fired yet)
+    const r = this.viewportRef.nativeElement.getBoundingClientRect();
+    this.setViewportSize(r.width, r.height);
+
+    const frame = this.sequenceService.currentFrameImage();
+    if (frame) this.loadImage(frame.image_base64);
   }
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+    this.resizeObserver?.disconnect();
     clearTimeout(this.wheelDecayTimeout);
     clearTimeout(this.edgeRecomputeTimeout);
   }
 
   private initSubscriptions() {
-    // Single subscription for all redraw events
     this.orchestrator.redrawRequest
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.redrawAllCanvas());
 
-    // Single draw request (for buffer canvas)
     this.drawService.singleDrawRequest
       .pipe(takeUntil(this.destroy$))
-      .subscribe((ctx) => {
+      .subscribe(ctx => {
         if (ctx && this.ctxLabel) {
+          // singleDrawRequest is a buffer canvas at image-native resolution.
+          // It must go through the same view transform as the main label layer.
+          this.applyLabelTransform();
+          this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
           this.ctxLabel.drawImage(ctx.canvas, 0, 0);
+          this.ctxLabel.resetTransform();
         }
       });
   }
 
   // ==========================================
-  // Image Loading
+  // Viewport sizing
+  // ==========================================
+
+  private setViewportSize(width: number, height: number) {
+    if (width === 0 || height === 0) return;
+    if (width === this.viewportWidth && height === this.viewportHeight) return;
+
+    this.viewportWidth = width;
+    this.viewportHeight = height;
+    this.dpr = Math.max(1, window.devicePixelRatio || 1);
+
+    // Display canvases: internal resolution = CSS px × DPR, CSS size = viewport.
+    const setCanvas = (c: HTMLCanvasElement) => {
+      c.width = Math.round(width * this.dpr);
+      c.height = Math.round(height * this.dpr);
+      c.style.width = `${width}px`;
+      c.style.height = `${height}px`;
+    };
+    setCanvas(this.imgCanvas.nativeElement);
+    setCanvas(this.labelCanvas.nativeElement);
+
+    this.orchestrator.setViewportSize(width, height);
+    this.changeDetectorRef.detectChanges();
+
+    // Trigger a redraw with the new viewport. If no image is loaded yet,
+    // redrawAllCanvas no-ops.
+    this.orchestrator.requestRedraw();
+  }
+
+  @HostListener('window:resize')
+  public onWindowResize() {
+    // The ResizeObserver handles the viewport div; this catches DPR changes
+    // (e.g. user drags window between monitors with different scaling).
+    const newDpr = Math.max(1, window.devicePixelRatio || 1);
+    if (newDpr !== this.dpr) {
+      this.dpr = newDpr;
+      const r = this.viewportRef.nativeElement.getBoundingClientRect();
+      this.viewportWidth = 0; // force resize
+      this.setViewportSize(r.width, r.height);
+    }
+  }
+
+  // ==========================================
+  // Image loading
   // ==========================================
 
   public async loadImage(imageSrc: string) {
     try {
-      const img = await this.orchestrator.loadImage(imageSrc);
-      this.initializeCanvasDimensions(img);
-    } catch (error) {
-      console.error('Failed to load image:', error);
+      await this.orchestrator.loadImage(imageSrc);
+      // Offscreen layers were resized inside the orchestrator.
+      // The display canvases follow the viewport, not the image, so no
+      // further sizing here.
+      this.svg.setViewBox(this.orchestrator.getSVGViewBox());
+      this.changeDetectorRef.detectChanges();
+    } catch (e) {
+      console.error('Failed to load image:', e);
     }
   }
 
-  private initializeCanvasDimensions(img: HTMLImageElement) {
-    // Set canvas element dimensions
-    this.imgCanvas.nativeElement.width = img.width;
-    this.imgCanvas.nativeElement.height = img.height;
-    this.labelCanvas.nativeElement.width = img.width;
-    this.labelCanvas.nativeElement.height = img.height;
-
-    // Set SVG viewbox
-    this.svg.setViewBox({ x: 0, y: 0, width: img.width, height: img.height });
-
-    this.resizeCanvas();
-    this.changeDetectorRef.detectChanges();
-  }
-
   // ==========================================
-  // Canvas Sizing
-  // ==========================================
-
-  @HostListener('window:resize')
-  public resizedWindow() {
-    this.resizeCanvas();
-  }
-
-  public resizeCanvas() {
-    const width = this.orchestrator.width;
-    const height = this.orchestrator.height;
-    if (width === 0 || height === 0) return;
-
-    const aspectRatio = width / height;
-    const parentElement = this.imgCanvas.nativeElement.parentElement?.parentElement;
-
-    if (!parentElement) {
-      console.error('Parent element not found');
-      return;
-    }
-
-    const parentWidth = parentElement.clientWidth || 0;
-    const parentHeight = parentElement.clientHeight || 0;
-
-    let newWidth = parentWidth;
-    let newHeight = parentWidth / aspectRatio;
-
-    if (newHeight > parentHeight) {
-      newHeight = parentHeight;
-      newWidth = parentHeight * aspectRatio;
-    }
-
-    this.canvasWidth = newWidth;
-    this.canvasHeight = newHeight;
-
-    this.changeDetectorRef.detectChanges();
-
-    const canvasRect = this.imgCanvas.nativeElement.getBoundingClientRect();
-    const parentRect = parentElement.getBoundingClientRect();
-
-    this.canvasLeft = canvasRect.left - parentRect.left;
-    this.canvasTop = canvasRect.top - parentRect.top;
-  }
-
-  // ==========================================
-  // Input Handlers
+  // Input
   // ==========================================
 
   public onMouseMove(data: { event: MouseEvent; coords: Point2D; cursor: Point2D }) {
@@ -224,24 +225,21 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     this.orchestrator.handleWheel(event);
     this.viewBox = this.orchestrator.getViewBox();
-    // Recompute edges after zoom settles
+
     if (this.editorService.edgesOnly) {
       clearTimeout(this.edgeRecomputeTimeout);
       this.edgeRecomputeTimeout = window.setTimeout(() => {
-        this.orchestrator.requestRedrawAllCanvas(); // This will trigger edge recomputation in the CanvasManager service to adjust to the new zoom level
+        this.orchestrator.requestRedrawAllCanvas();
       }, 150);
     }
   }
 
   private handleBrushSizeWheel(event: WheelEvent) {
     const now = performance.now();
-    const timeDelta = now - this.lastWheelTime;
+    const dt = now - this.lastWheelTime;
 
-    if (timeDelta < 100) {
-      this.wheelVelocity = Math.min(this.wheelVelocity + 1, 25);
-    } else if (timeDelta > 200) {
-      this.wheelVelocity = 0;
-    }
+    if (dt < 100) this.wheelVelocity = Math.min(this.wheelVelocity + 1, 25);
+    else if (dt > 200) this.wheelVelocity = 0;
 
     this.lastWheelTime = now;
 
@@ -262,45 +260,52 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   // ==========================================
 
   public async redrawAllCanvas() {
-    const img = this.orchestrator.image;
-    if (!img || !img.complete || img.naturalWidth === 0) {
-      console.warn('Image not loaded yet, skipping redraw.');
-      return;
-    }
+    if (!this.ctxImage || !this.ctxLabel) return;
+    if (this.viewportWidth === 0 || this.viewportHeight === 0) return;
 
-    if (!this.ctxImage || !this.ctxLabel) {
-      console.error('Canvas contexts not initialized.');
-      return;
-    }
+    const img = this.orchestrator.image;
+    if (!img || !img.complete || img.naturalWidth === 0) return;
 
     this.viewBox = this.orchestrator.getViewBox();
     this.svg.setViewBox(this.orchestrator.getSVGViewBox());
 
-    const { scale, offset } = this.orchestrator.getViewTransform();
-    const width = this.orchestrator.width;
-    const height = this.orchestrator.height;
-
-    // Draw image canvas
-    this.ctxImage.resetTransform();
-    this.ctxImage.clearRect(0, 0, this.ctxImage.canvas.width, this.ctxImage.canvas.height);
-    this.ctxImage.translate(Math.floor(offset.x), Math.floor(offset.y));
-    this.ctxImage.scale(scale, scale);
+    // Image layer
+    this.clearDisplayCanvas(this.ctxImage);
+    this.applyImageTransform();
     this.ctxImage.imageSmoothingEnabled = false;
-    this.ctxImage.drawImage(this.orchestrator.getProcessedImage(), 0, 0, width, height);
+    const processedImage = this.orchestrator.getProcessedImage();
+    if (!processedImage) return;
+    this.ctxImage.drawImage(
+      processedImage,
+      0, 0,
+      this.orchestrator.width, this.orchestrator.height
+    );
+    this.ctxImage.resetTransform();
 
-    const combinedLabelCanvas = await this.orchestrator.getCombinedLabelCanvas();
-
-    // Draw label canvas
-    this.ctxLabel.resetTransform();
-    this.ctxLabel.clearRect(0, 0, this.ctxLabel.canvas.width, this.ctxLabel.canvas.height);
-    this.ctxLabel.translate(Math.floor(offset.x), Math.floor(offset.y));
-    this.ctxLabel.scale(scale, scale);
+    // Label layer
+    const combined = await this.orchestrator.getCombinedLabelCanvas();
+    this.clearDisplayCanvas(this.ctxLabel);
+    this.applyLabelTransform();
     this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
-    this.ctxLabel.drawImage(combinedLabelCanvas, 0, 0);
+    this.ctxLabel.drawImage(combined, 0, 0);
+    this.ctxLabel.resetTransform();
+  }
+
+  private clearDisplayCanvas(ctx: CanvasRenderingContext2D) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  }
+
+  private applyImageTransform() {
+    this.orchestrator.applyViewTransform(this.ctxImage!, this.dpr);
+  }
+
+  private applyLabelTransform() {
+    this.orchestrator.applyViewTransform(this.ctxLabel!, this.dpr);
   }
 
   // ==========================================
-  // Public API (for parent components)
+  // Public API
   // ==========================================
 
   public loadCanvas(data: string, index: number) {
@@ -313,25 +318,21 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   public switchFullScreen() {
     this.isFullscreen = !this.isFullscreen;
-    if (!this.isFullscreen) {
+    // Defer to let layout settle, then refit.
+    requestAnimationFrame(() => {
+      const r = this.viewportRef.nativeElement.getBoundingClientRect();
+      this.setViewportSize(r.width, r.height);
       this.orchestrator.resetView(true, true);
-    }
+    });
   }
 
   // ==========================================
-  // UI Helpers
+  // UI helpers
   // ==========================================
 
   public getCursorSize(): number {
-    if (!this.ctxLabel) return 0;
-
-    const rect = this.ctxLabel.canvas.getBoundingClientRect();
-    const { scale } = this.orchestrator.getViewTransform();
-
-    const domScaleX = rect.width / this.ctxLabel.canvas.width;
-    const domScaleY = rect.height / this.ctxLabel.canvas.height;
-    const domScale = (domScaleX + domScaleY) / 2;
-    return this.editorService.lineWidth * scale * domScale;
+    // Brush is in image px; convert to viewport CSS px.
+    return this.editorService.lineWidth * this.zoomPanService.getScale();
   }
 
   public get isLoading(): boolean {
@@ -339,37 +340,22 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   public getCursorStyle() {
-  const cursorSize = this.getCursorSize();
-  if (cursorSize <= 0) return {};
+    const size = this.getCursorSize();
+    if (size <= 0) return {};
 
-  // Account for canvas scaling (CSS size vs internal resolution)
-  const rect = this.imgCanvas.nativeElement.getBoundingClientRect();
-  const canvas = this.imgCanvas.nativeElement;
-  
-  // Get the transform from zoom/pan
-  const { scale, offset } = this.orchestrator.getViewTransform();
-  
-  // Calculate DOM scale (CSS pixels to canvas pixels)
-  const domScaleX = rect.width / canvas.width;
-  const domScaleY = rect.height / canvas.height;
-  
-  // Get image coordinates (where brush actually draws)
-  const imageCoords = this.zoomPanService.currentPixel;
-  
-  // Transform image coordinates back to DOM coordinates
-  const cursorX = (imageCoords.x * scale + offset.x) * domScaleX;
-  const cursorY = (imageCoords.y * scale + offset.y) * domScaleY;
+    // Image-space cursor → viewport CSS px. Single conversion, no DOM scaling.
+    const vp = this.zoomPanService.imageToViewport(this.zoomPanService.currentPixel);
 
-  return {
-    'left.px': cursorX,
-    'top.px': cursorY,
-    'width.px': cursorSize,
-    'height.px': cursorSize,
-    'margin-left.px': -cursorSize / 2,
-    'margin-top.px': -cursorSize / 2,
-    'border-color': this.labelService.activeLabel?.color,
-  };
-}
+    return {
+      'left.px': vp.x,
+      'top.px': vp.y,
+      'width.px': size,
+      'height.px': size,
+      'margin-left.px': -size / 2,
+      'margin-top.px': -size / 2,
+      'border-color': this.labelService.activeLabel?.color,
+    };
+  }
 
   public getCSSFilterEdge(): string {
     return this.editorService.edgesOnly
@@ -378,7 +364,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   // ==========================================
-  // Getters for Template
+  // Template getters
   // ==========================================
 
   get hasImage(): boolean {
@@ -386,7 +372,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   get currentFrameName(): string | null {
-    const frame = this.sequenceService.currentFrame();
-    return frame?.relative_path ?? null;
+    return this.sequenceService.currentFrame()?.relative_path ?? null;
   }
 }

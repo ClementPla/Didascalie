@@ -1,0 +1,39 @@
+<!-- folder-drop-zone.component.html -->
+<div class="drop-inner">
+  @if (folderPath) {
+    <div class="folder-display">
+      <i class="pi pi-folder"></i>
+      <span class="folder-path" [title]="folderPath">{{ folderPath }}</span>
+      <button
+        type="button"
+        class="clear-btn"
+        aria-label="Clear folder"
+        (click)="clear()"
+      >
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+    <div class="drop-hint">
+      <i class="pi pi-arrow-down"></i>
+      <span>Drop a folder to replace, or</span>
+      <p-button
+        size="small" severity="secondary" [text]="true"
+        label="browse"
+        (click)="browse()"
+      ></p-button>
+    </div>
+  } @else {
+    <div class="empty-state">
+      <i class="empty-icon pi pi-folder-open"></i>
+      <div class="empty-title">Drop a folder here</div>
+      <div class="empty-or">or</div>
+      <p-button
+        icon="pi pi-folder-open"
+        label="Browse"
+        size="small"
+        severity="secondary"
+        (click)="browse()"
+      ></p-button>
+    </div>
+  }
+</div>

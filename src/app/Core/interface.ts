@@ -75,3 +75,9 @@ export type DownloadingInformations = {
   downloaded: boolean;
   total: number;
 };
+
+
+export interface TextLabel {
+  content: string;
+  name: string;
+}

@@ -1,85 +1,114 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { NgClass } from '@angular/common';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+
 import { LabelsService } from '../../../../../../Services/Labels/labels.service';
 import { BboxLabel, Rect } from '../../../../../../Core/interface';
 import { BboxManagerService } from '../../service/bbox-manager.service';
-import {  NgClass } from '@angular/common';
 import { EditorService } from '../../../services/editor.service';
 import { DrawService } from '../../service/draw.service';
 import { Tools } from '../../../../../../Core/tools';
 import { Point2D } from '../../interface';
 
-
 @Component({
-    selector: 'app-svgelements',
-    imports: [NgClass],
-    templateUrl: './svgelements.component.html',
-    styleUrl: './svgelements.component.scss'
+  selector: 'app-svgelements',
+  imports: [NgClass],
+  templateUrl: './svgelements.component.html',
+  styleUrl: './svgelements.component.scss',
 })
-export class SVGElementsComponent implements OnInit {
+export class SVGElementsComponent implements OnInit, OnDestroy {
   formattedPoints: string = '';
+  /**
+   * Stroke width for line/lasso previews, expressed in *image* px since
+   * the SVG viewBox is in image space. Computed from `editorService.lineWidth`
+   * and (for visual-only strokes) inverse view scale, but we just use raw
+   * image-px values here — viewBox scaling handles the rest.
+   */
+  @ViewChild('svg') svg: ElementRef<SVGSVGElement>;
 
-  @ViewChild('svg') svg: ElementRef<SVGElement>;
+  private destroy$ = new Subject<void>();
 
   constructor(
     public labelService: LabelsService,
     public editorService: EditorService,
     public bboxManager: BboxManagerService,
-    public drawService: DrawService
+    public drawService: DrawService,
   ) {}
-  ngOnInit(): void {
-    this.drawService.previewPoints$.subscribe((points)=>
-    {
-      this.formattedPoints = this.formatPointsForSvg(points);
 
-    })
+  ngOnInit(): void {
+    this.drawService.previewPoints$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(points => {
+        this.formattedPoints = this.formatPointsForSvg(points);
+      });
   }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  /**
+   * Set the SVG viewBox in image-space coordinates. Called by the parent
+   * component on every redraw. The SVG element itself fills the viewport
+   * via CSS; the viewBox controls how image-space contents map to viewport px.
+   */
   setViewBox(viewbox: Rect) {
+    if (!this.svg) return;
+    const w = Math.max(1, viewbox.width);
+    const h = Math.max(1, viewbox.height);
     this.svg.nativeElement.setAttribute(
       'viewBox',
-      `${viewbox.x} ${viewbox.y} ${viewbox.width} ${viewbox.height}`
+      `${viewbox.x} ${viewbox.y} ${w} ${h}`
     );
   }
 
   getBboxOpacityAsString(): string {
-    let opacity = Math.floor(this.editorService.bbxOpacity * 255);
-    // Convert to hex the value between 0 and 255
-    let hex = opacity.toString(16);
-    if (hex.length < 2) {
-      hex = '0' + hex;
-    }
-    return hex;
+    const opacity = Math.floor(this.editorService.bbxOpacity * 255);
+    return opacity.toString(16).padStart(2, '0');
   }
 
   boundingBoxClick(event: MouseEvent, bbox: BboxLabel) {
     if (this.isBboxClickable() && event.button === 0) {
       this.drawService.eraseOnBboxClick(bbox);
     }
-
   }
 
   isBboxClickable(): boolean {
     return this.editorService.isEraser() && this.editorService.eraseOnClick;
   }
+
   isLassoTool(): boolean {
-    return this.editorService.selectedTool === Tools.LASSO || this.editorService.selectedTool === Tools.LASSO_ERASER;
+    return (
+      this.editorService.selectedTool === Tools.LASSO ||
+      this.editorService.selectedTool === Tools.LASSO_ERASER
+    );
   }
 
   isLineTool(): boolean {
     return this.editorService.selectedTool === Tools.LINE;
   }
-  getPolygonStyle(){
-    switch(this.editorService.selectedTool){
+
+  getPolygonStyle() {
+    switch (this.editorService.selectedTool) {
       case Tools.LASSO_ERASER:
       case Tools.LASSO:
-        return {'stroke-width': '2', 'stroke-dasharray': '10'};
+        // Stroke widths are in image px because the SVG viewBox is image-space.
+        // A "2px-looking" outline at zoom 1 is 2 image px; it scales with zoom
+        // as the image does. Keep small for thin outlines.
+        return { 'stroke-width': '2', 'stroke-dasharray': '10' };
       case Tools.LINE:
-        return {'stroke-width': this.editorService.lineWidth, 'stroke-linecap': 'round' };
+        return {
+          'stroke-width': this.editorService.lineWidth,
+          'stroke-linecap': 'round',
+        };
     }
-    return {'stroke-width': '1'};
+    return { 'stroke-width': '1' };
   }
-   private formatPointsForSvg(points: Point2D[]): string {
+
+  private formatPointsForSvg(points: Point2D[]): string {
     if (points.length < 2) return '';
-    return points.map((p) => `${p.x},${p.y}`).join(' ');
+    return points.map(p => `${p.x},${p.y}`).join(' ');
   }
 }
-  

@@ -11,3 +11,4 @@ pub mod text_description;
 pub mod frame;
 pub mod sequences;
 pub mod export;
+pub mod registration;

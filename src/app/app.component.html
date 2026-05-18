@@ -1,26 +1,25 @@
 <p-toolbar>
   <ng-template #start>
     <span class="toolbar"> Annotator </span>
-    @if(isProjectStarted()){
-    <ng-container>
-      <p-divider layout="vertical" />
-      <span class="toolbar">
-        {{ projectService.projectName() }}
-      </span>
-    </ng-container>
+    @if (isProjectStarted()) {
+      <ng-container>
+        <p-divider layout="vertical" />
+        <span class="toolbar">
+          {{ projectService.projectName() }}
+        </span>
+      </ng-container>
     }
   </ng-template>
 
   <ng-template #center>
     <p class="flex gap-8">
       <p-button
-        routerLink="project-configuration/"
+        routerLink="/"
         icon="pi pi-home"
         [rounded]="true"
         [text]="true"
         [raised]="true"
-      >
-      </p-button>
+      ></p-button>
       <p-button
         #galleryButton
         routerLink="gallery/"
@@ -42,6 +41,15 @@
       >
       </p-button>
       <p-button
+        routerLink="registration/"
+        icon="pi pi-map"
+        [rounded]="true"
+        [text]="true"
+        [disabled]="!isProjectStarted()"
+        [raised]="true"
+      >
+      </p-button>
+      <p-button
         routerLink="export/"
         icon="pi pi-file-export"
         [rounded]="true"
@@ -50,23 +58,17 @@
         [raised]="true"
       >
       </p-button>
-      <p-button
-        routerLink="testing-zone/"
-        icon="pi pi-lightbulb"
-        [rounded]="true"
-        [text]="true"
-        [raised]="true"
-      >
-      </p-button>
     </p>
   </ng-template>
   <ng-template pTemplate="end"> </ng-template>
 </p-toolbar>
-@if(uiStateService.isLoading){
-<app-loading> </app-loading>
-} @if(uiStateService.showFpsCounter){
-<app-fps-display></app-fps-display>
+@if (uiStateService.isLoading) {
+  <app-loading> </app-loading>
+}
+@if (uiStateService.showFpsCounter) {
+  <app-fps-display></app-fps-display>
 }
 <!-- <app-testing></app-testing> -->
-
-<router-outlet></router-outlet>
+<main class="route-host">
+  <router-outlet></router-outlet>
+</main>

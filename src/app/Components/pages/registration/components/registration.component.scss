@@ -1,0 +1,41 @@
+// registration.component.scss
+
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.reg-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-rows: 100%;          // ← pin row to host height
+  height: 100%;
+  overflow: hidden;
+  background: var(--surface-ground, #15171b);
+}
+.reg-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+}
+
+.workspace {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  display: flex;
+}
+
+.split-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  background: var(--surface-border, rgba(255, 255, 255, 0.08));
+}
