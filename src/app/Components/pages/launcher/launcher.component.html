@@ -6,6 +6,10 @@
   </header>
 
   <div class="primary-actions">
+    @if (isAndroid) {
+      <p-button label="Open IRMA (test)" (click)="openTestProject()" />
+    }
+    @else {
     <p-button
       icon="pi pi-plus"
       label="New project"
@@ -21,6 +25,8 @@
       [disabled]="isLoading()"
       (click)="openFromDisk()"
     ></p-button>
+  }
+    
   </div>
 
   @if (recentProjects().length > 0) {
@@ -36,10 +42,14 @@
           >
             <div class="recent-info">
               <div class="recent-name">{{ project.name }}</div>
-              <div class="recent-path" [title]="project.path">{{ formatPath(project.path) }}</div>
+              <div class="recent-path" [title]="project.path">
+                {{ formatPath(project.path) }}
+              </div>
             </div>
             @if (project.last_opened) {
-              <div class="recent-time">{{ relativeTime(project.last_opened) }}</div>
+              <div class="recent-time">
+                {{ relativeTime(project.last_opened) }}
+              </div>
             }
             <button
               class="recent-remove"

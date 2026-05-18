@@ -9,7 +9,10 @@ import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 
-import { ProjectService, RecentProject } from '../../../Services/ProjectService/project.service';
+import {
+  ProjectService,
+  RecentProject,
+} from '../../../Services/ProjectService/project.service';
 
 @Component({
   selector: 'app-launcher',
@@ -22,6 +25,7 @@ import { ProjectService, RecentProject } from '../../../Services/ProjectService/
 export class LauncherComponent implements OnInit {
   readonly recentProjects = signal<RecentProject[]>([]);
   readonly isLoading = signal(false);
+  readonly isAndroid = /android/i.test(navigator.userAgent);
 
   constructor(
     private projectService: ProjectService,
@@ -87,7 +91,8 @@ export class LauncherComponent implements OnInit {
 
   /** Friendly relative time. Avoids a date library for one place. */
   relativeTime(iso: string | number | Date): string {
-    const d = typeof iso === 'string' || typeof iso === 'number' ? new Date(iso) : iso;
+    const d =
+      typeof iso === 'string' || typeof iso === 'number' ? new Date(iso) : iso;
     const diff = (Date.now() - d.getTime()) / 1000;
     if (diff < 60) return 'just now';
     if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
@@ -95,5 +100,11 @@ export class LauncherComponent implements OnInit {
     if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} days ago`;
     if (diff < 86400 * 30) return `${Math.floor(diff / 86400 / 7)} weeks ago`;
     return d.toLocaleDateString();
+  }
+  async openTestProject(): Promise<void> {
+    const path =
+      '/sdcard/Android/data/io.github.clementpla.labelmed/files/IRMA.labelmed';
+    await this.projectService.open(path);
+    this.router.navigate(['/gallery']);
   }
 }

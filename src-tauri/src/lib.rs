@@ -1,14 +1,19 @@
 use std::sync::Arc;
-
+#[cfg(not(target_os = "android"))]
 use crate::dl::feature_extract::FeaturesExtractor;
+#[cfg(not(target_os = "android"))]
 use crate::dl::model::ModelSessions;
+
 use crate::storage::DbState;
 use tauri::{Manager, RunEvent};
 use tokio::sync::Mutex;
 
 mod commands;
 mod connection;
+
+#[cfg(not(target_os = "android"))]
 mod dl;
+
 mod utils;
 mod storage;
 mod types;
@@ -28,11 +33,15 @@ pub fn run() {
         }
     }
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_dialog::init());
+
+    #[cfg(not(target_os = "android"))]
+    let app = app
         .manage(Arc::new(Mutex::new(FeaturesExtractor::new())))
-        .manage(ModelSessions::new())
-        .manage(DbState::new()) 
+        .manage(ModelSessions::new());
+    
+    let app = app.manage(DbState::new()) 
         .setup(|app| {
             connection::coms::setup_zmq_receiver(app.handle().clone())?;
             Ok(())
@@ -46,6 +55,7 @@ pub fn run() {
             connection::connection::event_processed,
             commands::crf::crf_refine,
             commands::flood_fill::flood_fill_mask,
+            #[cfg(not(target_os = "android"))]
             commands::dl::mask_sam_segment,
             // commands::io::save_json_file,
             // commands::io::load_json_file,

@@ -1,0 +1,48 @@
+// popout-toolbar.component.scss
+
+:host {
+  display: block;
+  flex-shrink: 0;
+}
+
+.popout-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--surface-border, rgba(255, 255, 255, 0.08));
+  background: var(--surface-card, #1d2026);
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.mode-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.slider-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-color-secondary, #a0a0a0);
+
+  label {
+    cursor: default;
+    user-select: none;
+  }
+}
+
+.slider-val {
+  min-width: 3rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  text-align: right;
+}
