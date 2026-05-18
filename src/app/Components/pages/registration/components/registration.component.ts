@@ -74,11 +74,18 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly navigation = inject(NavigationService);
   private readonly uiState = inject(UIStateService);
   private popoutUnlisten?: UnlistenFn;
+  private sequenceLoadPromise: Promise<void> | null = null;
+  private broadcastPaused = signal(false);
   isPoppedOut = signal(false);
-
   constructor(public state: RegistrationStateService) {
     effect(() => {
       if (!this.isPoppedOut()) return;
+      if (this.broadcastPaused()) return;
+
+      const movingId = this.state.movingFrameId();
+      const movingUrl = this.movingImageUrl();
+
+      if (movingId && !movingUrl) return;
       emitTo('composite-view', 'sync-state-data', {
         pairs: this.state.pairs(),
         referenceFrameId: this.state.referenceFrameId(),
@@ -101,7 +108,7 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (String(result.sequenceId) !== this.state.sequenceId()) {
-          this.loadSequence(result.sequenceId);
+          this.sequenceLoadPromise = this.loadSequence(result.sequenceId);
         }
       });
   }
@@ -375,12 +382,34 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   async navigateNext(): Promise<void> {
     if (!(await this.save())) return;
     await this.navigation.navigateToNextSequenceForRegistration();
+    await this.updateFrame();
   }
 
   async navigatePrevious(): Promise<void> {
     if (!(await this.save())) return;
     await this.navigation.navigateToPrevSequenceForRegistration();
+    await this.updateFrame();
   }
+
+  async updateFrame() {
+  this.broadcastPaused.set(true);
+  try {
+    // Wait for the frameChanged$ subscription to finish its loadSequence work.
+    if (this.sequenceLoadPromise) {
+      await this.sequenceLoadPromise;
+    }
+  } finally {
+    this.broadcastPaused.set(false);
+    if (this.isPoppedOut()) {
+      await emitTo('composite-view', 'sync-state-data', {
+        pairs: this.state.pairs(),
+        referenceFrameId: this.state.referenceFrameId(),
+        movingFrameId: this.state.movingFrameId(),
+        movingImageUrl: this.movingImageUrl(),
+      });
+    }
+  }
+}
   @HostListener('window:keydown.arrowright', ['$event'])
   onArrowRight(event: Event): void {
     if (this.isInFormControl(event)) return;
@@ -417,12 +446,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
 
   async listenToPopout() {
     this.popoutUnlisten = await listen('popout-ready', async () => {
-      console.log(
-        '[Main] About to emit init, pairs count:',
-        this.state.pairs().length,
-      );
-      console.log('[Main] referenceFrameId:', this.state.referenceFrameId());
-      console.log('[Main] movingFrameId:', this.state.movingFrameId());
       await emitTo('composite-view', 'init-viewport-data', {
         sequenceId: this.state.sequenceId(),
         referenceFrameId: this.state.referenceFrameId(),

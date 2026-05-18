@@ -12,29 +12,43 @@
         role="tab"
       ></p-button>
     }
+    <p-button
+      [icon]="alwaysOnTop() ? 'pi pi-thumbtack' : 'pi pi-thumbtack'"
+      size="small"
+      [severity]="alwaysOnTop() ? 'primary' : 'secondary'"
+      (click)="toggleAlwaysOnTop()"
+      pTooltip="Pin window on top"
+      [attr.aria-pressed]="alwaysOnTop()"
+    ></p-button>
   </div>
 
   <div class="mode-controls">
-    @if (mode() === 'overlay') {
+    @if (mode() === "overlay") {
       <div class="slider-control">
         <label for="popout-opacity-slider">Opacity</label>
         <p-slider
           id="popout-opacity-slider"
           [(ngModel)]="overlayOpacity"
-          [min]="0" [max]="1" [step]="0.01"
+          [min]="0"
+          [max]="1"
+          [step]="0.01"
           style="width: 140px"
         ></p-slider>
-        <span class="slider-val">{{ overlayOpacity * 100 | number:'1.0-0' }}%</span>
+        <span class="slider-val"
+          >{{ overlayOpacity * 100 | number: "1.0-0" }}%</span
+        >
       </div>
     }
 
-    @if (mode() === 'checkerboard') {
+    @if (mode() === "checkerboard") {
       <div class="slider-control">
         <label for="popout-tile-slider">Tile size</label>
         <p-slider
           id="popout-tile-slider"
           [(ngModel)]="checkerTileSize"
-          [min]="16" [max]="256" [step]="8"
+          [min]="16"
+          [max]="256"
+          [step]="8"
           style="width: 140px"
         ></p-slider>
         <span class="slider-val">{{ checkerTileSize }} px</span>
