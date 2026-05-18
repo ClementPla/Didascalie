@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">client</string>
-    <string name="main_activity_title">client</string>
+    <string name="app_name">LabelMed</string>
+    <string name="main_activity_title">LabelMed</string>
 </resources>

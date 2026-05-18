@@ -1,5 +1,4 @@
 pub mod crf;
-pub mod dl;
 pub mod flood_fill;
 pub mod images;
 pub mod io;
@@ -12,3 +11,5 @@ pub mod frame;
 pub mod sequences;
 pub mod export;
 pub mod registration;
+#[cfg(not(target_os = "android"))]
+pub mod dl;

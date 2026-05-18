@@ -28,11 +28,20 @@ import { LabelsService } from '../../../../Services/Labels/labels.service';
   selector: 'app-new-project',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
-    ButtonModule, InputTextModule, FloatLabelModule, FieldsetModule,
-    ToggleSwitchModule, DividerModule, ProgressBarModule, ToastModule,
-    LabelledSwitchComponent, FolderDropZoneComponent,
-    ClassificationConfigurationComponent, PixelsConfigurationComponent,
+    CommonModule,
+    FormsModule,
+    ButtonModule,
+    InputTextModule,
+    FloatLabelModule,
+    FieldsetModule,
+    ToggleSwitchModule,
+    DividerModule,
+    ProgressBarModule,
+    ToastModule,
+    LabelledSwitchComponent,
+    FolderDropZoneComponent,
+    ClassificationConfigurationComponent,
+    PixelsConfigurationComponent,
   ],
   providers: [MessageService],
   templateUrl: './new-project.component.html',
@@ -43,17 +52,19 @@ export class NewProjectComponent implements OnInit {
   readonly savePath = signal<string | null>(null);
 
   // Validation surfaces
-  readonly nameError    = signal(false);
-  readonly folderError  = signal(false);
+  readonly nameError = signal(false);
+  readonly folderError = signal(false);
   readonly savePathError = signal(false);
 
-  readonly canStart = computed(() =>
-    !!this.projectService.projectName() &&
-    !!this.projectService.inputFolder() &&
-    !!this.savePath() &&
-    this.projectService.isConfigValid() &&
-    !this.isLoading()
+  readonly canStart = computed(
+    () =>
+      !!this.projectService.projectName() &&
+      !!this.projectService.inputFolder() &&
+      !!this.savePath() &&
+      this.projectService.isConfigValid() &&
+      !this.isLoading(),
   );
+
 
   constructor(
     public projectService: ProjectService,
@@ -77,7 +88,9 @@ export class NewProjectComponent implements OnInit {
   // Bindings
   // ==========================================
 
-  get projectName(): string { return this.projectService.projectName(); }
+  get projectName(): string {
+    return this.projectService.projectName();
+  }
   set projectName(v: string) {
     this.projectService.setName(v);
     if (v) this.nameError.set(false);
@@ -85,32 +98,62 @@ export class NewProjectComponent implements OnInit {
     // they haven't picked one yet. Tauri's save() will let them confirm.
   }
 
-  get inputFolder(): string { return this.projectService.inputFolder() ?? ''; }
+  get inputFolder(): string {
+    return this.projectService.inputFolder() ?? '';
+  }
   set inputFolder(v: string) {
     this.projectService.setInputFolder(v);
     if (v) this.folderError.set(false);
   }
 
-  get inputRegex(): string { return this.projectService.inputRegex(); }
-  set inputRegex(v: string) { this.projectService.setInputRegex(v); }
+  get inputRegex(): string {
+    return this.projectService.inputRegex();
+  }
+  set inputRegex(v: string) {
+    this.projectService.setInputRegex(v);
+  }
 
-  get recursive(): boolean { return this.projectService.recursive(); }
-  set recursive(v: boolean) { this.projectService.setRecursive(v); }
+  get recursive(): boolean {
+    return this.projectService.recursive();
+  }
+  set recursive(v: boolean) {
+    this.projectService.setRecursive(v);
+  }
 
-  get foldersAsSequences(): boolean { return this.projectService.foldersAsSequences(); }
-  set foldersAsSequences(v: boolean) { this.projectService.setFoldersAsSequences(v); }
+  get foldersAsSequences(): boolean {
+    return this.projectService.foldersAsSequences();
+  }
+  set foldersAsSequences(v: boolean) {
+    this.projectService.setFoldersAsSequences(v);
+  }
 
-  get imagesEmbedded(): boolean { return this.projectService.imagesEmbedded(); }
-  set imagesEmbedded(v: boolean) { this.projectService.setImagesEmbedded(v); }
+  get imagesEmbedded(): boolean {
+    return this.projectService.imagesEmbedded();
+  }
+  set imagesEmbedded(v: boolean) {
+    this.projectService.setImagesEmbedded(v);
+  }
 
-  get classificationEnabled(): boolean { return this.projectService.isClassification(); }
-  set classificationEnabled(v: boolean) { this.projectService.setClassificationEnabled(v); }
+  get classificationEnabled(): boolean {
+    return this.projectService.isClassification();
+  }
+  set classificationEnabled(v: boolean) {
+    this.projectService.setClassificationEnabled(v);
+  }
 
-  get segmentationEnabled(): boolean { return this.projectService.isSegmentation(); }
-  set segmentationEnabled(v: boolean) { this.projectService.setSegmentationEnabled(v); }
+  get segmentationEnabled(): boolean {
+    return this.projectService.isSegmentation();
+  }
+  set segmentationEnabled(v: boolean) {
+    this.projectService.setSegmentationEnabled(v);
+  }
 
-  get instanceSegmentationEnabled(): boolean { return this.projectService.isInstanceSegmentation(); }
-  set instanceSegmentationEnabled(v: boolean) { this.projectService.setInstanceSegmentationEnabled(v); }
+  get instanceSegmentationEnabled(): boolean {
+    return this.projectService.isInstanceSegmentation();
+  }
+  set instanceSegmentationEnabled(v: boolean) {
+    this.projectService.setInstanceSegmentationEnabled(v);
+  }
 
   // ==========================================
   // Actions
@@ -167,4 +210,5 @@ export class NewProjectComponent implements OnInit {
     const idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
     return idx >= 0 ? p.slice(idx + 1) : p;
   }
+  
 }
