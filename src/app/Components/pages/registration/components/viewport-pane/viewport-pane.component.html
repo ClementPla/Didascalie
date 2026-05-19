@@ -23,6 +23,32 @@
   }
 
   <svg #svg class="interaction-svg" preserveAspectRatio="none">
+    @if (shadowCursor(); as pt) {
+      <g class="marker-group shadow-cursor" aria-hidden="true">
+        <line
+          [attr.x1]="pt.x - 5"
+          [attr.y1]="pt.y - 5"
+          [attr.x2]="pt.x + 5"
+          [attr.y2]="pt.y + 5"
+          stroke="#ffffff"
+          stroke-width="1"
+          stroke-dasharray="2,3"
+          vector-effect="non-scaling-stroke"
+          opacity="0.7"
+        ></line>
+        <line
+          [attr.x1]="pt.x - 5"
+          [attr.y1]="pt.y + 5"
+          [attr.x2]="pt.x + 5"
+          [attr.y2]="pt.y - 5"
+          stroke="#ffffff"
+          stroke-width="1"
+          stroke-dasharray="2,3"
+          vector-effect="non-scaling-stroke"
+          opacity="0.7"
+        ></line>
+      </g>
+    }
     @for (pair of pairs(); track pair.id; let i = $index) {
       @let point = pointFor(pair);
       @let isHovered = hoveredPairId() === pair.id;

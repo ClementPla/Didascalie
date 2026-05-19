@@ -1,20 +1,37 @@
 // registration-sidebar.component.scss
-
 :host {
   display: block;
   height: 100%;
-  min-height: 0; // ← let the grid cell drive height
 }
 
 .reg-sidebar {
   display: flex;
   flex-direction: column;
+  width: 320px;                  // adjust to your current width
   height: 100%;
-  min-height: 0; // ← same, for the flex container
-  border-right: 1px solid var(--surface-border, rgba(255, 255, 255, 0.08));
-  background: var(--surface-ground, #15171b);
-  overflow: hidden; // ← was overflow-y: auto, now hidden
-  padding: 0.75rem 0;
+  background: var(--surface-card);
+  border-right: 1px solid var(--surface-border);
+  transition: width 180ms ease;
+  position: relative;
+  overflow: hidden;              // hides content during collapse animation
+
+  &.collapsed {
+    width: 40px;
+  }
+}
+
+
+
+.collapse-toggle-wrap {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  z-index: 10;
+}
+
+.collapsed .collapse-toggle-wrap {
+  right: 50%;
+  transform: translateX(50%);
 }
 
 // Make the pair list the scroll container — not the whole sidebar.

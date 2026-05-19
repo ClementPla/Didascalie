@@ -14,7 +14,7 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Point2D } from '../../registration.model';
+import { applyTransform, invertHomography, Point2D } from '../../registration.model';
 import { Pyramid, PyramidService } from '../../pyramid.service';
 import { ViewportController } from '../../viewport-controller';
 import {
@@ -302,6 +302,7 @@ export class ViewportPaneComponent
       event.clientY,
       rect,
     );
+    this.state.setHoverPoint(this.side, native);
     const hit = this.hitTestPair(native);
     this.localHoverPairId.set(hit);
     this.state.setHoveredPair(hit);
@@ -322,16 +323,31 @@ export class ViewportPaneComponent
     const rect = this.canvasEl.nativeElement.getBoundingClientRect();
     this.controller.wheel(event, rect);
   }
+  readonly shadowCursor = computed<Point2D | null>(() => {
+    if (!this.state.vis().showShadowCursor) return null;
+    const hover = this.state.hoverPoint();
+    if (!hover) return null;
 
-  // ==========================================
-  // Hit testing
-  // ==========================================
+    // Only show shadow on the OPPOSITE pane from where the mouse is.
+    if (hover.side === this.side) return null;
 
-  /**
-   * Hit-test the native point against this pane's pair points. The hit
-   * radius is 12 CSS px mapped to native px, capped at 60 native px so the
-   * target doesn't balloon at extreme zoom-out.
-   */
+    const t = this.state.transform();
+    if (t.type !== 'homography') return null;
+
+    // Mouse on ref → show shadow on moving (use inverse homography: ref → moving).
+    // Mouse on moving → show shadow on ref (use forward homography: moving → ref).
+    if (hover.side === 'ref' && this.side === 'moving') {
+      // Map ref point to moving via H⁻¹.
+      const inv = invertHomography(t);
+      if (!inv) return null;
+      return applyTransform(inv, hover.pt);
+    } else if (hover.side === 'moving' && this.side === 'ref') {
+      // Map moving point to ref via H.
+      return applyTransform(t, hover.pt);
+    }
+    return null;
+  });
+
   private hitTestPair(native: Point2D): string | null {
     const scale = Math.max(0.001, this.controller.scale());
     const radius = Math.min(60, 12 / scale);

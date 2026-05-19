@@ -26,6 +26,7 @@ export interface VisualizationOptions {
   checkerTileSize: number;
   syncPanZoom: boolean;
   showMovingWarped: boolean;
+  showShadowCursor: boolean;
 }
 
 const DEFAULT_VIS_OPTIONS: VisualizationOptions = {
@@ -34,6 +35,7 @@ const DEFAULT_VIS_OPTIONS: VisualizationOptions = {
   checkerTileSize: 64,
   syncPanZoom: true,
   showMovingWarped: false,
+  showShadowCursor: false,
 };
 
 export type PlacementState =
@@ -88,6 +90,16 @@ export class RegistrationStateService {
   readonly framesReady = computed(
     () => this._referenceFrameId() !== null && this._movingFrameId() !== null,
   );
+  private _sidebarCollapsed = signal(false);
+  readonly sidebarCollapsed = this._sidebarCollapsed.asReadonly();
+
+  toggleSidebar(): void {
+    this._sidebarCollapsed.update((v) => !v);
+  }
+
+  setSidebarCollapsed(v: boolean): void {
+    this._sidebarCollapsed.set(v);
+  }
 
   // ── Registration core ────────────────────────────────────────────────────
   private _registration = signal<FrameRegistration | null>(null);
@@ -108,10 +120,6 @@ export class RegistrationStateService {
 
   readonly pairCount = computed(() => this.pairs().length);
 
-  /**
-   * True when enough pairs exist for the selected transform type to be
-   * uniquely determined. Affine needs 3; TPS/B-spline need more.
-   */
   readonly canFit = computed(() => {
     const n = this.pairCount();
     switch (this._transformType()) {
@@ -129,10 +137,31 @@ export class RegistrationStateService {
   private _placement = signal<PlacementState>({ phase: 'idle' });
   readonly placement = this._placement.asReadonly();
 
-  readonly isAwaitingMoving = computed(() => this._placement().phase === 'awaiting-moving');
-  readonly isAwaitingReference = computed(() => this._placement().phase === 'awaiting-ref');
+  readonly isAwaitingMoving = computed(
+    () => this._placement().phase === 'awaiting-moving',
+  );
+  readonly isAwaitingReference = computed(
+    () => this._placement().phase === 'awaiting-ref',
+  );
+  private _hoverPoint = signal<{ side: 'ref' | 'moving'; pt: Point2D } | null>(
+    null,
+  );
 
-// Drop the old isAwaitingMoving-only signal if you had one, or keep both.
+  // For shadow cursor previewing during placement
+  readonly hoverPoint = this._hoverPoint.asReadonly();
+  setShowShadowCursor(v: boolean): void {
+    this._vis.update((o) => ({ ...o, showShadowCursor: v }));
+  }
+
+  setHoverPoint(side: 'ref' | 'moving', pt: Point2D): void {
+    this._hoverPoint.set({ side, pt });
+  }
+
+  clearHoverPoint(): void {
+    this._hoverPoint.set(null);
+  }
+
+  // Drop the old isAwaitingMoving-only signal if you had one, or keep both.
 
   // ── Visualization ────────────────────────────────────────────────────────
   private _vis = signal<VisualizationOptions>({ ...DEFAULT_VIS_OPTIONS });
@@ -185,15 +214,6 @@ export class RegistrationStateService {
     }
   }
 
-  // ==========================================
-  // Placement state machine
-  // ==========================================
-
-  /**
-   * User clicked on the *reference* pane at native image coordinate `p`.
-   * Transitions: idle → awaiting-moving.
-   * If already awaiting, replaces the pending ref point.
-   */
   placeRefPoint(p: Point2D): void {
     const current = this._placement();
 

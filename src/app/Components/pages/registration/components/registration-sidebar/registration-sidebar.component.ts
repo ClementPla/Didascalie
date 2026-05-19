@@ -65,6 +65,12 @@ export class RegistrationSidebarComponent {
   // How many more pairs the user needs to reach the affine minimum (3).
   readonly pairsNeeded = computed(() => Math.max(0, 4 - this.pairCount()));
 
+  readonly collapsed = this.state.sidebarCollapsed;
+
+  toggleCollapsed(): void {
+    this.state.toggleSidebar();
+  }
+
   // ── Frame selector bindings (two-way) ────────────────────────────────────
 
   get selectedReferenceFrameId(): string {

@@ -8,6 +8,7 @@ import {
   HostListener,
   OnDestroy,
   OnInit,
+  computed,
   effect,
   inject,
   signal,
@@ -77,6 +78,30 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   private sequenceLoadPromise: Promise<void> | null = null;
   private broadcastPaused = signal(false);
   isPoppedOut = signal(false);
+  readonly currentSequenceName = computed(() => {
+    const seqId = this.state.sequenceId();
+    if (!seqId) return '';
+    const seq = this.seqSvc.sequences().find((s) => String(s.id) === seqId);
+    return seq?.name ?? `Sequence ${seqId}`;
+  });
+
+  readonly currentSequenceIndex = computed(() => {
+    const seqId = this.state.sequenceId();
+    if (!seqId) return 0;
+    const idx = this.seqSvc
+      .sequences()
+      .findIndex((s) => String(s.id) === seqId);
+    return idx >= 0 ? idx : 0;
+  });
+
+  readonly totalSequences = computed(() => this.seqSvc.sequences().length);
+
+  readonly globalProgressPercent = computed(() => {
+    const total = this.totalSequences();
+    if (total === 0) return 0;
+    // Simple version: current position in sequence list.
+    return Math.round(((this.currentSequenceIndex() + 1) / total) * 100);
+  });
   constructor(public state: RegistrationStateService) {
     effect(() => {
       if (!this.isPoppedOut()) return;
@@ -287,8 +312,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:mouseup')
   onWindowMouseUp(): void {
-    // Catches the case where the user released the mouse outside the panes.
-    // Children's local mouseup handlers cover the in-pane case.
     this.refVP.endDrag();
     this.movingVP.endDrag();
   }
@@ -296,9 +319,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   onTabToggle(event: Event): void {
     if (this.mode() !== 'side-by-side') return;
 
-    // Only intercept Tab when the user is "in the viewport" — i.e., the focus
-    // is on the body or on a viewport pane / its canvas. Let it fall through
-    // to the browser's focus traversal when the user is in a form control.
     const target = event.target as HTMLElement | null;
     const isFormControl =
       target?.tagName === 'INPUT' ||
@@ -392,24 +412,24 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async updateFrame() {
-  this.broadcastPaused.set(true);
-  try {
-    // Wait for the frameChanged$ subscription to finish its loadSequence work.
-    if (this.sequenceLoadPromise) {
-      await this.sequenceLoadPromise;
-    }
-  } finally {
-    this.broadcastPaused.set(false);
-    if (this.isPoppedOut()) {
-      await emitTo('composite-view', 'sync-state-data', {
-        pairs: this.state.pairs(),
-        referenceFrameId: this.state.referenceFrameId(),
-        movingFrameId: this.state.movingFrameId(),
-        movingImageUrl: this.movingImageUrl(),
-      });
+    this.broadcastPaused.set(true);
+    try {
+      // Wait for the frameChanged$ subscription to finish its loadSequence work.
+      if (this.sequenceLoadPromise) {
+        await this.sequenceLoadPromise;
+      }
+    } finally {
+      this.broadcastPaused.set(false);
+      if (this.isPoppedOut()) {
+        await emitTo('composite-view', 'sync-state-data', {
+          pairs: this.state.pairs(),
+          referenceFrameId: this.state.referenceFrameId(),
+          movingFrameId: this.state.movingFrameId(),
+          movingImageUrl: this.movingImageUrl(),
+        });
+      }
     }
   }
-}
   @HostListener('window:keydown.arrowright', ['$event'])
   onArrowRight(event: Event): void {
     if (this.isInFormControl(event)) return;
@@ -433,6 +453,13 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   @HostListener('window:keydown.escape')
   onEscape(): void {
     this.state.cancelPlacement();
+  }
+
+  @HostListener('window:keydown.b', ['$event'])
+  onBKey(event: Event): void {
+    if (this.isInFormControl(event)) return;
+    (event as KeyboardEvent).preventDefault();
+    this.state.toggleSidebar();
   }
 
   private isInFormControl(event: KeyboardEvent | Event): boolean {

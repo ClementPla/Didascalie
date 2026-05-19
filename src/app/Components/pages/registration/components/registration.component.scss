@@ -8,21 +8,20 @@
 }
 
 .reg-layout {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  grid-template-rows: 100%;          // ← pin row to host height
+  display: flex;
+  flex-direction: row;
   height: 100%;
   overflow: hidden;
   background: var(--surface-ground, #15171b);
 }
 .reg-main {
+  flex: 1;
+  min-width: 0;        
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  min-width: 0;
 }
-
 .workspace {
   flex: 1;
   min-height: 0;
@@ -38,4 +37,64 @@
   width: 100%;
   height: 100%;
   background: var(--surface-border, rgba(255, 255, 255, 0.08));
+}
+
+.reg-progress-bar {
+  flex: 0 0 auto;             // don't grow, don't shrink
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--surface-border, rgba(255, 255, 255, 0.08));
+  padding: 0.5rem 1rem;
+  z-index: 10;
+}
+
+.reg-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text-color, #e0e0e0);
+  font-size: 0.85rem;
+}
+
+.reg-seq-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.reg-progress-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.reg-progress-counter,
+.reg-progress-percent {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.reg-progress-percent {
+  width: 2.5rem;
+  text-align: right;
+}
+
+.reg-progress-bar-track {
+  width: 6rem;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.reg-progress-bar-fill {
+  height: 100%;
+  background: var(--primary-color, #4ade80);   
+  transition: width 240ms ease;
 }

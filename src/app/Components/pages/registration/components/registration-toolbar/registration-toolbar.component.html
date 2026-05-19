@@ -58,15 +58,20 @@
         size="small"
         [outlined]="!syncPanZoom"
         [disabled]="vis().showMovingWarped"
-        
         tooltipPosition="bottom"
         (click)="syncPanZoom = !syncPanZoom"
       ></p-button>
       <p-button
-        icon="pi pi-external-link"
+        [icon]="showShadowCursor ? 'pi pi-eye' : 'pi pi-eye-slash'"
+        [label]="
+          showShadowCursor ? 'Showing shadow cursor' : 'Show shadow cursor'
+        "
+        [severity]="showShadowCursor ? 'info' : 'secondary'"
+        [outlined]="!showShadowCursor"
         size="small"
-        [label]='"Composite view in new window"'
-        (click)="onOpenComposite()"
+        (click)="showShadowCursor = !showShadowCursor"
+        pTooltip="Toggle shadow cursor"
+        tooltipPosition="bottom"
       ></p-button>
     </div>
     <div class="warp-toggle">
@@ -82,9 +87,14 @@
         pTooltip="Press Tab to toggle"
         tooltipPosition="bottom"
       ></p-button>
+      <p-button
+        icon="pi pi-external-link"
+        size="small"
+        [label]='"Composite view in new window"'
+        (click)="onOpenComposite()"
+      ></p-button>
     </div>
   }
-  <!-- registration-toolbar.component.html — add at the end, after sync-control -->
 <div class="nav-control">
   <p-button
     icon="pi pi-chevron-left"

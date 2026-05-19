@@ -57,6 +57,7 @@ export class RegistrationToolbarComponent {
   readonly mode = this.state.mode;
   readonly vis = this.state.vis;
 
+
   setMode(mode: VisualizationMode): void {
     this.state.setMode(mode);
   }
@@ -88,5 +89,12 @@ export class RegistrationToolbarComponent {
   }
   set showMovingWarped(v: boolean) {
     this.state.setShowMovingWarped(v);
+  }
+
+  get showShadowCursor(): boolean {
+    return this.vis().showShadowCursor;
+  }
+  set showShadowCursor(v: boolean) {
+    this.state.setShowShadowCursor(v);
   }
 }

@@ -45,5 +45,26 @@
         }
       }
     </div>
+    <div class="reg-progress-bar">
+    <div class="reg-progress-row">
+      <span class="reg-seq-name">
+        {{ currentSequenceName() }}
+      </span>
+      <div class="reg-progress-meta">
+        <span class="reg-progress-counter">
+          Seq {{ currentSequenceIndex() + 1 }}/{{ totalSequences() }}
+        </span>
+        <div class="reg-progress-bar-track">
+          <div
+            class="reg-progress-bar-fill"
+            [style.width.%]="globalProgressPercent()"
+          ></div>
+        </div>
+        <span class="reg-progress-percent">
+          {{ globalProgressPercent() }}%
+        </span>
+      </div>
+    </div>
+  </div>
   </div>
 </div>
