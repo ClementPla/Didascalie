@@ -49,90 +49,75 @@ pub fn get_progress(db: State<DbState>) -> Result<(i64, i64)> {
 // ==========================================
 // Frame Retrieval
 // ==========================================
+pub struct FrameMeta { pub frame: Frame }
 
-#[tauri::command]
-pub fn get_frame_image(db: State<DbState>, frame_id: i64) -> Result<FrameImage> {
-  db.with_conn(|conn| {
-    let row = conn
-      .query_row(
-        "SELECT f.id, f.sequence_id, f.frame_index, f.relative_path, 
+pub fn read_frame_bytes(
+    db: &DbState,
+    frame_id: i64,
+) -> Result<(FrameMeta, Vec<u8>)> {
+    db.with_conn(|conn| {
+        let row = conn.query_row(
+            "SELECT f.id, f.sequence_id, f.frame_index, f.relative_path,
                     f.embedded_data, f.width, f.height, f.reviewed,
                     json_extract(p.config, '$.input_folder')
              FROM frames f
              JOIN sequences s ON f.sequence_id = s.id
              JOIN project p ON p.id = 1
              WHERE f.id = ?1",
-        params![frame_id],
-        |row| {
-          Ok((
-            row.get::<_, i64>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, i32>(2)?,
-            row.get::<_, Option<String>>(3)?,
-            row.get::<_, Option<Vec<u8>>>(4)?,
-            row.get::<_, i32>(5)?,
-            row.get::<_, i32>(6)?,
-            row.get::<_, bool>(7)?,
-            row.get::<_, Option<String>>(8)?,
-          ))
-        }
-      )
-      .map_err(|e| AppError::Database(e))?;
+            params![frame_id],
+            |row| Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, i32>(2)?,
+                row.get::<_, Option<String>>(3)?,
+                row.get::<_, Option<Vec<u8>>>(4)?,
+                row.get::<_, i32>(5)?,
+                row.get::<_, i32>(6)?,
+                row.get::<_, bool>(7)?,
+                row.get::<_, Option<String>>(8)?,
+            )),
+        ).map_err(AppError::Database)?;
 
-    let (
-      id,
-      sequence_id,
-      frame_index,
-      relative_path,
-      embedded_data,
-      width,
-      height,
-      reviewed,
-      input_folder,
-    ) = row;
+        let (id, sequence_id, frame_index, relative_path,
+             embedded_data, width, height, reviewed, input_folder) = row;
 
-    let is_embedded = embedded_data.is_some();
+        let is_embedded = embedded_data.is_some();
+        let bytes = if let Some(data) = embedded_data {
+            data
+        } else if let Some(ref rel) = relative_path {
+            let folder = input_folder.ok_or_else(|| {
+                AppError::Generic("Project has no input_folder in config".into())
+            })?;
+            let full = Path::new(&folder).join(rel);
+            fs::read(&full).map_err(|e| AppError::Io(
+                std::io::Error::new(e.kind(),
+                    format!("Failed to read image: {}", full.display()))
+            ))?
+        } else {
+            return Err(AppError::Generic("Frame has no image data".into()));
+        };
 
-    let image_data = if let Some(data) = embedded_data {
-      data
-    } else if let Some(ref rel_path) = relative_path {
-      let folder = input_folder.ok_or_else(|| {
-        AppError::Generic("Project has no input_folder in config".to_string())
-      })?;
-
-      let full_path = Path::new(&folder).join(rel_path);
-      fs
-        ::read(&full_path)
-        .map_err(|e| {
-          AppError::Io(
-            std::io::Error::new(e.kind(), format!("Failed to read image: {}", full_path.display()))
-          )
-        })?
-    } else {
-      return Err(AppError::Generic("Frame has no image data".to_string()));
-    };
-
-    let mime_type = detect_mime_type(&image_data);
-    let base64_data = BASE64.encode(&image_data);
-    let image_base64 = format!("data:{};base64,{}", mime_type, base64_data);
-
-    let frame = Frame {
-      id,
-      sequence_id,
-      frame_index,
-      relative_path,
-      width,
-      height,
-      reviewed,
-      is_embedded,
-    };
-
-    Ok(FrameImage {
-      frame,
-      image_base64,
+        Ok((
+            FrameMeta {
+                frame: Frame {
+                    id, sequence_id, frame_index, relative_path,
+                    width, height, reviewed, is_embedded,
+                },
+            },
+            bytes,
+        ))
     })
-  })
 }
+
+
+#[tauri::command]
+pub fn get_frame_image(db: State<DbState>, frame_id: i64) -> Result<FrameImage> {
+    let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
+    let mime = detect_mime_type(&bytes);
+    let image_base64 = format!("data:{};base64,{}", mime, BASE64.encode(&bytes));
+    Ok(FrameImage { frame: meta.frame, image_base64 })
+}
+
 
 #[tauri::command]
 pub fn get_frame_thumbnail(db: State<DbState>, frame_id: i64, max_size: u32) -> Result<FrameImage> {

@@ -1,10 +1,14 @@
-<div class="flex flex-col gap-4 h-full items-stretch p-4 w-full">
+<div class="flex flex-col gallery gap-4 h-full p-4 w-full">
 
-  @if(projectService.isClassification() && hasSelection) {
-  <p-panel header="Batch Annotation" [toggleable]="true" [collapsed]="false">
+  @if (projectService.isClassification() && hasSelection) {
+  <p-panel
+    [header]="'Batch annotation · ' + selectedCount + ' selected'"
+    [toggleable]="true"
+    [collapsed]="false"
+  >
     <div class="flex flex-col gap-4">
       <!-- Multiclass tasks -->
-      @for(task of labelsService.listClassificationTasks; track task.taskName;
+      @for (task of labelsService.listClassificationTasks; track task.taskName;
       let i = $index) {
       <div>
         <label class="block font-bold mb-2">{{ task.taskName }}</label>
@@ -13,13 +17,13 @@
           [ngModel]="batchMulticlassChoices[i]"
           (onOptionClick)="setBatchMulticlassChoice(i, $event.option)"
           size="small"
-          style="display: flex; flex-wrap: wrap"
+          styleClass="flex flex-wrap"
         ></p-selectButton>
       </div>
       }
 
       <!-- Multilabel task -->
-      @if(labelsService.multiLabelTask) {
+      @if (labelsService.multiLabelTask) {
       <div>
         <label class="block font-bold mb-2">{{
           labelsService.multiLabelTask.taskName
@@ -29,13 +33,13 @@
           [multiple]="true"
           [(ngModel)]="batchMultilabelChoices"
           size="small"
-          style="display: flex; flex-wrap: wrap"
+          styleClass="flex flex-wrap"
         ></p-selectButton>
       </div>
       }
 
       <!-- Actions -->
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <p-button
           label="Apply to {{ selectedCount }} items"
           icon="pi pi-check"
@@ -43,15 +47,16 @@
           [disabled]="!hasBatchChoices"
         ></p-button>
         <p-button
-          label="Mark as Reviewed"
+          label="Mark as reviewed"
           icon="pi pi-verified"
           severity="success"
           (click)="markSelectedAsReviewed(true)"
         ></p-button>
         <p-button
-          label="Clear Selection"
+          label="Clear selection"
           icon="pi pi-times"
           severity="secondary"
+          [outlined]="true"
           (click)="deselectAll()"
         ></p-button>
       </div>
@@ -60,88 +65,175 @@
   }
 
   <p-dataview
-    #dv
-    [value]="galleryItems"
-    [layout]="'grid'"
+    [value]="filteredItems"
+    layout="grid"
     [rows]="galleryService.itemPerPage"
     [paginator]="true"
     [showJumpToPageDropdown]="true"
-    filterBy="status,title"
-    [paginatorPosition]="'both'"
+    paginatorPosition="bottom"
     [first]="galleryService.getFirstPage()"
   >
+    <!-- ============================================================ -->
+    <!-- Toolbar                                                       -->
+    <!-- ============================================================ -->
     <ng-template #header>
-      <div class="flex gap-8 items-center justify-end">
-        <p class="flex flex-row gap-4 items-center justify-center mr-auto">
-          @if (projectService.config().classification_enabled) {
+      <div class="gallery-toolbar">
+
+        <!-- Primary row: search / status / sort / view controls -->
+        <div class="toolbar-row">
+          <p-iconfield class="search-field">
+            <p-inputicon styleClass="pi pi-search" />
+            <input
+              type="search"
+              pInputText
+              placeholder="Search sequences..."
+              [(ngModel)]="filterTitle"
+              (ngModelChange)="applyFilters()"
+            />
+          </p-iconfield>
+
+          <p-selectbutton
+            [options]="statusOptions"
+            [(ngModel)]="selectedStatuses"
+            [multiple]="true"
+            optionLabel="label"
+            optionValue="value"
+            size="small"
+            pTooltip="Filter by review status"
+            (onChange)="applyFilters()"
+          >
+            <ng-template #item let-option>
+              <span class="status-dot" [class]="'dot-' + option.value"></span>
+              <span>{{ option.label }}</span>
+            </ng-template>
+          </p-selectbutton>
+
+          <p-select
+            [options]="sortOptions"
+            [(ngModel)]="sortKey"
+            optionLabel="label"
+            optionValue="value"
+            styleClass="sort-select"
+            pTooltip="Sort order"
+            (onChange)="applyFilters()"
+          ></p-select>
+
+          <span class="toolbar-spacer"></span>
+
+          <app-labelled-switch [(checked)]="showAdvancedFilters">
+            Advanced
+          </app-labelled-switch>
+
+          <div class="size-control" pTooltip="Thumbnail size">
+            <i class="opacity-50 pi pi-image text-sm"></i>
+            <p-slider [(ngModel)]="imgSize" [min]="128" [max]="512" />
+          </div>
+
+          <app-labelled-switch
+            [(checked)]="autoRefresh"
+            (checkedChange)="setupAutoRefresh()"
+          >
+            Auto-refresh
+          </app-labelled-switch>
+
+          <div class="refresh-group">
+            @if (autoRefresh) {
+            <p-knob
+              [(ngModel)]="percentageBeforeRefresh"
+              [size]="30"
+              [readonly]="true"
+              [valueTemplate]="''"
+              pTooltip="Time until next refresh"
+            />
+            }
+            <button
+              pButton
+              type="button"
+              label="Refresh"
+              icon="pi pi-sync"
+              severity="success"
+              (click)="refresh()"
+            ></button>
+          </div>
+        </div>
+
+        <!-- Advanced row: frame-count range + reset -->
+        @if (showAdvancedFilters) {
+        <div class="advanced-row toolbar-row">
+          <span class="advanced-label">Frame count</span>
+          <p-slider
+            class="frame-range"
+            [(ngModel)]="frameCountRange"
+            [range]="true"
+            [min]="0"
+            [max]="maxFrameCount || 1"
+            (onSlideEnd)="applyFilters()"
+          />
+          <span class="range-value">
+            {{ frameCountRange[0] }} - {{ frameCountRange[1] }}
+          </span>
+          <span class="toolbar-spacer"></span>
           <button
             pButton
             type="button"
+            text
+            size="small"
+            icon="pi pi-filter-slash"
+            label="Reset filters"
+            [disabled]="!hasActiveFilters && sortKey === 'name-asc'"
+            (click)="resetFilters()"
+          ></button>
+        </div>
+        }
+
+        <!-- Selection bar (classification projects only) -->
+        @if (projectService.config().classification_enabled) {
+        <div class="selection-bar" [class.is-active]="hasSelection">
+          <i
+            class="pi"
+            [class.pi-check-square]="hasSelection"
+            [class.pi-stop]="!hasSelection"
+          ></i>
+          @if (hasSelection) {
+          <span><strong>{{ selectedCount }}</strong> selected</span>
+          } @else {
+          <span class="muted">
+            Tap thumbnails to select. Shift-click for a range.
+          </span>
+          }
+          <span class="toolbar-spacer"></span>
+          <button
+            pButton
+            type="button"
+            text
+            size="small"
+            icon="pi pi-check-circle"
+            label="Select all"
+            [disabled]="filteredItems.length === 0"
+            (click)="selectAll()"
+          ></button>
+          <button
+            pButton
+            type="button"
+            text
+            size="small"
+            severity="secondary"
+            icon="pi pi-times-circle"
             label="Deselect all"
             [disabled]="!hasSelection"
             (click)="deselectAll()"
           ></button>
-          <button
-            pButton
-            type="button"
-            label="Select all"
-            (click)="selectAll()"
-          ></button>
-          }
-          <span class="text-gray-500 text-sm" *ngIf="hasSelection">
-            {{ selectedCount }} selected
-          </span>
-          <p-slider
-            [(ngModel)]="imgSize"
-            [min]="128"
-            [max]="512"
-            class="w-56"
-          />
-        </p>
-        <app-labelled-switch [(checked)]="showAdvancedFilters">
-          Advanced filters
-        </app-labelled-switch>
-        <input
-          type="search"
-          pInputText
-          placeholder="Filter by Name"
-          [(ngModel)]="filterTitle"
-          (input)="addTitleFilter()"
-        />
-        <p-selectbutton
-          [options]="filterOptions"
-          optionLabel="label"
-          [ngModel]="filterOptions[0]"
-          (onChange)="toggleFilter($event.value)"
-        ></p-selectbutton>
-        <app-labelled-switch
-          [(checked)]="autoRefresh"
-          (checkedChange)="setupAutoRefresh()"
-        >
-          Auto-refresh
-        </app-labelled-switch>
-        <button
-          pButton
-          type="button"
-          label="Refresh"
-          icon="pi pi-sync"
-          class="p-button-success"
-          (click)="refresh()"
-        >
-          @if (autoRefresh) {
-          <p-knob
-            [(ngModel)]="percentageBeforeRefresh"
-            [size]="15"
-            [valueTemplate]="''"
-          />
-          }
-        </button>
+        </div>
+        }
       </div>
     </ng-template>
 
+    <!-- ============================================================ -->
+    <!-- Grid                                                          -->
+    <!-- ============================================================ -->
     <ng-template #grid let-items>
       <div
-        class="flex flex-row flex-wrap justify-left max-h-[70vh] overflow-x-clip overflow-y-scroll"
+        class="flex flex-row flex-wrap gallery-scroll justify-start max-h-[70vh] overflow-x-clip overflow-y-auto"
       >
         @for (item of items; track item.sequenceId) {
         <app-gallery-element
@@ -155,17 +247,47 @@
           [frameIds]="item.frameIds"
           (thumbnailSelected)="handleSelect($event)"
           (thumbnailClicked)="openItem(item)"
-        >
-        </app-gallery-element>
+        ></app-gallery-element>
         }
       </div>
     </ng-template>
 
+    <!-- ============================================================ -->
+    <!-- Empty state                                                   -->
+    <!-- ============================================================ -->
+    <ng-template #empty>
+      <div class="gallery-empty">
+        <i class="pi pi-inbox"></i>
+        @if (totalItems === 0) {
+        <p>No sequences in this project yet.</p>
+        } @else {
+        <p>No sequences match the current filters.</p>
+        <button
+          pButton
+          type="button"
+          text
+          icon="pi pi-filter-slash"
+          label="Clear filters"
+          (click)="resetFilters()"
+        ></button>
+        }
+      </div>
+    </ng-template>
+
+    <!-- ============================================================ -->
+    <!-- Footer                                                        -->
+    <!-- ============================================================ -->
     <ng-template #footer>
-      <div class="flex justify-between w-full">
-        <small>{{ totalItems }} sequences</small>
+      <div class="gallery-footer">
+        <small>
+          @if (hasActiveFilters) {
+          Showing {{ filteredItems.length }} of {{ totalItems }} sequences
+          } @else {
+          {{ totalItems }} sequences
+          }
+        </small>
         @if (hasSelection) {
-        <small>{{ selectedCount }} selected</small>
+        <small class="footer-selected">{{ selectedCount }} selected</small>
         }
       </div>
     </ng-template>

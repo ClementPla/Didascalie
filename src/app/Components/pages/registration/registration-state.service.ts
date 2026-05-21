@@ -13,6 +13,7 @@ import {
   IDENTITY,
   Point2D,
 } from './registration.model';
+import { KeypointPair } from '../../../lib/api';
 
 // ==========================================
 // Visualization mode
@@ -384,4 +385,20 @@ export class RegistrationStateService {
   toggleShowMovingWarped(): void {
     this._vis.update((o) => ({ ...o, showMovingWarped: !o.showMovingWarped }));
   }
+  applyPrefillPairs(newPairs: KeypointPair[]): void {
+    const reg = this._registration();
+    if (!reg) return;
+
+    // Convert KeypointPairs to CorrespondencePairs and merge with existing pairs.
+    const converted: CorrespondencePair[] = newPairs.map((kp) =>
+      makePair(
+        { x: kp.refX, y: kp.refY },
+        { x: kp.movingX, y: kp.movingY },
+      ),
+    );
+
+    this._registration.set({ ...reg, pairs: [...reg.pairs, ...converted] });
+    this.refit(this._registration()!);
+  }
+  
 }

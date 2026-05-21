@@ -1,9 +1,11 @@
+// src-tauri/src/lib.rs
 use std::sync::Arc;
 #[cfg(not(target_os = "android"))]
 use crate::dl::feature_extract::FeaturesExtractor;
 #[cfg(not(target_os = "android"))]
 use crate::dl::model::ModelSessions;
 
+use crate::connection::inference::InferenceClient;   // ← add
 use crate::storage::DbState;
 use tauri::{Manager, RunEvent};
 use tokio::sync::Mutex;
@@ -42,6 +44,7 @@ pub fn run() {
         .manage(ModelSessions::new());
     
     let app = app.manage(DbState::new()) 
+        .manage(InferenceClient::new())
         .setup(|app| {
             connection::coms::setup_zmq_receiver(app.handle().clone())?;
             Ok(())
@@ -109,6 +112,8 @@ pub fn run() {
             commands::registration::save_registration,
             commands::registration::load_registration,
             commands::registration::delete_registration,
+            commands::registration::inference_connect,
+            commands::registration::find_keypoints_prefill,
 
 
         ])

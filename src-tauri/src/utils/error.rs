@@ -53,6 +53,12 @@ impl From<tauri::Error> for AppError {
     }
 }
 
+impl From<crate::connection::types::ComError> for AppError {
+    fn from(e: crate::connection::types::ComError) -> Self {
+        AppError::Generic(e.to_string())
+    }
+}
+
 // For Tauri commands - converts to string
 impl Serialize for AppError {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>

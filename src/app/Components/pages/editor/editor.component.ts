@@ -116,7 +116,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   async ngAfterViewInit() {
     // All initialization happens here, in order
     if (this.projectService.isOpen()) {
-      await this.sequenceService.loadSequences();
 
       // Now frame should be loaded (loadSequences auto-selects first)
       const frameImage = this.sequenceService.currentFrameImage();

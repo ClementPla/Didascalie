@@ -1,23 +1,20 @@
-import {
-  Component,
-  OnDestroy,
-  OnInit,
-  QueryList,
-  ViewChild,
-  ViewChildren,
-} from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 // PrimeNG
 import { PanelModule } from 'primeng/panel';
-import { DataViewModule, DataView } from 'primeng/dataview';
+import { DataViewModule } from 'primeng/dataview';
 import { ButtonModule } from 'primeng/button';
 import { KnobModule } from 'primeng/knob';
-import { SelectButton, SelectButtonModule } from 'primeng/selectbutton';
+import { SelectButtonModule } from 'primeng/selectbutton';
+import { SelectModule } from 'primeng/select';
 import { InputTextModule } from 'primeng/inputtext';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { SliderModule } from 'primeng/slider';
+import { TooltipModule } from 'primeng/tooltip';
 
 // Services
 import { ProjectService } from '../../../Services/ProjectService/project.service';
@@ -26,7 +23,7 @@ import { LabelsService } from '../../../Services/Labels/labels.service';
 import { GalleryService } from './gallery.service';
 import { BatchAnnotationService } from '../../../Services/Labels/batch-annotation.service';
 import { UIStateService } from '../../../Services/uistate.service';
-import { api, Frame, Sequence } from '../../../lib/api';
+import { api } from '../../../lib/api';
 
 // Components
 import {
@@ -35,14 +32,18 @@ import {
 } from './gallery-element/gallery-element.component';
 import { GenericsModule } from '../../../generics/generics.module';
 
+type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
+
 interface GalleryItem {
   frameIds: number[];
-  status: 'empty' | 'annotated' | 'reviewed';
+  status: SequenceStatus;
   title: string;
   sequenceId: number;
   sequenceName: string;
   frameCount: number;
   thumbnailFrameId: number;
+  /** Fraction of frames reviewed, 0..1. Used for progress sorting. */
+  progress: number;
 }
 
 @Component({
@@ -57,37 +58,58 @@ interface GalleryItem {
     FormsModule,
     GenericsModule,
     SelectButtonModule,
+    SelectModule,
     InputTextModule,
+    IconFieldModule,
+    InputIconModule,
     ToggleSwitchModule,
     SliderModule,
+    TooltipModule,
   ],
   templateUrl: './gallery.component.html',
   styleUrl: './gallery.component.scss',
 })
 export class GalleryComponent implements OnInit, OnDestroy {
-  autoRefresh: boolean = false;
-  showAdvancedFilters: boolean = false;
+  // View options
+  autoRefresh = false;
+  showAdvancedFilters = false;
+  imgSize = 256;
 
-  imgSize: number = 256;
-  refreshInterval: number = 3000;
-  percentageBeforeRefresh: number = 0;
+  // Refresh
+  refreshInterval = 3000;
+  percentageBeforeRefresh = 0;
   intervalFunction: ReturnType<typeof setInterval> | undefined;
+
+  // Data
   galleryItems: GalleryItem[] = [];
-  filterTitle: string = '';
+  filteredItems: GalleryItem[] = [];
   selectedItems: number[] = [];
+
+  // Filter state
+  filterTitle = '';
+  selectedStatuses: SequenceStatus[] = [];
+  sortKey = 'name-asc';
+  frameCountRange: number[] = [0, 0];
+  maxFrameCount = 0;
+  private frameRangeInitialized = false;
 
   // Batch annotation state
   batchMulticlassChoices: Array<string | null> = [];
   batchMultilabelChoices: string[] = [];
 
-  @ViewChildren('batchChoices') batchChoices: QueryList<SelectButton>;
-  @ViewChild('dv') dataView: DataView;
+  readonly statusOptions: { label: string; value: SequenceStatus }[] = [
+    { label: 'Not started', value: 'empty' },
+    { label: 'In progress', value: 'annotated' },
+    { label: 'Reviewed', value: 'reviewed' },
+  ];
 
-  filterOptions = [
-    { label: 'All', value: 0 },
-    { label: 'Annotated', value: 1 },
-    { label: 'Not annotated', value: 2 },
-    { label: 'Reviewed', value: 3 },
+  readonly sortOptions = [
+    { label: 'Name (A-Z)', value: 'name-asc' },
+    { label: 'Name (Z-A)', value: 'name-desc' },
+    { label: 'Most frames', value: 'frames-desc' },
+    { label: 'Fewest frames', value: 'frames-asc' },
+    { label: 'Most progress', value: 'progress-desc' },
+    { label: 'Least progress', value: 'progress-asc' },
   ];
 
   constructor(
@@ -115,7 +137,6 @@ export class GalleryComponent implements OnInit, OnDestroy {
   // ==========================================
 
   private initBatchChoices(): void {
-    // Initialize multiclass choices array to match task count
     this.batchMulticlassChoices =
       this.labelsService.listClassificationTasks.map(() => null);
     this.batchMultilabelChoices = [];
@@ -136,6 +157,17 @@ export class GalleryComponent implements OnInit, OnDestroy {
     if (JSON.stringify(this.galleryItems) !== JSON.stringify(newItems)) {
       this.galleryItems = newItems;
     }
+
+    this.maxFrameCount = this.galleryItems.reduce(
+      (max, item) => Math.max(max, item.frameCount),
+      0,
+    );
+    if (!this.frameRangeInitialized) {
+      this.frameCountRange = [0, this.maxFrameCount];
+      this.frameRangeInitialized = true;
+    }
+
+    this.applyFilters();
 
     if (this.autoRefresh) {
       this.intervalFunction = this.getInterval();
@@ -166,87 +198,107 @@ export class GalleryComponent implements OnInit, OnDestroy {
   // ==========================================
 
   async getItems(): Promise<GalleryItem[]> {
-  this.uiState.setLoading(true, 'Loading gallery items...');
-  try {
-    // Two queries total instead of N+1
-    const [sequences, frameIdsBySequence] = await Promise.all([
-      api.getGallerySequences(),
-      api.getAllFrameIdsBySequence(),
-    ]);
-    
-    const items: GalleryItem[] = sequences
-      .filter(seq => seq.frame_count > 0)
-      .map(seq => ({
-        sequenceId: seq.id,
-        sequenceName: seq.name,
-        title: seq.name,
-        frameCount: seq.frame_count,
-        thumbnailFrameId: seq.first_frame_id!,
-        status: this.computeStatus(seq.reviewed_count, seq.frame_count),
-        frameIds: frameIdsBySequence[seq.id] ?? [],
-      }));
-    
-    return items;
-  } catch (error) {
-    console.error('Failed to load gallery items:', error);
-    return [];
-  } finally {
-    this.uiState.endLoading();
-  }
-}
+    this.uiState.setLoading(true, 'Loading gallery items...');
+    try {
+      // Two queries total instead of N+1
+      const [sequences, frameIdsBySequence] = await Promise.all([
+        api.getGallerySequences(),
+        api.getAllFrameIdsBySequence(),
+      ]);
 
-  private computeStatus(
-    reviewed: number,
-    total: number,
-  ): 'empty' | 'annotated' | 'reviewed' {
+      return sequences
+        .filter((seq) => seq.frame_count > 0)
+        .map((seq) => ({
+          sequenceId: seq.id,
+          sequenceName: seq.name,
+          title: seq.name,
+          frameCount: seq.frame_count,
+          thumbnailFrameId: seq.first_frame_id!,
+          status: this.computeStatus(seq.reviewed_count, seq.frame_count),
+          progress:
+            seq.frame_count > 0 ? seq.reviewed_count / seq.frame_count : 0,
+          frameIds: frameIdsBySequence[seq.id] ?? [],
+        }));
+    } catch (error) {
+      console.error('Failed to load gallery items:', error);
+      return [];
+    } finally {
+      this.uiState.endLoading();
+    }
+  }
+
+  private computeStatus(reviewed: number, total: number): SequenceStatus {
     if (reviewed === 0) return 'empty';
     if (reviewed >= total) return 'reviewed';
     return 'annotated';
   }
 
-  private async getFramesForSequence(sequenceId: number): Promise<Frame[]> {
-    const currentSequence = this.sequenceService.currentSequence();
-    if (currentSequence?.id === sequenceId) {
-      return this.sequenceService.frames();
-    }
-
-    return api.getSequenceFrames(sequenceId);
-  }
-
-  private getStatusForFrames(
-    frames: Frame[],
-  ): 'empty' | 'annotated' | 'reviewed' {
-    const allReviewed = frames.every((f) => f.reviewed);
-    if (allReviewed) {
-      return 'reviewed';
-    }
-
-    const anyReviewed = frames.some((f) => f.reviewed);
-    if (anyReviewed) {
-      return 'annotated';
-    }
-
-    return 'empty';
-  }
-
   // ==========================================
-  // Filtering
+  // Filtering & Sorting
   // ==========================================
 
-  toggleFilter(event: { value: number }): void {
-    if (event.value === 0) {
-      this.dataView.filter('');
-    } else if (event.value === 1) {
-      this.dataView.filter('annotated');
-    } else if (event.value === 2) {
-      this.dataView.filter('empty');
-    } else {
-      this.dataView.filter('reviewed');
+  applyFilters(): void {
+    let items = [...this.galleryItems];
+
+    const query = this.filterTitle.trim().toLowerCase();
+    if (query) {
+      items = items.filter((item) => item.title.toLowerCase().includes(query));
+    }
+
+    if (this.selectedStatuses.length > 0) {
+      items = items.filter((item) =>
+        this.selectedStatuses.includes(item.status),
+      );
+    }
+
+    if (this.showAdvancedFilters) {
+      const [min, max] = this.frameCountRange;
+      items = items.filter(
+        (item) => item.frameCount >= min && item.frameCount <= max,
+      );
+    }
+
+    items.sort((a, b) => this.compareItems(a, b));
+    this.filteredItems = items;
+  }
+
+  private compareItems(a: GalleryItem, b: GalleryItem): number {
+    switch (this.sortKey) {
+      case 'name-desc':
+        return b.title.localeCompare(a.title);
+      case 'frames-desc':
+        return b.frameCount - a.frameCount;
+      case 'frames-asc':
+        return a.frameCount - b.frameCount;
+      case 'progress-desc':
+        return b.progress - a.progress;
+      case 'progress-asc':
+        return a.progress - b.progress;
+      case 'name-asc':
+      default:
+        return a.title.localeCompare(b.title);
     }
   }
 
-  addTitleFilter(): void {
-    this.dataView.filter(this.filterTitle);
+  resetFilters(): void {
+    this.filterTitle = '';
+    this.selectedStatuses = [];
+    this.sortKey = 'name-asc';
+    this.frameCountRange = [0, this.maxFrameCount];
+    this.applyFilters();
+  }
+
+  /** True when any count-affecting filter is active (used for the footer + reset). */
+  get hasActiveFilters(): boolean {
+    const rangeNarrowed =
+      this.showAdvancedFilters &&
+      (this.frameCountRange[0] > 0 ||
+        this.frameCountRange[1] < this.maxFrameCount);
+    return (
+      this.filterTitle.trim() !== '' ||
+      this.selectedStatuses.length > 0 ||
+      rangeNarrowed
+    );
   }
 
   // ==========================================
@@ -254,50 +306,39 @@ export class GalleryComponent implements OnInit, OnDestroy {
   // ==========================================
 
   handleSelect(event: ThumbnailSelectionEvent): void {
-    const sequenceId = event.id;
-    const selected = event.selected;
-    const isShift = event.isShiftClick;
+    const { id: sequenceId, selected, isShiftClick } = event;
 
-    if (selected) {
-      if (isShift && this.selectedItems.length > 0) {
-        // Range selection - find items between last selected and current
-        const lastSequenceId =
-          this.selectedItems[this.selectedItems.length - 1];
-        const lastIndex = this.galleryItems.findIndex(
-          (item) => item.sequenceId === lastSequenceId,
-        );
-        const currentIndex = this.galleryItems.findIndex(
-          (item) => item.sequenceId === sequenceId,
-        );
+    if (!selected) {
+      this.selectedItems = this.selectedItems.filter((id) => id !== sequenceId);
+      return;
+    }
 
+    // Range selection follows the currently visible/sorted order.
+    if (isShiftClick && this.selectedItems.length > 0) {
+      const lastSequenceId = this.selectedItems[this.selectedItems.length - 1];
+      const lastIndex = this.filteredItems.findIndex(
+        (item) => item.sequenceId === lastSequenceId,
+      );
+      const currentIndex = this.filteredItems.findIndex(
+        (item) => item.sequenceId === sequenceId,
+      );
+
+      if (lastIndex !== -1 && currentIndex !== -1) {
         const start = Math.min(lastIndex, currentIndex);
         const end = Math.max(lastIndex, currentIndex);
-
         for (let i = start; i <= end; i++) {
-          const item = this.galleryItems[i];
-          if (
-            item &&
-            this.isItemVisible(item) &&
-            !this.selectedItems.includes(item.sequenceId)
-          ) {
-            this.selectedItems.push(item.sequenceId);
+          const id = this.filteredItems[i].sequenceId;
+          if (!this.selectedItems.includes(id)) {
+            this.selectedItems.push(id);
           }
         }
-      } else {
-        if (!this.selectedItems.includes(sequenceId)) {
-          this.selectedItems.push(sequenceId);
-        }
+        return;
       }
-    } else {
-      this.selectedItems = this.selectedItems.filter((id) => id !== sequenceId);
     }
-  }
 
-  private isItemVisible(item: GalleryItem): boolean {
-    if (!this.dataView.filteredValue) {
-      return true;
+    if (!this.selectedItems.includes(sequenceId)) {
+      this.selectedItems.push(sequenceId);
     }
-    return this.dataView.filteredValue.includes(item);
   }
 
   deselectAll(): void {
@@ -305,11 +346,7 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   selectAll(): void {
-    const visibleItems = this.dataView.filteredValue ?? this.galleryItems;
-    this.selectedItems = visibleItems.map((item) => item.sequenceId);
-  }
-  get selectedFrameCount(): number {
-    return this.getSelectedFrameIds().length;
+    this.selectedItems = this.filteredItems.map((item) => item.sequenceId);
   }
 
   // ==========================================
@@ -317,11 +354,16 @@ export class GalleryComponent implements OnInit, OnDestroy {
   // ==========================================
 
   async openItem(item: GalleryItem): Promise<void> {
+    if (this.sequenceService.sequences().length === 0) {
+      await this.sequenceService.loadSequences();
+    }
     const sequence = this.sequenceService
       .sequences()
       .find((s) => s.id === item.sequenceId);
     if (sequence) {
       await this.sequenceService.selectSequence(sequence);
+    } else {
+      console.error(`Failed to find sequence with ID ${item.sequenceId}`);
     }
     this.uiState.navigateToEditor();
   }
@@ -391,14 +433,17 @@ export class GalleryComponent implements OnInit, OnDestroy {
     }
   }
 
-  public async markSelectedAsReviewed(reviewed: boolean = true): Promise<void> {
+  public async markSelectedAsReviewed(reviewed = true): Promise<void> {
     if (this.selectedItems.length === 0) {
       return;
     }
 
-    const frameIds = this.selectedItems.flatMap(
-      (index) => this.galleryItems[index]?.frameIds ?? [],
-    );
+    // selectedItems holds sequence IDs, so resolve frame IDs by ID lookup.
+    const frameIds = this.getSelectedFrameIds();
+    if (frameIds.length === 0) {
+      console.error('Failed to extract frame IDs from selected sequences');
+      return;
+    }
 
     this.uiState.setLoading(
       true,
@@ -460,10 +505,5 @@ export class GalleryComponent implements OnInit, OnDestroy {
       const item = this.galleryItems.find((i) => i.sequenceId === sequenceId);
       return item?.frameIds ?? [];
     });
-  }
-
-  async getFrameIds(sequence: Sequence): Promise<number[]> {
-    const frames = await api.getSequenceFrames(sequence.id);
-    return frames.map((f) => f.id);
   }
 }

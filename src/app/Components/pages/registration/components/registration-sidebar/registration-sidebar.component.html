@@ -45,6 +45,71 @@
 
     <p-divider></p-divider>
 
+    @if (framesReady()) {
+      <div class="prefill-section sidebar-section">
+        <p-button
+          [label]="
+            isPrefilling()
+              ? 'Finding keypoints...'
+              : 'Find keypoints with user function'
+          "
+          icon="pi pi-sparkles"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          [loading]="isPrefilling()"
+          [disabled]="isPrefilling()"
+          (click)="onFindKeypointsClick()"
+          [pTooltip]="prefillTooltip()"
+          tooltipPosition="bottom"
+          styleClass="w-full"
+        ></p-button>
+
+        <!-- Connection status chip -->
+        <small
+          class="status-line"
+          [ngClass]="'status-' + inferenceStatus().kind"
+        >
+          @switch (inferenceStatus().kind) {
+            @case ("disconnected") {
+              Not connected to Python
+            }
+            @case ("connecting") {
+              Connecting...
+            }
+            @case ("connected") {
+              <!-- Include a dropdown for selecting the function using p-listbox -->
+              <p-listbox
+                [(ngModel)]="selectedFunctionName"
+                [options]="existingFunctions()"
+                [checkmark]="true"
+              ></p-listbox>
+            }
+            @case ("error") {
+              Connection failed: {{ statusError() }}
+            }
+          }
+        </small>
+        <p-button
+          class="link-btn"
+          size="small"
+          styleClass="w-full"
+          (click)="portDialogOpen.set(true)"
+        >
+          Change port
+        </p-button>
+      </div>
+    }
+
+    <!-- Port config dialog (only rendered when open) -->
+    @if (portDialogOpen()) {
+      <app-inference-port-dialog
+        (configured)="onConfigureConnection($event.host, $event.port)"
+        (cancelled)="portDialogOpen.set(false)"
+      ></app-inference-port-dialog>
+    }
+    <p-divider></p-divider>
+
     <!-- Pairs -->
     <div class="pairs-section sidebar-section">
       <div class="pairs-header">

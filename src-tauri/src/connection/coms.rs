@@ -1,3 +1,4 @@
+// src-tauri/src/connection/coms.rs
 use crate::connection::connection::Connection;
 use crate::connection::types::ComError;
 use std::thread;

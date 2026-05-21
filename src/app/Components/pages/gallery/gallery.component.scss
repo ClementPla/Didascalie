@@ -1,10 +1,177 @@
-// gallery.component.scss
 :host {
+  display: block;
+}
+
+/* ============================================================
+   Toolbar
+   ============================================================ */
+.gallery-toolbar {
   display: flex;
   flex-direction: column;
+  gap: 0.6rem;
   width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;   /* if the gallery should scroll when content overflows */
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+/* Search field grows but stays bounded */
+.search-field {
+  flex: 1 1 220px;
+  max-width: 340px;
+  min-width: 180px;
+}
+.search-field input {
+  width: 100%;
+}
+
+.sort-select {
+  min-width: 11rem;
+}
+
+/* Thumbnail-size slider cluster */
+.size-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+}
+.size-control p-slider {
+  display: block;
+  width: 8rem;
+}
+
+/* Auto-refresh knob + refresh button kept together */
+.refresh-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ============================================================
+   Advanced filter row
+   ============================================================ */
+.advanced-row {
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  background: var(--p-content-hover-background, rgba(0, 0, 0, 0.035));
+}
+.advanced-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+.frame-range {
+  flex: 1 1 200px;
+  max-width: 320px;
+}
+.range-value {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+  min-width: 5rem;
+}
+
+/* ============================================================
+   Selection bar
+   ============================================================ */
+.selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: var(--p-content-hover-background, rgba(0, 0, 0, 0.035));
+  color: var(--p-text-muted-color, #6b7280);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.selection-bar.is-active {
+  background: var(--p-primary-100, rgba(59, 130, 246, 0.12));
+  color: var(--p-text-color, inherit);
+}
+.selection-bar .muted {
+  opacity: 0.85;
+}
+
+/* ============================================================
+   Status dots (status filter)
+   ============================================================ */
+.status-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 0.4rem;
+  flex-shrink: 0;
+}
+.dot-empty {
+  background: #9ca3af;
+}
+.dot-annotated {
+  background: #f59e0b;
+}
+.dot-reviewed {
+  background: #22c55e;
+}
+
+/* ============================================================
+   Grid scroll area
+   ============================================================ */
+.gallery-scroll {
+  gap: 0.25rem;
+  scrollbar-gutter: stable;
+}
+.gallery-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.gallery-scroll::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+  border-radius: 5px;
+}
+.gallery-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.6);
+}
+
+/* ============================================================
+   Empty state
+   ============================================================ */
+.gallery-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 3.5rem 1rem;
+  text-align: center;
+  color: var(--p-text-muted-color, #6b7280);
+}
+.gallery-empty i {
+  font-size: 2.75rem;
+  opacity: 0.4;
+}
+.gallery-empty p {
+  margin: 0;
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.gallery-footer {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color, #6b7280);
+}
+.footer-selected {
+  font-weight: 600;
 }

@@ -8,7 +8,10 @@ export class GalleryService {
   first: number = 0;
   itemPerPage: number = 64;
 
-  constructor(private sequenceService: SequenceService) {}
+  constructor(private sequenceService: SequenceService) {
+    sequenceService.loadSequences()
+    
+  }
 
   getFirstPage(): number {
     const activeIndex = this.sequenceService.currentFrameIndex();

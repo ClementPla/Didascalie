@@ -151,26 +151,34 @@ export interface GallerySequence {
   reviewed_count: number;
   first_frame_id: number | null;
 }
-
+export type KeypointSource = 'user' | 'prefilled';
 export interface KeypointPair {
   clientUuid: string;
   refX: number;
   refY: number;
   movingX: number;
   movingY: number;
+  source?: KeypointSource;
 }
 
 export interface RegistrationData {
   referenceFrameId: number;
   movingFrameId: number;
   /** 9 floats for a 3x3 homography (row-major), or null if no fit yet. */
-  homography: [number, number, number,
-               number, number, number,
-               number, number, number] | null;
+  homography:
+    | [number, number, number, number, number, number, number, number, number]
+    | null;
   transformType: 'homography' | 'tps' | 'bspline-grid';
   pairs: KeypointPair[];
 }
 
+interface PingReply {
+  ok: boolean;
+  protocol_version: number;
+  registered: string[];
+}
+
+type WirePair = [[number, number], [number, number]];
 
 export const api = {
   getLabels: () => invoke<LabelInfo[]>('get_labels'),
@@ -295,11 +303,43 @@ export const api = {
     return invoke('save_registration', { sequenceId, data });
   },
 
-  loadRegistration(referenceFrameId: number, movingFrameId: number): Promise<RegistrationData | null> {
+  loadRegistration(
+    referenceFrameId: number,
+    movingFrameId: number,
+  ): Promise<RegistrationData | null> {
     return invoke('load_registration', { referenceFrameId, movingFrameId });
   },
 
-  deleteRegistration(referenceFrameId: number, movingFrameId: number): Promise<void> {
+  deleteRegistration(
+    referenceFrameId: number,
+    movingFrameId: number,
+  ): Promise<void> {
     return invoke('delete_registration', { referenceFrameId, movingFrameId });
+  },
+
+  inferenceConnect: (host: string, port: number) =>
+    invoke<PingReply>('inference_connect', { host, port }),
+
+  findKeypointsPrefill: (
+    name: string,
+    refFrameId: number,
+    movFrameId: number,
+    existing: KeypointPair[],
+  ): Promise<WirePair[]> => {
+    const wire: WirePair[] = existing
+      .filter((p) => p.source !== 'prefilled') // don't feed model its own output
+      .map(
+        (p) =>
+          [
+            [p.refX, p.refY],
+            [p.movingX, p.movingY],
+          ] as WirePair,
+      );
+    return invoke<WirePair[]>('find_keypoints_prefill', {
+      name,
+      refFrameId,
+      movFrameId,
+      existing: wire,
+    });
   },
 };

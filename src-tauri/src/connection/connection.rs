@@ -1,3 +1,4 @@
+// src-tauri/src/connection/connection.rs
 use crate::connection::types::{ComError, Command, Response};
 use lazy_static::lazy_static;
 use parking_lot::Mutex; // Switch to parking_lot for better debugging

@@ -1,8 +1,11 @@
 use serde::{Serialize, Deserialize};
 use tauri::State;
+use crate::connection::inference::InferenceClient;
+use crate::connection::request::PingReply;
 use crate::storage::DbState;
 use crate::utils::error::Result;
 use crate::utils::AppError;
+use crate::connection::inference::load_frame_as_payload;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -158,4 +161,32 @@ pub fn delete_registration(
         )?;
         Ok(())
     })
+}
+
+#[tauri::command]
+pub async fn find_keypoints_prefill(
+    name: String,
+    ref_frame_id: i64,
+    mov_frame_id: i64,
+    existing: Vec<[[f64; 2]; 2]>,
+    db: State<'_, DbState>,
+    client: State<'_, InferenceClient>,
+) -> std::result::Result<Vec<[[f64; 2]; 2]>, AppError> {
+    let ref_img = load_frame_as_payload(&db, ref_frame_id)
+        .map_err(|e| AppError::Generic(e.to_string()))?;
+    let mov_img = load_frame_as_payload(&db, mov_frame_id)
+        .map_err(|e| AppError::Generic(e.to_string()))?;
+    client
+        .find_keypoints(&name, ref_img, mov_img, existing)
+        .await
+        .map_err(|e| AppError::Generic(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn inference_connect(
+    host: String, port: u16,
+    client: State<'_, InferenceClient>,
+) -> Result<PingReply> {
+    client.connect(&host, port).await?;
+    client.ping().await.map_err(Into::into)
 }

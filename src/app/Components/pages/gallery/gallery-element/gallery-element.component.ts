@@ -65,19 +65,18 @@ export class GalleryElementComponent implements OnDestroy, AfterViewInit {
     this.cleanupTimers();
   }
   private setupIntersectionObserver(): void {
+    const root = this.elementRef.nativeElement.closest('.gallery-scroll');
     this.observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !this.hasLoadedThumbnail) {
             this.loadThumbnail(this.frameId);
             this.hasLoadedThumbnail = true;
-            // Optionally disconnect after first load
-            // this.observer?.disconnect();
           }
         });
       },
       {
-        root: null, // viewport
+        root: root, // viewport
         rootMargin: '100px', // Load slightly before visible
         threshold: 0.1,
       }
@@ -149,7 +148,7 @@ export class GalleryElementComponent implements OnDestroy, AfterViewInit {
   }
 
   public onMouseLeave(): void {
-    const frameIds = this.frameIds; // Use cached, don't await here
+    const frameIds = this.frameIds; 
     if (frameIds.length <= 1) return;
 
     if (this.hoverTimer) {
