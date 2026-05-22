@@ -1,0 +1,33 @@
+<!-- inference-port-dialog.component.html -->
+<p-dialog
+  [(visible)]="visible"
+  [modal]="true"
+  [closable]="true"
+  (onHide)="cancel()"
+  header="Connect to Python keypoint server"
+  [style]="{ width: '400px' }"
+>
+  <div class="form">
+    <label>
+      Host
+      <input pInputText [ngModel]="host()" (ngModelChange)="host.set($event)" />
+    </label>
+    <label>
+      Port
+      <p-inputNumber [ngModel]="port()" (ngModelChange)="port.set($event)"
+                     [showButtons]="false" [useGrouping]="false" [min]="1" [max]="65535" />
+    </label>
+    @if (inference.status().kind === 'error') {
+      <small class="error">{{ statusError }}</small>
+    }
+  </div>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" severity="secondary" [text]="true" (click)="cancel()"></p-button>
+    <p-button
+      label="Connect"
+      icon="pi pi-link"
+      [loading]="inference.status().kind === 'connecting'"
+      (click)="submit()"
+    ></p-button>
+  </ng-template>
+</p-dialog>
