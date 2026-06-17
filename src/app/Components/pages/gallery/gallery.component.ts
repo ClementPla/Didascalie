@@ -1,4 +1,11 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectorRef,
+  Component,
+  NgZone,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -31,6 +38,9 @@ import {
   ThumbnailSelectionEvent,
 } from './gallery-element/gallery-element.component';
 import { GenericsModule } from '../../../generics/generics.module';
+import { NavigationEnd, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 
 type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
 
@@ -69,11 +79,9 @@ interface GalleryItem {
   templateUrl: './gallery.component.html',
   styleUrl: './gallery.component.scss',
 })
-export class GalleryComponent implements OnInit, OnDestroy {
+export class GalleryComponent implements AfterViewInit, OnDestroy {
   // View options
   autoRefresh = false;
-  showAdvancedFilters = false;
-  imgSize = 256;
 
   // Refresh
   refreshInterval = 3000;
@@ -86,12 +94,8 @@ export class GalleryComponent implements OnInit, OnDestroy {
   selectedItems: number[] = [];
 
   // Filter state
-  filterTitle = '';
-  selectedStatuses: SequenceStatus[] = [];
-  sortKey = 'name-asc';
-  frameCountRange: number[] = [0, 0];
+
   maxFrameCount = 0;
-  private frameRangeInitialized = false;
 
   // Batch annotation state
   batchMulticlassChoices: Array<string | null> = [];
@@ -119,9 +123,22 @@ export class GalleryComponent implements OnInit, OnDestroy {
     public galleryService: GalleryService,
     private batchAnnotationService: BatchAnnotationService,
     private uiState: UIStateService,
-  ) {}
+    private router: Router,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone,
+  ) {
+    this.router.events
+      .pipe(
+        filter((e) => e instanceof NavigationEnd),
+        filter((e) => e.urlAfterRedirects.startsWith('/gallery')),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => {
+        this.zone.run(() => void this.refresh());
+      });
+  }
 
-  async ngOnInit(): Promise<void> {
+  async ngAfterViewInit(): Promise<void> {
     this.initBatchChoices();
     await this.refresh();
   }
@@ -162,9 +179,9 @@ export class GalleryComponent implements OnInit, OnDestroy {
       (max, item) => Math.max(max, item.frameCount),
       0,
     );
-    if (!this.frameRangeInitialized) {
-      this.frameCountRange = [0, this.maxFrameCount];
-      this.frameRangeInitialized = true;
+    if (!this.galleryService.frameRangeInitialized) {
+      this.galleryService.frameCountRange = [0, this.maxFrameCount];
+      this.galleryService.frameRangeInitialized = true;
     }
 
     this.applyFilters();
@@ -240,19 +257,19 @@ export class GalleryComponent implements OnInit, OnDestroy {
   applyFilters(): void {
     let items = [...this.galleryItems];
 
-    const query = this.filterTitle.trim().toLowerCase();
+    const query = this.galleryService.filterTitle.trim().toLowerCase();
     if (query) {
       items = items.filter((item) => item.title.toLowerCase().includes(query));
     }
 
-    if (this.selectedStatuses.length > 0) {
+    if (this.galleryService.selectedStatuses.length > 0) {
       items = items.filter((item) =>
-        this.selectedStatuses.includes(item.status),
+        this.galleryService.selectedStatuses.includes(item.status),
       );
     }
 
-    if (this.showAdvancedFilters) {
-      const [min, max] = this.frameCountRange;
+    if (this.galleryService.showAdvancedFilters) {
+      const [min, max] = this.galleryService.frameCountRange;
       items = items.filter(
         (item) => item.frameCount >= min && item.frameCount <= max,
       );
@@ -260,10 +277,11 @@ export class GalleryComponent implements OnInit, OnDestroy {
 
     items.sort((a, b) => this.compareItems(a, b));
     this.filteredItems = items;
+    this.cdr.markForCheck();
   }
 
   private compareItems(a: GalleryItem, b: GalleryItem): number {
-    switch (this.sortKey) {
+    switch (this.galleryService.sortKey) {
       case 'name-desc':
         return b.title.localeCompare(a.title);
       case 'frames-desc':
@@ -281,22 +299,22 @@ export class GalleryComponent implements OnInit, OnDestroy {
   }
 
   resetFilters(): void {
-    this.filterTitle = '';
-    this.selectedStatuses = [];
-    this.sortKey = 'name-asc';
-    this.frameCountRange = [0, this.maxFrameCount];
+    this.galleryService.filterTitle = '';
+    this.galleryService.selectedStatuses = [];
+    this.galleryService.sortKey = 'name-asc';
+    this.galleryService.frameCountRange = [0, this.maxFrameCount];
     this.applyFilters();
   }
 
   /** True when any count-affecting filter is active (used for the footer + reset). */
   get hasActiveFilters(): boolean {
     const rangeNarrowed =
-      this.showAdvancedFilters &&
-      (this.frameCountRange[0] > 0 ||
-        this.frameCountRange[1] < this.maxFrameCount);
+      this.galleryService.showAdvancedFilters &&
+      (this.galleryService.frameCountRange[0] > 0 ||
+        this.galleryService.frameCountRange[1] < this.maxFrameCount);
     return (
-      this.filterTitle.trim() !== '' ||
-      this.selectedStatuses.length > 0 ||
+      this.galleryService.filterTitle.trim() !== '' ||
+      this.galleryService.selectedStatuses.length > 0 ||
       rangeNarrowed
     );
   }

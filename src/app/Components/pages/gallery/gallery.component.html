@@ -72,10 +72,8 @@
     [showJumpToPageDropdown]="true"
     paginatorPosition="bottom"
     [first]="galleryService.getFirstPage()"
+    (onPage)="galleryService.setFirstPage($event.first)"
   >
-    <!-- ============================================================ -->
-    <!-- Toolbar                                                       -->
-    <!-- ============================================================ -->
     <ng-template #header>
       <div class="gallery-toolbar">
 
@@ -87,14 +85,14 @@
               type="search"
               pInputText
               placeholder="Search sequences..."
-              [(ngModel)]="filterTitle"
+              [(ngModel)]="galleryService.filterTitle"
               (ngModelChange)="applyFilters()"
             />
           </p-iconfield>
 
           <p-selectbutton
             [options]="statusOptions"
-            [(ngModel)]="selectedStatuses"
+            [(ngModel)]="galleryService.selectedStatuses"
             [multiple]="true"
             optionLabel="label"
             optionValue="value"
@@ -110,7 +108,7 @@
 
           <p-select
             [options]="sortOptions"
-            [(ngModel)]="sortKey"
+            [(ngModel)]="galleryService.sortKey"
             optionLabel="label"
             optionValue="value"
             styleClass="sort-select"
@@ -120,13 +118,13 @@
 
           <span class="toolbar-spacer"></span>
 
-          <app-labelled-switch [(checked)]="showAdvancedFilters">
+          <app-labelled-switch [(checked)]="galleryService.showAdvancedFilters">
             Advanced
           </app-labelled-switch>
 
           <div class="size-control" pTooltip="Thumbnail size">
             <i class="opacity-50 pi pi-image text-sm"></i>
-            <p-slider [(ngModel)]="imgSize" [min]="128" [max]="512" />
+            <p-slider [(ngModel)]="galleryService.imgSize" [min]="128" [max]="512" />
           </div>
 
           <app-labelled-switch
@@ -158,19 +156,19 @@
         </div>
 
         <!-- Advanced row: frame-count range + reset -->
-        @if (showAdvancedFilters) {
+        @if (galleryService.showAdvancedFilters) {
         <div class="advanced-row toolbar-row">
           <span class="advanced-label">Frame count</span>
           <p-slider
             class="frame-range"
-            [(ngModel)]="frameCountRange"
+            [(ngModel)]="galleryService.frameCountRange"
             [range]="true"
             [min]="0"
             [max]="maxFrameCount || 1"
             (onSlideEnd)="applyFilters()"
           />
           <span class="range-value">
-            {{ frameCountRange[0] }} - {{ frameCountRange[1] }}
+            {{ galleryService.frameCountRange[0] }} - {{ galleryService.frameCountRange[1] }}
           </span>
           <span class="toolbar-spacer"></span>
           <button
@@ -180,7 +178,7 @@
             size="small"
             icon="pi pi-filter-slash"
             label="Reset filters"
-            [disabled]="!hasActiveFilters && sortKey === 'name-asc'"
+            [disabled]="!hasActiveFilters && galleryService.sortKey === 'name-asc'"
             (click)="resetFilters()"
           ></button>
         </div>
@@ -243,7 +241,7 @@
           [frameCount]="item.frameCount"
           [selected]="selectedItems.includes(item.sequenceId)"
           [id]="item.sequenceId"
-          [imgSize]="imgSize"
+          [imgSize]="galleryService.imgSize"
           [frameIds]="item.frameIds"
           (thumbnailSelected)="handleSelect($event)"
           (thumbnailClicked)="openItem(item)"
