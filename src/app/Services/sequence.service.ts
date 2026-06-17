@@ -1,5 +1,4 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { invoke } from '@tauri-apps/api/core';
 import { ProjectService } from './ProjectService/project.service';
 import { Sequence, Frame, FrameImage, api } from '../lib/api';
 // ==========================================
@@ -68,13 +67,6 @@ export class SequenceService {
     return seqIdx === sequences.length - 1 && frameIdx === frames.length - 1;
   });
 
-  // ==========================================
-  // Loading
-  // ==========================================
-
-  /**
-   * Load all sequences from the database.
-   */
   async loadSequences(): Promise<void> {
     const sequences = await api.listSequences();
     this._sequences.set(sequences);

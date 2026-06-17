@@ -71,7 +71,6 @@ export class LabelsService {
   }
 
   addSegLabel(label: SegLabel) {
-    // Only add label if it does not already exist in the list
     if (this.listSegmentationLabels.find((l) => l.label === label.label)) {
       return;
     }
@@ -181,8 +180,6 @@ export class LabelsService {
   }
 
   private generateShades(baseColor: string, count: number = 10): string[] {
-    // Generate instance shades from base color
-    // Implement based on your existing shade logic
     return [baseColor]; // placeholder
   }
   getDefinitions(): Pick<
