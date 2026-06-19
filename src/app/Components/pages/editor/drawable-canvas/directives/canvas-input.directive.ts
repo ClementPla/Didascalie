@@ -16,63 +16,169 @@ export class CanvasInputDirective {
   }>();
   @Output() canvasUp = new EventEmitter<MouseEvent>();
 
+  // Two-finger pinch state
+  private pinchActive = false;
+  private lastPinchDist = 0;
+  private lastPinchMid: Point2D = { x: 0, y: 0 };
+
   constructor(
     private zoomPanService: ZoomPanService,
     private editorService: EditorService,
     private drawService: DrawService,
   ) {}
 
-  @HostListener('mousedown', ['$event'])
-  @HostListener('touchstart', ['$event'])
-  onMouseDown(event: MouseEvent | TouchEvent) {
-    const mouseEvent = this.normalizeEvent(event);
-    if (!mouseEvent) return;
+  // ==========================================
+  // Mouse
+  // ==========================================
 
-    if (mouseEvent.button === 1) {
+  @HostListener('mousedown', ['$event'])
+  onMouseDown(event: MouseEvent) {
+    this.pointerDown(event);
+  }
+
+  @HostListener('mousemove', ['$event'])
+  onMouseMove(event: MouseEvent) {
+    this.pointerMove(event);
+  }
+
+  @HostListener('mouseup', ['$event'])
+  async onMouseUp(event: MouseEvent) {
+    await this.pointerUp(event);
+  }
+
+  @HostListener('mouseleave', ['$event'])
+  async onMouseLeave(event: MouseEvent) {
+    await this.pointerUp(event);
+  }
+
+  // ==========================================
+  // Touch
+  // ==========================================
+
+  @HostListener('touchstart', ['$event'])
+  onTouchStart(event: TouchEvent) {
+    if (event.touches.length >= 2) {
+      event.preventDefault();
+      // A first finger may have started a stroke — discard it.
+      this.cancelActiveStroke();
+      this.beginPinch(event);
+      return;
+    }
+    const mouse = this.normalizeEvent(event);
+    if (mouse) this.pointerDown(mouse);
+  }
+
+  @HostListener('touchmove', ['$event'])
+  onTouchMove(event: TouchEvent) {
+    event.preventDefault();
+
+    if (event.touches.length >= 2) {
+      if (this.pinchActive) this.updatePinch(event);
+      else this.beginPinch(event);
+      return;
+    }
+
+    // A finger was lifted mid-pinch: ignore until all fingers are up so we
+    // don't paint an accidental stroke with the remaining finger.
+    if (this.pinchActive) return;
+
+    const mouse = this.normalizeEvent(event);
+    if (mouse) this.pointerMove(mouse);
+  }
+
+  @HostListener('touchend', ['$event'])
+  @HostListener('touchcancel', ['$event'])
+  async onTouchEnd(event: TouchEvent) {
+    if (this.pinchActive) {
+      if (event.touches.length === 0) this.pinchActive = false;
+      return;
+    }
+    const mouse = this.normalizeEvent(event);
+    if (mouse) await this.pointerUp(mouse);
+  }
+
+  // ==========================================
+  // Shared pointer logic
+  // ==========================================
+
+  private pointerDown(event: MouseEvent) {
+    if (event.button === 1) {
       this.editorService.activatePanMode();
     }
 
     if (this.editorService.canPan()) {
-      this.zoomPanService.startDrag(mouseEvent);
+      this.zoomPanService.startDrag(event);
     } else {
-      this.drawService.startDraw(mouseEvent);
+      this.drawService.startDraw(event);
     }
   }
 
-  @HostListener('mousemove', ['$event'])
-  @HostListener('touchmove', ['$event'])
-  onMouseMove(event: MouseEvent | TouchEvent) {
-    if (this.isTouchEvent(event)) {
-      event.preventDefault();
-    }
-    const mouseEvent = this.normalizeEvent(event);
-    if (!mouseEvent) return;
-
-    const coords = this.zoomPanService.getImageCoordinates(mouseEvent);
-    const cursor = this.zoomPanService.getViewportCoordinates(mouseEvent);
-    this.canvasMove.emit({ event: mouseEvent, coords, cursor });
+  private pointerMove(event: MouseEvent) {
+    const coords = this.zoomPanService.getImageCoordinates(event);
+    const cursor = this.zoomPanService.getViewportCoordinates(event);
+    this.canvasMove.emit({ event, coords, cursor });
   }
 
-  @HostListener('mouseup', ['$event'])
-  @HostListener('touchend', ['$event'])
-  async onMouseUp(event: MouseEvent | TouchEvent) {
-    const mouseEvent = this.normalizeEvent(event);
-    if (!mouseEvent) return;
-
-    if (mouseEvent.button === 1) {
+  private async pointerUp(event: MouseEvent) {
+    if (event.button === 1) {
       this.editorService.restoreLastTool();
     }
 
     this.zoomPanService.endDrag();
     if (!this.editorService.canPan()) {
-      await this.drawService.endDraw(mouseEvent);
+      await this.drawService.endDraw(event);
     }
   }
 
-  @HostListener('mouseleave', ['$event'])
-  async onMouseLeave(event: MouseEvent | TouchEvent) {
-    await this.onMouseUp(event);
+  // ==========================================
+  // Pinch (zoom + pan)
+  // ==========================================
+
+  private beginPinch(event: TouchEvent) {
+    this.pinchActive = true;
+    this.lastPinchDist = this.touchDistance(event);
+    this.lastPinchMid = this.touchMidpoint(event);
   }
+
+  private updatePinch(event: TouchEvent) {
+    const dist = this.touchDistance(event);
+    const mid = this.touchMidpoint(event);
+
+    if (this.lastPinchDist > 0) {
+      const factor = dist / this.lastPinchDist;
+      const prevMid = this.zoomPanService.getViewportCoordinates(
+        this.lastPinchMid,
+      );
+      const currMid = this.zoomPanService.getViewportCoordinates(mid);
+      this.zoomPanService.pinch(prevMid, currMid, factor);
+    }
+
+    this.lastPinchDist = dist;
+    this.lastPinchMid = mid;
+  }
+
+  private cancelActiveStroke() {
+    this.zoomPanService.endDrag();
+    this.drawService.cancelDraw();
+  }
+
+  /** Distance between the first two touches (client px). */
+  private touchDistance(event: TouchEvent): number {
+    const a = event.touches[0];
+    const b = event.touches[1];
+    return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+  }
+
+  /** Midpoint of the first two touches (client px). */
+  private touchMidpoint(event: TouchEvent): Point2D {
+    const a = event.touches[0];
+    const b = event.touches[1];
+    return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+  }
+
+  // ==========================================
+  // Helpers
+  // ==========================================
 
   private isTouchEvent(event: MouseEvent | TouchEvent): event is TouchEvent {
     return typeof TouchEvent !== 'undefined' && event instanceof TouchEvent;
@@ -88,7 +194,9 @@ export class CanvasInputDirective {
       button: 0,
     });
     Object.defineProperty(synthetic, 'target', { value: event.target });
-    Object.defineProperty(synthetic, 'currentTarget', { value: event.currentTarget });
+    Object.defineProperty(synthetic, 'currentTarget', {
+      value: event.currentTarget,
+    });
     return synthetic;
   }
 }

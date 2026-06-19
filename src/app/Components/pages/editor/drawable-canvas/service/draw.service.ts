@@ -93,6 +93,19 @@ export class DrawService implements OnDestroy {
     tool.draw(event, this.currentToolContext);
   }
 
+  /**
+   * Abort an in-progress stroke without committing it (e.g. when a second
+   * finger lands and a pinch gesture takes over). Discards the buffer; no
+   * undo entry, no dirty flag.
+   */
+  public cancelDraw(): void {
+    if (!this.stateService.isDrawing) return;
+    this.stateService.isDrawing = false;
+    this.currentToolContext = null;
+    this.clearCanvas(this.canvasManagerService.bufferCtx);
+    this.redrawRequest.next(true);
+  }
+
   public async endDraw(event: MouseEvent): Promise<void> {
     if (!this.stateService.isDrawing) return;
 

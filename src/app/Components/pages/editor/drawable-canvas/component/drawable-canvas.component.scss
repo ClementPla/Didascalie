@@ -10,15 +10,20 @@
   min-height: 0;
 }
 
+/* Recessed image area: a touch darker/lighter than the surrounding chrome,
+   derived from the active theme so it follows preset + dark mode. */
 .canvas-viewport {
-  background-color: #2a2a2a;
+  $minor-grid: color-mix(in srgb, var(--p-text-color) 7%, transparent);
+  $major-grid: color-mix(in srgb, var(--p-text-color) 14%, transparent);
+
+  background-color: color-mix(in srgb, var(--p-content-background) 90%, #000);
   background-image:
     // Minor grid lines (every 8px)
-    linear-gradient(to right,  rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to right,  #{$minor-grid} 1px, transparent 1px),
+    linear-gradient(to bottom, #{$minor-grid} 1px, transparent 1px),
     // Major grid lines (every 64px)
-    linear-gradient(to right,  rgba(255, 255, 255, 0.10) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.10) 1px, transparent 1px);
+    linear-gradient(to right,  #{$major-grid} 1px, transparent 1px),
+    linear-gradient(to bottom, #{$major-grid} 1px, transparent 1px);
   background-size:
     8px 8px,
     8px 8px,
@@ -63,36 +68,61 @@
   -ms-interpolation-mode: nearest-neighbor;
 }
 
+/* Ruler chrome around the canvas. */
+.ruler {
+  background-color: var(--p-content-background);
+  color: var(--p-text-color);
+  /* Subtle, theme-aware tick colour used by the generated tick marks. */
+  --ruler-tick: color-mix(in srgb, var(--p-text-color) 45%, transparent);
+}
+
+/* Emphasised markers (image origin, cursor position, image extent).
+   margin:0 is essential: Tailwind preflight is disabled, so the UA's
+   default <p> margin would otherwise shove these off their target. */
 .viewBoxMarker {
-  height: inherit;
+  margin: 0;
+  top: 0;
+  height: 100%;
   display: flex;
-  align-items: start;
-  translate: 0% -80%;
+  align-items: flex-start;
+  padding-left: 3px;
   gap: 5px;
+  font-size: 10px;
+  line-height: 1.1;
+  white-space: nowrap;
   z-index: 1200;
-  color: var(--green-400);
+  color: var(--p-primary-color);
 }
 .viewBoxMarker::before {
   content: "";
   position: absolute;
   top: 0;
+  left: 0;
   width: 1px;
-  height: inherit;
-  background-color: white;
+  height: 100%;
+  background-color: var(--p-primary-color);
 }
 
 .viewBoxMarkerHorizontal {
-  width: inherit;
+  margin: 0;
+  left: 0;
+  width: 100%;
+  padding-top: 2px;
+  padding-left: 2px;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
   z-index: 1200;
-  color: var(--green-400);
+  color: var(--p-primary-color);
 }
 .viewBoxMarkerHorizontal::before {
   content: "";
   position: absolute;
-  width: inherit;
+  top: 0;
+  left: 0;
+  width: 100%;
   height: 1px;
-  left: 0px;
-  background-color: white;
+  background-color: var(--p-primary-color);
 }
 
 .debug-border { border: solid red 3px; }

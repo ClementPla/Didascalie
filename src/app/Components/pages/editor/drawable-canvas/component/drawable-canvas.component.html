@@ -4,18 +4,19 @@
 >
   <!-- Corner -->
   <div
-    class="bg-gray-950 invisible"
+    class="invisible ruler"
     [style.height.px]="rulerSize"
     [style.width.px]="rulerSize"
   ></div>
 
   <!-- Top ruler -->
   <div
-    class="bg-gray-950 overflow-x-clip relative"
+    class="overflow-x-clip relative ruler ruler--x"
     [style.height.px]="rulerSize"
+    [ngStyle]="getRulerTicks('x')"
   >
     <p class="absolute viewBoxMarker w-fit" [style.left.px]="viewBox.xmin">0</p>
-    <p class="absolute text-gray viewBoxMarker w-fit" [style.left.px]="cursor.x">
+    <p class="absolute viewBoxMarker w-fit" [style.left.px]="cursor.x">
       {{ zoomPanService.currentPixel.x }}
     </p>
     <p class="absolute viewBoxMarker w-fit" [style.left.px]="viewBox.xmax">
@@ -24,7 +25,11 @@
   </div>
 
   <!-- Left ruler -->
-  <div class="bg-gray-950 relative" [style.width.px]="rulerSize">
+  <div
+    class="relative ruler ruler--y"
+    [style.width.px]="rulerSize"
+    [ngStyle]="getRulerTicks('y')"
+  >
     @if (viewBox.ymin >= 0) {
       <p class="absolute viewBoxMarkerHorizontal" [style.top.px]="viewBox.ymin">0</p>
     }
@@ -40,9 +45,9 @@
 
   <!-- Viewport (fills the grid cell; canvases fill the viewport) -->
   <div
-    class="bg-gray-800 canvas-viewport overflow-hidden relative"
+    class="canvas-viewport overflow-hidden relative"
     [ngClass]="{
-      'fixed inset-0 z-[2500] bg-black': isFullscreen
+      'fixed inset-0 z-[2500]': isFullscreen
     }"
     #viewport
   >
@@ -54,7 +59,7 @@
     <canvas
       appCanvasInput
       #imageCanvas
-      class="absolute crisp-edges h-full inset-0 w-full z-10"
+      class="absolute crisp-edges h-full inset-0 touch-none w-full z-10"
       [ngClass]="{
         'cursor-grab': editorService.canPan(),
         'cursor-none': !editorService.canPan() && editorService.isToolWithBrushSize() && isCursorInsideImage,

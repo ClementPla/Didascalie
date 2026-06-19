@@ -220,6 +220,31 @@ export class ZoomPanService {
     return { x: this.viewportWidth / 2, y: this.viewportHeight / 2 };
   }
 
+  /**
+   * Immediate (non-eased) two-finger transform. Zooms by `factor` while
+   * anchoring the image point that sat under the previous gesture midpoint
+   * to the new midpoint — which folds pinch-zoom and two-finger pan into a
+   * single natural motion. Both midpoints are in viewport CSS px.
+   */
+  public pinch(
+    prevMidViewport: Point2D,
+    currMidViewport: Point2D,
+    factor: number,
+  ): void {
+    if (!this.canZoom) return;
+    const pivotImage = this.viewportToImage(prevMidViewport);
+    let newScale = this.scale * factor;
+    newScale = Math.min(this.maxScale, Math.max(this.minScale, newScale));
+
+    this.scale = newScale;
+    this.targetScale = newScale;
+    this.offset.x = currMidViewport.x - pivotImage.x * newScale;
+    this.offset.y = currMidViewport.y - pivotImage.y * newScale;
+    this.targetOffset = { ...this.offset };
+
+    this.redrawRequest.next(true);
+  }
+
   // ==========================================
   // Reset / fit
   // ==========================================

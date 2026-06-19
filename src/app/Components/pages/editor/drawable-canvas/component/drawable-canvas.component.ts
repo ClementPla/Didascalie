@@ -368,6 +368,56 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     };
   }
 
+  // ==========================================
+  // Ruler ticks
+  // ==========================================
+
+  /**
+   * Pick a "nice" tick interval (in image px) so that major ticks land
+   * roughly `targetPx` apart on screen at the current zoom.
+   */
+  private niceStepImg(targetPx: number): number {
+    const scale = Math.max(this.zoomPanService.getScale(), 1e-6);
+    const raw = targetPx / scale;
+    const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / pow;
+    const nice = n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10;
+    return nice * pow;
+  }
+
+  /**
+   * Build the tick-mark background for a ruler. Minor ticks every 1/5 of a
+   * major step; both anchored to the inner edge and offset by the image
+   * origin so they pan/zoom in lock-step with the image.
+   */
+  public getRulerTicks(axis: 'x' | 'y'): Record<string, string> {
+    const scale = this.zoomPanService.getScale();
+    const major = this.niceStepImg(80) * scale;
+    if (!isFinite(major) || major <= 0) return {};
+    const minor = major / 5;
+    const origin = axis === 'x' ? this.viewBox.xmin : this.viewBox.ymin;
+    const dir = axis === 'x' ? 'to right' : 'to bottom';
+
+    const line = `linear-gradient(${dir}, var(--ruler-tick) 0 1px, transparent 1px)`;
+    const minorLen = 6;
+    const majorLen = 11;
+
+    if (axis === 'x') {
+      return {
+        'background-image': `${line}, ${line}`,
+        'background-size': `${minor}px ${minorLen}px, ${major}px ${majorLen}px`,
+        'background-position': `${origin}px 100%, ${origin}px 100%`,
+        'background-repeat': 'repeat-x',
+      };
+    }
+    return {
+      'background-image': `${line}, ${line}`,
+      'background-size': `${minorLen}px ${minor}px, ${majorLen}px ${major}px`,
+      'background-position': `100% ${origin}px, 100% ${origin}px`,
+      'background-repeat': 'repeat-y',
+    };
+  }
+
   public getCSSFilterEdge(): string {
     return this.editorService.edgesOnly
       ? 'drop-shadow( 1px  0px 0px black) drop-shadow(-1px  0px 0px black) drop-shadow( 0px  1px 0px black) drop-shadow( 0px -1px 0px black)'
