@@ -67,6 +67,14 @@ export class SequenceService {
     return seqIdx === sequences.length - 1 && frameIdx === frames.length - 1;
   });
 
+  /**
+   * True when every frame of the current sequence is reviewed.
+   */
+  readonly isCurrentSequenceReviewed = computed(() => {
+    const frames = this._frames();
+    return frames.length > 0 && frames.every(f => f.reviewed);
+  });
+
   async loadSequences(): Promise<void> {
     const sequences = await api.listSequences();
     this._sequences.set(sequences);
@@ -235,6 +243,20 @@ export class SequenceService {
         f.id === frame.id ? { ...f, reviewed } : f
       )
     );
+  }
+
+  /**
+   * Mark every frame of the current sequence as reviewed / unreviewed.
+   */
+  async markCurrentSequenceReviewed(reviewed = true): Promise<void> {
+    const frames = this._frames();
+    if (frames.length === 0) return;
+
+    const frameIds = frames.map(f => f.id);
+    await api.setFramesReviewed(frameIds, reviewed);
+
+    // Update local state
+    this._frames.update(fs => fs.map(f => ({ ...f, reviewed })));
   }
 
   /**

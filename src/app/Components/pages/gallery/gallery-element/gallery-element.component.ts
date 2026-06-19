@@ -3,7 +3,11 @@ import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { ButtonModule } from 'primeng/button';
+import { TooltipModule } from 'primeng/tooltip';
 import { invoke } from '@tauri-apps/api/core';
+
+import { LabelledSwitchComponent } from '../../../../generics/labelled-switch/labelled-switch.component';
 
 import { UIStateService } from '../../../../Services/uistate.service';
 import { ProjectService } from '../../../../Services/ProjectService/project.service';
@@ -17,7 +21,15 @@ export interface ThumbnailSelectionEvent {
 
 @Component({
   selector: 'app-gallery-element',
-  imports: [CommonModule, CardModule, PanelModule, SelectButtonModule],
+  imports: [
+    CommonModule,
+    CardModule,
+    PanelModule,
+    SelectButtonModule,
+    ButtonModule,
+    TooltipModule,
+    LabelledSwitchComponent,
+  ],
   templateUrl: './gallery-element.component.html',
   styleUrl: './gallery-element.component.scss',
 })
@@ -33,9 +45,16 @@ export class GalleryElementComponent implements OnDestroy, AfterViewInit {
   @Input() imgSize: number = 256;
   @Input() selected: boolean = false;
   @Input() frameIds: number[] = [];
+  /** Render as a full-width list row instead of a card. */
+  @Input() listMode: boolean = false;
+  /** Show the per-row "Reviewed" toggle (list mode only). */
+  @Input() showReviewedToggle: boolean = true;
+  /** Tint the row background by status / current selection (list mode only). */
+  @Input() colorByStatus: boolean = false;
   // Events
   @Output() thumbnailSelected = new EventEmitter<ThumbnailSelectionEvent>();
   @Output() thumbnailClicked = new EventEmitter<void>();
+  @Output() reviewedToggled = new EventEmitter<{ id: number; reviewed: boolean }>();
 
   // Internal state
   public imagePath: string = '';
@@ -256,6 +275,32 @@ export class GalleryElementComponent implements OnDestroy, AfterViewInit {
 
   public get displayTitle(): string {
     return this.title || `Sequence ${this.id}`;
+  }
+
+  public get isReviewed(): boolean {
+    return this.status === 'reviewed';
+  }
+
+  /**
+   * Status-dependent row tint (list mode): current selection wins (blue),
+   * then reviewed (green), then annotated (orange).
+   */
+  public getRowBackground(): string {
+    if (!this.colorByStatus) return '';
+    if (this.selected) return 'rgba(59, 130, 246, 0.22)'; // blue – current
+    switch (this.status) {
+      case 'reviewed':
+        return 'rgba(34, 197, 94, 0.20)'; // green
+      case 'annotated':
+        return 'rgba(245, 158, 11, 0.20)'; // orange
+      default:
+        return '';
+    }
+  }
+
+  /** Emit a request to (un)mark the whole sequence as reviewed. */
+  public onReviewedToggle(reviewed: boolean): void {
+    this.reviewedToggled.emit({ id: this.id, reviewed });
   }
 
   public get hasMultipleFrames(): boolean {

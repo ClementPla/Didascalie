@@ -41,6 +41,10 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   public viewBox: Viewbox = { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
   public isFullscreen = false;
   public rulerSize = 16;
+  // True while the pointer is over the actual image (not the surrounding
+  // padding). Drives whether the brush cursor / cursor-none applies, so the
+  // margin around a zoomed-out image keeps a regular, clickable cursor.
+  public isCursorInsideImage = false;
 
   // Viewport CSS dimensions (drive both canvas style and internal resolution)
   public viewportWidth = 0;
@@ -207,6 +211,13 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     this.cursor = data.cursor;
     this.zoomPanService.currentPixel = data.coords;
+
+    // Determine if the pointer is over the image itself (raw, unclamped),
+    // so the padding around a zoomed-out image keeps a normal cursor.
+    const raw = this.zoomPanService.getImageCoordinatesRaw(data.event);
+    this.isCursorInsideImage =
+      raw.x >= 0 && raw.x < this.orchestrator.width &&
+      raw.y >= 0 && raw.y < this.orchestrator.height;
 
     if (this.editorService.canPan()) {
       this.orchestrator.pan(data.event);

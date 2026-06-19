@@ -18,6 +18,9 @@ export class GalleryService {
   showAdvancedFilters = false;
   imgSize = 256;
 
+  // Grid (thumbnail cards) vs list (rows) layout.
+  viewLayout: 'grid' | 'list' = 'grid';
+
   // Explicit page set by user pagination. null = fall back to active-frame.
   private explicitFirst: number | null = null;
 

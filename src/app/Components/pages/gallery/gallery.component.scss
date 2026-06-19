@@ -1,6 +1,8 @@
 :host {
   display: block;
+  width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -12,11 +14,25 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+}
+::ng-deep .gallery-dataview .p-dataview-header {
+  padding: 0.25rem 0;
+  background: transparent;
+  border: none;
 }
 ::ng-deep .gallery-dataview .p-dataview-content {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  padding: 0;
+  background: transparent;
+}
+::ng-deep .gallery-dataview .p-paginator {
+  padding: 0.25rem 0;
+  background: transparent;
 }
 
 /* ============================================================

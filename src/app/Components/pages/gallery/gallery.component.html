@@ -1,4 +1,4 @@
-<div class="flex flex-col gallery gap-4 h-full p-4 w-full">
+<div class="flex flex-col gallery gap-2 h-full p-2 w-full">
 
   @if (projectService.isClassification() && hasSelection) {
   <p-panel
@@ -65,10 +65,10 @@
   }
 
   <p-dataview
-    class="flex flex-1 min-h-0"
+    class="flex flex-1 min-h-0 w-full"
     styleClass="gallery-dataview"
     [value]="filteredItems"
-    layout="grid"
+    [layout]="galleryService.viewLayout"
     [rows]="galleryService.itemPerPage"
     [paginator]="true"
     [showJumpToPageDropdown]="true"
@@ -124,10 +124,12 @@
             Advanced
           </app-labelled-switch>
 
+          @if (galleryService.viewLayout === 'grid') {
           <div class="size-control" pTooltip="Thumbnail size">
             <i class="opacity-50 pi pi-image text-sm"></i>
             <p-slider [(ngModel)]="galleryService.imgSize" [min]="128" [max]="512" />
           </div>
+          }
 
           <app-labelled-switch
             [(checked)]="autoRefresh"
@@ -152,9 +154,23 @@
               label="Refresh"
               icon="pi pi-sync"
               severity="success"
+              size="small"
               (click)="refresh()"
             ></button>
           </div>
+
+          <p-selectbutton
+            [options]="layoutOptions"
+            [(ngModel)]="galleryService.viewLayout"
+            optionValue="value"
+            [allowEmpty]="false"
+            size="small"
+            pTooltip="Grid / list view"
+          >
+            <ng-template #item let-option>
+              <i [class]="option.icon"></i>
+            </ng-template>
+          </p-selectbutton>
         </div>
 
         <!-- Advanced row: frame-count range + reset -->
@@ -233,7 +249,7 @@
     <!-- ============================================================ -->
     <ng-template #grid let-items>
       <div
-        class="flex flex-row flex-wrap gallery-scroll h-full justify-start overflow-x-clip overflow-y-auto"
+        class="flex flex-row flex-wrap gallery-scroll h-full justify-center overflow-x-clip overflow-y-auto"
       >
         @for (item of items; track item.sequenceId) {
         <app-gallery-element
@@ -247,6 +263,29 @@
           [frameIds]="item.frameIds"
           (thumbnailSelected)="handleSelect($event)"
           (thumbnailClicked)="openItem(item)"
+        ></app-gallery-element>
+        }
+      </div>
+    </ng-template>
+
+    <!-- ============================================================ -->
+    <!-- List                                                          -->
+    <!-- ============================================================ -->
+    <ng-template #list let-items>
+      <div
+        class="flex flex-col gallery-scroll gap-2 h-full overflow-y-auto w-full"
+      >
+        @for (item of items; track item.sequenceId) {
+        <app-gallery-element
+          [listMode]="true"
+          [frameId]="item.thumbnailFrameId"
+          [title]="item.title"
+          [status]="item.status"
+          [frameCount]="item.frameCount"
+          [id]="item.sequenceId"
+          [frameIds]="item.frameIds"
+          (thumbnailClicked)="openItem(item)"
+          (reviewedToggled)="onItemReviewedToggle($event)"
         ></app-gallery-element>
         }
       </div>

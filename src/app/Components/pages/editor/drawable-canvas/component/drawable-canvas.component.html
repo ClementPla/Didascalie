@@ -54,13 +54,15 @@
     <canvas
       appCanvasInput
       #imageCanvas
-      class="absolute crisp-edges cursor-crosshair h-full inset-0 w-full z-10"
+      class="absolute crisp-edges h-full inset-0 w-full z-10"
       [ngClass]="{
         'cursor-grab': editorService.canPan(),
-        'cursor-none': editorService.isToolWithBrushSize(),
-        'cursor-crosshair': !(editorService.isToolWithBrushSize() || editorService.canPan())
+        'cursor-none': !editorService.canPan() && editorService.isToolWithBrushSize() && isCursorInsideImage,
+        'cursor-default': !editorService.canPan() && editorService.isToolWithBrushSize() && !isCursorInsideImage,
+        'cursor-crosshair': !editorService.canPan() && !editorService.isToolWithBrushSize()
       }"
       (canvasMove)="onMouseMove($any($event))"
+      (mouseleave)="isCursorInsideImage = false"
       (wheel)="wheel($event)"
     ></canvas>
 
@@ -70,7 +72,7 @@
       [style.opacity]="editorService.labelOpacity"
     ></canvas>
 
-    @if (editorService.isToolWithBrushSize()) {
+    @if (editorService.isToolWithBrushSize() && isCursorInsideImage) {
       <div class="cursor" [ngStyle]="getCursorStyle()"></div>
     }
 

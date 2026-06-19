@@ -10,6 +10,17 @@
   }
 }
 
+/* List-row layout */
+.gallery-row {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--p-content-border-color, rgba(0, 0, 0, 0.08));
+
+  &:hover {
+    background: var(--p-content-hover-background, rgba(0, 0, 0, 0.04));
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-in-out;
 }

@@ -29,6 +29,8 @@ import { LabelsComponent } from './labels/labels.component';
 import { ToolSettingComponent } from './tool-setting/tool-setting.component';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
+import { SequenceNavigatorComponent } from './sequence-navigator/sequence-navigator.component';
+import { LabelledSwitchComponent } from '../../../generics/labelled-switch/labelled-switch.component';
 
 // Services
 import { EditorService } from './services/editor.service';
@@ -70,6 +72,8 @@ import { Tools } from '../../../Core/tools';
     ToolSettingComponent,
     MultiFramesOptionsComponent,
     QuickAccessMenuComponent,
+    SequenceNavigatorComponent,
+    LabelledSwitchComponent,
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
@@ -83,6 +87,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public viewPortSize = 800;
   public displayDownloadDialog = false;
   public downloadProgress = 0;
+
+  // Collapsible side panels
+  public labelsCollapsed = false;
+  public settingsCollapsed = false;
 
   private destroy$ = new Subject<void>();
   private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
@@ -329,6 +337,21 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * Jump to a sequence chosen from the sequence-navigator panel.
+   */
+  public async jumpToSequence(id: number): Promise<void> {
+    if (this.sequenceService.sequences().length === 0) {
+      await this.sequenceService.loadSequences();
+    }
+    const sequence = this.sequenceService
+      .sequences()
+      .find((s) => s.id === id);
+    if (sequence) {
+      await this.selectSequence(sequence);
+    }
+  }
+
   private async handleNavigationSuccess(): Promise<void> {
     const frameImage = this.sequenceService.currentFrameImage();
     if (frameImage) {
@@ -369,6 +392,22 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.sequenceService.markCurrentReviewed(true);
     }
     return success;
+  }
+
+  /**
+   * Mark/unmark every frame of the current sequence as reviewed.
+   */
+  public async toggleSequenceReviewed(reviewed: boolean): Promise<void> {
+    try {
+      await this.sequenceService.markCurrentSequenceReviewed(reviewed);
+      await this.updateProgressDisplay();
+    } catch (error) {
+      console.error('Error updating sequence reviewed status:', error);
+    }
+  }
+
+  get isSequenceReviewed(): boolean {
+    return this.sequenceService.isCurrentSequenceReviewed();
   }
 
   // ==========================================
@@ -441,6 +480,11 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       config.instance_segmentation_enabled ||
       config.classification_enabled
     );
+  }
+
+  /** Left column is shown if there are labels and/or multiple sequences to navigate. */
+  get shouldShowLeftPanel(): boolean {
+    return this.shouldShowLabels || this.totalSequences > 1;
   }
 
   get currentFrameIndex(): number {

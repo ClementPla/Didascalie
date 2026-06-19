@@ -116,6 +116,11 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     { label: 'Least progress', value: 'progress-asc' },
   ];
 
+  readonly layoutOptions = [
+    { icon: 'pi pi-th-large', value: 'grid' as const },
+    { icon: 'pi pi-bars', value: 'list' as const },
+  ];
+
   constructor(
     public projectService: ProjectService,
     public sequenceService: SequenceService,
@@ -486,6 +491,37 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       console.error('Failed to mark frames as reviewed:', error);
     } finally {
       this.uiState.endLoading();
+    }
+  }
+
+  /**
+   * Mark a single sequence (all its frames) reviewed / unreviewed from the
+   * list view. Updates local state immediately to avoid a full reload flicker.
+   */
+  public async onItemReviewedToggle(event: {
+    id: number;
+    reviewed: boolean;
+  }): Promise<void> {
+    const item = this.galleryItems.find((i) => i.sequenceId === event.id);
+    if (!item || item.frameIds.length === 0) {
+      return;
+    }
+
+    try {
+      const result = await this.batchAnnotationService.markFramesReviewed(
+        item.frameIds,
+        event.reviewed,
+      );
+      if (!result.success) {
+        console.error('Failed to mark sequence as reviewed:', result.errors);
+        return;
+      }
+
+      item.status = event.reviewed ? 'reviewed' : 'empty';
+      item.progress = event.reviewed ? 1 : 0;
+      this.applyFilters();
+    } catch (error) {
+      console.error('Failed to mark sequence as reviewed:', error);
     }
   }
 

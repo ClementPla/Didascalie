@@ -1,0 +1,19 @@
+:host {
+  display: block;
+}
+
+.sequence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 45vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.sequence-list::-webkit-scrollbar {
+  width: 8px;
+}
+.sequence-list::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.4);
+  border-radius: 4px;
+}

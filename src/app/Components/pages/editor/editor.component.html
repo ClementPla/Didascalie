@@ -1,11 +1,56 @@
 <app-editor-toolbar></app-editor-toolbar>
-<div class="editor flex flex-1 gap-4 min-h-0 overflow-hidden relative w-full xl:gap-8">
-  <app-quick-access-menu #quickAccessMenu></app-quick-access-menu>
-  @if (shouldShowLabels) {
-    <app-labels class="min-w-0 max-w-[32rem] overflow-y-auto"></app-labels>
+<div class="editor flex flex-1 gap-2 min-h-0 overflow-hidden relative w-full xl:gap-4">
+  <!-- Absolute so the (zero-width) host is not a flex item; otherwise the
+       row gap pushes the Labels panel off the left edge. -->
+  <app-quick-access-menu
+    #quickAccessMenu
+    class="absolute left-0 top-0"
+  ></app-quick-access-menu>
+
+  <!-- Left column: Labels + Sequence navigator -->
+  @if (shouldShowLeftPanel && !labelsCollapsed) {
+    <div class="flex flex-col gap-4 max-w-[32rem] min-w-0 overflow-y-auto">
+      @if (shouldShowLabels) {
+        <app-labels></app-labels>
+      }
+      @if (totalSequences > 1) {
+        <app-sequence-navigator
+          (sequenceSelected)="jumpToSequence($event)"
+        ></app-sequence-navigator>
+      }
+    </div>
   }
+
   <!-- Center column -->
   <div class="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden relative">
+    <!-- Floating panel toggles (overlay the canvas edges; do not push layout) -->
+    @if (shouldShowLeftPanel) {
+      <button
+        pButton
+        type="button"
+        [rounded]="true"
+        [raised]="true"
+        severity="secondary"
+        class="collapse-toggle collapse-toggle--left"
+        [icon]="labelsCollapsed ? 'pi pi-angle-double-right' : 'pi pi-angle-double-left'"
+        [pTooltip]="labelsCollapsed ? 'Show panel' : 'Hide panel'"
+        tooltipPosition="right"
+        (click)="labelsCollapsed = !labelsCollapsed"
+      ></button>
+    }
+    <button
+      pButton
+      type="button"
+      [rounded]="true"
+      [raised]="true"
+      severity="secondary"
+      class="collapse-toggle collapse-toggle--right"
+      [icon]="settingsCollapsed ? 'pi pi-angle-double-left' : 'pi pi-angle-double-right'"
+      [pTooltip]="settingsCollapsed ? 'Show settings' : 'Hide settings'"
+      tooltipPosition="left"
+      (click)="settingsCollapsed = !settingsCollapsed"
+    ></button>
+
     <app-drawable-canvas
       class="block flex-1 min-h-0 overflow-hidden w-full"
     ></app-drawable-canvas>
@@ -40,17 +85,28 @@
     </div>
   </div>
   <!-- Right column -->
-  <div class="flex flex-col gap-4 min-h-0 overflow-y-auto shrink w-80 2xl:w-96">
-    <app-tool-setting></app-tool-setting>
-    <app-multi-frames-options
-      (changeOfFrame)="changedOfFrame($event)"
-    ></app-multi-frames-options>
-    <p-panel header="Save" class="w-full">
-      <p class="flex justify-center">
-        <p-button (onClick)="navigatePrevious()">Previous</p-button>
-        <p-button (onClick)="save()" pTooltip="Ctrl+S">Save</p-button>
-        <p-button (onClick)="navigateNext()">Next</p-button>
-      </p>
-    </p-panel>
-  </div>
+  @if (!settingsCollapsed) {
+    <div class="2xl:w-96 flex flex-col gap-4 min-h-0 overflow-y-auto shrink w-80">
+      <app-tool-setting></app-tool-setting>
+      <app-multi-frames-options
+        (changeOfFrame)="changedOfFrame($event)"
+      ></app-multi-frames-options>
+      <p-panel header="Save" class="w-full">
+        <div class="flex flex-col gap-3">
+          <app-labelled-switch
+            [checked]="isSequenceReviewed"
+            (checkedChange)="toggleSequenceReviewed($event)"
+            tooltipLabel="Mark every frame of this sequence as reviewed"
+          >
+            Sequence reviewed
+          </app-labelled-switch>
+          <p class="flex gap-2 justify-center m-0">
+            <p-button (onClick)="navigatePrevious()">Previous</p-button>
+            <p-button (onClick)="save()" pTooltip="Ctrl+S">Save</p-button>
+            <p-button (onClick)="navigateNext()">Next</p-button>
+          </p>
+        </div>
+      </p-panel>
+    </div>
+  }
 </div>

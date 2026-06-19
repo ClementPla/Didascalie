@@ -7,3 +7,47 @@
   min-height: 0;
   overflow: hidden;
 }
+
+/* Floating tabs that collapse/expand the side panels.
+   Absolutely positioned over the canvas edges so they never
+   reserve a column or push the panels.
+
+   z-index must sit ABOVE the painting brush-cursor (z 1000),
+   otherwise the rotating brush circle covers the tab and there is
+   no system cursor over the canvas to aim with. We also force a
+   real pointer cursor so the tab is clickable even while a
+   brush tool hides the cursor over the canvas. */
+.collapse-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1100;
+  cursor: pointer;
+  opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    cursor: pointer;
+  }
+  &.collapse-toggle--left:hover {
+    transform: translateY(-50%) scale(1.1);
+  }
+  &.collapse-toggle--right:hover {
+    transform: translateY(-50%) scale(1.1);
+  }
+
+  /* Ensure the inner PrimeNG button also shows the pointer */
+  ::ng-deep .p-button,
+  &.p-button {
+    cursor: pointer;
+  }
+}
+.collapse-toggle--left {
+  left: 0.4rem;
+}
+.collapse-toggle--right {
+  right: 0.4rem;
+}

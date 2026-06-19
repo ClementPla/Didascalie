@@ -1,0 +1,27 @@
+<p-panel header="Sequences" [toggleable]="true">
+  @if (sequences.length === 0) {
+    <p class="m-0 text-sm" [style.color]="'var(--p-text-muted-color)'">
+      No other sequences.
+    </p>
+  } @else {
+    <div class="gallery-scroll sequence-list">
+      @for (seq of sequences; track seq.id) {
+        <app-gallery-element
+          class="block w-full"
+          [class.is-current]="seq.id === currentId"
+          [listMode]="true"
+          [showReviewedToggle]="false"
+          [colorByStatus]="true"
+          [frameId]="seq.thumbnailFrameId"
+          [title]="seq.name"
+          [status]="seq.status"
+          [frameCount]="seq.frameCount"
+          [id]="seq.id"
+          [frameIds]="seq.frameIds"
+          [selected]="seq.id === currentId"
+          (thumbnailClicked)="select(seq)"
+        ></app-gallery-element>
+      }
+    </div>
+  }
+</p-panel>

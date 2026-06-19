@@ -1,3 +1,68 @@
+@if (listMode) {
+  <!-- ============================================================ -->
+  <!-- List row                                                      -->
+  <!-- ============================================================ -->
+  <div
+    class="cursor-pointer duration-200 flex gallery-row gap-3 items-center relative transition-colors w-full"
+    [class]="getCardStyleClass()"
+    [style.background]="getRowBackground()"
+    (dblclick)="openEditor()"
+    (mouseenter)="onMouseEnter()"
+    (mouseleave)="onMouseLeave()"
+  >
+    <!-- Thumbnail -->
+    <div
+      class="flex-shrink-0 h-16 overflow-hidden relative rounded w-16"
+      [style.background]="'var(--p-content-background)'"
+    >
+      @if (isLoading) {
+        <div class="absolute flex inset-0 items-center justify-center">
+          <i class="pi pi-spin pi-spinner" [style.color]="'var(--p-text-muted-color)'"></i>
+        </div>
+      } @else if (loadError && !imagePath) {
+        <div class="absolute flex inset-0 items-center justify-center">
+          <i class="pi pi-image text-xl" [style.color]="'var(--p-text-muted-color)'"></i>
+        </div>
+      } @else {
+        <img [src]="imagePath" [alt]="displayTitle" class="h-full object-cover w-full" />
+      }
+    </div>
+
+    <!-- Title + meta -->
+    <div class="flex flex-col gap-1 min-w-0">
+      <p class="font-medium m-0 truncate" [title]="displayTitle">{{ displayTitle }}</p>
+      <div class="flex gap-2 items-center text-sm" [style.color]="'var(--p-text-muted-color)'">
+        <i class="pi pi-images text-xs"></i>
+        <span>{{ frameCount }} {{ frameCount === 1 ? 'frame' : 'frames' }}</span>
+        <span
+          class="font-medium px-2 py-0.5 rounded-full text-white text-xs"
+          [ngClass]="getStatusBadgeClass()"
+        >{{ getStatusLabel() }}</span>
+      </div>
+    </div>
+
+    <!-- Spacer -->
+    <span class="flex-1"></span>
+
+    <!-- Reviewed toggle + open -->
+    @if (showReviewedToggle) {
+      <app-labelled-switch
+        [checked]="isReviewed"
+        (checkedChange)="onReviewedToggle($event)"
+        (click)="$event.stopPropagation()"
+      >
+        Reviewed
+      </app-labelled-switch>
+    }
+    <p-button
+      icon="pi pi-pencil"
+      [rounded]="true"
+      [text]="true"
+      pTooltip="Open in editor"
+      (click)="$event.stopPropagation(); openEditor()"
+    ></p-button>
+  </div>
+} @else {
 <div
   class="cursor-pointer duration-200 gallery-element hover:scale-105 relative transition-all"
   [class]="getCardStyleClass()"
@@ -78,3 +143,4 @@
     </p>
   </div>
 </div>
+}
