@@ -79,7 +79,7 @@
       />
 
       <!-- Info -->
-      <small class="text-gray-500">
+      <small [style.color]="'var(--p-text-muted-color)'">
         Project: {{ projectName }}<br />
         Labels: {{ labelService.listSegmentationLabels.length }}
       </small>

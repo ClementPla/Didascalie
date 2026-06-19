@@ -17,17 +17,39 @@ html,
 body {
     width: 100%;
     font-size: 14px;
-}   
+}
 
 body {
     margin: 0;
     font-family: Roboto, "Helvetica Neue", sans-serif;
+    /* Follow the active theme so dark mode has no white backdrop. */
+    background: var(--p-content-background);
+    color: var(--p-text-color);
 }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
 
 :root{
     --toolbar-height: 5rem;
+
+    /* ------------------------------------------------------------------
+       Legacy → styled-mode token bridge.
+       Much of the app's SCSS was written against PrimeNG's old theme
+       variables (--surface-*, --text-color*, --primary-color, --*-400),
+       which the new @primeng/themes presets DO NOT define. Without this
+       map those usages fall back to their hardcoded dark hex and never
+       follow the active preset / dark mode. Pointing them at the live
+       --p-* tokens makes every consumer theme-aware (incl. dark mode).
+       ------------------------------------------------------------------ */
+    --surface-ground: var(--p-content-background);
+    --surface-section: var(--p-content-background);
+    --surface-card: var(--p-content-background);
+    --surface-hover: var(--p-content-hover-background);
+    --surface-border: var(--p-content-border-color);
+    --text-color: var(--p-text-color);
+    --text-color-secondary: var(--p-text-muted-color);
+    --primary-color: var(--p-primary-color);
+    --red-400: var(--p-red-400);
+    --green-400: var(--p-green-400);
 }
 
 

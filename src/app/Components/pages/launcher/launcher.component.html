@@ -1,5 +1,24 @@
 <!-- launcher.component.html -->
 <div class="launcher">
+  <div class="appearance-bar">
+    <i class="opacity-60 pi pi-palette"></i>
+    <p-select
+      [options]="theme.presets"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="theme.presetKey()"
+      (onChange)="theme.setPreset($event.value)"
+      pTooltip="Theme"
+      appendTo="body"
+    ></p-select>
+    <app-labelled-switch
+      [checked]="theme.darkMode()"
+      (checkedChange)="theme.setDarkMode($event)"
+    >
+      Dark mode
+    </app-labelled-switch>
+  </div>
+
   <header class="launcher-header">
     <h1>LabelMed</h1>
     <p class="tagline">Open a project or start a new one.</p>

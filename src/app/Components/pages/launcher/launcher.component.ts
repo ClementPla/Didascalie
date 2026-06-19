@@ -2,22 +2,33 @@
 
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { open } from '@tauri-apps/plugin-dialog';
 
 import { ButtonModule } from 'primeng/button';
 import { ToastModule } from 'primeng/toast';
+import { SelectModule } from 'primeng/select';
 import { MessageService } from 'primeng/api';
 
 import {
   ProjectService,
   RecentProject,
 } from '../../../Services/ProjectService/project.service';
+import { ThemeService } from '../../../Services/theme.service';
+import { LabelledSwitchComponent } from '../../../generics/labelled-switch/labelled-switch.component';
 
 @Component({
   selector: 'app-launcher',
   standalone: true,
-  imports: [CommonModule, ButtonModule, ToastModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ButtonModule,
+    ToastModule,
+    SelectModule,
+    LabelledSwitchComponent,
+  ],
   providers: [MessageService],
   templateUrl: './launcher.component.html',
   styleUrl: './launcher.component.scss',
@@ -31,6 +42,7 @@ export class LauncherComponent implements OnInit {
     private projectService: ProjectService,
     private router: Router,
     private messageService: MessageService,
+    public theme: ThemeService,
   ) {}
 
   ngOnInit(): void {

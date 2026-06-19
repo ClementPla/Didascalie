@@ -17,7 +17,15 @@
   flex-direction: column;
   gap: 2.5rem;
   width: 100%;
-  max-width: 720px;         
+  max-width: 720px;
+}
+
+.appearance-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  align-self: flex-end;
+  margin-bottom: -1rem; /* sit it close to the top, above the header gap */
 }
 
 .launcher-header {

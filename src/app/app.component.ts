@@ -5,8 +5,7 @@ import { LoadingComponent } from './Components/pages/loading/loading.component';
 import { RouterOutlet, RouterModule } from '@angular/router';
 import { EditorService } from './Components/pages/editor/services/editor.service';
 import { AppInitializationService } from './Services/app-initialization.service';
-import { PrimeNG } from 'primeng/config';
-import Aura from '@primeng/themes/aura';
+import { ThemeService } from './Services/theme.service';
 import { Button } from 'primeng/button';
 import { BlockUIModule } from 'primeng/blockui';
 import { DividerModule } from 'primeng/divider';
@@ -35,10 +34,10 @@ export class AppComponent implements OnInit, OnDestroy {
     public uiStateService: UIStateService,
     public editorService: EditorService,
     private appInitialization: AppInitializationService,
-    private primeNG: PrimeNG,
+    private themeService: ThemeService,
     public projectService: ProjectService
   ) {
-    this.configureTheme();
+    this.themeService.init();
   }
 
   async ngOnInit(): Promise<void> {
@@ -54,19 +53,6 @@ export class AppComponent implements OnInit, OnDestroy {
     this.appInitialization.cleanup();
     console.log('AppComponent destroyed and resources cleaned up.');
     
-  }
-
-  private configureTheme(): void {
-    this.primeNG.theme.set({
-      preset: Aura,
-      options: {
-        darkModeSelector: '.darkTheme',
-        cssLayer: {
-          name: 'primeng',
-          order: 'tailwind-base, primeng, tailwind-utilities',
-        },
-      },
-    });
   }
 
   public isProjectStarted(): boolean {
