@@ -14,7 +14,7 @@
     class="bg-gray-950 overflow-x-clip relative"
     [style.height.px]="rulerSize"
   >
-    <p class="absolute text-gray viewBoxMarker w-fit" [style.left.px]="viewBox.xmin">0</p>
+    <p class="absolute viewBoxMarker w-fit" [style.left.px]="viewBox.xmin">0</p>
     <p class="absolute text-gray viewBoxMarker w-fit" [style.left.px]="cursor.x">
       {{ zoomPanService.currentPixel.x }}
     </p>

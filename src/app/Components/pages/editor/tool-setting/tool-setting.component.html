@@ -1,5 +1,5 @@
-<p-panel header="Advanced settings" class="w-96">
-  <div style="max-height: 50vh; overflow-y: auto">
+<p-panel header="Advanced settings" class="w-full">
+  <div>
     <p-accordion [value]="['1']" [multiple]="true">
       <p-accordion-panel value="0">
         <p-accordion-header>UI</p-accordion-header>
@@ -39,7 +39,7 @@
               editorService.labelledCombinedBoundingBox &&
               !editorService.eraseAll
             ) {
-              <p-message severity="warn" class="w-48"
+              <p-message severity="warn" class="w-full"
                 >All labels within the bounding box will be erased, even though
                 'Erase all labels' is not checked. Uncheck 'Combined labels' to
                 erase per labels.</p-message

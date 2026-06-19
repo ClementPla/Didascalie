@@ -55,7 +55,7 @@ body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
 
 .p-toolbar{
     padding: 0rem 1rem;
-    height: var(--toolbar-height);
+    min-height: var(--toolbar-height);
 }
 
 .darkTheme{

@@ -6,7 +6,8 @@
 }
 
 .max-screen-available {
-  height: calc(100vh - 2 * var(--toolbar-height) - 4rem);
+  height: 100%;
+  min-height: 0;
 }
 
 .canvas-viewport {

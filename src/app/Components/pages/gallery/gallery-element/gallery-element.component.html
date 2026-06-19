@@ -7,17 +7,18 @@
   (mouseleave)="onMouseLeave()"
 >
   <!-- Thumbnail Image -->
-  <div 
-    class="bg-gray-100 overflow-hidden relative rounded-t-lg"
+  <div
+    class="overflow-hidden relative rounded-t-lg"
     [style.height.px]="imgSize"
+    [style.background]="'var(--p-content-background)'"
   >
     @if (isLoading) {
       <div class="absolute flex inset-0 items-center justify-center">
-        <i class="pi pi-spin pi-spinner text-2xl text-gray-400"></i>
+        <i class="pi pi-spin pi-spinner text-2xl" [style.color]="'var(--p-text-muted-color)'"></i>
       </div>
     } @else if (loadError && !imagePath) {
-      <div class="absolute bg-gray-200 flex inset-0 items-center justify-center">
-        <i class="pi pi-image text-4xl text-gray-400"></i>
+      <div class="absolute flex inset-0 items-center justify-center" [style.background]="'var(--p-content-hover-background)'">
+        <i class="pi pi-image text-4xl" [style.color]="'var(--p-text-muted-color)'"></i>
       </div>
     } @else {
       <img
@@ -72,7 +73,7 @@
 
   <!-- Title -->
   <div class="p-2 rounded-b-lg">
-    <p class="font-medium text-sm" [title]="displayTitle">
+    <p class="font-medium text-sm truncate" [title]="displayTitle">
       {{ displayTitle }}
     </p>
   </div>

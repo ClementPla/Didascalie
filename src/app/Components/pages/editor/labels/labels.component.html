@@ -1,5 +1,5 @@
 <p-panel header="Classes">
-  <div class="gap-4 grid grid-cols-1 w-max">
+  <div class="gap-4 grid grid-cols-1 w-full">
     <!-- Classification -->
     <p-fieldset
       legend="Classification"
@@ -18,7 +18,7 @@
           [ngModel]="classificationChoices[i]"
           (onOptionClick)="setMulticlassValue(i, $event.option)"
           size="small"
-          style="display: flex; flex-wrap: wrap"
+          styleClass="flex flex-wrap"
         ></p-selectButton>
       </ng-container>
       } @if(labelsService.multiLabelTask !== null){
@@ -31,10 +31,10 @@
         [(ngModel)]="multilabelChoices"
         (ngModelChange)="onMultilabelChange()"
         size="small"
-        style="display: flex; flex-wrap: wrap"
+        styleClass="flex flex-wrap"
       ></p-selectButton>
 
-      <div class="grid grid-cols-3">
+      <div class="flex flex-wrap gap-1">
         @for(label of multilabelChoices; track label){
         <p-tag severity="info" class="m-1" [rounded]="true">
           <span class="text-base">{{ label }}</span>

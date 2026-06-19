@@ -65,6 +65,8 @@
   }
 
   <p-dataview
+    class="flex flex-1 min-h-0"
+    styleClass="gallery-dataview"
     [value]="filteredItems"
     layout="grid"
     [rows]="galleryService.itemPerPage"
@@ -231,7 +233,7 @@
     <!-- ============================================================ -->
     <ng-template #grid let-items>
       <div
-        class="flex flex-row flex-wrap gallery-scroll justify-start max-h-[70vh] overflow-x-clip overflow-y-auto"
+        class="flex flex-row flex-wrap gallery-scroll h-full justify-start overflow-x-clip overflow-y-auto"
       >
         @for (item of items; track item.sequenceId) {
         <app-gallery-element

@@ -1,13 +1,13 @@
 <app-editor-toolbar></app-editor-toolbar>
-<div class="editor flex gap-8 justify-around overflow-hidden relative w-full">
+<div class="editor flex flex-1 gap-4 min-h-0 overflow-hidden relative w-full xl:gap-8">
   <app-quick-access-menu #quickAccessMenu></app-quick-access-menu>
   @if (shouldShowLabels) {
-    <app-labels class="flex-shrink-0 max-w-128"></app-labels>
+    <app-labels class="min-w-0 max-w-[32rem] overflow-y-auto"></app-labels>
   }
   <!-- Center column -->
-  <div class="flex flex-1 flex-col min-w-0 overflow-hidden relative">
+  <div class="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden relative">
     <app-drawable-canvas
-      class="block h-full overflow-hidden w-full"
+      class="block flex-1 min-h-0 overflow-hidden w-full"
     ></app-drawable-canvas>
     <!-- Progress indicator - sticky at bottom -->
     <div
@@ -40,12 +40,12 @@
     </div>
   </div>
   <!-- Right column -->
-  <div class="flex flex-col flex-shrink-0 gap-4 overflow-y-auto w-96">
+  <div class="flex flex-col gap-4 min-h-0 overflow-y-auto shrink w-80 2xl:w-96">
     <app-tool-setting></app-tool-setting>
     <app-multi-frames-options
       (changeOfFrame)="changedOfFrame($event)"
     ></app-multi-frames-options>
-    <p-panel header="Save" class="w-96">
+    <p-panel header="Save" class="w-full">
       <p class="flex justify-center">
         <p-button (onClick)="navigatePrevious()">Previous</p-button>
         <p-button (onClick)="save()" pTooltip="Ctrl+S">Save</p-button>
