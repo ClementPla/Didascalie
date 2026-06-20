@@ -5,6 +5,10 @@ use crate::utils::error::Result;
 use crate::types::project::ProjectConfig;
 use crate::types::image::{AnnotationData, MaskEncoding};
 
+/// Current on-disk schema version. Bump this whenever the schema changes and
+/// add a matching arm in `run_migrations`.
+pub const SCHEMA_VERSION: i64 = 1;
+
 /// Common configuration for all connections
 fn configure_connection(conn: &Connection) -> Result<()> {
     // Use execute_batch for PRAGMAs that return values to avoid the "results returned" error
@@ -13,23 +17,67 @@ fn configure_connection(conn: &Connection) -> Result<()> {
         PRAGMA synchronous = NORMAL;
         PRAGMA foreign_keys = ON;
     ").map_err(AppError::Database)?;
-    
+
+    Ok(())
+}
+
+/// Read SQLite's `user_version` header field (0 on a fresh / pre-versioning DB).
+fn user_version(conn: &Connection) -> Result<i64> {
+    conn.query_row("PRAGMA user_version;", [], |row| row.get(0))
+        .map_err(AppError::Database)
+}
+
+/// Bring a database up to `SCHEMA_VERSION`. Safe to call on fresh, legacy
+/// (unversioned) and already-current databases. Migrating forward only:
+/// a DB stamped with a newer version is refused rather than silently corrupted.
+fn run_migrations(conn: &Connection) -> Result<()> {
+    let version = user_version(conn)?;
+
+    if version > SCHEMA_VERSION {
+        return Err(AppError::Generic(format!(
+            "This project was created with a newer version of LabelMed \
+             (schema v{}, this build supports v{}). Please update the application.",
+            version, SCHEMA_VERSION
+        )));
+    }
+
+    if version == SCHEMA_VERSION {
+        return Ok(());
+    }
+
+    // Apply migrations atomically so a partial/interrupted upgrade can't leave
+    // the project in a half-migrated state.
+    let tx = conn.unchecked_transaction().map_err(AppError::Database)?;
+    let mut v = version;
+
+    // v0 -> v1: baseline. `CREATE TABLE IF NOT EXISTS`, so this is also the
+    // adoption path for legacy databases that predate versioning.
+    if v < 1 {
+        tx.execute_batch(super::schema::SCHEMA)
+            .map_err(AppError::Database)?;
+        v = 1;
+    }
+
+    // Future migrations go here, one block per version:
+    //   if v < 2 { tx.execute_batch(MIGRATION_V2)?; v = 2; }
+
+    // PRAGMA doesn't accept bound parameters; v is an internal integer.
+    tx.execute_batch(&format!("PRAGMA user_version = {};", v))
+        .map_err(AppError::Database)?;
+    tx.commit().map_err(AppError::Database)?;
     Ok(())
 }
 
 pub fn create_database(path: &Path) -> Result<Connection> {
     // Instead of deleting, we use SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE
-    // If you WANT to overwrite, your logic is fine, but usually, 
+    // If you WANT to overwrite, your logic is fine, but usually,
     // apps should prompt "File exists, overwrite?" in the UI first.
     let conn = Connection::open(path)
         .map_err(|e| AppError::Database(e))?;
 
-    // Initialize schema
-    conn.execute_batch(super::schema::SCHEMA)
-        .map_err(|e| AppError::Database(e))?;
-
     configure_connection(&conn)?;
-    
+    run_migrations(&conn)?;
+
     Ok(conn)
 }
 
@@ -44,9 +92,7 @@ pub fn open_database(path: &Path) -> Result<Connection> {
     ).map_err(|e| AppError::Database(e))?;
 
     configure_connection(&conn)?;
-
-    conn.execute_batch(super::schema::SCHEMA)
-        .map_err(|e| AppError::Database(e))?;
+    run_migrations(&conn)?;
 
     Ok(conn)
 }
@@ -209,3 +255,57 @@ pub fn mark_image_reviewed(conn: &Connection, image_id: i64, reviewed: bool) -> 
     Ok(())
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn read_version(conn: &Connection) -> i64 {
+        conn.query_row("PRAGMA user_version;", [], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn migrations_stamp_current_version_and_are_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        configure_connection(&conn).unwrap();
+
+        run_migrations(&conn).unwrap();
+        assert_eq!(read_version(&conn), SCHEMA_VERSION);
+
+        // Running again must be a no-op (no error, version unchanged).
+        run_migrations(&conn).unwrap();
+        assert_eq!(read_version(&conn), SCHEMA_VERSION);
+
+        // Baseline schema actually created the core tables.
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN \
+                 ('project','labels','sequences','frames','annotations')",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 5);
+    }
+
+    #[test]
+    fn legacy_unversioned_db_is_adopted() {
+        // Simulate a pre-versioning project: tables exist, user_version still 0.
+        let conn = Connection::open_in_memory().unwrap();
+        configure_connection(&conn).unwrap();
+        conn.execute_batch(super::super::schema::SCHEMA).unwrap();
+        assert_eq!(read_version(&conn), 0);
+
+        run_migrations(&conn).unwrap();
+        assert_eq!(read_version(&conn), SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn refuses_database_from_newer_build() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(&format!("PRAGMA user_version = {};", SCHEMA_VERSION + 1))
+            .unwrap();
+        assert!(run_migrations(&conn).is_err());
+    }
+}
