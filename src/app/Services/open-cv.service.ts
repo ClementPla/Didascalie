@@ -1,4 +1,4 @@
-import { Injectable, output } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { NgxOpenCVService, OpenCVState } from 'ngx-opencv';
 import { from_hex_to_rgb } from '../Core/misc/colors';
 import { Rect } from '../Core/interface';

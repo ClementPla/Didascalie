@@ -1,19 +1,9 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
-import { ProjectService } from './ProjectService/project.service';
+import { Injectable, signal, computed } from '@angular/core';
 import { Sequence, Frame, FrameImage, api } from '../lib/api';
-// ==========================================
-// Types
-// ==========================================
 
-
-
-// ==========================================
-// Service
-// ==========================================
 
 @Injectable({ providedIn: 'root' })
 export class SequenceService {
-  private readonly projectService = inject(ProjectService);
 
   // Private state
   private readonly _sequences = signal<Sequence[]>([]);
@@ -267,20 +257,10 @@ export class SequenceService {
     return { reviewed, total };
   }
 
-  // ==========================================
-  // Utility
-  // ==========================================
-
-  /**
-   * Get a frame by ID.
-   */
   getFrameById(frameId: number): Frame | null {
     return this._frames().find(f => f.id === frameId) ?? null;
   }
 
-  /**
-   * Get sequence by ID.
-   */
   getSequenceById(sequenceId: number): Sequence | null {
     return this._sequences().find(s => s.id === sequenceId) ?? null;
   }

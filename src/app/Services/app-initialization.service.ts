@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { Subject, takeUntil } from 'rxjs';
 import { invoke } from '@tauri-apps/api/core';
 
-// Services
 import { CLIService } from './TauriEvent/cli.service';
 import { TauriEventService } from './TauriEvent/tauri-event.service';
 import { ProjectService } from './ProjectService/project.service';

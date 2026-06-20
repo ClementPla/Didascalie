@@ -8,7 +8,7 @@ import { SequenceService } from './sequence.service';
 import { CanvasManagerService } from '../Components/pages/editor/drawable-canvas/service/canvas-manager.service';
 import { StateManagerService } from '../Components/pages/editor/drawable-canvas/service/state-manager.service';
 
-import { api, AnnotationResponse, AnnotationSave } from '../lib/api';
+import { api } from '../lib/api';
 import { ProjectService } from './ProjectService/project.service';
 
 @Injectable({

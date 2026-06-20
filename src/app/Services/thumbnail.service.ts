@@ -1,4 +1,3 @@
-// thumbnail.service.ts
 import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { path } from '@tauri-apps/api';
