@@ -19,8 +19,13 @@ impl FeaturesExtractor {
                 .into_dyn(),
         }
     }
-    pub fn prepare_image(&self, input_blob: Vec<u8>, width: usize, height: usize) -> Tensor<f32> {
-        let image = self.load_blob_to_image(input_blob, width, height);
+    pub fn prepare_image(
+        &self,
+        input_blob: Vec<u8>,
+        width: usize,
+        height: usize,
+    ) -> Result<Tensor<f32>, String> {
+        let image = self.load_blob_to_image(input_blob, width, height)?;
 
         let image = image
             .resize_exact(
@@ -51,8 +56,9 @@ impl FeaturesExtractor {
                 }
             });
 
-        let array = Array4::from_shape_vec([1, 3, size, size], data).unwrap();
-        Tensor::from_array(array).unwrap()
+        let array = Array4::from_shape_vec([1, 3, size, size], data)
+            .map_err(|e| format!("Failed to build image array: {}", e))?;
+        Tensor::from_array(array).map_err(|e| format!("Failed to build image tensor: {}", e))
     }
 
     fn load_blob_to_image(
@@ -60,26 +66,40 @@ impl FeaturesExtractor {
         blob: Vec<u8>,
         width: usize,
         height: usize,
-    ) -> image::DynamicImage {
-        image::DynamicImage::ImageRgba8(
-            image::RgbaImage::from_raw(width as u32, height as u32, blob).unwrap(),
-        )
+    ) -> Result<image::DynamicImage, String> {
+        let img = image::RgbaImage::from_raw(width as u32, height as u32, blob)
+            .ok_or_else(|| {
+                format!(
+                    "Image buffer does not match dimensions {}x{} (expected {} bytes)",
+                    width,
+                    height,
+                    width * height * 4
+                )
+            })?;
+        Ok(image::DynamicImage::ImageRgba8(img))
     }
 
     pub fn __extract_features__(
         &mut self,
         image: Tensor<f32>,
         session: &mut ort::session::Session,
-    ) -> Result<(), ort::Error> {
+    ) -> Result<(), String> {
         println!("Running encoder inference");
-        let mut io_binding = session.create_binding()?;
-        io_binding.bind_input("image", &image)?;
-        io_binding.bind_output_to_device("features", &session.allocator().memory_info())?;
+        let mut io_binding = session
+            .create_binding()
+            .map_err(|e| format!("Failed to create encoder binding: {}", e))?;
+        io_binding
+            .bind_input("image", &image)
+            .map_err(|e| format!("Failed to bind image: {}", e))?;
+        io_binding
+            .bind_output_to_device("features", &session.allocator().memory_info())
+            .map_err(|e| format!("Failed to bind features output: {}", e))?;
 
         self.features = session
-            .run_binding(&mut io_binding)?
+            .run_binding(&mut io_binding)
+            .map_err(|e| format!("Encoder inference failed: {}", e))?
             .remove("features")
-            .unwrap();
+            .ok_or("Encoder produced no 'features' output")?;
 
         Ok(())
     }

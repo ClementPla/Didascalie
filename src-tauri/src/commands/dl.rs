@@ -21,14 +21,14 @@ pub async fn mask_sam_segment<'a>(
     model_sessions: State<'a, ModelSessions>,
 ) -> Result<Response, String> {
     let start_time = std::time::Instant::now();
-    app.emit("mask-segmentation-started", {}).unwrap();
+    let _ = app.emit("mask-segmentation-started", {});
     if extract_features {
-        app.emit("features-extraction-started", {}).unwrap();
+        let _ = app.emit("features-extraction-started", {});
         let prepare_start = std::time::Instant::now();
 
         let image_tensor = {
             let features_extractor_guard = features_extractor.lock().await;
-            features_extractor_guard.prepare_image(image, width, height)
+            features_extractor_guard.prepare_image(image, width, height)?
         };
 
         println!("Image preparation took: {:?}", prepare_start.elapsed());
@@ -44,7 +44,7 @@ pub async fn mask_sam_segment<'a>(
             .map_err(|e| format!("Feature extraction failed: {}", e))?;
 
         println!("Feature extraction took: {:?}", encode_start.elapsed());
-        app.emit("features-extraction-completed", {}).unwrap();
+        let _ = app.emit("features-extraction-completed", {});
     }
 
     // Convert coarse mask to image, resize to 1024x1024
@@ -56,7 +56,7 @@ pub async fn mask_sam_segment<'a>(
             .map(|b| if b { 255u8 } else { 0u8 })
             .collect::<Vec<u8>>(),
     )
-    .unwrap();
+    .ok_or("Failed to build coarse mask image (size mismatch)")?;
 
     let resized_image = image::imageops::resize(
         &gray_image,
@@ -73,7 +73,7 @@ pub async fn mask_sam_segment<'a>(
     let mask_tensor = Tensor::from_array(
         Array4::from_shape_vec((1, 1, 1024, 1024), data).map_err(|e| e.to_string())?,
     )
-    .unwrap();
+    .map_err(|e| format!("Failed to build mask tensor: {}", e))?;
 
     let decoder_start = std::time::Instant::now();
     let decoder = get_decoder_async(&app, &model_sessions).await?;
@@ -81,17 +81,21 @@ pub async fn mask_sam_segment<'a>(
 
     let features_extractor_guard = features_extractor.lock().await;
 
-    let mut __decoder_binding__ = decoder_guard.create_binding().unwrap();
+    let mut __decoder_binding__ = decoder_guard
+        .create_binding()
+        .map_err(|e| format!("Failed to create decoder binding: {}", e))?;
     __decoder_binding__
         .bind_input("features", features_extractor_guard.get_features())
-        .unwrap();
+        .map_err(|e| format!("Failed to bind features: {}", e))?;
     __decoder_binding__
         .bind_input("coarseMasks", &mask_tensor)
-        .unwrap();
+        .map_err(|e| format!("Failed to bind coarse masks: {}", e))?;
     __decoder_binding__
         .bind_output_to_device("masks", &decoder_guard.allocator().memory_info())
-        .unwrap();
-    __decoder_binding__.synchronize_inputs().unwrap();
+        .map_err(|e| format!("Failed to bind output: {}", e))?;
+    __decoder_binding__
+        .synchronize_inputs()
+        .map_err(|e| format!("Failed to synchronize inputs: {}", e))?;
     println!("Decoder setup took: {:?}", decoder_start.elapsed());
 
     let inference_start = std::time::Instant::now();
@@ -125,6 +129,6 @@ pub async fn mask_sam_segment<'a>(
 
     let binary_vec: Vec<u8> = binary.into_raw();
     println!("Total execution time: {:?}", start_time.elapsed());
-    app.emit("mask-segmentation-completed", {}).unwrap();
+    let _ = app.emit("mask-segmentation-completed", {});
     Ok(Response::new(binary_vec))
 }
