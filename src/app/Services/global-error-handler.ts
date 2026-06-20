@@ -21,6 +21,14 @@ export class GlobalErrorHandler implements ErrorHandler {
     // Always keep the full error in the console for developers.
     console.error('[Unhandled error]', error);
 
+    // Don't surface dev-only framework diagnostics to the user. NG0100
+    // (ExpressionChangedAfterItHasBeenChecked) and friends are thrown only by
+    // the development build's verification pass and never occur in production,
+    // so a toast would be noise rather than an actionable error.
+    if (this.isDevOnlyFrameworkError(error)) {
+      return;
+    }
+
     const detail = this.describe(error);
     this.zone.run(() => {
       try {
@@ -31,6 +39,15 @@ export class GlobalErrorHandler implements ErrorHandler {
         // Notifications not available yet — the console log above still stands.
       }
     });
+  }
+
+  private isDevOnlyFrameworkError(error: unknown): boolean {
+    const message =
+      error instanceof Error ? error.message : String(error ?? '');
+    return (
+      message.includes('NG0100') ||
+      message.includes('ExpressionChangedAfterItHasBeenChecked')
+    );
   }
 
   private describe(error: unknown): string {
