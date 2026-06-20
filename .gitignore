@@ -42,3 +42,9 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Signing keystores / secrets
+*.jks
+*.keystore
+*.p12
+*.pem

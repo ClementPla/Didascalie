@@ -1,10 +1,12 @@
 # LabelMed Client
 
-A powerful medical image labeling application built with [Angular CLI](https://github.com/angular/angular-cli) version 18.2.12 and [Tauri V2](https://v2.tauri.app/start/). LabelMed prioritizes privacy, speed, and ease of use for medical image annotation tasks.
+A powerful medical image labeling application built with [Angular](https://angular.dev) 20 and [Tauri V2](https://v2.tauri.app/start/). LabelMed prioritizes privacy, speed, and ease of use for medical image annotation tasks.
 
 ## Key Features
 
-- **Local Processing**: All operations run locally, ensuring data privacy and security
+- **Local-first Processing**: Annotation and image processing run locally. AI-assisted
+  segmentation models are downloaded from Hugging Face on first use and then run on a
+  local inference server — no annotation data leaves the machine.
 - **Multi-task Classification**: Support for multiple classification types
     - Multiclass classification
     - Multilabel classification
