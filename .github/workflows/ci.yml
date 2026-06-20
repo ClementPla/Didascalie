@@ -1,0 +1,74 @@
+name: CI
+
+# Quality gates: compile the frontend, run unit tests, and build/test the
+# Rust backend. Runs on every PR and on pushes to the main branches.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - release
+
+jobs:
+  frontend:
+    name: Frontend (build + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (type + template check)
+        run: npx ng build --configuration development
+
+      # Informational for now: the existing specs are mostly CLI-generated
+      # stubs. Promote to a hard gate as real tests are added.
+      - name: Unit tests
+        run: npx ng test --watch=false --browsers=ChromeHeadless
+        continue-on-error: true
+
+  backend:
+    name: Backend (Rust)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Tests
+        working-directory: src-tauri
+        run: cargo test --lib
+
+      # Informational for now (existing warnings); tighten to a hard gate later.
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets
+        continue-on-error: true
+
+      - name: Format check
+        working-directory: src-tauri
+        run: cargo fmt --check
+        continue-on-error: true
