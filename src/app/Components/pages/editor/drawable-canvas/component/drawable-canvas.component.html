@@ -93,18 +93,21 @@
           pRipple [rounded]="true" [raised]="true"
           (click)="switchFullScreen()"
           icon="pi pi-window-maximize" severity="help"
+          ariaLabel="Enter fullscreen"
         ></p-button>
       } @else {
         <p-button
           pButton pRipple [rounded]="true" [raised]="true"
           (click)="switchFullScreen()"
           icon="pi pi-window-minimize" severity="help"
+          ariaLabel="Exit fullscreen"
         ></p-button>
       }
       <p-button
         [rounded]="true" [raised]="true"
         (click)="zoomPanService.resetZoomAndPan(true, true)"
         icon="pi pi-refresh" severity="help"
+        ariaLabel="Reset zoom and pan"
       ></p-button>
     </div>
   </div>

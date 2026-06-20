@@ -59,6 +59,7 @@
       [rounded]="true"
       [text]="true"
       pTooltip="Open in editor"
+      [ariaLabel]="'Open ' + displayTitle + ' in editor'"
       (click)="$event.stopPropagation(); openEditor()"
     ></p-button>
   </div>
@@ -116,7 +117,13 @@
       [class.border-primary]="selected"
       [class.bg-white]="!selected"
       [class.border-gray-300]="!selected"
+      role="checkbox"
+      tabindex="0"
+      [attr.aria-checked]="selected"
+      [attr.aria-label]="'Select ' + displayTitle"
       (click)="select($event)"
+      (keydown.enter)="select($event)"
+      (keydown.space)="$event.preventDefault(); select($event)"
     >
       @if (selected) {
         <i class="pi pi-check text-sm text-white"></i>

@@ -117,8 +117,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   ];
 
   readonly layoutOptions = [
-    { icon: 'pi pi-th-large', value: 'grid' as const },
-    { icon: 'pi pi-bars', value: 'list' as const },
+    { icon: 'pi pi-th-large', value: 'grid' as const, label: 'Grid view' },
+    { icon: 'pi pi-bars', value: 'list' as const, label: 'List view' },
   ];
 
   constructor(

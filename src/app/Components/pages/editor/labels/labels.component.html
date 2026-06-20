@@ -60,12 +60,14 @@
           icon="pi pi-eye"
           (click)="changeAllVisibility()"
           [rounded]="true"
+          ariaLabel="Hide all labels"
         ></p-button>
         } @else {
         <p-button
           icon="pi pi-eye-slash"
           (click)="changeAllVisibility()"
           [rounded]="true"
+          ariaLabel="Show all labels"
         ></p-button>
         }
         <p class="flex flex-col gap-2">
@@ -107,6 +109,7 @@
               icon="pi pi-eye"
               (click)="changeVisibility(node)"
               [rounded]="true"
+              [ariaLabel]="'Hide ' + node.label"
             ></p-button>
             } @else{
             <p-button
@@ -114,12 +117,14 @@
               icon="pi pi-eye-slash"
               (click)="changeVisibility(node)"
               [rounded]="true"
+              [ariaLabel]="'Show ' + node.label"
             ></p-button>
             } @if(!projectService.isInstanceSegmentation()){
             <p-colorPicker
               [(ngModel)]="node.data.color"
               [appendTo]="colorPicker"
               (onChange)="changeColor()"
+              [attr.aria-label]="'Color for ' + node.label"
             />
             }
             <b>
@@ -130,6 +135,7 @@
               class="smallButton"
               (click)="clearCanvas(node)"
               severity="danger"
+              [ariaLabel]="'Clear ' + node.label + ' annotation'"
             ></p-button>
           </div>
           } @if(hasChild(node)){

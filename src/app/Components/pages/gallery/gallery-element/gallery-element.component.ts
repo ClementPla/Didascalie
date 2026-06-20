@@ -223,15 +223,18 @@ export class GalleryElementComponent implements OnDestroy, AfterViewInit {
   /**
    * Handle thumbnail selection with optional shift-click for range selection.
    */
-  public select(event: MouseEvent): void {
+  public select(event: Event): void {
     event.stopPropagation();
 
     this.selected = !this.selected;
 
+    const isShiftClick =
+      'shiftKey' in event && (event as MouseEvent | KeyboardEvent).shiftKey;
+
     this.thumbnailSelected.emit({
       id: this.id,
       selected: this.selected,
-      isShiftClick: event.shiftKey,
+      isShiftClick,
     });
   }
 

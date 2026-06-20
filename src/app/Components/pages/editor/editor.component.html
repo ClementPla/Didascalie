@@ -34,6 +34,8 @@
         class="collapse-toggle collapse-toggle--left"
         [icon]="labelsCollapsed ? 'pi pi-angle-double-right' : 'pi pi-angle-double-left'"
         [pTooltip]="labelsCollapsed ? 'Show panel' : 'Hide panel'"
+        [attr.aria-label]="labelsCollapsed ? 'Show left panel' : 'Hide left panel'"
+        [attr.aria-expanded]="!labelsCollapsed"
         tooltipPosition="right"
         (click)="labelsCollapsed = !labelsCollapsed"
       ></button>
@@ -47,6 +49,8 @@
       class="collapse-toggle collapse-toggle--right"
       [icon]="settingsCollapsed ? 'pi pi-angle-double-left' : 'pi pi-angle-double-right'"
       [pTooltip]="settingsCollapsed ? 'Show settings' : 'Hide settings'"
+      [attr.aria-label]="settingsCollapsed ? 'Show settings panel' : 'Hide settings panel'"
+      [attr.aria-expanded]="!settingsCollapsed"
       tooltipPosition="left"
       (click)="settingsCollapsed = !settingsCollapsed"
     ></button>

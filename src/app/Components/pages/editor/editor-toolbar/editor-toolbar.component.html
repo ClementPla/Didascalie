@@ -71,6 +71,7 @@
         icon="pi pi-undo"
         (onClick)="editorService.requestUndo()"
         pTooltip="Ctrl+Z"
+        aria-label="Undo"
       ></button>
       <button
         pButton
@@ -78,6 +79,7 @@
         icon="pi pi-refresh"
         (onClick)="editorService.requestRedo()"
         pTooltip="Ctrl+Y"
+        aria-label="Redo"
       ></button>
       <app-labelled-switch
         [(checked)]="editorService.useProcessing"

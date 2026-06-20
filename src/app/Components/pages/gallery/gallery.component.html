@@ -163,12 +163,14 @@
             [options]="layoutOptions"
             [(ngModel)]="galleryService.viewLayout"
             optionValue="value"
+            optionLabel="label"
             [allowEmpty]="false"
             size="small"
             pTooltip="Grid / list view"
+            aria-label="View layout"
           >
             <ng-template #item let-option>
-              <i [class]="option.icon"></i>
+              <i [class]="option.icon" [attr.aria-label]="option.label" [attr.title]="option.label"></i>
             </ng-template>
           </p-selectbutton>
         </div>
