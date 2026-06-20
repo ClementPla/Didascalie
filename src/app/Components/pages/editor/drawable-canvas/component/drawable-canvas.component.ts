@@ -107,12 +107,17 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     });
     this.resizeObserver.observe(this.viewportRef.nativeElement);
 
-    // Initial size sync (in case observer hasn't fired yet)
-    const r = this.viewportRef.nativeElement.getBoundingClientRect();
-    this.setViewportSize(r.width, r.height);
+    // Initial size sync + first draw. Deferred out of the AfterViewInit check:
+    // setViewportSize triggers a redraw that updates view-bound state (viewBox,
+    // image dimensions), which would otherwise mutate values already rendered
+    // this pass and raise NG0100 (ExpressionChangedAfterItHasBeenChecked).
+    setTimeout(() => {
+      const r = this.viewportRef.nativeElement.getBoundingClientRect();
+      this.setViewportSize(r.width, r.height);
 
-    const frame = this.sequenceService.currentFrameImage();
-    if (frame) this.loadImage(frame.image_base64);
+      const frame = this.sequenceService.currentFrameImage();
+      if (frame) this.loadImage(frame.image_base64);
+    });
   }
 
   ngOnDestroy() {
