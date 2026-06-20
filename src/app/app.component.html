@@ -72,3 +72,26 @@
 <main class="route-host">
   <router-outlet></router-outlet>
 </main>
+
+<!-- App-wide notifications -->
+<p-toast position="bottom-right"></p-toast>
+
+<!-- Blocking critical-error screen (non-recoverable failures) -->
+@if (notificationService.criticalError(); as message) {
+  <div class="critical-error">
+    <div class="critical-error__panel">
+      <i class="pi pi-exclamation-triangle"></i>
+      <h2>Something went wrong</h2>
+      <p>{{ message }}</p>
+      <div class="critical-error__actions">
+        <p-button label="Reload" icon="pi pi-refresh" (onClick)="reload()"></p-button>
+        <p-button
+          label="Dismiss"
+          severity="secondary"
+          [text]="true"
+          (onClick)="notificationService.clearCriticalError()"
+        ></p-button>
+      </div>
+    </div>
+  </div>
+}

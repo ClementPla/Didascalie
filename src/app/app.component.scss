@@ -26,3 +26,45 @@ p-toolbar {
   min-width: 0;
   width: 100%;
 }
+
+.critical-error {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: color-mix(in srgb, var(--p-content-background) 80%, #000);
+
+  &__panel {
+    max-width: 32rem;
+    width: 100%;
+    text-align: center;
+    padding: 2rem;
+    border-radius: 12px;
+    background: var(--p-content-background);
+    color: var(--p-text-color);
+    border: 1px solid var(--p-content-border-color);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+
+    i {
+      font-size: 2.75rem;
+      color: var(--p-red-500, #ef4444);
+    }
+    h2 {
+      margin: 0.75rem 0 0.5rem;
+    }
+    p {
+      margin: 0 0 1.5rem;
+      color: var(--p-text-muted-color);
+      word-break: break-word;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+}

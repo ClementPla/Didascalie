@@ -12,5 +12,11 @@ const openCVConfig: OpenCVConfig = {
 
 
 
+// Surface unhandled promise rejections (Angular's ErrorHandler only catches
+// errors thrown inside the zone, not bare rejected promises).
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[Unhandled rejection]', event.reason);
+});
+
 bootstrapApplication(AppComponent, appConfig)
   .catch((err) => console.error(err));

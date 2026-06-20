@@ -19,6 +19,10 @@ export class IOService implements OnDestroy {
   private destroy$ = new Subject<void>();
   private dirty = false;
 
+  /** Debounced autosave: persist this many ms after the last edit. */
+  private readonly autosaveDelayMs = 5000;
+  private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(
     private labelService: LabelsService,
     private sequenceService: SequenceService,
@@ -28,6 +32,7 @@ export class IOService implements OnDestroy {
   ) {}
 
   ngOnDestroy(): void {
+    this.cancelAutosave();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -42,10 +47,27 @@ export class IOService implements OnDestroy {
 
   public markDirty(): void {
     this.dirty = true;
+    this.scheduleAutosave();
   }
 
   public isDirty(): boolean {
     return this.dirty;
+  }
+
+  /** (Re)arm the debounced autosave after an edit. */
+  private scheduleAutosave(): void {
+    this.cancelAutosave();
+    this.autosaveTimer = setTimeout(() => {
+      this.autosaveTimer = null;
+      void this.saveIfDirty();
+    }, this.autosaveDelayMs);
+  }
+
+  private cancelAutosave(): void {
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
+      this.autosaveTimer = null;
+    }
   }
 
   /**
@@ -134,6 +156,7 @@ export class IOService implements OnDestroy {
       }
 
       this.dirty = false;
+      this.cancelAutosave();
       return true;
     } catch (error) {
       console.error('Failed to save annotations:', error);
