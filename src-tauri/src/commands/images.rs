@@ -21,12 +21,12 @@ pub async fn create_cache_thumbnail(
         // If the thumbnail already exists, return true
         return Ok(true);
     }
-    Ok(generate_thumbnail(
+    generate_thumbnail(
         &image_path,
         &thumbnail_path,
         width,
         height,
-    ))
+    )
 }
 
 #[tauri::command]
@@ -36,13 +36,14 @@ pub async fn create_thumbnail(
     height: u32,
 ) -> Result<String, String> {
     let image_path = Path::new(&image_path).to_path_buf();
-    let img = image::open(&image_path).unwrap();
+    let img = image::open(&image_path)
+        .map_err(|e| format!("Failed to open image '{}': {}", image_path.display(), e))?;
     let thumbnail = img.thumbnail(width, height);
     // Return the thumbnail as a base64 string
     let mut buffer = Cursor::new(Vec::new());
     thumbnail
         .write_to(&mut buffer, image::ImageFormat::Png)
-        .unwrap();
+        .map_err(|e| format!("Failed to encode thumbnail: {}", e))?;
     let thumbnail_base64 = general_purpose::STANDARD.encode(buffer.into_inner());
     Ok(thumbnail_base64)
 }
@@ -99,19 +100,24 @@ fn generate_thumbnail(
     thumbnail_path: &PathBuf,
     width: u32,
     height: u32,
-) -> bool {
-    let image_path = image_path.clone();
-    let thumbnail_path = thumbnail_path.clone();
-
-    let img = image::open(&image_path).unwrap();
+) -> Result<bool, String> {
+    let img = image::open(image_path)
+        .map_err(|e| format!("Failed to open image '{}': {}", image_path.display(), e))?;
     let thumbnail = img.thumbnail(width, height);
-    if !thumbnail_path.parent().unwrap().exists() {
-        std::fs::create_dir_all(thumbnail_path.parent().unwrap()).unwrap();
+
+    if let Some(parent) = thumbnail_path.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create thumbnail directory: {}", e))?;
+        }
     }
     if thumbnail_path.exists() {
-        return true;
+        return Ok(true);
     }
-    thumbnail.save(&thumbnail_path).is_ok()
+    thumbnail
+        .save(thumbnail_path)
+        .map_err(|e| format!("Failed to save thumbnail: {}", e))?;
+    Ok(true)
 }
 
 #[tauri::command]
