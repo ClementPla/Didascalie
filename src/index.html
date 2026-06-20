@@ -2,12 +2,13 @@
 <html lang="en" class="darkTheme">
 <head>
   <meta charset="utf-8">
-  <title>Client</title>
+  <title>LabelMed</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- No external font fetches: keeps the app fully local/offline and lets the
+       CSP forbid third-party origins. Typography uses a system font stack
+       (see styles.scss); icons are the bundled PrimeIcons font. -->
 </head>
 <body class="mat-typography">
   <app-root></app-root>

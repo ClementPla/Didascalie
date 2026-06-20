@@ -21,7 +21,10 @@ body {
 
 body {
     margin: 0;
-    font-family: Roboto, "Helvetica Neue", sans-serif;
+    /* System font stack — no network fetch; uses Roboto if locally installed,
+       otherwise the platform UI font. */
+    font-family: Roboto, system-ui, -apple-system, "Segoe UI", "Helvetica Neue",
+        Arial, sans-serif;
     /* Follow the active theme so dark mode has no white backdrop. */
     background: var(--p-content-background);
     color: var(--p-text-color);
