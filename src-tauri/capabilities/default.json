@@ -6,7 +6,6 @@
   "permissions": [
     "core:default",
     "dialog:default",
-    "fs:default",
     "core:path:allow-is-absolute",
     "core:path:allow-resolve",
     "core:webview:allow-create-webview-window",

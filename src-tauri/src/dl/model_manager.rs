@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use sha2::{Digest, Sha256};
 use tauri::{Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 
@@ -9,6 +10,11 @@ pub struct ModelConfig {
     pub filename: String,
     pub cache_subdir: String,
     pub expected_size: Option<u64>, // Optional: for validation
+    /// Pinned lowercase-hex SHA-256 of the trusted model file. When set, the
+    /// download is rejected unless it matches — protecting against a tampered
+    /// or swapped file at the source. Populate from a trusted copy with
+    /// `sha256sum encoder.onnx`. `None` keeps the size-only check.
+    pub expected_sha256: Option<String>,
 }
 
 impl ModelConfig {
@@ -18,6 +24,7 @@ impl ModelConfig {
             filename: "encoder.onnx".to_string(),
             cache_subdir: "maskedMedSAM".to_string(),
             expected_size: Some(367582662), // The size from your logs
+            expected_sha256: None,
         }
     }
 
@@ -27,8 +34,37 @@ impl ModelConfig {
             filename: "decoder.onnx".to_string(),
             cache_subdir: "maskedMedSAM".to_string(),
             expected_size: None, // Update this if you know the size
+            expected_sha256: None,
         }
     }
+}
+
+/// Stream a file through SHA-256 off the async runtime (hashing is CPU-bound).
+async fn compute_sha256(path: &Path) -> Result<String, String> {
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        use std::io::Read;
+        let mut file = std::fs::File::open(&path)
+            .map_err(|e| format!("Failed to open file for hashing: {}", e))?;
+        let mut hasher = Sha256::new();
+        let mut buf = [0u8; 1 << 16];
+        loop {
+            let n = file
+                .read(&mut buf)
+                .map_err(|e| format!("Failed to read file while hashing: {}", e))?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buf[..n]);
+        }
+        Ok(hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>())
+    })
+    .await
+    .map_err(|e| format!("Hashing task failed: {}", e))?
 }
 
 pub async fn ensure_model_cached(
@@ -93,6 +129,21 @@ pub async fn ensure_model_cached(
                 metadata.len()
             ));
         }
+    }
+
+    // Integrity check against the pinned hash (when configured). Done once at
+    // download time, not on every cached load, to avoid re-hashing a large
+    // file on each startup — the cheap size check covers cached files.
+    if let Some(expected) = &config.expected_sha256 {
+        let actual = compute_sha256(&model_path).await?;
+        if !actual.eq_ignore_ascii_case(expected) {
+            let _ = tokio::fs::remove_file(&model_path).await;
+            return Err(format!(
+                "Model checksum mismatch for {}: expected {}, got {}",
+                config.filename, expected, actual
+            ));
+        }
+        println!("Checksum verified for {}", config.filename);
     }
 
     Ok(model_path)
