@@ -1,15 +1,40 @@
-<div class="flex flex-col gap-4 items-center">
-    <div *ngFor="
-          let label of labelService.listSegmentationLabels;
-          let i = index
-        " class="flex flex-row gap-4 items-center">
-        <label [for]="label.label">Class {{ i }}:</label>
-        <input pInputText [id]="label.label" aria-describedby="inputPath-help" [(ngModel)]="label.label" />
+<div class="flex flex-col gap-3 w-full">
+  @if (labelService.listSegmentationLabels.length === 0) {
+    <small class="config-empty">No classes yet — add one to start.</small>
+  }
 
-        <div #colorPicker class="aspect-auto w-12"></div>
-        <p-colorPicker [(ngModel)]="label.color" [appendTo]="colorPicker" />
-        <p-button icon="pi pi-times" [rounded]="true" [text]="true" severity="danger"
-            (onClick)="deleteSegmentationClass(label)"></p-button>
-    </div>
-    <p-button class="flex items-center" label="Add class" (click)="addSegmentationClass()"></p-button>
+  <div
+    *ngFor="let label of labelService.listSegmentationLabels; let i = index"
+    class="flex gap-2 items-center w-full"
+  >
+    <div #cp class="aspect-auto w-12"></div>
+    <p-colorPicker
+      [(ngModel)]="label.color"
+      [appendTo]="cp"
+      [attr.aria-label]="'Color for class ' + (i + 1)"
+    />
+    <input
+      pInputText
+      class="flex-1 min-w-0"
+      placeholder="Class name"
+      [attr.aria-label]="'Class ' + (i + 1) + ' name'"
+      [(ngModel)]="label.label"
+    />
+    <p-button
+      icon="pi pi-times"
+      [rounded]="true"
+      [text]="true"
+      severity="danger"
+      [ariaLabel]="'Remove class ' + (i + 1)"
+      (onClick)="deleteSegmentationClass(label)"
+    ></p-button>
+  </div>
+
+  <p-button
+    class="self-start"
+    icon="pi pi-plus"
+    label="Add class"
+    [text]="true"
+    (click)="addSegmentationClass()"
+  ></p-button>
 </div>

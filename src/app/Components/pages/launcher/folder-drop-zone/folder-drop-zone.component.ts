@@ -1,5 +1,3 @@
-// folder-drop-zone.component.ts
-
 import {
   Component,
   ElementRef,

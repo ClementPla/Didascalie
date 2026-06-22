@@ -1,17 +1,57 @@
 // new-project.component.scss
 :host {
   display: block;
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;        // the page scrolls; the app shell is overflow:hidden
   background: var(--surface-ground, #15171b);
 }
 
 .page {
-  max-width: 64rem;     // was 48rem
+  max-width: 72rem;
+  min-height: 100%;        // keep the footer at the bottom even when content is short
   margin: 0 auto;
-  padding: 2rem 1.5rem 6rem;
+  padding: 2rem 1.5rem 5.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  box-sizing: border-box;
+}
+
+// Task configuration: classification + pixel-level side by side on wide
+// screens so neither pushes the page into an unreachable overflow.
+.task-config-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 1fr;
+  margin-top: 0.75rem;
+
+  @media (min-width: 1000px) {
+    // auto-fit collapses to a single full-width column when only one task is on.
+    grid-template-columns: repeat(auto-fit, minmax(26rem, 1fr));
+  }
+}
+.task-config {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.task-config-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--p-text-color);
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--p-content-border-color, rgba(255, 255, 255, 0.08));
+}
+.task-empty {
+  margin: 0.75rem 0 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.85rem;
+  font-style: italic;
 }
 
 .sections {

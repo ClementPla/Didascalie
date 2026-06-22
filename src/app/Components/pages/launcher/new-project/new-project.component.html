@@ -101,14 +101,23 @@
         </app-labelled-switch>
       </div>
 
-      @if (classificationEnabled) {
-        <p-divider align="left"><b>Classification</b></p-divider>
-        <app-classification-configuration></app-classification-configuration>
-      }
-
-      @if (segmentationEnabled || instanceSegmentationEnabled) {
-        <p-divider align="left"><b>Pixel-level</b></p-divider>
-        <app-pixels-configuration></app-pixels-configuration>
+      @if (classificationEnabled || segmentationEnabled || instanceSegmentationEnabled) {
+        <div class="task-config-grid">
+          @if (classificationEnabled) {
+            <section class="task-config">
+              <h3 class="task-config-title">Classification</h3>
+              <app-classification-configuration></app-classification-configuration>
+            </section>
+          }
+          @if (segmentationEnabled || instanceSegmentationEnabled) {
+            <section class="task-config">
+              <h3 class="task-config-title">Pixel-level classes</h3>
+              <app-pixels-configuration></app-pixels-configuration>
+            </section>
+          }
+        </div>
+      } @else {
+        <p class="task-empty">Enable a task above to configure its classes.</p>
       }
     </p-fieldset>
   </div>
