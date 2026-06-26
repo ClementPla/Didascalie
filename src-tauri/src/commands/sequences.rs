@@ -105,6 +105,9 @@ pub struct GallerySequence {
     pub frame_count: i64,
     pub reviewed_count: i64,
     pub first_frame_id: Option<i64>,
+    /// True if any registration in this sequence has at least one keypoint pair,
+    /// regardless of which frame pair it belongs to.
+    pub has_keypoints: bool,
 }
 
 #[tauri::command]
@@ -117,7 +120,13 @@ pub fn get_gallery_sequences(db: State<DbState>) -> Result<Vec<GallerySequence>>
                 s.sort_order,
                 COUNT(f.id) as frame_count,
                 SUM(CASE WHEN f.reviewed THEN 1 ELSE 0 END) as reviewed_count,
-                MIN(f.id) as first_frame_id
+                MIN(f.id) as first_frame_id,
+                EXISTS (
+                    SELECT 1
+                    FROM registrations r
+                    JOIN keypoint_pairs kp ON kp.registration_id = r.id
+                    WHERE r.sequence_id = s.id
+                ) as has_keypoints
              FROM sequences s
              LEFT JOIN frames f ON f.sequence_id = s.id
              GROUP BY s.id
@@ -132,6 +141,7 @@ pub fn get_gallery_sequences(db: State<DbState>) -> Result<Vec<GallerySequence>>
                 frame_count: row.get(3)?,
                 reviewed_count: row.get(4)?,
                 first_frame_id: row.get(5)?,
+                has_keypoints: row.get(6)?,
             })
         }).map_err(|e| AppError::Database(e))?;
         

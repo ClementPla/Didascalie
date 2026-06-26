@@ -3,6 +3,9 @@ import { SequenceService } from '../../../Services/sequence.service';
 
 type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
 
+/** Keypoint presence filter: show all, only sequences with keypoints, or only those without. */
+export type KeypointFilter = 'all' | 'with' | 'without';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -12,6 +15,7 @@ export class GalleryService {
   // Persisted filter / view state (survives gallery <-> editor navigation)
   filterTitle = '';
   selectedStatuses: SequenceStatus[] = [];
+  keypointFilter: KeypointFilter = 'all';
   sortKey = 'name-asc';
   frameCountRange: number[] = [0, 0];
   frameRangeInitialized = false;

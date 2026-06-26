@@ -150,6 +150,7 @@ export interface GallerySequence {
   frame_count: number;
   reviewed_count: number;
   first_frame_id: number | null;
+  has_keypoints: boolean;
 }
 export type KeypointSource = 'user' | 'prefilled';
 export interface KeypointPair {

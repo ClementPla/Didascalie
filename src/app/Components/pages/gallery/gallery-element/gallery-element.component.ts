@@ -39,6 +39,8 @@ export class GalleryElementComponent implements OnDestroy, AfterViewInit {
   @Input() title: string = '';
   @Input() status: 'empty' | 'annotated' | 'reviewed' = 'empty';
   @Input() frameCount: number = 1;
+  /** Whether the sequence contains at least one keypoint pair (registration). */
+  @Input() hasKeypoints: boolean = false;
 
   // Display options
   @Input() id!: number; // Sequence ID for selection tracking

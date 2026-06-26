@@ -190,6 +190,19 @@
           <span class="range-value">
             {{ galleryService.frameCountRange[0] }} - {{ galleryService.frameCountRange[1] }}
           </span>
+
+          <span class="advanced-label">Keypoints</span>
+          <p-selectbutton
+            [options]="keypointFilterOptions"
+            [(ngModel)]="galleryService.keypointFilter"
+            optionLabel="label"
+            optionValue="value"
+            [allowEmpty]="false"
+            size="small"
+            pTooltip="Filter sequences by keypoint presence"
+            (onChange)="applyFilters()"
+          ></p-selectbutton>
+
           <span class="toolbar-spacer"></span>
           <button
             pButton
@@ -259,6 +272,7 @@
           [title]="item.title"
           [status]="item.status"
           [frameCount]="item.frameCount"
+          [hasKeypoints]="item.hasKeypoints"
           [selected]="selectedItems.includes(item.sequenceId)"
           [id]="item.sequenceId"
           [imgSize]="galleryService.imgSize"
@@ -284,6 +298,7 @@
           [title]="item.title"
           [status]="item.status"
           [frameCount]="item.frameCount"
+          [hasKeypoints]="item.hasKeypoints"
           [id]="item.sequenceId"
           [frameIds]="item.frameIds"
           (thumbnailClicked)="openItem(item)"

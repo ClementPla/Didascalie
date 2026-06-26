@@ -54,6 +54,8 @@ interface GalleryItem {
   thumbnailFrameId: number;
   /** Fraction of frames reviewed, 0..1. Used for progress sorting. */
   progress: number;
+  /** True if the sequence contains at least one keypoint pair. */
+  hasKeypoints: boolean;
 }
 
 @Component({
@@ -114,6 +116,12 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     { label: 'Fewest frames', value: 'frames-asc' },
     { label: 'Most progress', value: 'progress-desc' },
     { label: 'Least progress', value: 'progress-asc' },
+  ];
+
+  readonly keypointFilterOptions = [
+    { label: 'All', value: 'all' as const },
+    { label: 'With keypoints', value: 'with' as const },
+    { label: 'Without', value: 'without' as const },
   ];
 
   readonly layoutOptions = [
@@ -240,6 +248,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
           progress:
             seq.frame_count > 0 ? seq.reviewed_count / seq.frame_count : 0,
           frameIds: frameIdsBySequence[seq.id] ?? [],
+          hasKeypoints: seq.has_keypoints,
         }));
     } catch (error) {
       console.error('Failed to load gallery items:', error);
@@ -271,6 +280,11 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       items = items.filter((item) =>
         this.galleryService.selectedStatuses.includes(item.status),
       );
+    }
+
+    if (this.galleryService.keypointFilter !== 'all') {
+      const wantKeypoints = this.galleryService.keypointFilter === 'with';
+      items = items.filter((item) => item.hasKeypoints === wantKeypoints);
     }
 
     if (this.galleryService.showAdvancedFilters) {
@@ -306,6 +320,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   resetFilters(): void {
     this.galleryService.filterTitle = '';
     this.galleryService.selectedStatuses = [];
+    this.galleryService.keypointFilter = 'all';
     this.galleryService.sortKey = 'name-asc';
     this.galleryService.frameCountRange = [0, this.maxFrameCount];
     this.applyFilters();
@@ -320,6 +335,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     return (
       this.galleryService.filterTitle.trim() !== '' ||
       this.galleryService.selectedStatuses.length > 0 ||
+      this.galleryService.keypointFilter !== 'all' ||
       rangeNarrowed
     );
   }

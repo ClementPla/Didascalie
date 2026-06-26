@@ -38,6 +38,14 @@
           class="font-medium px-2 py-0.5 rounded-full text-white text-xs"
           [ngClass]="getStatusBadgeClass()"
         >{{ getStatusLabel() }}</span>
+        @if (hasKeypoints) {
+          <span
+            class="bg-purple-500 flex font-medium gap-1 items-center px-2 py-0.5 rounded-full text-white text-xs"
+            pTooltip="Contains keypoints"
+          >
+            <i class="pi pi-map-marker text-xs"></i> Keypoints
+          </span>
+        }
       </div>
     </div>
 
@@ -95,13 +103,23 @@
       />
     }
 
-    <!-- Status Badge -->
-    <span
-      class="absolute font-medium left-2 px-2 py-1 rounded-full text-white text-xs top-2"
-      [ngClass]="getStatusBadgeClass()"
-    >
-      {{ getStatusLabel() }}
-    </span>
+    <!-- Status + Keypoint Badges (top-left, stacked) -->
+    <div class="absolute flex flex-col gap-1 items-start left-2 top-2">
+      <span
+        class="font-medium px-2 py-1 rounded-full text-white text-xs"
+        [ngClass]="getStatusBadgeClass()"
+      >
+        {{ getStatusLabel() }}
+      </span>
+      @if (hasKeypoints) {
+        <span
+          class="bg-purple-500 flex font-medium gap-1 items-center px-2 py-1 rounded-full text-white text-xs"
+          pTooltip="Contains keypoints"
+        >
+          <i class="pi pi-map-marker text-xs"></i> Keypoints
+        </span>
+      }
+    </div>
 
     <!-- Frame Count Badge -->
     @if (hasMultipleFrames) {
