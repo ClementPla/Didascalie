@@ -15,6 +15,7 @@ pub enum AppError {
     NoProjectOpen,
     
     #[error("Project already open")]
+    #[allow(dead_code)] // reserved for future use
     ProjectAlreadyOpen,
     
     // IO errors
@@ -33,9 +34,11 @@ pub enum AppError {
     Zmq(#[from] zmq::Error),
     
     #[error("Event error: {0}")]
+    #[allow(dead_code)] // reserved for future use
     Event(String),
-    
+
     #[error("Timeout")]
+    #[allow(dead_code)] // reserved for future use
     Timeout,
     
     // Tauri
@@ -44,6 +47,7 @@ pub enum AppError {
     
     // Generic
     #[error("{0}")]
+    #[allow(dead_code)] // reserved for future use
     Other(String),
 }
 

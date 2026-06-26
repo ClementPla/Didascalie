@@ -1,7 +1,6 @@
 use base64::{engine::general_purpose, Engine as _};
 use std;
 
-use image::{ImageBuffer, Luma, Rgb};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 

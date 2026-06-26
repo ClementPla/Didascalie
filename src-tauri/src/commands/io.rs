@@ -37,7 +37,6 @@ pub struct ScanResult {
 struct ImageFile {
   absolute_path: PathBuf,
   relative_path: String,
-  parent_folder: Option<String>,
 }
 
 // ==========================================
@@ -118,18 +117,9 @@ fn scan_for_images(
       if regex.is_match(file_name) {
         let relative_path = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().to_string();
 
-        // Get parent folder name (if not root)
-        let parent_folder = path
-          .parent()
-          .filter(|p| *p != root)
-          .and_then(|p| p.file_name())
-          .and_then(|n| n.to_str())
-          .map(|s| s.to_string());
-
         images.push(ImageFile {
           absolute_path: path,
           relative_path,
-          parent_folder,
         });
       }
     }

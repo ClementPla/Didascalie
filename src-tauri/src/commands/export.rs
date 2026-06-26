@@ -21,7 +21,6 @@ struct LabelInfo {
     id: i64,
     name: String,
     color: String,
-    sort_order: i32,
 }
 
 /// Parse hex color string (#RRGGBB or #RGB) to RGB tuple
@@ -117,7 +116,7 @@ pub async fn export_annotations(
     // Get labels
     let labels = db.with_conn(|conn| {
         let mut stmt = conn.prepare(
-            "SELECT id, name, color, sort_order FROM labels ORDER BY sort_order"
+            "SELECT id, name, color FROM labels ORDER BY sort_order"
         )?;
         let labels: Vec<LabelInfo> = stmt
             .query_map([], |row| {
@@ -125,7 +124,6 @@ pub async fn export_annotations(
                     id: row.get(0)?,
                     name: row.get(1)?,
                     color: row.get(2)?,
-                    sort_order: row.get(3)?,
                 })
             })?
             .filter_map(|r| r.ok())
@@ -520,13 +518,13 @@ fn export_classifications(
     // Load all classifications from database
     let classifications = db.with_conn(|conn| {
         let query = if only_reviewed {
-            "SELECT f.id, f.relative_path, c.task_name, c.selected_classes, c.is_multilabel
+            "SELECT f.id, f.relative_path, c.task_name, c.selected_classes
              FROM classifications c
              JOIN frames f ON c.frame_id = f.id
              WHERE f.reviewed = 1
              ORDER BY f.id"
         } else {
-            "SELECT f.id, f.relative_path, c.task_name, c.selected_classes, c.is_multilabel
+            "SELECT f.id, f.relative_path, c.task_name, c.selected_classes
              FROM classifications c
              JOIN frames f ON c.frame_id = f.id
              ORDER BY f.id"
@@ -542,7 +540,6 @@ fn export_classifications(
                     relative_path: row.get::<_, Option<String>>(1)?.unwrap_or_default(),
                     task_name: row.get(2)?,
                     selected_classes: selected,
-                    is_multilabel: row.get(4)?,
                 })
             })?
             .filter_map(|r| r.ok())

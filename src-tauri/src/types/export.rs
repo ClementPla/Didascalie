@@ -40,6 +40,5 @@ pub struct FrameClassification {
     pub relative_path: String,
     pub task_name: String,
     pub selected_classes: Vec<String>,
-    pub is_multilabel: bool,
 }
 
