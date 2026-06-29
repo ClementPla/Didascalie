@@ -104,6 +104,39 @@
   user-select: none;
 }
 
+// Precision reticle: open-center crosshair + thin ring, drawn in a group
+// scaled to screen pixels (see markerTransform) so it stays a constant,
+// crisp size at any zoom and never hides the target pixel.
+.reticle {
+  .reticle-halo {
+    fill: none;
+    stroke: rgba(0, 0, 0, 0.55);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+  }
+
+  .reticle-mark {
+    fill: none;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+  }
+
+  // Tentative (placed-but-unconfirmed) point: dashed ring, solid crosshair.
+  &.tentative .reticle-ring {
+    stroke-dasharray: 3 3.5;
+  }
+}
+
+.marker-group.pending {
+  animation: pulseMarker 1.8s ease-in-out infinite;
+}
+
+@keyframes pulseMarker {
+  0%   { opacity: 0.5; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
 .mode-tag {
   position: absolute;
   top: 0.5rem;

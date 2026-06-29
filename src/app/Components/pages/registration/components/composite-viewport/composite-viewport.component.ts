@@ -93,6 +93,21 @@ export class CompositeViewportComponent
     return p.phase === 'awaiting-moving' ? p.pendingRef : null;
   });
 
+  /**
+   * 1 / viewport scale. Keypoint reticles are drawn in a group scaled by this
+   * so their geometry is in screen pixels — constant on-screen size at any
+   * zoom, with the target pixel always visible through the open center.
+   */
+  readonly markerScale = computed(() => {
+    const c = this.refController;
+    return c ? 1 / Math.max(1e-4, c.scale()) : 1;
+  });
+
+  /** SVG transform placing a screen-pixel-sized marker at a native point. */
+  markerTransform(p: { x: number; y: number }): string {
+    return `translate(${p.x} ${p.y}) scale(${this.markerScale()})`;
+  }
+
   /** CSS transform string for the warped moving <img>. */
   readonly warpedTransform = computed(() => {
     const t = this.state.transform();

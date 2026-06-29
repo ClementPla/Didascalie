@@ -76,6 +76,15 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly uiState = inject(UIStateService);
   private popoutUnlisten?: UnlistenFn;
   private sequenceLoadPromise: Promise<void> | null = null;
+  /** Guards against overlapping next/previous navigations from rapid presses. */
+  private navInFlight = false;
+  /**
+   * True while a frame pair is being loaded — between resetting the in-memory
+   * registration to empty and repopulating it from the database. While set,
+   * save() is a no-op so it can't persist (and thus DELETE) the transient
+   * empty state over the stored keypoints.
+   */
+  private registrationLoading = false;
   private broadcastPaused = signal(false);
   isPoppedOut = signal(false);
   readonly currentSequenceName = computed(() => {
@@ -234,31 +243,46 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     );
 
     const seqKey = String(seqId);
-    if (frames.length >= 2) {
-      this.state.startSession(
-        seqKey,
-        String(frames[0].id),
-        String(frames[1].id),
-      );
-      await this.loadBothFrames();
-    } else if (frames.length === 1) {
-      this.state.startSession(seqKey, String(frames[0].id));
-      await this.loadRefFrame();
-    } else {
-      this.state.startSession(seqKey);
+    this.registrationLoading = true;
+    try {
+      if (frames.length >= 2) {
+        this.state.startSession(
+          seqKey,
+          String(frames[0].id),
+          String(frames[1].id),
+        );
+        await this.loadBothFrames();
+      } else if (frames.length === 1) {
+        this.state.startSession(seqKey, String(frames[0].id));
+        await this.loadRefFrame();
+      } else {
+        this.state.startSession(seqKey);
+      }
+    } finally {
+      this.registrationLoading = false;
     }
   }
 
   async onReferenceFrameChange(frameId: string): Promise<void> {
-    this.state.setReferenceFrame(frameId);
-    await this.loadRefFrame();
-    await this.loadRegistrationForCurrentPair();
+    this.registrationLoading = true;
+    try {
+      this.state.setReferenceFrame(frameId);
+      await this.loadRefFrame();
+      await this.loadRegistrationForCurrentPair();
+    } finally {
+      this.registrationLoading = false;
+    }
   }
 
   async onMovingFrameChange(frameId: string): Promise<void> {
-    this.state.setMovingFrame(frameId);
-    await this.loadMovingFrame();
-    await this.loadRegistrationForCurrentPair();
+    this.registrationLoading = true;
+    try {
+      this.state.setMovingFrame(frameId);
+      await this.loadMovingFrame();
+      await this.loadRegistrationForCurrentPair();
+    } finally {
+      this.registrationLoading = false;
+    }
   }
 
   private async loadBothFrames(): Promise<void> {
@@ -331,6 +355,14 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     this.state.toggleShowMovingWarped();
   }
   async save(): Promise<boolean> {
+    if (this.registrationLoading) {
+      // A frame pair is mid-load: the in-memory registration was reset to
+      // empty and hasn't been repopulated from the DB yet. Saving now would
+      // persist empty pairs, and save_registration replaces (DELETEs) — it
+      // would wipe the stored keypoints. Nothing to persist, treat as success.
+      return true;
+    }
+
     const seqIdStr = this.state.sequenceId();
     const refIdStr = this.state.referenceFrameId();
     const movIdStr = this.state.movingFrameId();
@@ -400,15 +432,29 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async navigateNext(): Promise<void> {
-    if (!(await this.save())) return;
-    await this.navigation.navigateToNextSequenceForRegistration();
-    await this.updateFrame();
+    // Ignore presses while a navigation is already running: overlapping
+    // save→reset→load cycles are what let an empty save clobber the DB.
+    if (this.navInFlight) return;
+    this.navInFlight = true;
+    try {
+      if (!(await this.save())) return;
+      await this.navigation.navigateToNextSequenceForRegistration();
+      await this.updateFrame();
+    } finally {
+      this.navInFlight = false;
+    }
   }
 
   async navigatePrevious(): Promise<void> {
-    if (!(await this.save())) return;
-    await this.navigation.navigateToPrevSequenceForRegistration();
-    await this.updateFrame();
+    if (this.navInFlight) return;
+    this.navInFlight = true;
+    try {
+      if (!(await this.save())) return;
+      await this.navigation.navigateToPrevSequenceForRegistration();
+      await this.updateFrame();
+    } finally {
+      this.navInFlight = false;
+    }
   }
 
   async updateFrame() {

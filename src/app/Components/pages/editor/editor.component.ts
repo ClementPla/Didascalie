@@ -94,6 +94,13 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
+  /**
+   * Guards against overlapping navigations from rapid presses. Without it, a
+   * second navigation can start its save→clear→load cycle while the previous
+   * one is still loading, racing the shared canvas (wrong frame's masks) — and
+   * removes any window where a save could land on a half-loaded frame.
+   */
+  private navInFlight = false;
   public globalReviewed: number = 0;
   public globalTotal: number = 0;
 
@@ -273,6 +280,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   // ==========================================
 
   public async navigateNext(): Promise<void> {
+    // Ignore presses while a navigation is already running, so save→clear→load
+    // cycles can't overlap and race the shared canvas.
+    if (this.navInFlight) return;
+    this.navInFlight = true;
     this.uiStateService.setLoading(true, 'Loading next image');
 
     try {
@@ -289,10 +300,13 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       console.error('Error navigating to next:', error);
     } finally {
       this.uiStateService.endLoading();
+      this.navInFlight = false;
     }
   }
 
   public async navigatePrevious(): Promise<void> {
+    if (this.navInFlight) return;
+    this.navInFlight = true;
     this.uiStateService.setLoading(true, 'Loading previous image');
 
     try {
@@ -309,16 +323,21 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       console.error('Error navigating to previous:', error);
     } finally {
       this.uiStateService.endLoading();
+      this.navInFlight = false;
     }
   }
 
   public async changedOfFrame(newFrameIndex: number): Promise<void> {
+    if (this.navInFlight) return;
+    this.navInFlight = true;
     try {
       await this.ioService.saveIfDirty();
       await this.sequenceService.selectFrame(newFrameIndex);
       await this.handleNavigationSuccess();
     } catch (error) {
       console.error('Error changing frame:', error);
+    } finally {
+      this.navInFlight = false;
     }
   }
 
@@ -328,12 +347,16 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     frame_count: number;
     sort_order: number;
   }): Promise<void> {
+    if (this.navInFlight) return;
+    this.navInFlight = true;
     try {
       await this.ioService.saveIfDirty();
       await this.sequenceService.selectSequence(sequence);
       await this.handleNavigationSuccess();
     } catch (error) {
       console.error('Error selecting sequence:', error);
+    } finally {
+      this.navInFlight = false;
     }
   }
 

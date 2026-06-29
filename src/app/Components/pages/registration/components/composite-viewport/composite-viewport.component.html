@@ -49,44 +49,36 @@
   <!-- Pair markers (reference side) -->
   <svg #svg class="interaction-svg" preserveAspectRatio="none">
     @for (pair of pairs(); track pair.id; let i = $index) {
-      <g class="marker-group">
-        <circle
-          [attr.cx]="pair.ref.x"
-          [attr.cy]="pair.ref.y"
-          r="6"
-          [attr.fill]="colorForIndex(i)"
-          stroke="white"
-          stroke-width="1.5"
-          vector-effect="non-scaling-stroke"
-        ></circle>
-        <text
-          [attr.x]="pair.ref.x + 10"
-          [attr.y]="pair.ref.y - 10"
-          [attr.fill]="colorForIndex(i)"
-          class="pair-label"
-        >
+      <g class="marker-group reticle" [attr.transform]="markerTransform(pair.ref)">
+        <g class="reticle-scale">
+          <path class="reticle-halo" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-halo" cx="0" cy="0" r="6"></circle>
+          <path
+            class="reticle-mark"
+            [attr.stroke]="colorForIndex(i)"
+            d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"
+          ></path>
+          <circle
+            class="reticle-mark"
+            cx="0"
+            cy="0"
+            r="6"
+            [attr.stroke]="colorForIndex(i)"
+          ></circle>
+        </g>
+        <text x="13" y="-11" [attr.fill]="colorForIndex(i)" class="pair-label">
           {{ i + 1 }}
         </text>
       </g>
     }
     @if (pendingRef(); as pending) {
-      <g class="marker-group pending">
-        <circle
-          [attr.cx]="pending.x"
-          [attr.cy]="pending.y"
-          r="6"
-          fill="#00ffff"
-          stroke="white"
-          stroke-width="1.5"
-          vector-effect="non-scaling-stroke"
-        >
-          <animate
-            attributeName="opacity"
-            values="0.4;1;0.4"
-            dur="2s"
-            repeatCount="indefinite"
-          />
-        </circle>
+      <g class="marker-group reticle tentative pending" [attr.transform]="markerTransform(pending)">
+        <g class="reticle-scale">
+          <path class="reticle-halo" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-halo reticle-ring" cx="0" cy="0" r="6"></circle>
+          <path class="reticle-mark" stroke="#00ffff" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-mark reticle-ring" cx="0" cy="0" r="6" stroke="#00ffff"></circle>
+        </g>
       </g>
     }
   </svg>

@@ -54,25 +54,28 @@
       @let isHovered = hoveredPairId() === pair.id;
       @let isOther = hoveredPairId() !== null && hoveredPairId() !== pair.id;
       <g
-        class="marker-group"
+        class="marker-group reticle"
         [class.hovered]="isHovered"
         [class.dimmed]="isOther"
+        [attr.transform]="markerTransform(point)"
       >
-        <circle
-          [attr.cx]="point.x"
-          [attr.cy]="point.y"
-          [attr.r]="isHovered ? 9 : 6"
-          [attr.fill]="colorForIndex(i)"
-          stroke="white"
-          [attr.stroke-width]="isHovered ? 3 : 1.5"
-          vector-effect="non-scaling-stroke"
-        ></circle>
-        <text
-          [attr.x]="point.x + 10"
-          [attr.y]="point.y - 10"
-          [attr.fill]="colorForIndex(i)"
-          class="pair-label"
-        >
+        <g class="reticle-scale">
+          <path class="reticle-halo" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-halo" cx="0" cy="0" r="6"></circle>
+          <path
+            class="reticle-mark"
+            [attr.stroke]="colorForIndex(i)"
+            d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"
+          ></path>
+          <circle
+            class="reticle-mark"
+            cx="0"
+            cy="0"
+            r="6"
+            [attr.stroke]="colorForIndex(i)"
+          ></circle>
+        </g>
+        <text x="13" y="-11" [attr.fill]="colorForIndex(i)" class="pair-label">
           {{ i + 1 }}
         </text>
       </g>
@@ -80,88 +83,48 @@
 
     @if (showPendingRef) {
       @let pending = pendingRef()!;
-      <g class="marker-group pending">
-        <circle
-          [attr.cx]="pending.x"
-          [attr.cy]="pending.y"
-          r="6"
-          fill="#00ffff"
-          stroke="white"
-          stroke-width="1.5"
-          vector-effect="non-scaling-stroke"
-        >
-          <animate
-            attributeName="opacity"
-            values="0.4;1;0.4"
-            dur="2s"
-            repeatCount="indefinite"
-          />
-        </circle>
+      <g class="marker-group reticle tentative pending" [attr.transform]="markerTransform(pending)">
+        <g class="reticle-scale">
+          <path class="reticle-halo" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-halo reticle-ring" cx="0" cy="0" r="6"></circle>
+          <path class="reticle-mark" stroke="#00ffff" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-mark reticle-ring" cx="0" cy="0" r="6" stroke="#00ffff"></circle>
+        </g>
       </g>
     }
     @if (showPendingMoving) {
       @let pending = pendingMoving()!;
-      <g class="marker-group pending">
-        <circle
-          [attr.cx]="pending.x"
-          [attr.cy]="pending.y"
-          r="6"
-          fill="#00ffff"
-          stroke="white"
-          stroke-width="1.5"
-          vector-effect="non-scaling-stroke"
-        >
-          <animate
-            attributeName="opacity"
-            values="0.4;1;0.4"
-            dur="2s"
-            repeatCount="indefinite"
-          />
-        </circle>
+      <g class="marker-group reticle tentative pending" [attr.transform]="markerTransform(pending)">
+        <g class="reticle-scale">
+          <path class="reticle-halo" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-halo reticle-ring" cx="0" cy="0" r="6"></circle>
+          <path class="reticle-mark" stroke="#00ffff" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-mark reticle-ring" cx="0" cy="0" r="6" stroke="#00ffff"></circle>
+        </g>
       </g>
     }
 
     @if (showPredictedRef) {
       @let pred = predictedRef()!;
-      <g class="marker-group predictive-guide">
-        <circle
-          [attr.cx]="pred.x"
-          [attr.cy]="pred.y"
-          r="10"
-          fill="none"
-          stroke="#00ffff"
-          stroke-width="1.5"
-          stroke-dasharray="3,3"
-          vector-effect="non-scaling-stroke"
-        ></circle>
-        <circle
-          [attr.cx]="pred.x"
-          [attr.cy]="pred.y"
-          r="3"
-          fill="#00ffff"
-        ></circle>
+      <g class="marker-group reticle tentative predictive-guide" [attr.transform]="markerTransform(pred)">
+        <g class="reticle-scale">
+          <path class="reticle-halo" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-halo reticle-ring" cx="0" cy="0" r="6"></circle>
+          <path class="reticle-mark" stroke="#00ffff" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-mark reticle-ring" cx="0" cy="0" r="6" stroke="#00ffff"></circle>
+        </g>
       </g>
     }
 
     @if (showPredictedMoving) {
       @let pred = predictedMoving()!;
-      <g class="marker-group predictive-guide">
-        <circle
-          [attr.cx]="pred.x"
-          [attr.cy]="pred.y"
-          r="10"
-          fill="none"
-          stroke="#00ffff"
-          stroke-width="1.5"
-          stroke-dasharray="3,3"
-          vector-effect="non-scaling-stroke"
-        ></circle>
-        <circle
-          [attr.cx]="pred.x"
-          [attr.cy]="pred.y"
-          r="3"
-          fill="#00ffff"
-        ></circle>
+      <g class="marker-group reticle tentative predictive-guide" [attr.transform]="markerTransform(pred)">
+        <g class="reticle-scale">
+          <path class="reticle-halo" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-halo reticle-ring" cx="0" cy="0" r="6"></circle>
+          <path class="reticle-mark" stroke="#00ffff" d="M0 -9V-15 M0 9V15 M-9 0H-15 M9 0H15"></path>
+          <circle class="reticle-mark reticle-ring" cx="0" cy="0" r="6" stroke="#00ffff"></circle>
+        </g>
       </g>
     }
   </svg>

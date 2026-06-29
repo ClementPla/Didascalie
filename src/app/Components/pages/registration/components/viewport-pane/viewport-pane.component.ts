@@ -74,6 +74,15 @@ export class ViewportPaneComponent
   readonly colorForIndex = colorForIndex;
   readonly hoveredPairId = this.state.hoveredPairId;
   /**
+   * 1 / viewport scale. Markers are drawn in this scaled group so their
+   * geometry is expressed in screen pixels — they stay a constant, crisp
+   * on-screen size at any zoom and never bloat over the target pixel.
+   */
+  readonly markerScale = computed(() => {
+    const c = this.controller;
+    return c ? 1 / Math.max(1e-4, c.scale()) : 1;
+  });
+  /**
    * The pending reference point during the awaiting-moving phase.
    * Rendered only on the reference pane.
    */
@@ -368,6 +377,14 @@ export class ViewportPaneComponent
   /** The point on this side for a pair. */
   pointFor(pair: { ref: Point2D; moving: Point2D }): Point2D {
     return this.side === 'ref' ? pair.ref : pair.moving;
+  }
+
+  /**
+   * SVG transform placing a marker at a native-pixel point and scaling its
+   * (screen-pixel) geometry by 1/scale so it renders at a constant size.
+   */
+  markerTransform(p: Point2D): string {
+    return `translate(${p.x} ${p.y}) scale(${this.markerScale()})`;
   }
 
   /** True if the awaiting-moving placement marker should render. */
