@@ -31,6 +31,8 @@ export class KeyboardShortcutService implements OnDestroy {
     { keys: ['4', 'ctrl+shift+e'], action: 'selectLassoEraser', description: 'Select lasso eraser', category: 'tools' },
     { keys: ['l'], action: 'selectLine', description: 'Select line tool', category: 'tools' },
     { keys: ['g'], action: 'selectPan', description: 'Select pan tool', category: 'tools' },
+    { keys: ['b'], action: 'selectPath', description: 'Select path (bezier) tool', category: 'tools' },
+    { keys: ['n'], action: 'selectNode', description: 'Select node (edit) tool', category: 'tools' },
 
     // Edit
     { keys: ['ctrl+z'], action: 'undo', description: 'Undo', category: 'edit' },

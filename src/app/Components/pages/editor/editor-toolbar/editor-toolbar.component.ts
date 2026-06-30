@@ -2,7 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component } from '@angular/core';
 import { ToolbarModule } from 'primeng/toolbar';
 import { ButtonModule } from 'primeng/button';
 import { SelectButtonModule } from 'primeng/selectbutton';
-import { ALL_TOOLS } from '../../../../Core/tools';
+import { ALL_TOOLS, VECTOR_TOOLS } from '../../../../Core/tools';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EditorService } from '../services/editor.service';
@@ -33,6 +33,7 @@ import { TooltipModule } from 'primeng/tooltip';
 })
 export class EditorToolbarComponent {
   tools = ALL_TOOLS;
+  vectorTools = VECTOR_TOOLS;
 
   constructor(public editorService: EditorService) {}
 }

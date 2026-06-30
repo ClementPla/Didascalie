@@ -18,6 +18,8 @@ import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { SliderModule } from 'primeng/slider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
+import { ToggleButtonModule } from 'primeng/togglebutton';
+import { PopoverModule } from 'primeng/popover';
 import { MeterGroupModule, MeterItem } from 'primeng/metergroup';
 import { DialogModule } from 'primeng/dialog';
 import { ProgressBarModule } from 'primeng/progressbar';
@@ -30,7 +32,6 @@ import { ToolSettingComponent } from './tool-setting/tool-setting.component';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
 import { SequenceNavigatorComponent } from './sequence-navigator/sequence-navigator.component';
-import { LabelledSwitchComponent } from '../../../generics/labelled-switch/labelled-switch.component';
 
 // Services
 import { EditorService } from './services/editor.service';
@@ -51,6 +52,8 @@ import { OrchestratorService } from './drawable-canvas/service/orchestrator.serv
 
 // Core
 import { Tools } from '../../../Core/tools';
+import { VerticalMenuComponent } from "../../../generics/vertical-menu/vertical-menu.component";
+import {MenuGroupDirective} from "../../../generics/vertical-menu/menu-group.directive";
 
 @Component({
   selector: 'app-editor',
@@ -63,6 +66,8 @@ import { Tools } from '../../../Core/tools';
     PanelModule,
     TooltipModule,
     ToggleSwitchModule,
+    ToggleButtonModule,
+    PopoverModule,
     MeterGroupModule,
     DialogModule,
     ProgressBarModule,
@@ -73,8 +78,9 @@ import { Tools } from '../../../Core/tools';
     MultiFramesOptionsComponent,
     QuickAccessMenuComponent,
     SequenceNavigatorComponent,
-    LabelledSwitchComponent,
-  ],
+    VerticalMenuComponent,
+    MenuGroupDirective
+],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
 })
@@ -94,18 +100,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
   private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
-  /**
-   * Guards against overlapping navigations from rapid presses. Without it, a
-   * second navigation can start its save→clear→load cycle while the previous
-   * one is still loading, racing the shared canvas (wrong frame's masks) — and
-   * removes any window where a save could land on a half-loaded frame.
-   */
   private navInFlight = false;
   public globalReviewed: number = 0;
   public globalTotal: number = 0;
 
   constructor(
-    private editorService: EditorService,
+    public editorService: EditorService,
     private labelService: LabelsService,
     private uiStateService: UIStateService,
     public sequenceService: SequenceService,
@@ -192,6 +192,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         this.editorService.selectTool(Tools.LASSO_ERASER),
       selectLine: () => this.editorService.selectTool(Tools.LINE),
       selectPan: () => this.editorService.selectTool(Tools.PAN),
+      selectPath: () => this.editorService.selectTool(Tools.PATH),
+      selectNode: () => this.editorService.selectTool(Tools.NODE),
 
       undo: () => this.editorService.requestUndo(),
       redo: () => this.editorService.requestRedo(),
@@ -477,6 +479,19 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get isMultiframeActive(): boolean {
     return this.sequenceService.frameCount() > 1;
+  }
+
+  /**
+   * The right sidebar exists only for processing settings (image adjustments /
+   * post-processing). It appears when any of those modes is on, so the default
+   * state with nothing toggled is closed.
+   */
+  get showProcessingSettings(): boolean {
+    return (
+      this.editorService.useProcessing ||
+      this.editorService.penPostProcess ||
+      this.editorService.eraserPostProcess
+    );
   }
 
   get totalImages(): number {

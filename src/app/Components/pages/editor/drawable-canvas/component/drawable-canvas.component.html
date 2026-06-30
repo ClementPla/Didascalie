@@ -55,6 +55,11 @@
       class="absolute h-full inset-0 pointer-events-none w-full z-30"
     ></app-svgelements>
 
+    <app-vector-layer
+      #vectorLayer
+      class="absolute h-full inset-0 pointer-events-none w-full z-30"
+    ></app-vector-layer>
+
     <canvas
       appCanvasInput
       #imageCanvas
@@ -109,5 +114,33 @@
         ariaLabel="Reset zoom and pan"
       ></p-button>
     </div>
+
+    <!-- Vector shape properties (shown when a shape is selected with the Node tool) -->
+    @if (editorService.isNodeTool() && vectorEditor.selectedShape(); as shape) {
+      <div class="absolute flex gap-2 items-center right-5 top-2 z-40">
+        <p-button
+          [rounded]="true" [raised]="true" severity="danger"
+          icon="pi pi-trash" pTooltip="Delete shape (Del)"
+          (click)="vectorEditor.deleteSelectedShape()"
+          ariaLabel="Delete shape"
+        ></p-button>
+        @if (shape.closed) {
+          <p-button
+            [rounded]="true" [raised]="true"
+            [severity]="shape.filled ? 'success' : 'secondary'"
+            icon="pi pi-stop" pTooltip="Toggle fill"
+            (click)="vectorEditor.toggleFilled()"
+            ariaLabel="Toggle fill"
+          ></p-button>
+        }
+        <p-button
+          [rounded]="true" [raised]="true" severity="help"
+          [icon]="shape.closed ? 'pi pi-circle' : 'pi pi-minus'"
+          [pTooltip]="shape.closed ? 'Open path' : 'Close path'"
+          (click)="vectorEditor.toggleClosed()"
+          ariaLabel="Toggle open or closed"
+        ></p-button>
+      </div>
+    }
   </div>
 </div>

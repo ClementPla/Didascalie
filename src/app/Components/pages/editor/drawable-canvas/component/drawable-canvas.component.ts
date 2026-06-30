@@ -23,14 +23,17 @@ import { DrawService } from '../service/draw.service';
 import { ZoomPanService } from '../service/zoom-pan.service';
 
 import { SVGElementsComponent } from './svgelements/svgelements.component';
+import { VectorLayerComponent } from './vector-layer/vector-layer.component';
+import { VectorEditorService } from '../service/vector-editor.service';
 import { CanvasInputDirective } from '../directives/canvas-input.directive';
 import { Button } from 'primeng/button';
+import { TooltipModule } from 'primeng/tooltip';
 
 import { Point2D, Viewbox } from '../interface';
 
 @Component({
   selector: 'app-drawable-canvas',
-  imports: [CommonModule, FormsModule, Button, SVGElementsComponent, CanvasInputDirective],
+  imports: [CommonModule, FormsModule, Button, TooltipModule, SVGElementsComponent, VectorLayerComponent, CanvasInputDirective],
   templateUrl: './drawable-canvas.component.html',
   styleUrl: './drawable-canvas.component.scss',
   standalone: true,
@@ -69,6 +72,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   @ViewChild('imageCanvas', { static: true }) public imgCanvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('labelCanvas', { static: true }) public labelCanvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('svg')                           public svg: SVGElementsComponent;
+  @ViewChild('vectorLayer')                   public vectorLayer: VectorLayerComponent;
 
   constructor(
     public editorService: EditorService,
@@ -79,6 +83,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     public zoomPanService: ZoomPanService,
     private changeDetectorRef: ChangeDetectorRef,
     private uiStateService: UIStateService,
+    public vectorEditor: VectorEditorService,
   ) {
     this.initSubscriptions();
 
@@ -201,6 +206,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       // The display canvases follow the viewport, not the image, so no
       // further sizing here.
       this.svg.setViewBox(this.orchestrator.getSVGViewBox());
+      this.vectorLayer?.setViewBox(this.orchestrator.getSVGViewBox());
       this.changeDetectorRef.detectChanges();
     } catch (e) {
       console.error('Failed to load image:', e);
@@ -226,6 +232,8 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     if (this.editorService.canPan()) {
       this.orchestrator.pan(data.event);
+    } else if (this.editorService.isVectorTool()) {
+      this.vectorEditor.onPointerMove(raw);
     } else {
       this.drawService.draw(data.event);
     }
@@ -284,6 +292,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     this.viewBox = this.orchestrator.getViewBox();
     this.svg.setViewBox(this.orchestrator.getSVGViewBox());
+    this.vectorLayer?.setViewBox(this.orchestrator.getSVGViewBox());
 
     // Image layer
     this.clearDisplayCanvas(this.ctxImage);

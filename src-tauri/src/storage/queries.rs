@@ -7,7 +7,7 @@ use crate::types::image::{AnnotationData, MaskEncoding};
 
 /// Current on-disk schema version. Bump this whenever the schema changes and
 /// add a matching arm in `run_migrations`.
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 /// Common configuration for all connections
 fn configure_connection(conn: &Connection) -> Result<()> {
@@ -58,8 +58,15 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         v = 1;
     }
 
+    // v1 -> v2: vector annotations table.
+    if v < 2 {
+        tx.execute_batch(super::schema::MIGRATION_V2)
+            .map_err(AppError::Database)?;
+        v = 2;
+    }
+
     // Future migrations go here, one block per version:
-    //   if v < 2 { tx.execute_batch(MIGRATION_V2)?; v = 2; }
+    //   if v < 3 { tx.execute_batch(MIGRATION_V3)?; v = 3; }
 
     // PRAGMA doesn't accept bound parameters; v is an internal integer.
     tx.execute_batch(&format!("PRAGMA user_version = {};", v))

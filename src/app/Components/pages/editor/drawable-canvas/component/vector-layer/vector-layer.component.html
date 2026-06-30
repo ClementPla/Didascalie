@@ -1,0 +1,104 @@
+<svg
+  #svg
+  class="absolute h-full inset-0 pointer-events-none w-full"
+  preserveAspectRatio="none"
+>
+  <!-- Committed shapes -->
+  @for (s of renderShapes; track s.id) {
+    @if (s.selected) {
+      <path
+        [attr.d]="s.d"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="4"
+        stroke-dasharray="6 4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        vector-effect="non-scaling-stroke"
+        opacity="0.9"
+      />
+    }
+    @else {
+      <path
+        [attr.d]="s.d"
+        fill="none"
+        stroke="#000000"
+        stroke-width="4"
+        stroke-dasharray="6 4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        vector-effect="non-scaling-stroke"
+        opacity="0.9"
+      />
+    }
+    <path
+      [attr.d]="s.d"
+      [attr.fill]="s.fill"
+      [attr.stroke]="s.color"
+      class="svg-shape"
+      stroke-width="3"
+      fill-rule="evenodd"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      vector-effect="non-scaling-stroke"
+    />
+  }
+
+  <!-- Pen draft -->
+  @if (draftPath; as dp) {
+    <path
+      [attr.d]="dp.d"
+      fill="none"
+      [attr.stroke]="dp.color"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      vector-effect="non-scaling-stroke"
+    />
+  }
+  @if (previewLine; as pl) {
+    <line
+      [attr.x1]="pl.x1"
+      [attr.y1]="pl.y1"
+      [attr.x2]="pl.x2"
+      [attr.y2]="pl.y2"
+      [attr.stroke]="decoColor"
+      stroke-width="1.5"
+      stroke-dasharray="4 4"
+      vector-effect="non-scaling-stroke"
+      opacity="0.7"
+    />
+  }
+
+  <!-- Bezier handles (lines + endpoints) -->
+  @for (h of handles; track $index) {
+    <line
+      [attr.x1]="h.ax"
+      [attr.y1]="h.ay"
+      [attr.x2]="h.hx"
+      [attr.y2]="h.hy"
+      stroke="#ffffff"
+      stroke-width="1"
+      vector-effect="non-scaling-stroke"
+      opacity="0.8"
+    />
+    <g [attr.transform]="decoTransform(h.hx, h.hy)">
+      <circle r="3.5" [attr.fill]="decoColor" stroke="#ffffff" stroke-width="1" />
+    </g>
+  }
+
+  <!-- Node anchors -->
+  @for (a of anchors; track $index) {
+    <g [attr.transform]="decoTransform(a.x, a.y)">
+      <rect
+        [attr.x]="a.first ? -5 : -4"
+        [attr.y]="a.first ? -5 : -4"
+        [attr.width]="a.first ? 10 : 8"
+        [attr.height]="a.first ? 10 : 8"
+        [attr.fill]="a.selected ? '#ffffff' : decoColor"
+        [attr.stroke]="a.first ? '#00ffff' : '#ffffff'"
+        stroke-width="1.5"
+      />
+    </g>
+  }
+</svg>

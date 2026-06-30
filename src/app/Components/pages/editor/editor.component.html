@@ -1,5 +1,7 @@
 <app-editor-toolbar></app-editor-toolbar>
-<div class="editor flex flex-1 gap-2 min-h-0 overflow-hidden relative w-full xl:gap-4">
+<div
+  class="editor flex flex-1 min-h-0 overflow-hidden relative w-full xl:gap-4"
+>
   <!-- Absolute so the (zero-width) host is not a flex item; otherwise the
        row gap pushes the Labels panel off the left edge. -->
   <app-quick-access-menu
@@ -32,28 +34,42 @@
         [raised]="true"
         severity="secondary"
         class="collapse-toggle collapse-toggle--left"
-        [icon]="labelsCollapsed ? 'pi pi-angle-double-right' : 'pi pi-angle-double-left'"
+        [icon]="
+          labelsCollapsed
+            ? 'pi pi-angle-double-right'
+            : 'pi pi-angle-double-left'
+        "
         [pTooltip]="labelsCollapsed ? 'Show panel' : 'Hide panel'"
-        [attr.aria-label]="labelsCollapsed ? 'Show left panel' : 'Hide left panel'"
+        [attr.aria-label]="
+          labelsCollapsed ? 'Show left panel' : 'Hide left panel'
+        "
         [attr.aria-expanded]="!labelsCollapsed"
         tooltipPosition="right"
         (click)="labelsCollapsed = !labelsCollapsed"
       ></button>
     }
-    <button
-      pButton
-      type="button"
-      [rounded]="true"
-      [raised]="true"
-      severity="secondary"
-      class="collapse-toggle collapse-toggle--right"
-      [icon]="settingsCollapsed ? 'pi pi-angle-double-left' : 'pi pi-angle-double-right'"
-      [pTooltip]="settingsCollapsed ? 'Show settings' : 'Hide settings'"
-      [attr.aria-label]="settingsCollapsed ? 'Show settings panel' : 'Hide settings panel'"
-      [attr.aria-expanded]="!settingsCollapsed"
-      tooltipPosition="left"
-      (click)="settingsCollapsed = !settingsCollapsed"
-    ></button>
+    @if (showProcessingSettings) {
+      <button
+        pButton
+        type="button"
+        [rounded]="true"
+        [raised]="true"
+        severity="secondary"
+        class="collapse-toggle collapse-toggle--right"
+        [icon]="
+          settingsCollapsed
+            ? 'pi pi-angle-double-left'
+            : 'pi pi-angle-double-right'
+        "
+        [pTooltip]="settingsCollapsed ? 'Show settings' : 'Hide settings'"
+        [attr.aria-label]="
+          settingsCollapsed ? 'Show settings panel' : 'Hide settings panel'
+        "
+        [attr.aria-expanded]="!settingsCollapsed"
+        tooltipPosition="left"
+        (click)="settingsCollapsed = !settingsCollapsed"
+      ></button>
+    }
 
     <app-drawable-canvas
       class="block flex-1 min-h-0 overflow-hidden w-full"
@@ -88,29 +104,121 @@
       </div>
     </div>
   </div>
-  <!-- Right column -->
-  @if (!settingsCollapsed) {
-    <div class="2xl:w-96 flex flex-col gap-4 min-h-0 overflow-y-auto shrink w-80">
+
+  <app-vertical-menu>
+    <!-- Save / navigation -->
+    <ng-template [appMenuGroup]="'Save'">
+      <button
+        pButton type="button" icon="pi pi-chevron-left" severity="secondary" [raised]="true"
+        pTooltip="Previous" tooltipPosition="left" aria-label="Previous frame"
+        (click)="navigatePrevious()"
+      ></button>
+      <button
+        pButton type="button" icon="pi pi-save" severity="secondary" [raised]="true"
+        pTooltip="Save (Ctrl+S)" tooltipPosition="left" aria-label="Save"
+        (click)="save()"
+      ></button>
+      <button
+        pButton type="button" icon="pi pi-chevron-right" severity="secondary" [raised]="true"
+        pTooltip="Next" tooltipPosition="left" aria-label="Next frame"
+        (click)="navigateNext()"
+      ></button>
+      @if (isMultiframeActive) {
+        <button
+          pButton type="button" icon="pi pi-images" severity="secondary" [raised]="true"
+          pTooltip="Frame navigation" tooltipPosition="left" aria-label="Frame navigation"
+          (click)="frameNavPopover.toggle($event)"
+        ></button>
+      }
+      <p-togglebutton
+        [ngModel]="isSequenceReviewed" (onChange)="toggleSequenceReviewed(!!$event.checked)"
+        onIcon="pi pi-verified" offIcon="pi pi-verified" [onLabel]="''" [offLabel]="''"
+        pTooltip="Sequence reviewed" tooltipPosition="left" ariaLabel="Sequence reviewed"
+      ></p-togglebutton>
+    </ng-template>
+
+    <!-- Tools -->
+    <ng-template [appMenuGroup]="'Tools'">
+      <p-togglebutton
+        [(ngModel)]="editorService.useProcessing" (onChange)="editorService.requestCanvasRedraw()"
+        onIcon="pi pi-sliders-h" offIcon="pi pi-sliders-h" [onLabel]="''" [offLabel]="''"
+        pTooltip="Image processing" tooltipPosition="left" ariaLabel="Image processing"
+      ></p-togglebutton>
+      <p-togglebutton
+        [(ngModel)]="editorService.penPostProcess"
+        onIcon="pi pi-sparkles" offIcon="pi pi-sparkles" [onLabel]="''" [offLabel]="''"
+        pTooltip="Post-process drawing" tooltipPosition="left" ariaLabel="Post-process drawing"
+      ></p-togglebutton>
+      <p-togglebutton
+        [(ngModel)]="editorService.showBoundingBox" (onChange)="editorService.requestCanvasRedraw()"
+        onIcon="pi pi-stop" offIcon="pi pi-stop" [onLabel]="''" [offLabel]="''"
+        pTooltip="Show bounding boxes" tooltipPosition="left" ariaLabel="Show bounding boxes"
+      ></p-togglebutton>
+      @if(editorService.showBoundingBox){
+      <p-togglebutton
+        [(ngModel)]="editorService.labelledCombinedBoundingBox" (onChange)="editorService.requestCanvasRedraw()"
+        onIcon="pi pi-clone" offIcon="pi pi-clone" [onLabel]="''" [offLabel]="''"
+        pTooltip="Combined-label boxes" tooltipPosition="left" ariaLabel="Combined-label boxes"
+      ></p-togglebutton>
+      <p-togglebutton
+        [(ngModel)]="editorService.eraseOnClick"
+        onIcon="pi pi-eraser" offIcon="pi pi-eraser" [onLabel]="''" [offLabel]="''"
+        pTooltip="Click box to erase" tooltipPosition="left" ariaLabel="Click box to erase"
+      ></p-togglebutton>
+      <button
+        pButton type="button" icon="pi pi-sliders-v" severity="secondary" [raised]="true"
+        pTooltip="Bounding box opacity" tooltipPosition="left" aria-label="Bounding box opacity"
+        (click)="bboxOpacityPopover.toggle($event)"
+      ></button>
+      }
+      @if (projectService.isInstanceSegmentation()) {
+        <p-togglebutton
+          [(ngModel)]="editorService.incrementAfterStroke"
+          onIcon="pi pi-plus-circle" offIcon="pi pi-plus-circle" [onLabel]="''" [offLabel]="''"
+          pTooltip="Increment instance after stroke" tooltipPosition="left" ariaLabel="Increment instance after stroke"
+        ></p-togglebutton>
+      }
+    </ng-template>
+
+    <!-- View -->
+    <ng-template [appMenuGroup]="'View'">
+      <p-togglebutton
+        [(ngModel)]="editorService.resetZoomAfterNavigation"
+        onIcon="pi pi-search" offIcon="pi pi-search" [onLabel]="''" [offLabel]="''"
+        pTooltip="Reset zoom after navigation" tooltipPosition="left" ariaLabel="Reset zoom after navigation"
+      ></p-togglebutton>
+      <p-togglebutton
+        [(ngModel)]="editorService.webGPURendering" (onChange)="editorService.requestCanvasRedraw()"
+        onIcon="pi pi-bolt" offIcon="pi pi-bolt" [onLabel]="''" [offLabel]="''"
+        pTooltip="Use WebGPU rendering" tooltipPosition="left" ariaLabel="Use WebGPU rendering"
+      ></p-togglebutton>
+    </ng-template>
+  </app-vertical-menu>
+
+  <!-- Popovers for the relocated slider/navigation controls -->
+  <p-popover #frameNavPopover>
+    <app-multi-frames-options
+      (changeOfFrame)="changedOfFrame($event)"
+    ></app-multi-frames-options>
+  </p-popover>
+  <p-popover #bboxOpacityPopover>
+    <div class="flex flex-col gap-2 p-2" style="min-width: 13rem">
+      <label class="text-sm">Bounding box opacity</label>
+      <p-slider
+        [(ngModel)]="editorService.bbxOpacity"
+        [min]="0"
+        [max]="1"
+        [step]="0.01"
+      ></p-slider>
+    </div>
+  </p-popover>
+
+  <!-- Right column: processing settings only (shown while a processing mode is on) -->
+  @if (showProcessingSettings && !settingsCollapsed) {
+    <div
+      class="2xl:w-96 flex flex-col gap-4 min-h-0 overflow-y-auto shrink w-80"
+    >
       <app-tool-setting></app-tool-setting>
-      <app-multi-frames-options
-        (changeOfFrame)="changedOfFrame($event)"
-      ></app-multi-frames-options>
-      <p-panel header="Save" class="w-full">
-        <div class="flex flex-col gap-3">
-          <app-labelled-switch
-            [checked]="isSequenceReviewed"
-            (checkedChange)="toggleSequenceReviewed($event)"
-            tooltipLabel="Mark every frame of this sequence as reviewed"
-          >
-            Sequence reviewed
-          </app-labelled-switch>
-          <p class="flex gap-2 justify-center m-0">
-            <p-button (onClick)="navigatePrevious()">Previous</p-button>
-            <p-button (onClick)="save()" pTooltip="Ctrl+S">Save</p-button>
-            <p-button (onClick)="navigateNext()">Next</p-button>
-          </p>
-        </div>
-      </p-panel>
     </div>
   }
 </div>

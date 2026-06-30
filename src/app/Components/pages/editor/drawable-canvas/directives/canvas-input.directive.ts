@@ -2,6 +2,7 @@ import { Directive, EventEmitter, HostListener, Output } from '@angular/core';
 import { ZoomPanService } from '../service/zoom-pan.service';
 import { EditorService } from '../../services/editor.service';
 import { DrawService } from '../service/draw.service';
+import { VectorEditorService } from '../service/vector-editor.service';
 import { Point2D } from '../interface';
 
 @Directive({
@@ -25,6 +26,7 @@ export class CanvasInputDirective {
     private zoomPanService: ZoomPanService,
     private editorService: EditorService,
     private drawService: DrawService,
+    private vectorEditor: VectorEditorService,
   ) {}
 
   // ==========================================
@@ -44,6 +46,14 @@ export class CanvasInputDirective {
   @HostListener('mouseup', ['$event'])
   async onMouseUp(event: MouseEvent) {
     await this.pointerUp(event);
+  }
+
+  @HostListener('dblclick', ['$event'])
+  onDoubleClick(event: MouseEvent) {
+    if (event.button !== 0 || !this.editorService.isVectorTool()) return;
+    this.vectorEditor.onDoubleClick(
+      this.zoomPanService.getImageCoordinatesRaw(event),
+    );
   }
 
   @HostListener('mouseleave', ['$event'])
@@ -108,9 +118,20 @@ export class CanvasInputDirective {
 
     if (this.editorService.canPan()) {
       this.zoomPanService.startDrag(event);
-    } else {
-      this.drawService.startDraw(event);
+      return;
     }
+
+    // Vector tools route through the editor service instead of the raster pen.
+    if (this.editorService.isVectorTool()) {
+      if (event.button === 0) {
+        this.vectorEditor.onPointerDown(
+          this.zoomPanService.getImageCoordinatesRaw(event),
+        );
+      }
+      return;
+    }
+
+    this.drawService.startDraw(event);
   }
 
   private pointerMove(event: MouseEvent) {
@@ -125,9 +146,14 @@ export class CanvasInputDirective {
     }
 
     this.zoomPanService.endDrag();
-    if (!this.editorService.canPan()) {
-      await this.drawService.endDraw(event);
+    if (this.editorService.canPan()) return;
+
+    if (this.editorService.isVectorTool()) {
+      this.vectorEditor.onPointerUp();
+      return;
     }
+
+    await this.drawService.endDraw(event);
   }
 
   // ==========================================

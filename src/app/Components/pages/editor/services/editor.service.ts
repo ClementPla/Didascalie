@@ -20,7 +20,9 @@ export class EditorService {
   public lineWidth: number = 10;
   public morphoSize: number = 3;
   public redo: Subject<boolean> = new Subject<boolean>();
-  public selectedTool: Tool = Tools.PEN;
+  private _selectedTool: Tool = Tools.PEN;
+  /** Emits the new tool whenever the active tool changes (any source). */
+  public readonly toolChanged$ = new Subject<Tool>();
   public swapMarkers: boolean = false;
   public undo: Subject<boolean> = new Subject<boolean>();
   public useInverse: boolean = false;
@@ -42,6 +44,17 @@ export class EditorService {
   public webGPURendering: boolean = false;
   public resetZoomAfterNavigation: boolean = true;
   constructor() {}
+
+  /** The active tool. Writing it (toolbar ngModel, selectTool, pan toggles)
+   *  emits toolChanged$ so listeners can react (e.g. finalize a vector draft). */
+  get selectedTool(): Tool {
+    return this._selectedTool;
+  }
+  set selectedTool(tool: Tool) {
+    if (this._selectedTool === tool) return;
+    this._selectedTool = tool;
+    this.toolChanged$.next(tool);
+  }
 
   public activatePanMode() {
     this._lastTool = this.selectedTool;
@@ -69,6 +82,19 @@ export class EditorService {
       this.selectedTool === Tools.ERASER ||
       this.selectedTool === Tools.LASSO_ERASER
     );
+  }
+
+  public isPathTool(): boolean {
+    return this.selectedTool === Tools.PATH;
+  }
+
+  public isNodeTool(): boolean {
+    return this.selectedTool === Tools.NODE;
+  }
+
+  /** True for any vector tool (Path/Node) — used to route input to the SVG layer. */
+  public isVectorTool(): boolean {
+    return this.isPathTool() || this.isNodeTool();
   }
 
   public isToolWithBrushSize(): boolean {

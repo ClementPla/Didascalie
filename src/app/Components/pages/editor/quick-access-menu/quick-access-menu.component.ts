@@ -13,6 +13,7 @@ import {
 import { ALL_TOOLS, Tools } from '../../../../Core/tools';
 import { NgClass } from '@angular/common';
 import { EditorService } from '../services/editor.service';
+import { VectorEditorService } from '../drawable-canvas/service/vector-editor.service';
 
 @Component({
     selector: 'app-quick-access-menu',
@@ -25,7 +26,8 @@ export class QuickAccessMenuComponent {
 
   constructor(
     private cdr: ChangeDetectorRef,
-    private editorService: EditorService
+    private editorService: EditorService,
+    private vectorEditor: VectorEditorService
   ) {}
 
   public radius: number = 200;
@@ -127,6 +129,36 @@ export class QuickAccessMenuComponent {
             command: () =>
               (this.editorService.swapMarkers =
                 !this.editorService.swapMarkers),
+            type: SegmentType.toggle,
+          },
+        ],
+      },
+      {
+        label: Tools.PATH.name,
+        icon: Tools.PATH.icon,
+        command: () => this.editorService.selectTool(Tools.PATH),
+      },
+      {
+        label: Tools.NODE.name,
+        icon: Tools.NODE.icon,
+        command: () => this.editorService.selectTool(Tools.NODE),
+        children: [
+          {
+            label: 'Delete shape',
+            icon: 'pi pi-trash',
+            command: () => this.vectorEditor.deleteSelectedShape(),
+            type: SegmentType.button,
+          },
+          {
+            label: 'Toggle fill',
+            icon: 'pi pi-stop',
+            command: () => this.vectorEditor.toggleFilled(),
+            type: SegmentType.toggle,
+          },
+          {
+            label: 'Open / close',
+            icon: 'pi pi-circle',
+            command: () => this.vectorEditor.toggleClosed(),
             type: SegmentType.toggle,
           },
         ],

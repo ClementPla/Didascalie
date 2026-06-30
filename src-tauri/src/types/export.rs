@@ -9,7 +9,13 @@ pub struct ExportOptions {
     pub colormap: bool,
     pub only_reviewed: bool,
     pub instance_segmentation: bool,
-    pub classifications: bool,  
+    pub classifications: bool,
+    /// Emit a per-frame vector JSON file (exact nodes + flattened polygon).
+    #[serde(default)]
+    pub vectors: bool,
+    /// Bake vector shapes into the exported masks (fill closed, stroke open).
+    #[serde(default)]
+    pub rasterize_vectors: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

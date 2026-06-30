@@ -1,0 +1,17 @@
+<div class="vertical-menu-bar">
+  @for (group of groups; track $index; let last = $last) {
+    <div class="menu-group">
+      <div class="group-header">
+        <span class="header-text">{{ group.title }}</span>
+      </div>
+      
+      <div class="group-content">
+        <ng-container [ngTemplateOutlet]="group.template"></ng-container>
+      </div>
+    </div>
+
+    @if (!last) {
+      <hr class="group-separator" />
+    }
+  }
+</div>

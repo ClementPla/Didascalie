@@ -22,6 +22,28 @@
         </ng-template>
       </p-selectButton>
 
+      <!-- Vector tools: a distinct class of tool (SVG shapes, not raster). -->
+      <div class="flex gap-2 items-center vector-tool-group">
+        <span class="opacity-60 vector-tool-group__label">Vector</span>
+        <p-selectButton
+          [options]="vectorTools"
+          [(ngModel)]="editorService.selectedTool"
+          optionLabel="name"
+        >
+          <ng-template #item let-item>
+            <span
+              pTooltip="{{ item.shortcut }}"
+              tooltipPosition="bottom"
+              [autoHide]="false"
+              class="flex gap-2 items-center"
+            >
+              <i [class]="item.icon"> </i>
+              <div class="hidden lg:block">{{ item.name }}</div>
+            </span>
+          </ng-template>
+        </p-selectButton>
+      </div>
+
       <p-block-ui
         [target]="linewidth"
         [blocked]="!editorService.isToolWithBrushSize()"
@@ -81,20 +103,6 @@
         pTooltip="Ctrl+Y"
         aria-label="Redo"
       ></button>
-      <app-labelled-switch
-        [(checked)]="editorService.useProcessing"
-        (checkedChange)="editorService.requestCanvasRedraw()"
-        [tooltipLabel]="'Q'"
-      >
-        Image processing</app-labelled-switch
-      >
-      <app-labelled-switch
-        [(checked)]="editorService.penPostProcess"
-        *ngIf="editorService.isDrawingTool()"
-        [tooltipLabel]="'D'"
-      >
-        Post-process drawing</app-labelled-switch
-      >
       <app-labelled-switch
         [(checked)]="editorService.eraserPostProcess"
         *ngIf="editorService.isEraser()"

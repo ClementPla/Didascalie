@@ -11,5 +11,6 @@ pub mod frame;
 pub mod sequences;
 pub mod export;
 pub mod registration;
+pub mod vector;
 #[cfg(not(target_os = "android"))]
 pub mod dl;

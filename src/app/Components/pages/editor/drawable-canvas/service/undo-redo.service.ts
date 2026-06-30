@@ -6,10 +6,14 @@ import { EditorService } from '../../services/editor.service';
 import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { BehaviorSubject } from 'rxjs';
 import { IOService } from '../../../../../Services/io.service';
+import { VectorEditorService } from './vector-editor.service';
 
 interface LayerUndoRedoState {
   data: OffscreenCanvas;
 }
+
+/** Which subsystem a tracked action belongs to, for unified undo ordering. */
+type ActionKind = 'raster' | 'vector';
 
 @Injectable({
   providedIn: 'root',
@@ -28,12 +32,18 @@ export class UndoRedoService {
     OffscreenCanvas[]
   >();
 
+  // Unified action timeline: the interleaved order of raster and vector actions
+  // so a single Ctrl+Z undoes the most recent action regardless of its kind.
+  private actionOrder: ActionKind[] = [];
+  private redoOrder: ActionKind[] = [];
+
   constructor(
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService,
     private editorService: EditorService,
     private labelService: LabelsService,
-    private ioService: IOService
+    private ioService: IOService,
+    private vectorEditor: VectorEditorService
   ) {
     this.editorService.undo.subscribe((value) => {
       if (value) {
@@ -48,6 +58,57 @@ export class UndoRedoService {
         this.redo();
       }
     });
+
+    // Every committed vector action joins the unified timeline.
+    this.vectorEditor.committed$.subscribe(() => {
+      this.actionOrder.push('vector');
+      this.redoOrder = [];
+    });
+  }
+
+  // ==========================================
+  // Unified dispatch (raster + vector)
+  // ==========================================
+
+  /** Undo the most recent action across both subsystems. */
+  async undo(): Promise<void> {
+    while (this.actionOrder.length > 0) {
+      const kind = this.actionOrder[this.actionOrder.length - 1];
+      if (kind === 'vector') {
+        if (this.vectorEditor.undo()) {
+          this.actionOrder.pop();
+          this.redoOrder.push('vector');
+          return;
+        }
+        this.actionOrder.pop(); // stale token, drop and try the next one
+        continue;
+      }
+      // Raster behaves exactly as before; its token is consumed regardless.
+      this.actionOrder.pop();
+      this.redoOrder.push('raster');
+      await this.rasterUndo();
+      return;
+    }
+  }
+
+  /** Redo the most recently undone action across both subsystems. */
+  async redo(): Promise<void> {
+    while (this.redoOrder.length > 0) {
+      const kind = this.redoOrder[this.redoOrder.length - 1];
+      if (kind === 'vector') {
+        if (this.vectorEditor.redo()) {
+          this.redoOrder.pop();
+          this.actionOrder.push('vector');
+          return;
+        }
+        this.redoOrder.pop();
+        continue;
+      }
+      this.redoOrder.pop();
+      this.actionOrder.push('raster');
+      await this.rasterRedo();
+      return;
+    }
   }
 
   /**
@@ -60,7 +121,7 @@ export class UndoRedoService {
     return this.layerUndoStacks.get(layerIndex)!;
   }
 
-  async undo() {
+  private async rasterUndo() {
     try {
       if (this.editorService.affectsMultipleLabels()) {
         // Global undo for multi-layer operations
@@ -80,7 +141,7 @@ export class UndoRedoService {
     }
   }
 
-  async redo() {
+  private async rasterRedo() {
     try {
       if (this.editorService.affectsMultipleLabels()) {
         // Global redo for multi-layer operations
@@ -149,6 +210,8 @@ export class UndoRedoService {
   empty() {
     this.layerUndoStacks.clear();
     this.globalUndoRedo.empty();
+    this.actionOrder = [];
+    this.redoOrder = [];
   }
 
   /**
@@ -196,6 +259,11 @@ export class UndoRedoService {
       const layerUndoRedo = this.getLayerUndoRedo(activeIndex);
       layerUndoRedo.push({ data: clone });
     }
+
+    // Record this raster action in the unified timeline; a new action
+    // invalidates the redo history.
+    this.actionOrder.push('raster');
+    this.redoOrder = [];
   }
 
   /**

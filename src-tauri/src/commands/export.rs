@@ -8,6 +8,7 @@ use crate::types::image::{AnnotationData, MaskEncoding};
 use crate::utils::error::Result;
 use crate::utils::AppError;
 use crate::storage::rle;
+use crate::commands::vector::{self, VectorShape, flatten_shape, rasterize_shape};
 
 use crate::types::export::{ExportOptions, ExportResult, ExportProgress, ClassificationTaskInfo, FrameClassification};
 struct FrameInfo {
@@ -83,6 +84,12 @@ pub async fn export_annotations(
     if export_colormap {
         fs::create_dir_all(&colormap_folder)
             .map_err(|e| AppError::Generic(format!("Failed to create colormap folder: {}", e)))?;
+    }
+
+    let vector_folder = output_path.join("vector");
+    if options.vectors {
+        fs::create_dir_all(&vector_folder)
+            .map_err(|e| AppError::Generic(format!("Failed to create vector folder: {}", e)))?;
     }
 
     // Get frames to export
@@ -189,6 +196,46 @@ pub async fn export_annotations(
                 errors.push(format!("Failed to load annotations for {}: {}", relative_path.display(), e));
                 continue;
             }
+        };
+
+        // Load this frame's vector shapes if either vector output is requested.
+        let shapes: Vec<VectorShape> = if options.vectors || options.rasterize_vectors {
+            match db.with_conn(|conn| vector::load_frame_shapes(conn, frame.id)) {
+                Ok(s) => s,
+                Err(e) => {
+                    errors.push(format!("Failed to load vectors for {}: {}", relative_path.display(), e));
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        };
+
+        // Emit the per-frame vector JSON (exact nodes + flattened polygon),
+        // independent of whether the frame has raster masks.
+        if options.vectors && !shapes.is_empty() {
+            let frame_folder = vector_folder.join(parent);
+            if let Err(e) = fs::create_dir_all(&frame_folder) {
+                errors.push(format!("Failed to create folder {}: {}", frame_folder.display(), e));
+            } else {
+                let json_path = frame_folder.join(format!("{}.json", file_stem));
+                if let Err(e) = write_vector_json(&shapes, &labels, &json_path) {
+                    errors.push(format!("Failed to write vector JSON {}: {}", json_path.display(), e));
+                }
+            }
+        }
+
+        // Bake vector shapes into the raster masks (regular segmentation only).
+        let annotations = if options.rasterize_vectors && !options.instance_segmentation && !shapes.is_empty() {
+            match augment_annotations_with_vectors(annotations, &shapes, &labels, frame.width, frame.height) {
+                Ok(a) => a,
+                Err(e) => {
+                    errors.push(format!("Failed to rasterize vectors for {}: {}", relative_path.display(), e));
+                    continue;
+                }
+            }
+        } else {
+            annotations
         };
 
         if annotations.is_empty() {
@@ -451,6 +498,85 @@ fn export_colormap_mask(
     img.save(output_path)
         .map_err(|e| AppError::Generic(format!("Failed to save colormap mask: {}", e)))?;
 
+    Ok(())
+}
+
+/// Merge rasterized vector shapes into the per-label annotation alpha so the
+/// mask exports (individual / combined / colormap) reflect them. Labels that
+/// only have vectors gain a new RLE annotation.
+fn augment_annotations_with_vectors(
+    mut annotations: Vec<AnnotationData>,
+    shapes: &[VectorShape],
+    labels: &[LabelInfo],
+    width: u32,
+    height: u32,
+) -> Result<Vec<AnnotationData>> {
+    use std::collections::HashMap;
+
+    let mut by_label: HashMap<i64, Vec<&VectorShape>> = HashMap::new();
+    for s in shapes {
+        by_label.entry(s.label_id).or_default().push(s);
+    }
+
+    for (label_id, label_shapes) in by_label {
+        let mut valpha = vec![0u8; (width * height) as usize];
+        for s in label_shapes {
+            rasterize_shape(s, width, height, &mut valpha);
+        }
+
+        if let Some(ann) = annotations.iter_mut().find(|a| a.label_id == label_id) {
+            // OR the vectors onto the existing raster alpha, re-encode as RLE.
+            let mut existing = decode_to_alpha(&ann.mask_data, &ann.encoding, width, height)?;
+            for (i, &v) in valpha.iter().enumerate() {
+                if v > 0 {
+                    existing[i] = 255;
+                }
+            }
+            ann.mask_data = rle::encode(&existing, width as usize, height as usize);
+            ann.encoding = MaskEncoding::Rle;
+        } else if let Some(label) = labels.iter().find(|l| l.id == label_id) {
+            // Vector-only label: synthesize an annotation from the raster.
+            annotations.push(AnnotationData {
+                label_id,
+                label_name: label.name.clone(),
+                color: label.color.clone(),
+                encoding: MaskEncoding::Rle,
+                mask_data: rle::encode(&valpha, width as usize, height as usize),
+            });
+        }
+    }
+
+    Ok(annotations)
+}
+
+/// Write a frame's vector shapes as JSON: the exact bezier nodes/handles plus a
+/// flattened polygon for consumers that just want point lists.
+fn write_vector_json(shapes: &[VectorShape], labels: &[LabelInfo], path: &Path) -> Result<()> {
+    let arr: Vec<serde_json::Value> = shapes
+        .iter()
+        .map(|s| {
+            let label_name = labels
+                .iter()
+                .find(|l| l.id == s.label_id)
+                .map(|l| l.name.clone())
+                .unwrap_or_default();
+            let polygon: Vec<[f64; 2]> =
+                flatten_shape(s, 24).into_iter().map(|(x, y)| [x, y]).collect();
+            serde_json::json!({
+                "label": label_name,
+                "label_id": s.label_id,
+                "closed": s.closed,
+                "filled": s.filled,
+                "nodes": s.nodes,
+                "polygon": polygon,
+            })
+        })
+        .collect();
+
+    let text = serde_json::to_string_pretty(&arr)
+        .map_err(|e| AppError::Generic(format!("Failed to serialize vector JSON: {}", e)))?;
+    fs::write(path, text)
+        .map_err(|e| AppError::Generic(format!("Failed to write {}: {}", path.display(), e)))?;
     Ok(())
 }
 

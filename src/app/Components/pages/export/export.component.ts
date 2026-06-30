@@ -47,6 +47,8 @@ export class ExportComponent implements OnDestroy {
   exportColorMap: boolean = true;
   exportOnlyReviewed: boolean = true;
   exportClassifications: boolean = true;
+  exportVectors: boolean = true;
+  exportRasterizeVectors: boolean = true;
 
   // Progress tracking
   totalFiles: number = 0;
@@ -108,6 +110,8 @@ export class ExportComponent implements OnDestroy {
         only_reviewed: this.exportOnlyReviewed,
         instance_segmentation: this.projectService.isInstanceSegmentation(),
         classifications: this.exportClassifications,
+        vectors: this.exportVectors,
+        rasterize_vectors: this.exportRasterizeVectors,
       };
 
       const result = await api.exportAnnotations(options);

@@ -7,6 +7,7 @@ import { LabelsService } from './Labels/labels.service';
 import { SequenceService } from './sequence.service';
 import { CanvasManagerService } from '../Components/pages/editor/drawable-canvas/service/canvas-manager.service';
 import { StateManagerService } from '../Components/pages/editor/drawable-canvas/service/state-manager.service';
+import { VectorEditorService } from '../Components/pages/editor/drawable-canvas/service/vector-editor.service';
 
 import { api } from '../lib/api';
 import { ProjectService } from './ProjectService/project.service';
@@ -28,8 +29,12 @@ export class IOService implements OnDestroy {
     private sequenceService: SequenceService,
     private canvasManagerService: CanvasManagerService,
     private stateManagerService: StateManagerService,
-    private projectService: ProjectService
-  ) {}
+    private projectService: ProjectService,
+    private vectorEditor: VectorEditorService
+  ) {
+    // Vector edits flow back here so the same dirty flag / autosave covers them.
+    this.vectorEditor.changed$.subscribe(() => this.markDirty());
+  }
 
   ngOnDestroy(): void {
     this.cancelAutosave();
@@ -80,20 +85,48 @@ export class IOService implements OnDestroy {
     }
 
     try {
-      const annotations = await api.loadAnnotations(frame.id);
+      // Vector shapes are independent of the raster masks, so load them even
+      // when a frame has no raster annotations.
+      await this.loadVectors(frame.id);
 
-      if (annotations.length === 0) {
-        return;
+      const annotations = await api.loadAnnotations(frame.id);
+      if (annotations.length > 0) {
+        const dataUrls: string[] = annotations.map(
+          (annotation) => `data:image/png;base64,${annotation.maskPngBase64}`
+        );
+        await this.canvasManagerService.loadAllCanvas(dataUrls);
       }
-      const dataUrls: string[] = annotations.map(
-        (annotation) => `data:image/png;base64,${annotation.maskPngBase64}`
-      );
-      await this.canvasManagerService.loadAllCanvas(dataUrls);
 
       this.dirty = false;
     } catch (error) {
       console.error('Failed to load annotations:', error);
       throw error;
+    }
+  }
+
+  /** Load this frame's vector shapes into the editor (best-effort). */
+  private async loadVectors(frameId: number): Promise<void> {
+    try {
+      const rows = await api.loadVectorAnnotations(frameId);
+      this.vectorEditor.setShapes(rows.flatMap((r) => r.shapes));
+    } catch (error) {
+      console.error('Failed to load vector annotations:', error);
+      this.vectorEditor.clear();
+    }
+  }
+
+  /**
+   * Persist vector shapes. Saves once per current label so a label whose shapes
+   * were all removed has its row cleared (empty array deletes server-side).
+   */
+  private async saveVectors(frameId: number): Promise<void> {
+    const byLabel = this.vectorEditor.shapesByLabel();
+    for (const label of this.labelService.listSegmentationLabels) {
+      await api.saveVectorAnnotations(
+        frameId,
+        label.id,
+        byLabel.get(label.id) ?? []
+      );
     }
   }
 
@@ -154,6 +187,8 @@ export class IOService implements OnDestroy {
         //   height: canvas.height,
         // };
       }
+
+      await this.saveVectors(frame.id);
 
       this.dirty = false;
       this.cancelAutosave();

@@ -46,6 +46,17 @@ CREATE TABLE IF NOT EXISTS annotations (
     modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(frame_id, label_id)
 );
+
+-- Vector annotations (per frame, per label): bezier paths / polygons / polylines.
+-- `shapes` is a JSON array of VectorShape, owned and validated by the frontend.
+CREATE TABLE IF NOT EXISTS vector_annotations (
+    id INTEGER PRIMARY KEY,
+    frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+    label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    shapes JSON NOT NULL,
+    modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(frame_id, label_id)
+);
 CREATE TABLE IF NOT EXISTS classifications (
     id INTEGER PRIMARY KEY,
     frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
@@ -99,6 +110,7 @@ CREATE TABLE IF NOT EXISTS keypoint_pairs (
 
 CREATE INDEX IF NOT EXISTS idx_frames_sequence ON frames(sequence_id);
 CREATE INDEX IF NOT EXISTS idx_annotations_frame ON annotations(frame_id);
+CREATE INDEX IF NOT EXISTS idx_vector_annotations_frame ON vector_annotations(frame_id);
 CREATE INDEX IF NOT EXISTS idx_classifications_frame ON classifications(frame_id);
 CREATE INDEX IF NOT EXISTS idx_text_descriptions_frame ON text_descriptions(frame_id);
 CREATE INDEX IF NOT EXISTS idx_registrations_sequence
@@ -107,4 +119,20 @@ CREATE INDEX IF NOT EXISTS idx_registrations_ref_frame
     ON registrations(reference_frame_id);
 CREATE INDEX IF NOT EXISTS idx_keypoint_pairs_registration
     ON keypoint_pairs(registration_id);
+"#;
+
+/// v1 -> v2: vector annotations (bezier paths / polygons / polylines).
+/// `CREATE ... IF NOT EXISTS`, so it's a no-op on fresh databases that already
+/// got the table from the baseline SCHEMA.
+pub const MIGRATION_V2: &str = r#"
+CREATE TABLE IF NOT EXISTS vector_annotations (
+    id INTEGER PRIMARY KEY,
+    frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+    label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    shapes JSON NOT NULL,
+    modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(frame_id, label_id)
+);
+CREATE INDEX IF NOT EXISTS idx_vector_annotations_frame
+    ON vector_annotations(frame_id);
 "#;

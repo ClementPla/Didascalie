@@ -136,6 +136,10 @@ export interface ExportOptions {
   only_reviewed: boolean;
   instance_segmentation: boolean;
   classifications: boolean;
+  /** Emit per-frame vector JSON (exact nodes + flattened polygon). */
+  vectors: boolean;
+  /** Bake vector shapes into the exported masks. */
+  rasterize_vectors: boolean;
 }
 
 export interface ExportResult {
@@ -180,6 +184,36 @@ interface PingReply {
 }
 
 type WirePair = [[number, number], [number, number]];
+
+// ── Vector annotations ──────────────────────────────────────────────────────
+// A single vector primitive (bezier path / polygon / open polyline). Handles
+// are stored as absolute image-space coordinates; a straight segment is a node
+// whose handles equal its anchor.
+export interface VectorNode {
+  x: number;
+  y: number;
+  inX: number;
+  inY: number;
+  outX: number;
+  outY: number;
+  /** Keep the two handles collinear when edited (smooth) vs. independent (cusp). */
+  smooth: boolean;
+}
+
+export interface VectorShape {
+  id: string;
+  labelId: number;
+  closed: boolean;
+  /** Only meaningful when `closed`. */
+  filled: boolean;
+  nodes: VectorNode[];
+}
+
+/** All shapes for one (frame, label), as returned by the backend. */
+export interface VectorAnnotationsWire {
+  label_id: number;
+  shapes: VectorShape[];
+}
 
 export const api = {
   getLabels: () => invoke<LabelInfo[]>('get_labels'),
@@ -228,6 +262,17 @@ export const api = {
     };
     return invoke<void>('save_annotation', payload);
   },
+
+  /** Load every vector shape on a frame, grouped by owning label. */
+  loadVectorAnnotations: (frameId: number) =>
+    invoke<VectorAnnotationsWire[]>('load_vector_annotations', { frameId }),
+
+  /** Replace all vector shapes for one (frame, label). Empty array clears them. */
+  saveVectorAnnotations: (
+    frameId: number,
+    labelId: number,
+    shapes: VectorShape[],
+  ) => invoke<void>('save_vector_annotations', { frameId, labelId, shapes }),
 
   saveTaskDefinitions: (definitions: TaskDefinitions) =>
     invoke('save_task_definitions', {

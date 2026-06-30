@@ -32,6 +32,17 @@
           />
           <label for="classifications">Classifications</label>
         </div>
+        <div class="flex gap-2 items-center">
+          <p-toggleswitch [(ngModel)]="exportVectors" inputId="vectors" />
+          <label for="vectors">Vector shapes (JSON file)</label>
+        </div>
+        <div class="flex gap-2 items-center">
+          <p-toggleswitch
+            [(ngModel)]="exportRasterizeVectors"
+            inputId="rasterizeVectors"
+          />
+          <label for="rasterizeVectors">Rasterize vectors into masks</label>
+        </div>
       </div>
 
       <p-divider />
