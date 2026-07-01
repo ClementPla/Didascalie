@@ -36,7 +36,6 @@ import { LabelledSwitchComponent } from '../../../generics/labelled-switch/label
 export class LauncherComponent implements OnInit {
   readonly recentProjects = signal<RecentProject[]>([]);
   readonly isLoading = signal(false);
-  readonly isAndroid = /android/i.test(navigator.userAgent);
 
   constructor(
     private projectService: ProjectService,
@@ -55,7 +54,9 @@ export class LauncherComponent implements OnInit {
 
   async openFromDisk(): Promise<void> {
     const path = await open({
-      filters: [{ name: 'LabelMed Project', extensions: ['labelmed'] }],
+      filters: [
+        { name: 'Didascalie Project', extensions: ['dida', 'labelmed'] },
+      ],
     });
     if (!path) return;
     await this.openPath(path as string);
@@ -112,11 +113,5 @@ export class LauncherComponent implements OnInit {
     if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} days ago`;
     if (diff < 86400 * 30) return `${Math.floor(diff / 86400 / 7)} weeks ago`;
     return d.toLocaleDateString();
-  }
-  async openTestProject(): Promise<void> {
-    const path =
-      '/sdcard/Android/data/io.github.clementpla.labelmed/files/IRMA.labelmed';
-    await this.projectService.open(path);
-    this.router.navigate(['/gallery']);
   }
 }

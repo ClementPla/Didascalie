@@ -35,7 +35,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
 
     if version > SCHEMA_VERSION {
         return Err(AppError::Generic(format!(
-            "This project was created with a newer version of LabelMed \
+            "This project was created with a newer version of Didascalie \
              (schema v{}, this build supports v{}). Please update the application.",
             version, SCHEMA_VERSION
         )));

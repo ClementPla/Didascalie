@@ -284,7 +284,7 @@ export class VectorEditorService {
     };
   }
 
-  private finalizeDraft(closed: boolean, handoffToNode = true): void {
+  private finalizeDraft(closed: boolean, handoffToNode = false): void {
     const draft = this._draft();
     if (!draft) return;
 

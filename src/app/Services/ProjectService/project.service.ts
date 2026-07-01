@@ -36,7 +36,7 @@ export interface RecentProject {
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
   // Private state
-  private readonly STORAGE_KEY = 'labelmed_recent_projects';
+  private readonly STORAGE_KEY = 'didascalie_recent_projects';
   private readonly _config = signal<ProjectConfig>(DEFAULT_PROJECT_CONFIG);
   private readonly _projectPath = signal<string | null>(null);
   private readonly _isOpen = signal(false);

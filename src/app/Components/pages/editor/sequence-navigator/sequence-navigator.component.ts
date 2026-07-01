@@ -72,7 +72,11 @@ export class SequenceNavigatorComponent implements OnInit {
           id: s.id,
           name: s.name,
           frameCount: s.frame_count,
-          status: this.computeStatus(s.reviewed_count, s.frame_count),
+          status: this.computeStatus(
+            s.reviewed_count,
+            s.annotated_count,
+            s.frame_count,
+          ),
           thumbnailFrameId: s.first_frame_id!,
           frameIds: frameIdsBySequence[s.id] ?? [],
         }));
@@ -83,10 +87,14 @@ export class SequenceNavigatorComponent implements OnInit {
     }
   }
 
-  private computeStatus(reviewed: number, total: number): SequenceStatus {
-    if (reviewed === 0) return 'empty';
-    if (reviewed >= total) return 'reviewed';
-    return 'annotated';
+  private computeStatus(
+    reviewed: number,
+    annotated: number,
+    total: number,
+  ): SequenceStatus {
+    if (total > 0 && reviewed >= total) return 'reviewed';
+    if (reviewed > 0 || annotated > 0) return 'annotated';
+    return 'empty';
   }
 
   select(seq: NavSequence): void {

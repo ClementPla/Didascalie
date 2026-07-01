@@ -166,8 +166,8 @@ export class NewProjectComponent implements OnInit {
   async chooseSavePath(): Promise<void> {
     const name = this.projectName?.trim() || 'untitled';
     const path = await save({
-      defaultPath: `${name}.labelmed`,
-      filters: [{ name: 'LabelMed Project', extensions: ['labelmed'] }],
+      defaultPath: `${name}.dida`,
+      filters: [{ name: 'Didascalie Project', extensions: ['dida'] }],
     });
     if (path) {
       this.savePath.set(path);

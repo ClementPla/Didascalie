@@ -20,15 +20,11 @@
   </div>
 
   <header class="launcher-header">
-    <h1>LabelMed</h1>
+    <h1>Didascalie</h1>
     <p class="tagline">Open a project or start a new one.</p>
   </header>
 
   <div class="primary-actions">
-    @if (isAndroid) {
-      <p-button label="Open IRMA (test)" (click)="openTestProject()" />
-    }
-    @else {
     <p-button
       icon="pi pi-plus"
       label="New project"
@@ -44,7 +40,6 @@
       [disabled]="isLoading()"
       (click)="openFromDisk()"
     ></p-button>
-  }
     
   </div>
 

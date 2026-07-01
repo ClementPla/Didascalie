@@ -153,6 +153,7 @@ export interface GallerySequence {
   sort_order: number;
   frame_count: number;
   reviewed_count: number;
+  annotated_count: number;
   first_frame_id: number | null;
   has_keypoints: boolean;
 }

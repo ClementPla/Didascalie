@@ -14,8 +14,8 @@ interface PresetOption {
   preset: unknown;
 }
 
-const STORAGE_PRESET = 'labelmed.theme.preset';
-const STORAGE_DARK = 'labelmed.theme.dark';
+const STORAGE_PRESET = 'didascalie.theme.preset';
+const STORAGE_DARK = 'didascalie.theme.dark';
 const DARK_CLASS = 'darkTheme';
 
 @Injectable({ providedIn: 'root' })

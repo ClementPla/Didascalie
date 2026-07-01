@@ -36,7 +36,7 @@ import { ProjectService } from './Services/ProjectService/project.service';
   styleUrl: './app.component.scss',
 })
 export class AppComponent implements OnInit, OnDestroy {
-  title = 'LabelMed';
+  title = 'Didascalie';
 
   private readonly destroy$ = new Subject<void>();
   private unlistenClose: (() => void) | null = null;

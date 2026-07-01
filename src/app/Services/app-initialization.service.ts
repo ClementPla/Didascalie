@@ -66,8 +66,8 @@ export class AppInitializationService {
 
       // Determine project file path
       const projectPath = config.input_folder
-        ? `${config.input_folder}/${config.name}.labelmed`
-        : `${config.name}.labelmed`;
+        ? `${config.input_folder}/${config.name}.dida`
+        : `${config.name}.dida`;
 
       // Create project
       await this.projectService.create(projectPath);

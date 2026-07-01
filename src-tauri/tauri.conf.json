@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "LabelMed",
-  "version": "0.3.5",
-  "identifier": "io.github.clementpla.labelmed",
+  "productName": "Didascalie",
+  "version": "../package.json",
+  "identifier": "io.github.clementpla.didascalie",
 
   "build": {
     "frontendDist": "../dist/client/browser",
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "Annotator",
+        "title": "Didascalie",
         "width": 1600,
         "height": 1000,
         "resizable": true,

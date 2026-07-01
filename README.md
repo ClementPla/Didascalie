@@ -1,127 +1,101 @@
-# LabelMed Client
+<h1 align="center">Didascalie</h1>
 
-A powerful medical image labeling application built with [Angular](https://angular.dev) 20 and [Tauri V2](https://v2.tauri.app/start/). LabelMed prioritizes privacy, speed, and ease of use for medical image annotation tasks.
+<p align="center">
+  A desktop tool for annotating medical images, running entirely on your own machine.
+</p>
 
-## Key Features
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/license-BSD--3--Clause-blue">
+  <img alt="Desktop" src="https://img.shields.io/badge/desktop-Tauri%20v2-24C8DB">
+  <img alt="UI" src="https://img.shields.io/badge/UI-Angular%2020-DD0031">
+  <img alt="Core" src="https://img.shields.io/badge/core-Rust-000000">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey">
+  <img alt="Status" src="https://img.shields.io/badge/status-in%20development-orange">
+</p>
 
-- **Local-first Processing**: Annotation and image processing run locally. AI-assisted
-  segmentation models are downloaded from Hugging Face on first use and then run on a
-  local inference server — no annotation data leaves the machine.
-- **Multi-task Classification**: Support for multiple classification types
-    - Multiclass classification
-    - Multilabel classification
-- **Flexible Configuration**: Easy setup for input/output folders
-- **Advanced Image Processing**: Integrated OpenCV WASM for real-time image preprocessing
+---
 
-## Prerequisites
+Segmentation masks, classification labels, keypoints, and a few other annotation types — with nothing leaving your machine.
 
-- Node.js and NPM
-- Angular CLI
-- Rust (for Tauri)
+It's a solo research project, built mostly for my own work in medical image analysis, where the data often can't be uploaded to a cloud service. It is under active development, and the name recently changed from *LabelMed*. Expect rough edges, breaking changes, and features in varying states of completeness.
 
-## Development
+The name: a *didascalie* is a stage direction — one of the little notes in a play script. It seemed like a reasonable word for annotations, which are really just notes added to data. (Pronounced *di-da-ska-LEE*.)
 
-1. Install dependencies:
-```bash
-npm install
-```
+> **Status:** early and evolving. The core annotation workflow is usable day-to-day; the parts marked *experimental* below are not.
 
-2. Start development server:
-```bash
-npm run tauri dev
-```
+<!-- Suggested image: a screenshot of the editor with an image open and a mask drawn. One honest screenshot is plenty. -->
+<!-- ![The editor](doc/images/editor.png) -->
 
-## Building
+## What it does
 
-Create production binaries:
-```bash
-npm run tauri build
-```
-Executables will be generated in `src-tauri/target/release/`
+- **Runs locally.** Annotation and image processing happen on your machine; nothing is uploaded. This is the main reason the tool exists.
+- **Segmentation masks**, drawn with brush, polygon, line, point, and flood-fill tools. A few classical helpers (thresholding, flood fill, CRF edge cleanup) are there to make manual masking a bit less tedious.
+- **Classification labels**, both multiclass and multilabel, with several tasks per project.
+- **Keypoints**, **vector shapes** (polygons/lines), and short **text notes** per region.
+- **Multi-frame projects.** Images can be grouped into sequences and navigated frame by frame (this is just navigation — there is no automatic propagation of annotations between frames).
+- **One file per project.** A project is a single `.dida` file (SQLite underneath) holding the images (embedded or referenced), masks, labels, and metadata. Easy to copy, back up, or hand to someone else.
 
-## Architecture
+## Why you might use it
 
-LabelMed combines multiple technologies for optimal performance:
+There are several good open-source annotation tools already, so here are a few honest reasons this one might suit you:
 
-- **Frontend**: Angular framework for responsive UI
-- **Image Processing**: OpenCV WASM for client-side image operations
-- **Backend Services**: 
-    - Tauri/Rust for application serving and native features
-    - MedSAM integration via ONNX Runtime
-    - ZeroMQ for Python library communication
+- **Native, Rust-backed processing.** The heavy work — encoding masks, image operations, file I/O — runs in a compiled Rust backend rather than in a browser tab or a Python layer. It stays responsive on large medical images, keeps a small footprint, and needs no server or Docker setup.
+- **Projects are one shareable file.** Since a whole project is a single `.dida` file, handing an annotation task to a collaborator — or getting the results back — is just sending one file, not a folder of images plus a separate database or a running server.
+- **It's been used for real work.** Annotations produced with it have gone into published research (for example, the DNAi study<!-- TODO: add citation / DOI / link -->), not just demos.
+- **Shaped by people who actually annotate.** It has been developed with continuous feedback from clinicians and researchers across several medical fields who use it on real data, so the workflow reflects how experts actually work rather than my own assumptions.
 
-## Technical Stack
+## Experimental / work in progress
 
-- Angular (Frontend Framework)
-- Tauri V2 (Desktop Application Framework)
-- Rust (Backend Processing)
-- OpenCV WASM (Image Processing)
-- ZeroMQ (Inter-process Communication)
-- ONNX Runtime (ML Model Integration)
+These exist in the codebase but are not finished or well tested — use with low expectations:
 
-## Communication with Python
+- **SAM-based mask refinement.** There is an ONNX-based model path for turning a coarse mask into a cleaner one, but it is not polished, benchmarked, or reliable yet.
+- **Frame-to-frame registration** with a keypoint-assist step, including an optional bridge to a Python process (over ZeroMQ) that can suggest keypoints. Rough and narrow in scope for now.
 
-LabelMed enables seamless integration with Python scripts through ZeroMQ:
+## The `.dida` format and the Python library
 
-- **Real-time Communication**: Bidirectional data exchange between LabelMed and Python processes
-- **Custom Model Integration**: 
-    - Run your own ML models in Python
-    - Send results directly to LabelMed for validation
-    - Receive corrected annotations back in Python
+A `.dida` file is an ordinary SQLite database, so it's inspectable and scriptable. A small companion library, [`didascalie`](https://github.com/ClementPla/Didascalie), can:
 
-    - **System Overview**:
-        ![Communication Overview](doc/images/intercoms.png)
+- create and read projects,
+- import a folder of images,
+- import precomputed masks, and
+- convert to/from COCO and YOLO.
 
-- **Example Usage**:
+The library is **not published on PyPI** — install it from source if you want it. It requires `numpy` and `Pillow` (and `pyzmq` for the optional Python bridge).
 
 ```python
-from pathlib import Path
-from pynotate import Project
-import numpy as np
-from fundus_lesions_toolkit.models.segmentation import segment as segment_lesions, Dataset
-from fundus_data_toolkit.functional import open_image
+from didascalie import DidascalieProject, Label
 
-from fundus_lesions_toolkit.constants import LESIONS
-from fundus_odmac_toolkit.models.segmentation import segment as segment_odmac
-from tqdm.notebook import tqdm
-
-segmentation_classes = ['Lesions/' + l for l in LESIONS[1:]] + ['OD', 'MAC']
-
-classifications_classes = [{'name': 'Diabetic Retinopathy', 'classes': ['No DR', 'Mild', 'Moderate', 'Severe', 'Proliferative']}]
-classification_multilabel = {'name': 'Others diseases', 'classes': ['Hypertension', 'Glaucoma', 'Myopia', 'Other']}
-
-def run_model(filepath):
-    img = open_image(filepath)
-    lesions = segment_lesions(img, train_datasets=Dataset.IDRID).argmax(0).cpu().numpy()
-    od_mask = segment_odmac(img).argmax(0).cpu().numpy()
-    # Lesions
-    masks = [255*(lesions == i).astype(np.uint8) for i in range(1, 5)]
-    # OD and MAC
-    masks += [255*(od_mask==i) for i in range(1, 3)] 
-
-    # Random classification
-    multilabel = np.random.choice(classification_multilabel['classes'], size=np.random.randint(0, len(classification_multilabel['classes']))).tolist()
-    multiclass = np.random.choice(classifications_classes[0]['classes'], size=1).tolist()
-    multilabel = None if len(multilabel) == 0 else multilabel
-    
-    return masks, multiclass, multilabel
-
-ALL_FILES = list(Path(ROOT_FOLDER).glob('*.jpeg'))
-INPUT_DIR = "inputFundus/" # Folder where the images are stored. Can be the same as the root folder
-OUTPUT_DIR = "output/" # Folder where the annotations will be stored.
-
-with Project(project_name="FundusLesions", 
-             input_dir=str(Path(INPUT_DIR).resolve()),
-             output_dir=str(Path(OUTPUT_DIR).resolve()),
-             classification_classes=classifications_classes,
-             classification_multilabel=classification_multilabel,
-             segmentation_classes=segmentation_classes) as cli:
-    for filepath in tqdm(ALL_FILES):
-        masks, multiclass, multilabel = run_model(filepath)
-        cli.load_image(filepath, segmentation_masks=masks, multiclass_choices=multiclass, multilabel_choices=multilabel)
-
-
+with DidascalieProject.create("dataset.dida", name="My Dataset") as project:
+    project.add_label(Label(name="lesion", color="#FF0000"))
+    project.import_folder("/path/to/images")
 ```
 
-For detailed Python integration examples, see our [Python SDK Documentation (under construction)]().
+## Installing
 
+Prebuilt installers for **Windows, macOS (Intel and Apple Silicon), and Linux** are built automatically by GitHub Actions and attached to each release — download the one for your platform from the [Releases page](https://github.com/ClementPla/Didascalie/releases).
+
+### Building from source
+
+If you'd rather build it yourself:
+
+**Requirements:** [Node.js + npm](https://nodejs.org/), [Rust](https://www.rust-lang.org/tools/install), and the [Angular CLI](https://angular.dev/tools/cli).
+
+```bash
+git clone https://github.com/ClementPla/Didascalie.git
+cd Didascalie
+npm install
+npm run tauri dev      # run in development
+npm run tauri build    # build binaries (in src-tauri/target/release/)
+```
+
+## Built with
+
+Angular 20 (UI) · Tauri v2 / Rust (desktop shell and native processing) · OpenCV compiled to WASM (image operations) · ONNX Runtime (the experimental model path) · ZeroMQ (the experimental Python bridge).
+
+## Contributing
+
+It's a one-person project, so responses may be slow, but bug reports and suggestions are welcome — please open an issue. If you work with medical images and something is missing or awkward, I'd like to hear about it.
+
+## License
+
+BSD 3-Clause. See [`LICENSE`](LICENSE).

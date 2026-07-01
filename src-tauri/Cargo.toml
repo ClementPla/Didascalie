@@ -1,16 +1,16 @@
 [package]
-name = "LabelMed"
-version = "0.2.5"
-description = "A Tauri App"
+name = "didascalie"
+version = "0.5.0"
+description = "Didascalie — a fast, private, AI-assisted annotation studio for medical imaging"
 authors = ["Clément Playout"]
-repository = "https://github.com/ClementPla/Annotator/tree/main"
+repository = "https://github.com/ClementPla/Didascalie/tree/main"
 edition = "2024"
 rust-version = "1.85.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "labelmed_lib"
+name = "didascalie_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

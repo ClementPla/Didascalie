@@ -104,6 +104,9 @@ pub struct GallerySequence {
     pub sort_order: i64,
     pub frame_count: i64,
     pub reviewed_count: i64,
+    /// Number of frames that have at least one annotation (raster mask or vector
+    /// shape). Drives the "in progress" status independent of review.
+    pub annotated_count: i64,
     pub first_frame_id: Option<i64>,
     /// True if any registration in this sequence has at least one keypoint pair,
     /// regardless of which frame pair it belongs to.
@@ -120,6 +123,10 @@ pub fn get_gallery_sequences(db: State<DbState>) -> Result<Vec<GallerySequence>>
                 s.sort_order,
                 COUNT(f.id) as frame_count,
                 SUM(CASE WHEN f.reviewed THEN 1 ELSE 0 END) as reviewed_count,
+                COUNT(DISTINCT CASE
+                    WHEN EXISTS (SELECT 1 FROM annotations a WHERE a.frame_id = f.id)
+                      OR EXISTS (SELECT 1 FROM vector_annotations v WHERE v.frame_id = f.id)
+                    THEN f.id END) as annotated_count,
                 MIN(f.id) as first_frame_id,
                 EXISTS (
                     SELECT 1
@@ -140,8 +147,9 @@ pub fn get_gallery_sequences(db: State<DbState>) -> Result<Vec<GallerySequence>>
                 sort_order: row.get(2)?,
                 frame_count: row.get(3)?,
                 reviewed_count: row.get(4)?,
-                first_frame_id: row.get(5)?,
-                has_keypoints: row.get(6)?,
+                annotated_count: row.get(5)?,
+                first_frame_id: row.get(6)?,
+                has_keypoints: row.get(7)?,
             })
         }).map_err(|e| AppError::Database(e))?;
         

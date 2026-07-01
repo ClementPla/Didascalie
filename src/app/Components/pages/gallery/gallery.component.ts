@@ -244,7 +244,11 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
           title: seq.name,
           frameCount: seq.frame_count,
           thumbnailFrameId: seq.first_frame_id!,
-          status: this.computeStatus(seq.reviewed_count, seq.frame_count),
+          status: this.computeStatus(
+            seq.reviewed_count,
+            seq.annotated_count,
+            seq.frame_count,
+          ),
           progress:
             seq.frame_count > 0 ? seq.reviewed_count / seq.frame_count : 0,
           frameIds: frameIdsBySequence[seq.id] ?? [],
@@ -258,10 +262,14 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  private computeStatus(reviewed: number, total: number): SequenceStatus {
-    if (reviewed === 0) return 'empty';
-    if (reviewed >= total) return 'reviewed';
-    return 'annotated';
+  private computeStatus(
+    reviewed: number,
+    annotated: number,
+    total: number,
+  ): SequenceStatus {
+    if (total > 0 && reviewed >= total) return 'reviewed';
+    if (reviewed > 0 || annotated > 0) return 'annotated';
+    return 'empty';
   }
 
   // ==========================================

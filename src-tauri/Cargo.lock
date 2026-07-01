@@ -3,51 +3,6 @@
 version = 4
 
 [[package]]
-name = "LabelMed"
-version = "0.2.5"
-dependencies = [
- "base64 0.22.1",
- "bitvec",
- "futures",
- "futures-util",
- "hex_color",
- "image 0.25.10",
- "imageproc",
- "itertools",
- "lazy_static",
- "log",
- "ndarray 0.16.1",
- "ndarray-image",
- "ndimage",
- "once_cell",
- "ort",
- "parking_lot",
- "rayon",
- "regex",
- "reqwest",
- "rmp-serde",
- "roxmltree",
- "rusqlite",
- "serde",
- "serde_bytes",
- "serde_json",
- "sha2 0.11.0",
- "skeletonize",
- "svgtypes",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-log",
- "thiserror 2.0.18",
- "tokio",
- "tracing-subscriber",
- "usvg",
- "uuid",
- "zmq",
-]
-
-[[package]]
 name = "ab_glyph"
 version = "0.2.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -948,6 +903,51 @@ dependencies = [
  "quote",
  "rustc_version",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "didascalie"
+version = "0.5.0"
+dependencies = [
+ "base64 0.22.1",
+ "bitvec",
+ "futures",
+ "futures-util",
+ "hex_color",
+ "image 0.25.10",
+ "imageproc",
+ "itertools",
+ "lazy_static",
+ "log",
+ "ndarray 0.16.1",
+ "ndarray-image",
+ "ndimage",
+ "once_cell",
+ "ort",
+ "parking_lot",
+ "rayon",
+ "regex",
+ "reqwest",
+ "rmp-serde",
+ "roxmltree",
+ "rusqlite",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "sha2 0.11.0",
+ "skeletonize",
+ "svgtypes",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-log",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing-subscriber",
+ "usvg",
+ "uuid",
+ "zmq",
 ]
 
 [[package]]

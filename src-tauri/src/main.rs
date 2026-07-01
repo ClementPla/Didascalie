@@ -9,5 +9,5 @@ fn main() {
         );
         std::env::set_var("RUST_LOG", "ort=debug");
     }
-    labelmed_lib::run();
+    didascalie_lib::run();
 }
