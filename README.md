@@ -31,36 +31,51 @@ The name: a *didascalie* is a stage direction — one of the little notes in a p
 - **Runs locally.** Annotation and image processing happen on your machine; nothing is uploaded. This is the main reason the tool exists.
 - **Segmentation masks**, drawn with brush, polygon, line, point, and flood-fill tools. A few classical helpers (thresholding, flood fill, CRF edge cleanup) are there to make manual masking a bit less tedious.
 - **Classification labels**, both multiclass and multilabel, with several tasks per project.
-- **Keypoints**, **vector shapes** (polygons/lines), and short **text notes** per region.
+- **Keypoints** and **vector shapes** (polygons/lines) as annotation types, plus short **text notes** per frame (tied to a configurable text task, not to a specific drawn region).
 - **Multi-frame projects.** Images can be grouped into sequences and navigated frame by frame (this is just navigation — there is no automatic propagation of annotations between frames).
+- **Frame registration.** Pick a reference and a moving frame from a sequence, place corresponding keypoints between them, and see the estimated homography update in real time, with fairly advanced visualization options for checking the alignment.
 - **One file per project.** A project is a single `.dida` file (SQLite underneath) holding the images (embedded or referenced), masks, labels, and metadata. Easy to copy, back up, or hand to someone else.
+- **Image adjustments for readability.** Brightness/contrast, gamma correction, and color inversion, applied on the fly while you look at an image — these only change what you see, not the underlying data.
+- **A filterable gallery to track progress.** Filter by review status, by whether keypoints are present, or by name, and sequences show how much of their content has been annotated/reviewed — useful for keeping track of where you are in a larger dataset.
+- **Batch classification from the gallery.** Select several images at once and apply multiclass/multilabel classification choices to all of them in one action, instead of opening each one individually.
 
 ## Why you might use it
 
 There are several good open-source annotation tools already, so here are a few honest reasons this one might suit you:
 
-- **Native, Rust-backed processing.** The heavy work — encoding masks, image operations, file I/O — runs in a compiled Rust backend rather than in a browser tab or a Python layer. It stays responsive on large medical images, keeps a small footprint, and needs no server or Docker setup.
+- **A responsive UI, even on large medical images.** The heavy work — mask encoding, image decoding, file I/O — runs in a compiled Rust backend rather than in a browser tab or a Python layer, so the canvas stays responsive instead of freezing on big files. Masks are RLE-encoded, and the gallery lazy-loads thumbnails as they scroll into view, so it holds up on datasets with a lot of images.
+- **Both vector and raster annotation, in the same tool.** Pixel-level segmentation masks (brush/polygon/flood-fill) and vector shapes (polygons, lines, keypoints) live side by side on the same image, instead of forcing you into one paradigm or a separate tool for each.
+- **Genuinely multiplatform.** Ships as a native installer for Windows, macOS (Intel and Apple Silicon), and Linux, built from the same codebase.
 - **Projects are one shareable file.** Since a whole project is a single `.dida` file, handing an annotation task to a collaborator — or getting the results back — is just sending one file, not a folder of images plus a separate database or a running server.
 - **It's been used for real work.** Annotations produced with it have gone into published research (for example, the DNAi study<!-- TODO: add citation / DOI / link -->), not just demos.
 - **Shaped by people who actually annotate.** It has been developed with continuous feedback from clinicians and researchers across several medical fields who use it on real data, so the workflow reflects how experts actually work rather than my own assumptions.
+- **Open to suggestions.** It's a young, solo project without a fixed roadmap set in stone — if there's a feature or workflow you need, it's genuinely easy to influence what gets built next. See [Contributing](#contributing).
 
 ## Experimental / work in progress
 
 These exist in the codebase but are not finished or well tested — use with low expectations:
 
 - **SAM-based mask refinement.** There is an ONNX-based model path for turning a coarse mask into a cleaner one, but it is not polished, benchmarked, or reliable yet.
-- **Frame-to-frame registration** with a keypoint-assist step, including an optional bridge to a Python process (over ZeroMQ) that can suggest keypoints. Rough and narrow in scope for now.
+- **Keypoint suggestion for registration.** An optional bridge to a Python process (over ZeroMQ) can suggest keypoint correspondences for the registration mode above, instead of placing them all by hand. Rough and narrow in scope for now.
+
+Planned, not started yet:
+
+- **Converting between raster and vector shapes.** Vector shapes can already be rasterized into a mask internally, but going the other way — turning a painted mask into an editable vector shape — doesn't exist yet. The goal is to make that conversion work both ways.
 
 ## The `.dida` format and the Python library
 
-A `.dida` file is an ordinary SQLite database, so it's inspectable and scriptable. A small companion library, [`didascalie`](https://github.com/ClementPla/Didascalie), can:
+A `.dida` file is an ordinary SQLite database, so it's inspectable and scriptable, not a proprietary blob. The companion Python library, [**pydidascalie**](https://github.com/ClementPla/pydidascalie), reads and writes that format directly. Typical uses:
 
-- create and read projects,
-- import a folder of images,
-- import precomputed masks, and
-- convert to/from COCO and YOLO.
+- **Pre-populate a project from a model.** Run your own segmentation/classification model over a folder of images and write the predictions straight into a `.dida` file, so annotators open the app and start from a draft instead of a blank image — you correct the model instead of annotating from scratch.
+- **Bulk import.** Load a folder of images (optionally with existing masks) into a new project without clicking through the UI one file at a time.
+- **Read results back out.** Once annotation is done, iterate over frames/labels/masks directly from Python for training or analysis.
+- **Convert to/from COCO and YOLO**, for moving datasets in or out of other tooling.
 
-The library is **not published on PyPI** — install it from source if you want it. It requires `numpy` and `Pillow` (and `pyzmq` for the optional Python bridge).
+It's **not published on PyPI** — install it straight from the repo:
+
+```bash
+pip install git+https://github.com/ClementPla/pydidascalie.git
+```
 
 ```python
 from didascalie import DidascalieProject, Label
@@ -69,6 +84,8 @@ with DidascalieProject.create("dataset.dida", name="My Dataset") as project:
     project.add_label(Label(name="lesion", color="#FF0000"))
     project.import_folder("/path/to/images")
 ```
+
+Requires `numpy` and `Pillow` (and `pyzmq` if you use the optional Python bridge described below).
 
 ## Installing
 
