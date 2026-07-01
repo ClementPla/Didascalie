@@ -58,7 +58,40 @@ export class CanvasInputDirective {
 
   @HostListener('mouseleave', ['$event'])
   async onMouseLeave(event: MouseEvent) {
+    // Cursor left the canvas: keyboard zoom falls back to the viewport center.
+    this.zoomPanService.lastCursorViewport = null;
     await this.pointerUp(event);
+  }
+
+  // ==========================================
+  // Pressure
+  // ==========================================
+  // Pointer events fire alongside the mouse/touch listeners above; here they
+  // only record pressure (they never start a stroke), so the drawing pipeline
+  // is untouched while the pen tool can scale its radius by pressure.
+
+  @HostListener('pointerdown', ['$event'])
+  onPointerDownPressure(event: PointerEvent) {
+    this.recordPressure(event);
+  }
+
+  @HostListener('pointermove', ['$event'])
+  onPointerMovePressure(event: PointerEvent) {
+    this.recordPressure(event);
+  }
+
+  private recordPressure(event: PointerEvent) {
+    if (event.pointerType === 'mouse') {
+      // Mouse has no real pressure (constant 0.5 while pressed) — no scaling.
+      this.editorService.strokeIsPressure = false;
+      this.editorService.strokePressure = 1;
+    } else {
+      // Pen/touch: pressure in [0, 1]. Some devices report 0; fall back to a
+      // neutral mid value so the stroke doesn't collapse to nothing.
+      this.editorService.strokeIsPressure = true;
+      this.editorService.strokePressure =
+        event.pressure > 0 ? event.pressure : 0.5;
+    }
   }
 
   // ==========================================
@@ -137,6 +170,8 @@ export class CanvasInputDirective {
   private pointerMove(event: MouseEvent) {
     const coords = this.zoomPanService.getImageCoordinates(event);
     const cursor = this.zoomPanService.getViewportCoordinates(event);
+    // Remember the cursor so keyboard (+/-) zoom can pivot on it.
+    this.zoomPanService.lastCursorViewport = cursor;
     this.canvasMove.emit({ event, coords, cursor });
   }
 

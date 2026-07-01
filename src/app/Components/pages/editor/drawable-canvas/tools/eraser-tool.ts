@@ -16,7 +16,8 @@ export class EraserTool extends BaseTool {
     // Draw the "Eraser Path" onto the buffer first (as white/color)
     ctx.globalCompositeOperation = 'source-over';
     ctx.lineCap = 'round';
-    ctx.lineWidth = context.editorService.lineWidth;
+    ctx.lineWidth =
+      context.editorService.lineWidth * context.editorService.brushPressureScale();
     ctx.strokeStyle = context.color; 
     
     ctx.beginPath();

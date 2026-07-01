@@ -9,6 +9,7 @@ import { FieldsetModule } from 'primeng/fieldset';
 import { SliderModule } from 'primeng/slider';
 import { ProjectService } from '../../../../Services/ProjectService/project.service';
 import { ImageAdjustmentService } from '../drawable-canvas/service/image-adjustment/image-adjustment.service';
+import { PostProcessService } from '../drawable-canvas/service/post-process.service';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { PostProcessOption } from '../../../../Core/tools';
 import { postProcessingOptions } from '../../../../Core/tools';
@@ -44,6 +45,21 @@ export class ToolSettingComponent {
   constructor(
     public editorService: EditorService,
     public projectService: ProjectService,
-    public imageProcess: ImageAdjustmentService
+    public imageProcess: ImageAdjustmentService,
+    private postProcess: PostProcessService
   ) {}
+
+  /** Toggle the superpixel boundary overlay on/off. */
+  onToggleSuperpixels() {
+    void this.postProcess.updateSuperpixelOverlay();
+  }
+
+  /** The superpixel count changed: drop the cached map and, if the overlay is
+   *  visible, recompute it with the new granularity. */
+  onSuperpixelCountChange() {
+    this.postProcess.invalidateSuperpixels();
+    if (this.editorService.showSuperpixels) {
+      void this.postProcess.updateSuperpixelOverlay();
+    }
+  }
 }

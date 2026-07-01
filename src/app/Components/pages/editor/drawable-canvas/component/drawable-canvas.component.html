@@ -76,6 +76,11 @@
     ></canvas>
 
     <canvas
+      #superpixelCanvas
+      class="absolute crisp-edges h-full inset-0 pointer-events-none w-full z-[15]"
+    ></canvas>
+
+    <canvas
       #labelCanvas
       class="absolute crisp-edges h-full inset-0 pointer-events-none w-full z-20"
       [style.opacity]="editorService.labelOpacity"

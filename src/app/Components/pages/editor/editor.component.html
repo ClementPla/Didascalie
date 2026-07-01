@@ -191,6 +191,22 @@
         pTooltip="Use WebGPU rendering" tooltipPosition="left" ariaLabel="Use WebGPU rendering"
       ></p-togglebutton>
     </ng-template>
+
+    <!-- Touchscreen -->
+    <ng-template [appMenuGroup]="'Touchscreen'">
+      <p-togglebutton
+        [(ngModel)]="editorService.pressureSensitivity"
+        onIcon="pi pi-pencil" offIcon="pi pi-pencil" [onLabel]="''" [offLabel]="''"
+        pTooltip="Pen pressure (scale brush radius by pen/touch pressure)" tooltipPosition="left" ariaLabel="Pen pressure"
+      ></p-togglebutton>
+      @if (editorService.pressureSensitivity) {
+        <button
+          pButton type="button" icon="pi pi-expand" severity="secondary" [raised]="true"
+          pTooltip="Max size at full pressure" tooltipPosition="left" aria-label="Max size at full pressure"
+          (click)="pressureGainPopover.toggle($event)"
+        ></button>
+      }
+    </ng-template>
   </app-vertical-menu>
 
   <!-- Popovers for the relocated slider/navigation controls -->
@@ -207,6 +223,21 @@
         [min]="0"
         [max]="1"
         [step]="0.01"
+      ></p-slider>
+    </div>
+  </p-popover>
+  <p-popover #pressureGainPopover>
+    <div class="flex flex-col gap-2 p-2" style="min-width: 15rem">
+      <label class="text-sm"
+        >Max size at full pressure: ×{{
+          editorService.pressureGain | number: '1.1-1'
+        }}</label
+      >
+      <p-slider
+        [(ngModel)]="editorService.pressureGain"
+        [min]="1"
+        [max]="100"
+        [step]="0.5"
       ></p-slider>
     </div>
   </p-popover>

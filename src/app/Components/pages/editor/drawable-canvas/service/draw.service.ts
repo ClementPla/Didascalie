@@ -83,7 +83,13 @@ export class DrawService implements OnDestroy {
     const imageCoord = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updatePreviousPoint(this.stateService.currentPoint);
     this.stateService.updateCurrentPoint(imageCoord);
+    // Bound both endpoints of the segment at the current radius: the stroke is
+    // drawn from previousPoint to imageCoord with round caps on both ends. This
+    // also captures the very first point (the down position), which is otherwise
+    // never bounded and gets clipped on commit — most visibly with a light,
+    // slightly-moved touch where the padding is small.
     this.stateService.updateMinMaxPoints(imageCoord);
+    this.stateService.updateMinMaxPoints(this.stateService.previousPoint);
 
     if (this.editorService.isEraser()) {
       this.stateService.recomputeCanvasSum = true;

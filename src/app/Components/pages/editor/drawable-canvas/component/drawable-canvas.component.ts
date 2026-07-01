@@ -20,6 +20,8 @@ import { UIStateService } from '../../../../../Services/uistate.service';
 
 import { OrchestratorService } from '../service/orchestrator.service';
 import { DrawService } from '../service/draw.service';
+import { PostProcessService } from '../service/post-process.service';
+import { StateManagerService } from '../service/state-manager.service';
 import { ZoomPanService } from '../service/zoom-pan.service';
 
 import { SVGElementsComponent } from './svgelements/svgelements.component';
@@ -56,6 +58,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   // Contexts
   private ctxImage: CanvasRenderingContext2D | null = null;
   private ctxLabel: CanvasRenderingContext2D | null = null;
+  private ctxSuperpixel: CanvasRenderingContext2D | null = null;
   private dpr: number = Math.max(1, window.devicePixelRatio || 1);
 
   // Brush wheel acceleration
@@ -70,6 +73,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   @ViewChild('viewport', { static: true })   public viewportRef: ElementRef<HTMLDivElement>;
   @ViewChild('imageCanvas', { static: true }) public imgCanvas: ElementRef<HTMLCanvasElement>;
+  @ViewChild('superpixelCanvas', { static: true }) public superpixelCanvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('labelCanvas', { static: true }) public labelCanvas: ElementRef<HTMLCanvasElement>;
   @ViewChild('svg')                           public svg: SVGElementsComponent;
   @ViewChild('vectorLayer')                   public vectorLayer: VectorLayerComponent;
@@ -80,6 +84,8 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     public sequenceService: SequenceService,
     public orchestrator: OrchestratorService,
     private drawService: DrawService,
+    private postProcess: PostProcessService,
+    private stateService: StateManagerService,
     public zoomPanService: ZoomPanService,
     private changeDetectorRef: ChangeDetectorRef,
     private uiStateService: UIStateService,
@@ -100,6 +106,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit() {
     this.ctxImage = this.imgCanvas.nativeElement.getContext('2d', { alpha: true })!;
     this.ctxLabel = this.labelCanvas.nativeElement.getContext('2d', { alpha: true })!;
+    this.ctxSuperpixel = this.superpixelCanvas.nativeElement.getContext('2d', { alpha: true })!;
 
     this.orchestrator.setViewportRef(this.viewportRef.nativeElement);
 
@@ -172,6 +179,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       c.style.height = `${height}px`;
     };
     setCanvas(this.imgCanvas.nativeElement);
+    setCanvas(this.superpixelCanvas.nativeElement);
     setCanvas(this.labelCanvas.nativeElement);
 
     this.orchestrator.setViewportSize(width, height);
@@ -307,6 +315,19 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     );
     this.ctxImage.resetTransform();
 
+    // Superpixel overlay layer (image-native resolution, same view transform
+    // as the label layer). Only drawn when the toggle is on and a map exists.
+    if (this.ctxSuperpixel) {
+      this.clearDisplayCanvas(this.ctxSuperpixel);
+      const overlay = this.postProcess.superpixelOverlayCanvas;
+      if (this.editorService.showSuperpixels && overlay) {
+        this.orchestrator.applyViewTransform(this.ctxSuperpixel, this.dpr);
+        this.orchestrator.ensurePixelPerfectDrawing(this.ctxSuperpixel);
+        this.ctxSuperpixel.drawImage(overlay, 0, 0);
+        this.ctxSuperpixel.resetTransform();
+      }
+    }
+
     // Label layer
     const combined = await this.orchestrator.getCombinedLabelCanvas();
     this.clearDisplayCanvas(this.ctxLabel);
@@ -356,8 +377,12 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   // ==========================================
 
   public getCursorSize(): number {
-    // Brush is in image px; convert to viewport CSS px.
-    return this.editorService.lineWidth * this.zoomPanService.getScale();
+    // Brush is in image px; convert to viewport CSS px. While drawing, reflect
+    // the live pressure scaling so the cursor matches the actual stroke width.
+    const pressureScale = this.stateService.isDrawing
+      ? this.editorService.brushPressureScale()
+      : 1;
+    return this.editorService.lineWidth * pressureScale * this.zoomPanService.getScale();
   }
 
   public get isLoading(): boolean {

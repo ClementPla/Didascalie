@@ -35,5 +35,30 @@ export class EditorToolbarComponent {
   tools = ALL_TOOLS;
   vectorTools = VECTOR_TOOLS;
 
+  // Brush-size slider bounds. The slider is logarithmic so small, commonly-used
+  // sizes get most of the track; the number input still edits lineWidth directly.
+  private readonly brushMin = 1;
+  private readonly brushMax = 1024;
+  private readonly brushSteps = 1000;
+
   constructor(public editorService: EditorService) {}
+
+  /** Slider position [0, brushSteps] mapped logarithmically from lineWidth. */
+  get brushSizeSlider(): number {
+    const v = Math.min(this.brushMax, Math.max(this.brushMin, this.editorService.lineWidth));
+    return Math.round(
+      (this.brushSteps * Math.log(v / this.brushMin)) /
+        Math.log(this.brushMax / this.brushMin)
+    );
+  }
+
+  set brushSizeSlider(pos: number) {
+    const v =
+      this.brushMin *
+      Math.pow(this.brushMax / this.brushMin, pos / this.brushSteps);
+    this.editorService.lineWidth = Math.max(
+      this.brushMin,
+      Math.min(this.brushMax, Math.round(v))
+    );
+  }
 }

@@ -73,9 +73,15 @@ export class StateManagerService {
   }
 
   getBrushSizeOffset(): number {
-    return this.editorService.isToolWithBrushSize()
-      ? this.editorService.lineWidth / 2 + 2
-      : 0;
+    if (!this.editorService.isToolWithBrushSize()) return 0;
+    // Match the *actual* drawn radius: in pressure/touch mode the brush is
+    // scaled per point by brushPressureScale(), so the bbox padding must use the
+    // same scaled radius (read live here, identical to the value the tool uses
+    // in the same draw() call) — otherwise wider points fall outside the box and
+    // get clipped on commit.
+    const radius =
+      (this.editorService.lineWidth * this.editorService.brushPressureScale()) / 2;
+    return radius + 2;
   }
 
   getStateSnapshot() {

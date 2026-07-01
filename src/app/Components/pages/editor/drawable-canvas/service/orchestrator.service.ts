@@ -88,6 +88,11 @@ export class OrchestratorService {
 
       this.imageProc.setImage(img);
       this.postProcess.featuresExtracted = false;
+      this.postProcess.invalidateSuperpixels();
+      if (this.editorService.showSuperpixels) {
+        // Rebuild the overlay for the newly loaded image.
+        void this.postProcess.updateSuperpixelOverlay();
+      }
       this.state.recomputeCanvasSum = true;
 
       // Smooth pan/zoom only for smaller images; large ones tear.

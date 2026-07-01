@@ -18,6 +18,7 @@ mod dl;
 
 mod utils;
 mod storage;
+mod superpixel;
 mod types;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -43,8 +44,9 @@ pub fn run() {
         .manage(Arc::new(Mutex::new(FeaturesExtractor::new())))
         .manage(ModelSessions::new());
     
-    let app = app.manage(DbState::new()) 
+    let app = app.manage(DbState::new())
         .manage(InferenceClient::new())
+        .manage(commands::superpixel::SuperpixelState::default())
         .setup(|app| {
             connection::coms::setup_zmq_receiver(app.handle().clone())?;
             Ok(())
@@ -58,6 +60,8 @@ pub fn run() {
             connection::connection::event_processed,
             commands::crf::crf_refine,
             commands::flood_fill::flood_fill_mask,
+            commands::superpixel::superpixel_refine,
+            commands::superpixel::superpixel_overlay,
             #[cfg(not(target_os = "android"))]
             commands::dl::mask_sam_segment,
             // commands::io::save_json_file,

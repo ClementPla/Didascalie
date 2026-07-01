@@ -56,10 +56,11 @@
           class="mb-3 w-full"
         />
         <p-slider
-          [(ngModel)]="editorService.lineWidth"
+          [(ngModel)]="brushSizeSlider"
           class="w-full"
           pTooltip="Ctrl+Wheel"
-          [max]="1024"
+          [min]="0"
+          [max]="1000"
         />
       </blockable-p>
 
@@ -91,7 +92,7 @@
         pButton
         pRipple
         icon="pi pi-undo"
-        (onClick)="editorService.requestUndo()"
+        (click)="editorService.requestUndo()"
         pTooltip="Ctrl+Z"
         aria-label="Undo"
       ></button>
@@ -99,7 +100,7 @@
         pButton
         pRipple
         icon="pi pi-refresh"
-        (onClick)="editorService.requestRedo()"
+        (click)="editorService.requestRedo()"
         pTooltip="Ctrl+Y"
         aria-label="Redo"
       ></button>

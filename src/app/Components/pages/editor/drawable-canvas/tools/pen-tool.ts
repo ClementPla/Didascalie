@@ -15,10 +15,12 @@ export class PenTool extends BaseTool {
     const ctx = context.canvasManager.getBufferCtx();
     const prev = context.stateService.previousPoint;
 
-    // Drawing settings
+    // Drawing settings. Radius scales with pen/touch pressure (no-op on mouse
+    // or when pressure sensitivity is off).
     ctx.globalCompositeOperation = 'source-over';
     ctx.lineCap = 'round';
-    ctx.lineWidth = context.editorService.lineWidth;
+    ctx.lineWidth =
+      context.editorService.lineWidth * context.editorService.brushPressureScale();
     ctx.strokeStyle = context.color;
     ctx.fillStyle = context.color;
 

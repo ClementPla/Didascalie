@@ -30,6 +30,10 @@ export class ZoomPanService {
   /** Last image-space cursor, kept for the rulers. */
   public currentPixel: Point2D = { x: 0, y: 0 };
 
+  /** Last cursor position in viewport CSS px, or null when the cursor is not
+   *  over the canvas. Used as the pivot for keyboard (+/-) zoom. */
+  public lastCursorViewport: Point2D | null = null;
+
   private canZoom = true;
   private canPan = true;
 
@@ -195,11 +199,16 @@ export class ZoomPanService {
   }
 
   public zoomIn(factor: number) {
-    this.zoomAt(this.getViewportCenter(), factor);
+    this.zoomAt(this.getZoomPivot(), factor);
   }
 
   public zoomOut(factor: number) {
-    this.zoomAt(this.getViewportCenter(), 1 / factor);
+    this.zoomAt(this.getZoomPivot(), 1 / factor);
+  }
+
+  /** Pivot for keyboard zoom: the cursor if it's over the canvas, else center. */
+  private getZoomPivot(): Point2D {
+    return this.lastCursorViewport ?? this.getViewportCenter();
   }
 
   /**

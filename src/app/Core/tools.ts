@@ -49,6 +49,7 @@ export enum PostProcessOption {
   OTSU = 'Otsu',
   CRF = 'CRF',
   FLOODFILL = 'Flood Fill',
+  SUPERPIXEL = 'Superpixel',
 }
 
 export const postProcessingOptions = [
@@ -56,4 +57,5 @@ export const postProcessingOptions = [
   PostProcessOption.MEDSAM,
   // PostProcessOption.CRF,
   PostProcessOption.FLOODFILL,
+  PostProcessOption.SUPERPIXEL,
 ];
