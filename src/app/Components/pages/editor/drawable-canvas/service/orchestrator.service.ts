@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { auditTime, BehaviorSubject, merge, Subject, animationFrameScheduler } from 'rxjs';
+import { notifyExperimentalImageLoaded } from '../../../../../experimental/registry';
 
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
@@ -35,6 +36,7 @@ export class OrchestratorService {
     private zoomPan: ZoomPanService,
     private drawService: DrawService,
     private editorService: EditorService,
+    private injector: Injector,
   ) {
     this.initializeRedrawAggregation();
   }
@@ -88,11 +90,9 @@ export class OrchestratorService {
 
       this.imageProc.setImage(img);
       this.postProcess.featuresExtracted = false;
-      this.postProcess.invalidateSuperpixels();
-      if (this.editorService.showSuperpixels) {
-        // Rebuild the overlay for the newly loaded image.
-        void this.postProcess.updateSuperpixelOverlay();
-      }
+      // Let experimental features (superpixel map, …) invalidate their
+      // per-image caches.
+      notifyExperimentalImageLoaded(this.injector);
       this.state.recomputeCanvasSum = true;
 
       // Smooth pan/zoom only for smaller images; large ones tear.

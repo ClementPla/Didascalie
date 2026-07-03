@@ -1,0 +1,30 @@
+<div>
+  <label class="mb-1 block">Growth (− trim / + grow)</label>
+  <input
+    type="number"
+    pInputText
+    [(ngModel)]="crf.growth"
+    class="mb-3 w-full"
+  />
+  <p-slider [(ngModel)]="crf.growth" [min]="-1.5" [max]="2" [step]="0.1" />
+</div>
+<div>
+  <label class="mb-1 block">Smoothness</label>
+  <input
+    type="number"
+    pInputText
+    [(ngModel)]="crf.smoothness"
+    class="mb-3 w-full"
+  />
+  <p-slider [(ngModel)]="crf.smoothness" [min]="0" [max]="10" [step]="0.5" />
+</div>
+<div>
+  <label class="mb-1 block">Search radius (px)</label>
+  <input
+    type="number"
+    pInputText
+    [(ngModel)]="crf.searchRadius"
+    class="mb-3 w-full"
+  />
+  <p-slider [(ngModel)]="crf.searchRadius" [min]="8" [max]="256" [step]="4" />
+</div>

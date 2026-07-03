@@ -21,20 +21,56 @@ mod storage;
 mod superpixel;
 mod types;
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+/// Per-OS webview tuning, applied before the webview is created.
+///
+/// Tauri uses the platform's native webview (WebView2/Chromium on Windows,
+/// WKWebView on macOS, WebKitGTK on Linux), so the same canvas code performs
+/// very differently across platforms. Windows already forces the GPU on via
+/// `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` in main.rs; this covers Linux, where
+/// WebKitGTK defaults are the main lever. Every override is opt-outable so a
+/// user can A/B test the effect on their own hardware.
+fn configure_webview_env() {
     #[cfg(target_os = "linux")]
     {
-        if std::path::Path::new("/dev/dri").exists()
+        // Force accelerated compositing on unless the user already decided.
+        if std::env::var_os("WEBKIT_FORCE_COMPOSITING_MODE").is_none() {
+            // SAFETY: set before any webview/thread is spawned.
+            unsafe {
+                std::env::set_var("WEBKIT_FORCE_COMPOSITING_MODE", "1");
+            }
+        }
+
+        // The DMABUF renderer is the fast path but corrupts on some X11 +
+        // proprietary-driver setups, so we disable it there by default. Two
+        // escape hatches: an explicit WEBKIT_DISABLE_DMABUF_RENDERER is never
+        // overridden, and DIDASCALIE_FORCE_DMABUF=1 keeps the fast path on so
+        // the perf cost of disabling it can be measured.
+        let force_dmabuf =
+            std::env::var("DIDASCALIE_FORCE_DMABUF").map(|v| v == "1").unwrap_or(false);
+        let already_set = std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some();
+        let x11_with_dri = std::path::Path::new("/dev/dri").exists()
             && std::env::var("WAYLAND_DISPLAY").is_err()
-            && std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "x11"
-        {
-            // SAFETY: There's potential for race conditions in a multi-threaded context.
+            && std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "x11";
+
+        if !force_dmabuf && !already_set && x11_with_dri {
+            // SAFETY: set before any webview/thread is spawned.
             unsafe {
                 std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
             }
         }
+
+        eprintln!(
+            "[webview] WebKitGTK: WEBKIT_FORCE_COMPOSITING_MODE={:?} WEBKIT_DISABLE_DMABUF_RENDERER={:?}",
+            std::env::var("WEBKIT_FORCE_COMPOSITING_MODE").ok(),
+            std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok(),
+        );
     }
+    // macOS (WKWebView) exposes no comparable env knobs; nothing to do here.
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    configure_webview_env();
     let app = tauri::Builder::default()
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_dialog::init());

@@ -7,5 +7,12 @@
   @if(m.frozen){
   <div class="frozen-time">Blocked: {{ m.frozenFor }}ms</div>
   }
+  <div class="engine">{{ stats.webview }}</div>
+  <div class="detail">
+    composite: {{ stats.compositeBackend }} · {{ stats.compositeMs.toFixed(1) }}ms
+  </div>
+  <div class="detail">
+    redraw: {{ stats.redrawMs.toFixed(1) }}ms (peak {{ stats.redrawMaxMs.toFixed(0) }})
+  </div>
 </div>
 }

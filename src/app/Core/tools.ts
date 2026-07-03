@@ -52,10 +52,11 @@ export enum PostProcessOption {
   SUPERPIXEL = 'Superpixel',
 }
 
+/** Stable post-processing modes. Experimental ones (CRF, Superpixel, …) are
+ *  contributed by `src/app/experimental/registry.ts` and shown only while the
+ *  experimental-features switch is on (see FeatureFlagsService). */
 export const postProcessingOptions = [
   PostProcessOption.OTSU,
   PostProcessOption.MEDSAM,
-  // PostProcessOption.CRF,
   PostProcessOption.FLOODFILL,
-  PostProcessOption.SUPERPIXEL,
 ];

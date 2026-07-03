@@ -8,6 +8,7 @@ import { BboxManagerService } from './bbox-manager.service';
 import { CombinedLabel } from '../../../../../Core/interface';
 import { WebGPUCanvasCompositorService } from './web-gpucanvas-compositor.service';
 import { ZoomPanService } from './zoom-pan.service';
+import { RenderStatsService } from '../../../../Utils/fps-display/render-stats.service';
 
 @Injectable({
   providedIn: 'root',
@@ -31,7 +32,8 @@ export class CanvasManagerService {
     private editorService: EditorService,
     private bboxManager: BboxManagerService,
     private webgpuCompositor: WebGPUCanvasCompositorService,
-    private zoomPan: ZoomPanService
+    private zoomPan: ZoomPanService,
+    private renderStats: RenderStatsService
   ) {
     this.initializeWebGPU();
   }
@@ -68,10 +70,13 @@ export class CanvasManagerService {
   }
 
   async computeCombinedCanvas() {
+    const t0 = performance.now();
     this.bboxManager.clear();
     if (this.useWebGPU && this.editorService.webGPURendering) {
+      this.renderStats.compositeBackend = 'WebGPU';
       await this.computeCombinedCanvasGPU();
     } else {
+      this.renderStats.compositeBackend = 'CPU';
       this.computeCombinedCanvasCPU();
     }
     if (this.editorService.showBoundingBox) {
@@ -93,6 +98,7 @@ export class CanvasManagerService {
         });
       }
     }
+    this.renderStats.recordComposite(performance.now() - t0);
   }
 
   initCanvas() {

@@ -1,4 +1,4 @@
-import { Injectable, input } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import { EditorService } from '../../services/editor.service';
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
@@ -14,16 +14,13 @@ import { PostProcessOption } from '../../../../../Core/tools';
 import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { from_hex_to_rgb } from '../../../../../Core/misc/colors';
 import { ZoomPanService } from './zoom-pan.service';
+import { findExperimentalPostProcess } from '../../../../../experimental/registry';
 
 @Injectable({
   providedIn: 'root',
 })
 export class PostProcessService {
   public featuresExtracted: boolean = false;
-  public superpixelComputed: boolean = false;
-  /** Cached superpixel boundary overlay at image-native resolution, drawn by
-   *  the canvas component when `editorService.showSuperpixels` is on. */
-  public superpixelOverlayCanvas: OffscreenCanvas | null = null;
   constructor(
     private editorService: EditorService,
     private imageProcessingService: ImageAdjustmentService,
@@ -31,7 +28,8 @@ export class PostProcessService {
     private stateService: StateManagerService,
     private openCVService: OpenCVService,
     private labelService: LabelsService,
-    private zoomPanService: ZoomPanService
+    private zoomPanService: ZoomPanService,
+    private injector: Injector
   ) {}
 
   async sam_post_process() {
@@ -108,110 +106,6 @@ export class PostProcessService {
     activeCtx.drawImage(bufferCanvas, 0, 0);
   }
 
-  async superpixel_post_process() {
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
-    let rect = {
-      x: 0,
-      y: 0,
-      width: this.stateService.width,
-      height: this.stateService.height,
-    };
-
-    // The buffer holds the brush stroke; keep its color for the refined output.
-    const maskData = bufferCtx.getImageData(
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height
-    ).data;
-    let out = binarizeArray(maskData);
-    let currentColor = out.color;
-
-    const canvas = this.imageProcessingService.getCurrentCanvas();
-    if (!canvas) return;
-    const imgData = (canvas.getContext('2d', { alpha: false }) as
-      | CanvasRenderingContext2D
-      | OffscreenCanvasRenderingContext2D
-      | null)!.getImageData(rect.x, rect.y, rect.width, rect.height).data;
-
-    // Compute the superpixel map on the first stroke of an image, reuse after
-    // (mirrors the SAM feature-extraction flag). The command returns an RGBA
-    // mask (white/transparent), like flood_fill.
-    const mask = await invoke<Uint8ClampedArray>('superpixel_refine', {
-      image: this.superpixelComputed ? [] : imgData.buffer,
-      brush: maskData.buffer,
-      width: rect.width,
-      height: rect.height,
-      computeMap: !this.superpixelComputed,
-      targetCount: this.editorService.superpixelCount,
-      similarityThreshold: this.editorService.superpixelThreshold,
-      minOverlapFraction: this.editorService.superpixelMinOverlap,
-    });
-    this.superpixelComputed = true;
-
-    const newMask = new ImageData(
-      new Uint8ClampedArray(mask),
-      rect.width,
-      rect.height
-    );
-    colorizeArrayInplace(newMask.data, [
-      currentColor[0],
-      currentColor[1],
-      currentColor[2],
-      255,
-    ]);
-
-    const activeCtx = this.canvasManagerService.getActiveCtx();
-    bufferCtx.putImageData(newMask, rect.x, rect.y);
-    activeCtx.drawImage(bufferCtx.canvas, 0, 0);
-  }
-
-  /** Invalidate the cached superpixel map/overlay (e.g. when the target count
-   *  changes) so the next stroke or overlay refresh recomputes it. */
-  invalidateSuperpixels() {
-    this.superpixelComputed = false;
-    this.superpixelOverlayCanvas = null;
-  }
-
-  /** Fetch (building the map on demand) and cache the superpixel boundary
-   *  overlay, then request a redraw. Clears the overlay when the toggle is off. */
-  async updateSuperpixelOverlay() {
-    if (!this.editorService.showSuperpixels) {
-      this.superpixelOverlayCanvas = null;
-      this.canvasManagerService.requestRedraw.next(true);
-      return;
-    }
-
-    const canvas = this.imageProcessingService.getCurrentCanvas();
-    if (!canvas) return;
-    const width = this.stateService.width;
-    const height = this.stateService.height;
-    const imgData = (canvas.getContext('2d', { alpha: false }) as
-      | CanvasRenderingContext2D
-      | OffscreenCanvasRenderingContext2D
-      | null)!.getImageData(0, 0, width, height).data;
-
-    const overlay = await invoke<Uint8ClampedArray>('superpixel_overlay', {
-      image: this.superpixelComputed ? [] : imgData.buffer,
-      width,
-      height,
-      computeMap: !this.superpixelComputed,
-      targetCount: this.editorService.superpixelCount,
-    });
-    this.superpixelComputed = true;
-
-    const off = new OffscreenCanvas(width, height);
-    off
-      .getContext('2d')!
-      .putImageData(
-        new ImageData(new Uint8ClampedArray(overlay), width, height),
-        0,
-        0
-      );
-    this.superpixelOverlayCanvas = off;
-    this.canvasManagerService.requestRedraw.next(true);
-  }
-
   async otsu_post_process() {
     const rect = this.stateService.getBoundingBox();
     let bufferCtx = this.canvasManagerService.getBufferCtx();
@@ -258,55 +152,6 @@ export class PostProcessService {
         rect.height
       );
     });
-  }
-
-  async crf_post_process() {
-    {
-      const rect = this.stateService.getBoundingBox();
-      let bufferCtx = this.canvasManagerService.getBufferCtx();
-
-      const canvas = this.imageProcessingService.getCurrentCanvas();
-      if (!canvas) return;
-
-      const imageData = (canvas.getContext('2d', { alpha: false }) as
-  CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null)!.getImageData(rect.x, rect.y, rect.width, rect.height).data;
-
-      const maskData = bufferCtx.getImageData(
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height
-      ).data;
-
-      return invoke<Uint8ClampedArray>('crf_refine', {
-        mask: maskData.buffer,
-        image: imageData.buffer,
-        width: rect.width,
-        height: rect.height,
-        spatialWeight: 3.0, // Lower value for spatial influence
-        bilateralWeight: 5.0,
-        numIterations: 50,
-      }).then((mask: Uint8ClampedArray) => {
-        const newMAsk = new ImageData(
-          new Uint8ClampedArray(mask),
-          rect.width,
-          rect.height
-        );
-        const activeCtx = this.canvasManagerService.getActiveCtx();
-        bufferCtx.putImageData(newMAsk, rect.x, rect.y);
-        activeCtx.drawImage(
-          bufferCtx.canvas,
-          rect.x,
-          rect.y,
-          rect.width,
-          rect.height,
-          rect.x,
-          rect.y,
-          rect.width,
-          rect.height
-        );
-      });
-    }
   }
 
   async flood_fill_post_process() {
@@ -400,14 +245,16 @@ export class PostProcessService {
         return this.sam_post_process();
       case PostProcessOption.OTSU:
         return this.otsu_post_process();
-      case PostProcessOption.CRF:
-        return this.crf_post_process();
       case PostProcessOption.FLOODFILL:
         return this.flood_fill_post_process();
-      case PostProcessOption.SUPERPIXEL:
-        return this.superpixel_post_process();
-      default:
-        return;
+      default: {
+        // Experimental modes (CRF, superpixel, …) are resolved through the
+        // registry so this service never imports experimental feature code.
+        const experimental = findExperimentalPostProcess(
+          this.editorService.postProcessOption
+        );
+        return experimental?.run(this.injector);
+      }
     }
   }
 }

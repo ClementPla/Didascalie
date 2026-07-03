@@ -7,6 +7,7 @@ import { EditorService } from './Components/pages/editor/services/editor.service
 import { AppInitializationService } from './Services/app-initialization.service';
 import { ThemeService } from './Services/theme.service';
 import { Button } from 'primeng/button';
+import { TooltipModule } from 'primeng/tooltip';
 import { BlockUIModule } from 'primeng/blockui';
 import { DividerModule } from 'primeng/divider';
 import { ToastModule } from 'primeng/toast';
@@ -18,6 +19,7 @@ import { NotificationService } from './Services/notification.service';
 import { IOService } from './Services/io.service';
 import { FpsDisplayComponent } from "./Components/Utils/fps-display/fps-display.component";
 import { ProjectService } from './Services/ProjectService/project.service';
+import { ExperimentalSettingsComponent } from './experimental/experimental-settings/experimental-settings.component';
 @Component({
   selector: 'app-root',
   imports: [
@@ -25,11 +27,13 @@ import { ProjectService } from './Services/ProjectService/project.service';
     LoadingComponent,
     RouterOutlet,
     Button,
+    TooltipModule,
     RouterModule,
     BlockUIModule,
     DividerModule,
     ToastModule,
-    FpsDisplayComponent
+    FpsDisplayComponent,
+    ExperimentalSettingsComponent
 ],
   providers: [MessageService],
   templateUrl: './app.component.html',

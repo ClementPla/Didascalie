@@ -63,12 +63,6 @@ export class EditorService {
 
   public floodFillTolerance: number = 3.0;
 
-  /** Superpixel refinement settings. */
-  public superpixelCount: number = 2000; // approximate number of superpixels
-  public superpixelThreshold: number = 10.0; // CIEDE2000 similarity tolerance
-  public superpixelMinOverlap: number = 0.15; // min stroke coverage of a superpixel
-  public showSuperpixels: boolean = false; // overlay the superpixel boundaries
-
   public webGPURendering: boolean = false;
   public resetZoomAfterNavigation: boolean = true;
   constructor() {}

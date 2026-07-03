@@ -16,7 +16,7 @@
             <div class="flex flex-wrap gap-2 justify-center">
               @if (editorService.isDrawingTool()) {
                 <p-selectButton
-                  [options]="postProcessingOptions"
+                  [options]="flags.visiblePostProcessOptions()"
                   [(ngModel)]="editorService.postProcessOption"
                 ></p-selectButton>
                 @switch (editorService.postProcessOption) {
@@ -93,64 +93,17 @@
                       />
                     </div>
                   }
-                  @case (ppOption.SUPERPIXEL) {
-                    <small>
-                      Snap the brush stroke to superpixel boundaries, keeping
-                      only the touched superpixels that match the dominant color
-                      under the stroke.
-                    </small>
-                    <app-labelled-switch
-                      [(checked)]="editorService.showSuperpixels"
-                      (checkedChange)="onToggleSuperpixels()"
-                      >Show superpixels</app-labelled-switch
-                    >
-                    <div>
-                      <label class="mb-1 block">Superpixel count</label>
-                      <input
-                        type="number"
-                        pInputText
-                        [(ngModel)]="editorService.superpixelCount"
-                        (ngModelChange)="onSuperpixelCountChange()"
-                        class="mb-3 w-full"
-                      />
-                      <p-slider
-                        [(ngModel)]="editorService.superpixelCount"
-                        (onSlideEnd)="onSuperpixelCountChange()"
-                        [min]="500"
-                        [max]="8000"
-                        [step]="100"
-                      />
-                    </div>
-                    <div>
-                      <label class="mb-1 block">Color tolerance</label>
-                      <input
-                        type="number"
-                        pInputText
-                        [(ngModel)]="editorService.superpixelThreshold"
-                        class="mb-3 w-full"
-                      />
-                      <p-slider
-                        [(ngModel)]="editorService.superpixelThreshold"
-                        [min]="1"
-                        [max]="30"
-                        [step]="0.5"
-                      />
-                    </div>
-                    <div>
-                      <label class="mb-1 block">Min. overlap</label>
-                      <input
-                        type="number"
-                        pInputText
-                        [(ngModel)]="editorService.superpixelMinOverlap"
-                        class="mb-3 w-full"
-                      />
-                      <p-slider
-                        [(ngModel)]="editorService.superpixelMinOverlap"
-                        [min]="0"
-                        [max]="1"
-                        [step]="0.05"
-                      />
-                    </div>
+                  @default {
+                    <!-- Experimental modes (CRF, superpixel, …): description
+                         and settings come from the experimental registry. -->
+                    @if (experimentalPostProcess; as pp) {
+                      <small>{{ pp.description }}</small>
+                      @if (pp.settingsComponent) {
+                        <ng-container
+                          *ngComponentOutlet="pp.settingsComponent"
+                        ></ng-container>
+                      }
+                    }
                   }
                 }
               }

@@ -1,219 +1,252 @@
+use rayon::prelude::*;
 use tauri::ipc::Response;
 
+/// Reference colors per model are subsampled to this many to keep the
+/// nearest-neighbor color lookup cheap.
+const MAX_SAMPLES: usize = 48;
+
+/// Refine a coarse brush stroke into a segmentation with a mean-field dense CRF
+/// over a foreground / background labeling of the region.
+///
+/// The key to making a *scribble* usable (rather than just smoothing it) is an
+/// appearance-based unary, GrabCut-style:
+///   * a **foreground color model** is sampled from the painted stroke;
+///   * a **background color model** is sampled from an outer border band of the
+///     region, which is assumed to be background;
+///   * every pixel's unary is driven by which model its color is closer to, so
+///     unpainted pixels that match the object's color are pulled into the mask
+///     (the mask fills the object) and painted spill-over onto background color
+///     is pulled out.
+///
+/// A `stroke_bias` keeps painted pixels anchored to foreground, and `growth`
+/// shifts the FG/BG decision boundary (positive grows, negative trims).
+///
+/// The pairwise terms then enforce spatial coherence:
+///   * a **bilateral** term (position + color) that snaps the boundary onto
+///     color edges, using a spatial normalizer with color as a gate so it never
+///     degenerates into an eroding neighborhood average;
+///   * a **smoothness** term (position only) that removes speckle.
+///
+/// Returns a white / transparent RGBA mask (the caller colorizes it), matching
+/// the flood-fill / superpixel output convention.
 #[tauri::command]
 pub fn crf_refine(
     image: Vec<u8>,
     mask: Vec<u8>,
     width: usize,
     height: usize,
-    spatial_weight: f32,
-    bilateral_weight: f32,
+    color_scale: f32,
+    growth: f32,
+    stroke_bias: f32,
+    edge_weight: f32,
+    edge_spatial: f32,
+    edge_color: f32,
+    smoothness_weight: f32,
     num_iterations: usize,
 ) -> Result<Response, String> {
-    let mask_img = image::RgbaImage::from_raw(width as u32, height as u32, mask)
-        .ok_or("Invalid mask dimensions")?;
-
-    let image_rgba = image::RgbaImage::from_raw(width as u32, height as u32, image)
-        .ok_or("Invalid image dimensions")?;
-
-    // Create binary mask based on ALPHA channel
-    let mut gray_mask = image::GrayImage::new(width as u32, height as u32);
-    for y in 0..height {
-        for x in 0..width {
-            let pixel = mask_img.get_pixel(x as u32, y as u32);
-            gray_mask.put_pixel(
-                x as u32,
-                y as u32,
-                image::Luma([if pixel[3] > 128 { 255 } else { 0 }]),
-            );
-        }
+    let n = width * height;
+    if n == 0 || image.len() < n * 4 || mask.len() < n * 4 {
+        return Err("Image/mask buffer smaller than width*height*4".to_string());
     }
 
-    let has_foreground = gray_mask.pixels().any(|p| p[0] > 0);
-    if !has_foreground {
-        return Err("Mask is empty - no foreground pixels found".to_string());
+    // Coarse foreground from the mask alpha channel.
+    let seed_fg: Vec<bool> = (0..n).map(|i| mask[i * 4 + 3] > 128).collect();
+    let has_fg = seed_fg.iter().any(|&f| f);
+    let has_bg = seed_fg.iter().any(|&f| !f);
+    // Nothing to refine (region is entirely painted or entirely empty).
+    if !has_fg || !has_bg {
+        return Ok(Response::new(labels_to_rgba(&seed_fg)));
     }
 
-    println!("Starting edge-aware refinement...");
-
-    // Identify edge pixels (foreground pixels adjacent to background)
-    let mut is_edge_pixel: Vec<bool> = vec![false; width * height];
-    for y in 0..height {
-        for x in 0..width {
-            if gray_mask.get_pixel(x as u32, y as u32)[0] == 0 {
-                continue; // Skip background
-            }
-
-            // Check if any neighbor is background
-            let mut has_bg_neighbor = false;
-            for dy in -1i32..=1 {
-                for dx in -1i32..=1 {
-                    if dx == 0 && dy == 0 {
-                        continue;
-                    }
-                    let nx = x as i32 + dx;
-                    let ny = y as i32 + dy;
-                    if nx >= 0 && nx < width as i32 && ny >= 0 && ny < height as i32 {
-                        if gray_mask.get_pixel(nx as u32, ny as u32)[0] == 0 {
-                            has_bg_neighbor = true;
-                            break;
-                        }
-                    }
-                }
-                if has_bg_neighbor {
-                    break;
-                }
-            }
-            is_edge_pixel[y * width + x] = has_bg_neighbor;
-        }
-    }
-
-    let edge_count = is_edge_pixel.iter().filter(|&&e| e).count();
-    println!("Edge pixels to refine: {}", edge_count);
-
-    // Initialize probabilities: 1.0 for interior, variable for edges
-    let mut q_prob: Vec<f32> = (0..width * height)
+    // Per-pixel RGB as f32 for cache-friendly neighbor reads.
+    let rgb: Vec<[f32; 3]> = (0..n)
         .map(|i| {
-            let x = i % width;
-            let y = i / width;
-            let mask_val = gray_mask.get_pixel(x as u32, y as u32)[0];
+            [
+                image[i * 4] as f32,
+                image[i * 4 + 1] as f32,
+                image[i * 4 + 2] as f32,
+            ]
+        })
+        .collect();
 
-            if mask_val == 0 {
-                0.0 // Background
-            } else if is_edge_pixel[i] {
-                0.5 // Edge pixels start uncertain
+    // Foreground samples from the stroke; background samples from an outer
+    // border band assumed to be background (skipping any painted pixels there).
+    let bw = (width.min(height) / 6).clamp(2, 12);
+    let mut fg_idx = Vec::new();
+    let mut bg_idx = Vec::new();
+    for i in 0..n {
+        let x = i % width;
+        let y = i / width;
+        let on_border = x < bw || x >= width - bw || y < bw || y >= height - bw;
+        if seed_fg[i] {
+            fg_idx.push(i);
+        } else if on_border {
+            bg_idx.push(i);
+        }
+    }
+    let fg_samples = subsample(&rgb, &fg_idx, MAX_SAMPLES);
+    let bg_samples = subsample(&rgb, &bg_idx, MAX_SAMPLES);
+
+    let color_scale = color_scale.max(1.0);
+    let edge_spatial = edge_spatial.max(0.5);
+    let edge_color = edge_color.max(1.0);
+    let smoothness_spatial = 3.0f32;
+    let iterations = num_iterations.max(1);
+
+    // Pairwise windows ~ 2.5σ, clamped so the cost stays bounded.
+    let rad_b = ((edge_spatial * 2.5).ceil() as i32).clamp(1, 16);
+    let rad_s = ((smoothness_spatial * 2.5).ceil() as i32).clamp(1, 10);
+    let inv2_pos = 1.0 / (2.0 * edge_spatial * edge_spatial);
+    let inv2_col = 1.0 / (2.0 * edge_color * edge_color);
+    let inv2_smo = 1.0 / (2.0 * smoothness_spatial * smoothness_spatial);
+
+    // Appearance unary (log-odds). >0 favors foreground. When no background
+    // samples are available (e.g. the region is mostly painted), fall back to a
+    // fixed "far" background distance so the color model still segments by
+    // similarity to the stroke.
+    const BG_FALLBACK: f32 = 60.0;
+    const CLAMP: f32 = 6.0;
+    let unary: Vec<f32> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            let c = rgb[i];
+            let d_fg = min_dist(&fg_samples, c);
+            let d_bg = if bg_samples.is_empty() {
+                BG_FALLBACK
             } else {
-                1.0 // Interior pixels stay
+                min_dist(&bg_samples, c)
+            };
+            let u = ((d_bg - d_fg) / color_scale + growth).clamp(-CLAMP, CLAMP);
+            if seed_fg[i] {
+                u + stroke_bias
+            } else {
+                u
             }
         })
         .collect();
 
+    // Q(FG) initialized from the unary.
+    let mut q: Vec<f32> = unary.iter().map(|&u| sigmoid(u)).collect();
+
     let start = std::time::Instant::now();
+    let w = width as i32;
+    let h = height as i32;
 
-    // Refine only edge pixels based on color affinity
-    for iter in 0..num_iterations {
-        let mut new_q_prob = q_prob.clone();
-        let mut total_change = 0.0f32;
-        let mut num_refined = 0;
+    for _ in 0..iterations {
+        // Each pixel reads its neighbors' Q from the previous iteration (q) and
+        // writes into q_new — no aliasing, safe to parallelize.
+        let q_new: Vec<f32> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let x = (i % width) as i32;
+                let y = (i / width) as i32;
+                let ci = rgb[i];
 
-        for y in 0..height {
-            for x in 0..width {
-                let i = y * width + x;
+                // Neighbors cast a vote in [-1, 1] (BG..FG). The bilateral term
+                // weights by color similarity but normalizes by the *spatial*
+                // weight only, so differently-colored neighbors fade to a zero
+                // vote instead of eroding the estimate toward the local average.
+                let mut b_num = 0.0f32;
+                let mut b_z = 0.0f32;
+                let mut s_num = 0.0f32;
+                let mut s_z = 0.0f32;
 
-                // Only refine edge pixels
-                if !is_edge_pixel[i] {
-                    continue;
-                }
+                let y0 = (y - rad_b).max(0);
+                let y1 = (y + rad_b).min(h - 1);
+                let x0 = (x - rad_b).max(0);
+                let x1 = (x + rad_b).min(w - 1);
 
-                num_refined += 1;
-
-                let pixel = image_rgba.get_pixel(x as u32, y as u32);
-                let r = pixel[0] as f32;
-                let g = pixel[1] as f32;
-                let b = pixel[2] as f32;
-
-                // Compute color affinity to foreground vs background neighbors
-                let mut fg_affinity = 0.0f32;
-                let mut bg_affinity = 0.0f32;
-                let mut fg_count = 0;
-                let mut bg_count = 0;
-
-                // Check neighbors in a larger radius
-                for dy in -3i32..=3 {
-                    for dx in -3i32..=3 {
+                for ny in y0..=y1 {
+                    let dy = ny - y;
+                    let row = (ny as usize) * width;
+                    for nx in x0..=x1 {
+                        let dx = nx - x;
                         if dx == 0 && dy == 0 {
                             continue;
                         }
-                        let nx = x as i32 + dx;
-                        let ny = y as i32 + dy;
+                        let j = row + nx as usize;
+                        let vote = 2.0 * q[j] - 1.0;
+                        let d2 = (dx * dx + dy * dy) as f32;
 
-                        if nx < 0 || nx >= width as i32 || ny < 0 || ny >= height as i32 {
-                            continue;
-                        }
+                        let cj = rgb[j];
+                        let dc2 = (ci[0] - cj[0]).powi(2)
+                            + (ci[1] - cj[1]).powi(2)
+                            + (ci[2] - cj[2]).powi(2);
+                        let w_pos = (-d2 * inv2_pos).exp();
+                        let w_col = (-dc2 * inv2_col).exp();
+                        b_num += w_pos * w_col * vote;
+                        b_z += w_pos;
 
-                        let npixel = image_rgba.get_pixel(nx as u32, ny as u32);
-                        let nr = npixel[0] as f32;
-                        let ng = npixel[1] as f32;
-                        let nb = npixel[2] as f32;
-
-                        // Color distance
-                        let color_dist =
-                            ((r - nr).powi(2) + (g - ng).powi(2) + (b - nb).powi(2)).sqrt();
-
-                        // Spatial distance
-                        let spatial_dist = ((dx * dx + dy * dy) as f32).sqrt();
-
-                        // Weight: closer and more similar = higher weight
-                        let weight = (-color_dist / bilateral_weight).exp()
-                            * (-spatial_dist / spatial_weight).exp();
-
-                        let is_fg = gray_mask.get_pixel(nx as u32, ny as u32)[0] > 0;
-
-                        if is_fg && !is_edge_pixel[ny as usize * width + nx as usize] {
-                            // Interior foreground neighbor
-                            fg_affinity += weight;
-                            fg_count += 1;
-                        } else if !is_fg {
-                            // Background neighbor
-                            bg_affinity += weight;
-                            bg_count += 1;
+                        if dx.abs() <= rad_s && dy.abs() <= rad_s {
+                            let w_sm = (-d2 * inv2_smo).exp();
+                            s_num += w_sm * vote;
+                            s_z += w_sm;
                         }
                     }
                 }
 
-                // Normalize by count
-                if fg_count > 0 {
-                    fg_affinity /= fg_count as f32;
-                }
-                if bg_count > 0 {
-                    bg_affinity /= bg_count as f32;
-                }
+                let b_signed = if b_z > 0.0 { b_num / b_z } else { 0.0 };
+                let s_signed = if s_z > 0.0 { s_num / s_z } else { 0.0 };
 
-                // Compute probability based on relative affinity
-                let total_affinity = fg_affinity + bg_affinity;
-                let new_prob = if total_affinity > 0.0 {
-                    (fg_affinity / total_affinity).clamp(0.0, 1.0)
-                } else {
-                    q_prob[i] // Keep old value if no info
-                };
-
-                total_change += (new_prob - q_prob[i]).abs();
-                new_q_prob[i] = new_prob;
-            }
-        }
-
-        q_prob = new_q_prob;
-        let avg_change = if num_refined > 0 {
-            total_change / num_refined as f32
-        } else {
-            0.0
-        };
-
-        if iter % 5 == 0 || iter == num_iterations - 1 {
-            let fg_pixels = q_prob.iter().filter(|&&p| p > 0.5).count();
-            println!(
-                "Iteration {}: avg change = {:.6}, FG pixels (>0.5): {}",
-                iter, avg_change, fg_pixels
-            );
-        }
-
-        if avg_change < 0.001 {
-            println!("Converged at iteration {}", iter);
-            break;
-        }
+                // Mean-field update: appearance unary + coherent pairwise terms.
+                let logit =
+                    unary[i] + edge_weight * b_signed + smoothness_weight * s_signed;
+                sigmoid(logit)
+            })
+            .collect();
+        q = q_new;
     }
 
-    println!("Edge refinement took: {:?}", start.elapsed());
+    println!(
+        "CRF ({}x{}, {} iters, rad {}, {} fg / {} bg samples) took {:?}",
+        width,
+        height,
+        iterations,
+        rad_b,
+        fg_samples.len(),
+        bg_samples.len(),
+        start.elapsed()
+    );
 
-    let output_mask_image = image::ImageBuffer::from_fn(width as u32, height as u32, |x, y| {
-        let prob = q_prob[(y as usize) * width + (x as usize)];
-        if prob > 0.5 {
-            let mask_pixel = mask_img.get_pixel(x, y);
-            image::Rgba([mask_pixel[0], mask_pixel[1], mask_pixel[2], 255])
-        } else {
-            image::Rgba([0, 0, 0, 0])
+    let out_fg: Vec<bool> = q.iter().map(|&p| p > 0.5).collect();
+    Ok(Response::new(labels_to_rgba(&out_fg)))
+}
+
+#[inline]
+fn sigmoid(x: f32) -> f32 {
+    1.0 / (1.0 + (-x).exp())
+}
+
+/// Evenly subsample reference colors at the given indices down to `max`.
+fn subsample(rgb: &[[f32; 3]], idx: &[usize], max: usize) -> Vec<[f32; 3]> {
+    if idx.is_empty() || max == 0 {
+        return Vec::new();
+    }
+    let step = idx.len().div_ceil(max).max(1);
+    idx.iter().step_by(step).map(|&i| rgb[i]).collect()
+}
+
+/// Euclidean RGB distance to the nearest reference color (0 if none).
+fn min_dist(samples: &[[f32; 3]], c: [f32; 3]) -> f32 {
+    let mut best = f32::MAX;
+    for s in samples {
+        let d = (c[0] - s[0]).powi(2) + (c[1] - s[1]).powi(2) + (c[2] - s[2]).powi(2);
+        if d < best {
+            best = d;
         }
-    });
+    }
+    if best == f32::MAX { 0.0 } else { best.sqrt() }
+}
 
-    Ok(Response::new(output_mask_image.into_vec()))
+/// Pack a boolean foreground mask into a white / transparent RGBA buffer.
+fn labels_to_rgba(fg: &[bool]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(fg.len() * 4);
+    for &f in fg {
+        if f {
+            out.extend_from_slice(&[255, 255, 255, 255]);
+        } else {
+            out.extend_from_slice(&[0, 0, 0, 0]);
+        }
+    }
+    out
 }

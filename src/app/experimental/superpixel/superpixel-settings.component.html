@@ -1,0 +1,52 @@
+<app-labelled-switch
+  [(checked)]="superpixel.showBoundaries"
+  (checkedChange)="onToggleOverlay()"
+  >Show superpixels</app-labelled-switch
+>
+<div>
+  <label class="mb-1 block">Superpixel count</label>
+  <input
+    type="number"
+    pInputText
+    [(ngModel)]="superpixel.count"
+    (ngModelChange)="onCountChange()"
+    class="mb-3 w-full"
+  />
+  <p-slider
+    [(ngModel)]="superpixel.count"
+    (onSlideEnd)="onCountChange()"
+    [min]="500"
+    [max]="8000"
+    [step]="100"
+  />
+</div>
+<div>
+  <label class="mb-1 block">Color tolerance</label>
+  <input
+    type="number"
+    pInputText
+    [(ngModel)]="superpixel.threshold"
+    class="mb-3 w-full"
+  />
+  <p-slider
+    [(ngModel)]="superpixel.threshold"
+    [min]="1"
+    [max]="30"
+    [step]="0.5"
+  />
+</div>
+<div>
+  <label class="mb-1 block">Min. overlap</label>
+  <input
+    type="number"
+    pInputText
+    [(ngModel)]="superpixel.minOverlap"
+    class="mb-3 w-full"
+  />
+  <p-slider
+    [(ngModel)]="superpixel.minOverlap"
+    [min]="0"
+    [max]="1"
+    [step]="0.05"
+  />
+</div>
