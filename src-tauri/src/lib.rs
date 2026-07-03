@@ -45,14 +45,21 @@ fn configure_webview_env() {
         // escape hatches: an explicit WEBKIT_DISABLE_DMABUF_RENDERER is never
         // overridden, and DIDASCALIE_FORCE_DMABUF=1 keeps the fast path on so
         // the perf cost of disabling it can be measured.
-        let force_dmabuf =
-            std::env::var("DIDASCALIE_FORCE_DMABUF").map(|v| v == "1").unwrap_or(false);
+        let raw_force = std::env::var("DIDASCALIE_FORCE_DMABUF").ok();
+        let force_dmabuf = raw_force.as_deref() == Some("1");
         let already_set = std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some();
         let x11_with_dri = std::path::Path::new("/dev/dri").exists()
             && std::env::var("WAYLAND_DISPLAY").is_err()
             && std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "x11";
 
-        if !force_dmabuf && !already_set && x11_with_dri {
+        if force_dmabuf {
+            // Explicit opt-in to the fast path wins, even if something upstream
+            // (a wrapper, the desktop, a prior export) already disabled DMABUF.
+            // SAFETY: set before any webview/thread is spawned.
+            unsafe {
+                std::env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
+            }
+        } else if !already_set && x11_with_dri {
             // SAFETY: set before any webview/thread is spawned.
             unsafe {
                 std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
@@ -60,7 +67,9 @@ fn configure_webview_env() {
         }
 
         eprintln!(
-            "[webview] WebKitGTK: WEBKIT_FORCE_COMPOSITING_MODE={:?} WEBKIT_DISABLE_DMABUF_RENDERER={:?}",
+            "[webview] WebKitGTK: DIDASCALIE_FORCE_DMABUF={:?} -> force={} | WEBKIT_FORCE_COMPOSITING_MODE={:?} WEBKIT_DISABLE_DMABUF_RENDERER={:?}",
+            raw_force,
+            force_dmabuf,
             std::env::var("WEBKIT_FORCE_COMPOSITING_MODE").ok(),
             std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok(),
         );
