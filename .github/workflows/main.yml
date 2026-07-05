@@ -55,6 +55,14 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Auto-update signing. Generate a keypair once with
+          #   npm run tauri signer generate -- -w ~/.tauri/didascalie.key
+          # then add these as repository secrets (Settings → Secrets → Actions)
+          # and paste the PUBLIC key into src-tauri/tauri.conf.json (plugins.updater.pubkey).
+          # With these set, tauri-action signs the installers and publishes a
+          # `latest.json` update manifest to the release.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: didascalie-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: "Didascalie v__VERSION__"

@@ -10,6 +10,8 @@
     "core:path:allow-resolve",
     "core:webview:allow-create-webview-window",
     "core:window:allow-set-always-on-top",
-    "core:window:allow-destroy"
+    "core:window:allow-destroy",
+    "updater:default",
+    "process:default"
   ]
 }

@@ -57,6 +57,9 @@ reqwest = { version = "0.13.3", default-features = false, features = ["json", "s
 serde_bytes = "0.11.19"
 [target.'cfg(not(target_os = "android"))'.dependencies]
 ort = { version = "=2.0.0-rc.10", features = ["cuda", "copy-dylibs"] }
+# Desktop auto-update (GitHub releases). Registered under #[cfg(desktop)].
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.

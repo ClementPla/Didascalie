@@ -16,6 +16,7 @@ import {
   RecentProject,
 } from '../../../Services/ProjectService/project.service';
 import { ThemeService } from '../../../Services/theme.service';
+import { UpdateService } from '../../../Services/update.service';
 import { LabelledSwitchComponent } from '../../../generics/labelled-switch/labelled-switch.component';
 
 @Component({
@@ -42,10 +43,13 @@ export class LauncherComponent implements OnInit {
     private router: Router,
     private messageService: MessageService,
     public theme: ThemeService,
+    public update: UpdateService,
   ) {}
 
   ngOnInit(): void {
     this.recentProjects.set(this.projectService.getRecentProjects());
+    // Offer an app update on the first screen if one is available.
+    void this.update.checkForUpdates();
   }
 
   newProject(): void {

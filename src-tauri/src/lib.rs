@@ -84,6 +84,13 @@ pub fn run() {
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_dialog::init());
 
+    // Auto-update from GitHub releases (desktop only; the updater/process
+    // plugins don't apply on mobile).
+    #[cfg(desktop)]
+    let app = app
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init());
+
     #[cfg(not(target_os = "android"))]
     let app = app
         .manage(Arc::new(Mutex::new(FeaturesExtractor::new())))

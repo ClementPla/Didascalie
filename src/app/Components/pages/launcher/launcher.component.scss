@@ -28,6 +28,31 @@
   margin-bottom: -1rem; /* sit it close to the top, above the header gap */
 }
 
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--p-primary-color, #3b82f6);
+  border-radius: var(--p-content-border-radius, 8px);
+  background: var(--p-highlight-background, rgba(59, 130, 246, 0.08));
+
+  &__text {
+    font-weight: 500;
+  }
+
+  &__progress {
+    margin-left: auto;
+    color: var(--p-text-muted-color, #64748b);
+    font-variant-numeric: tabular-nums;
+  }
+
+  // Push the action buttons to the right.
+  > p-button:first-of-type {
+    margin-left: auto;
+  }
+}
+
 .launcher-header {
   text-align: center;
   h1 {

@@ -24,6 +24,34 @@
     <p class="tagline">Open a project or start a new one.</p>
   </header>
 
+  @if (update.available()) {
+    <div class="update-banner">
+      <i class="pi pi-download" aria-hidden="true"></i>
+      <span class="update-banner__text">
+        Update available — version {{ update.newVersion }}
+      </span>
+      @if (update.installing()) {
+        <span class="update-banner__progress">
+          Downloading… {{ update.progress() }}%
+        </span>
+      } @else {
+        <p-button
+          size="small"
+          label="Update & restart"
+          icon="pi pi-refresh"
+          (onClick)="update.installAndRestart()"
+        ></p-button>
+        <p-button
+          size="small"
+          label="Later"
+          [text]="true"
+          severity="secondary"
+          (onClick)="update.dismiss()"
+        ></p-button>
+      }
+    </div>
+  }
+
   <div class="primary-actions">
     <p-button
       icon="pi pi-plus"
