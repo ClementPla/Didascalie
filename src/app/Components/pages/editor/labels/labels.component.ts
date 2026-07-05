@@ -159,6 +159,27 @@ export class LabelsComponent implements OnInit, OnDestroy {
     return !!(node.children && node.children.length > 0);
   }
 
+  /**
+   * The tree node backing the active label, so the tree's selection highlight
+   * always tracks `activeLabel` — whether it changed by click or by Ctrl+Tab.
+   * This is the single source of truth; there is no separate "last clicked".
+   */
+  get selectedTreeNode(): TreeNode | null {
+    const active = this.labelsService.activeLabel;
+    return active ? this.findNode(this.labelsService.getTreeNode(), active) : null;
+  }
+
+  private findNode(nodes: TreeNode[], label: SegLabel): TreeNode | null {
+    for (const node of nodes) {
+      if (node.data === label) return node;
+      if (node.children) {
+        const found = this.findNode(node.children, label);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
   public changeActiveLabel(event: TreeNode[] | TreeNode | null): void {
     if (Array.isArray(event) || !event) return;
 

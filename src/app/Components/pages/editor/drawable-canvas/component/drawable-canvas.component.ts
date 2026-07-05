@@ -30,6 +30,7 @@ import { VectorEditorService } from '../service/vector-editor.service';
 import { CanvasInputDirective } from '../directives/canvas-input.directive';
 import { Button } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
+import { SelectModule } from 'primeng/select';
 
 import { Point2D, Viewbox } from '../interface';
 import { FeatureFlagsService } from '../../../../../experimental/feature-flags.service';
@@ -38,7 +39,7 @@ import { RenderStatsService } from '../../../../Utils/fps-display/render-stats.s
 
 @Component({
   selector: 'app-drawable-canvas',
-  imports: [CommonModule, FormsModule, Button, TooltipModule, SVGElementsComponent, VectorLayerComponent, CanvasInputDirective],
+  imports: [CommonModule, FormsModule, Button, TooltipModule, SelectModule, SVGElementsComponent, VectorLayerComponent, CanvasInputDirective],
   templateUrl: './drawable-canvas.component.html',
   styleUrl: './drawable-canvas.component.scss',
   standalone: true,
@@ -47,7 +48,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   // UI state
   public cursor: Point2D = { x: 0, y: 0 };          // viewport CSS px
   public viewBox: Viewbox = { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
-  public isFullscreen = false;
   public rulerSize = 16;
   // True while the pointer is over the actual image (not the surrounding
   // padding). Drives whether the brush cursor / cursor-none applies, so the
@@ -374,27 +374,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.orchestrator.applyViewTransform(this.ctxLabel!, this.dpr);
   }
 
-  // ==========================================
-  // Public API
-  // ==========================================
-
-  public loadCanvas(data: string, index: number) {
-    this.orchestrator.loadCanvas(data, index);
-  }
-
-  public async loadAllCanvas(masks: string[]) {
-    await this.orchestrator.loadAllCanvas(masks);
-  }
-
-  public switchFullScreen() {
-    this.isFullscreen = !this.isFullscreen;
-    // Defer to let layout settle, then refit.
-    requestAnimationFrame(() => {
-      const r = this.viewportRef.nativeElement.getBoundingClientRect();
-      this.setViewportSize(r.width, r.height);
-      this.orchestrator.resetView(true, true);
-    });
-  }
 
   // ==========================================
   // UI helpers
@@ -479,12 +458,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       'background-position': `100% ${origin}px, 100% ${origin}px`,
       'background-repeat': 'repeat-y',
     };
-  }
-
-  public getCSSFilterEdge(): string {
-    return this.editorService.edgesOnly
-      ? 'drop-shadow( 1px  0px 0px black) drop-shadow(-1px  0px 0px black) drop-shadow( 0px  1px 0px black) drop-shadow( 0px -1px 0px black)'
-      : '';
   }
 
   // ==========================================

@@ -94,6 +94,7 @@
       <p-tree
         #tree
         [value]="labelsService.getTreeNode()"
+        [selection]="selectedTreeNode"
         (selectionChange)="changeActiveLabel($event)"
         selectionMode="single"
         class="p-0"

@@ -49,7 +49,6 @@ export class PenTool extends BaseTool {
 
     if (!context.editorService.penPostProcess) {
       if (context.editorService.swapMarkers) {
-        this.binarizeBuffer(context);
         context.swapMarkers();
       } else {
         this.commitBufferToActive(context);

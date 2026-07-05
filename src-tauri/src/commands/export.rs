@@ -256,8 +256,14 @@ pub async fn export_annotations(
                 let mask_path = label_folder.join(&mask_filename);
 
                 let result = if options.instance_segmentation {
-                    // Instance segmentation: export PNG as-is
-                    export_instance_mask(&annotation.mask_data, &annotation.encoding, &mask_path)
+                    // Instance segmentation: grayscale instance-id PNG
+                    export_instance_mask(
+                        &annotation.mask_data,
+                        &annotation.encoding,
+                        frame.width,
+                        frame.height,
+                        &mask_path,
+                    )
                 } else {
                     // Regular segmentation
                     export_individual_mask(
@@ -361,25 +367,21 @@ pub async fn export_annotations(
     })
 }
 
-/// Export instance segmentation mask (PNG stored as-is, RGBA)
+/// Export an instance segmentation mask as a grayscale PNG whose pixel value is
+/// the instance id (0 = background). Any stored encoding is decoded to the uint8
+/// id mask first, so legacy RGBA-shade PNGs are remapped to ids on the way out.
 fn export_instance_mask(
     mask_data: &[u8],
     encoding: &MaskEncoding,
+    width: u32,
+    height: u32,
     output_path: &Path,
 ) -> Result<()> {
-    match encoding {
-        MaskEncoding::Png => {
-            // Already PNG, write directly
-            fs::write(output_path, mask_data)
-                .map_err(|e| AppError::Generic(format!("Failed to save mask: {}", e)))?;
-        }
-        MaskEncoding::Rle => {
-            // This shouldn't happen for instance segmentation, but handle it
-            return Err(AppError::Generic(
-                "Instance segmentation masks should be stored as PNG".to_string()
-            ));
-        }
-    }
+    let ids = crate::commands::annotation::decode_to_uint8(mask_data, encoding, width, height);
+    let img = GrayImage::from_raw(width, height, ids)
+        .ok_or_else(|| AppError::Generic("Invalid instance mask dimensions".to_string()))?;
+    img.save(output_path)
+        .map_err(|e| AppError::Generic(format!("Failed to save mask: {}", e)))?;
     Ok(())
 }
 
@@ -399,8 +401,20 @@ fn export_individual_mask(
             img.save(output_path)
                 .map_err(|e| AppError::Generic(format!("Failed to save mask: {}", e)))?;
         }
+        MaskEncoding::Rle8 => {
+            // Regular segmentation: normalize present pixels to 255 so the
+            // grayscale mask stays visible (values are 1 in the uint8 model).
+            let pixels: Vec<u8> = rle::decode8(mask_data, width as usize, height as usize)
+                .into_iter()
+                .map(|v| if v > 0 { 255 } else { 0 })
+                .collect();
+            let img = GrayImage::from_raw(width, height, pixels)
+                .ok_or_else(|| AppError::Generic("Invalid mask dimensions".to_string()))?;
+            img.save(output_path)
+                .map_err(|e| AppError::Generic(format!("Failed to save mask: {}", e)))?;
+        }
         MaskEncoding::Png => {
-            // Write PNG directly
+            // Legacy: write stored PNG directly
             fs::write(output_path, mask_data)
                 .map_err(|e| AppError::Generic(format!("Failed to save mask: {}", e)))?;
         }
@@ -408,7 +422,7 @@ fn export_individual_mask(
     Ok(())
 }
 
-/// Decode mask data to single-channel alpha values
+/// Decode mask data to single-channel presence values (nonzero = foreground).
 fn decode_to_alpha(
     mask_data: &[u8],
     encoding: &MaskEncoding,
@@ -417,6 +431,7 @@ fn decode_to_alpha(
 ) -> Result<Vec<u8>> {
     match encoding {
         MaskEncoding::Rle => Ok(rle::decode(mask_data, width as usize, height as usize)),
+        MaskEncoding::Rle8 => Ok(rle::decode8(mask_data, width as usize, height as usize)),
         MaskEncoding::Png => {
             let img = image::load_from_memory_with_format(mask_data, ImageFormat::Png)
                 .map_err(|e| AppError::Generic(format!("Failed to decode PNG: {}", e)))?;

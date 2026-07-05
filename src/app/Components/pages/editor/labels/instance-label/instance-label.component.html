@@ -1,9 +1,27 @@
-<div class="flex flex-wrap gap-1 m-1 max-w-64">
-    <div *ngFor="let shade of getShades(); let i=index" 
-    class="aspect-square hover:scale-125 rounded w-4"  
-    (click)="changeActive(i)"
-    [style.background]="shade"
-    [ngClass]="{'border border-white border-solid': i === labelService.activeSegInstance?.instance 
-    && labelService.activeLabel==labelService.activeSegInstance?.label}">
-    </div>
-</div> 
+<div class="flex flex-col gap-2 m-1">
+  <div class="flex gap-2 items-center">
+    <p-button
+      size="small"
+      icon="pi pi-plus"
+      label="New instance"
+      (click)="newInstance()"
+    ></p-button>
+    @if (activeInstance() !== null) {
+      <span class="text-sm">Instance {{ activeInstance() }}</span>
+    }
+  </div>
+
+  <div class="flex flex-wrap gap-1 max-w-64">
+    @for (value of instanceValues(); track value) {
+      <div
+        class="aspect-square cursor-pointer hover:scale-125 rounded w-5"
+        (click)="changeActive(value)"
+        [style.background]="shadeFor(value)"
+        [ngClass]="{
+          'outline outline-2 outline-offset-1 outline-white': isSelected(value)
+        }"
+        [title]="'Instance ' + value"
+      ></div>
+    }
+  </div>
+</div>

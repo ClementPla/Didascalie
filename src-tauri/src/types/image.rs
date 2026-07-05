@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MaskEncoding {
-    Rle,   // Binary mask, RLE encoded
-    Png,   // Instance mask or fallback, PNG encoded
+    Rle,   // Legacy binary mask, RLE encoded (read-only for old files)
+    Png,   // Legacy instance mask, RGBA PNG encoded (read-only for old files)
+    Rle8,  // Value-aware RLE: 0 = bg, 1 = semantic, 1..=255 = instance id
 }
 
 impl MaskEncoding {
@@ -11,12 +12,14 @@ impl MaskEncoding {
         match self {
             MaskEncoding::Rle => "rle",
             MaskEncoding::Png => "png",
+            MaskEncoding::Rle8 => "rle8",
         }
     }
 
     pub fn from_str(s: &str) -> Self {
         match s {
             "png" => MaskEncoding::Png,
+            "rle8" => MaskEncoding::Rle8,
             _ => MaskEncoding::Rle,
         }
     }
@@ -37,7 +40,9 @@ pub struct AnnotationResponse {
     pub label_id: i64,
     pub label_name: String,
     pub color: String,
-    pub mask_png_base64: String,
+    /// Base64 of the raw `width*height` uint8 value mask (row-major).
+    /// 0 = background, 1 = semantic label, 1..=255 = instance id.
+    pub mask_base64: String,
     pub width: u32,
     pub height: u32,
 }

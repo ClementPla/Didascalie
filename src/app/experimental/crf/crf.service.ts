@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { binarizeArray, colorizeArrayInplace } from '../../Core/misc/binarize';
-import { from_hex_to_rgb } from '../../Core/misc/colors';
+import { applyRegionResult } from '../../Core/misc/label-ops';
 import { CanvasManagerService } from '../../Components/pages/editor/drawable-canvas/service/canvas-manager.service';
 import { StateManagerService } from '../../Components/pages/editor/drawable-canvas/service/state-manager.service';
 import { ImageAdjustmentService } from '../../Components/pages/editor/drawable-canvas/service/image-adjustment/image-adjustment.service';
@@ -77,7 +76,7 @@ export class CrfService {
       | OffscreenCanvasRenderingContext2D
       | null)!.getImageData(rect.x, rect.y, rect.width, rect.height).data;
 
-    const refined = await invoke<Uint8ClampedArray>('crf_refine', {
+    const refined = await invoke<ArrayBufferLike>('crf_refine', {
       image: imageData.buffer,
       mask: maskData.buffer,
       width: rect.width,
@@ -92,32 +91,14 @@ export class CrfService {
       numIterations: CrfService.ITERATIONS,
     });
 
-    // Colorize the white/transparent mask with the active label color — grown
-    // pixels are outside the original stroke, so we can't reuse its RGB.
-    const activeColor = this.labelService.activeLabel?.color;
-    const [r, g, b] = activeColor
-      ? from_hex_to_rgb(activeColor)
-      : binarizeArray(maskData).color;
-
-    const newMask = new ImageData(
-      new Uint8ClampedArray(refined),
-      rect.width,
-      rect.height
+    const value = Math.min(
+      255,
+      Math.max(1, Math.round(this.labelService.activeSegInstance?.instance ?? 1))
     );
-    colorizeArrayInplace(newMask.data, [r, g, b, 255]);
-
-    const activeCtx = this.canvasManagerService.getActiveCtx();
-    bufferCtx.putImageData(newMask, rect.x, rect.y);
-    activeCtx.drawImage(
-      bufferCtx.canvas,
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height,
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height
-    );
+    const mask = this.canvasManagerService.getActiveMask();
+    if (mask) {
+      applyRegionResult(mask, imgWidth, new Uint8Array(refined), rect, value);
+      this.stateService.recomputeCanvasSum = true;
+    }
   }
 }

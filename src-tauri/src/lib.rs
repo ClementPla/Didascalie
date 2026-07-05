@@ -40,27 +40,32 @@ fn configure_webview_env() {
             }
         }
 
-        // The DMABUF renderer is the fast path but corrupts on some X11 +
-        // proprietary-driver setups, so we disable it there by default. Two
-        // escape hatches: an explicit WEBKIT_DISABLE_DMABUF_RENDERER is never
-        // overridden, and DIDASCALIE_FORCE_DMABUF=1 keeps the fast path on so
-        // the perf cost of disabling it can be measured.
+        // The DMABUF renderer is the fast presentation path but corrupts on
+        // some X11 + proprietary-driver setups, so we disable it there by
+        // default. DIDASCALIE_FORCE_DMABUF=1 forces the fast path on for perf
+        // testing — and actively clears any *inherited* disable (e.g. one
+        // exported in the user's shell/profile), since the whole point of the
+        // flag is to override it. Just skipping our own set_var isn't enough.
         let force_dmabuf =
             std::env::var("DIDASCALIE_FORCE_DMABUF").map(|v| v == "1").unwrap_or(false);
-        let already_set = std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some();
         let x11_with_dri = std::path::Path::new("/dev/dri").exists()
             && std::env::var("WAYLAND_DISPLAY").is_err()
             && std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "x11";
 
-        if !force_dmabuf && !already_set && x11_with_dri {
-            // SAFETY: set before any webview/thread is spawned.
-            unsafe {
+        // SAFETY: set/cleared before any webview/thread is spawned.
+        unsafe {
+            if force_dmabuf {
+                std::env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
+            } else if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
+                && x11_with_dri
+            {
                 std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
             }
         }
 
         eprintln!(
-            "[webview] WebKitGTK: WEBKIT_FORCE_COMPOSITING_MODE={:?} WEBKIT_DISABLE_DMABUF_RENDERER={:?}",
+            "[webview] WebKitGTK: force_dmabuf={} WEBKIT_FORCE_COMPOSITING_MODE={:?} WEBKIT_DISABLE_DMABUF_RENDERER={:?}",
+            force_dmabuf,
             std::env::var("WEBKIT_FORCE_COMPOSITING_MODE").ok(),
             std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok(),
         );
@@ -100,15 +105,6 @@ pub fn run() {
             commands::superpixel::superpixel_overlay,
             #[cfg(not(target_os = "android"))]
             commands::dl::mask_sam_segment,
-            // commands::io::save_json_file,
-            // commands::io::load_json_file,
-            // commands::io::save_xml_file,
-            // commands::io::load_xml_file,
-            // commands::io::save_csv_file,
-            // commands::io::load_csv_file,
-            // commands::io::list_files_in_folder,
-            // commands::io::check_file_exists,
-            // commands::io::export,
             commands::io::scan_and_import_folder,
             commands::project::create_project,
             commands::project::open_project,
@@ -137,7 +133,6 @@ pub fn run() {
             commands::annotation::load_annotations,
             commands::vector::save_vector_annotations,
             commands::vector::load_vector_annotations,
-            commands::annotation::mark_reviewed,
             commands::annotation::list_labels,
             commands::annotation::get_labels,
             // Classification commands

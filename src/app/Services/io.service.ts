@@ -10,7 +10,7 @@ import { StateManagerService } from '../Components/pages/editor/drawable-canvas/
 import { VectorEditorService } from '../Components/pages/editor/drawable-canvas/service/vector-editor.service';
 
 import { api } from '../lib/api';
-import { ProjectService } from './ProjectService/project.service';
+import { NotificationService } from './notification.service';
 
 @Injectable({
   providedIn: 'root',
@@ -29,8 +29,8 @@ export class IOService implements OnDestroy {
     private sequenceService: SequenceService,
     private canvasManagerService: CanvasManagerService,
     private stateManagerService: StateManagerService,
-    private projectService: ProjectService,
-    private vectorEditor: VectorEditorService
+    private vectorEditor: VectorEditorService,
+    private notifications: NotificationService
   ) {
     // Vector edits flow back here so the same dirty flag / autosave covers them.
     this.vectorEditor.changed$.subscribe(() => this.markDirty());
@@ -62,9 +62,17 @@ export class IOService implements OnDestroy {
   /** (Re)arm the debounced autosave after an edit. */
   private scheduleAutosave(): void {
     this.cancelAutosave();
-    this.autosaveTimer = setTimeout(() => {
+    this.autosaveTimer = setTimeout(async () => {
       this.autosaveTimer = null;
-      void this.saveIfDirty();
+      if (!this.dirty) return;
+      // Only cue on a real persist — a brief, muted toast that fades quickly.
+      if (await this.save()) {
+        this.notifications.notify({
+          severity: 'secondary',
+          summary: 'Saved',
+          life: 1500,
+        });
+      }
     }, this.autosaveDelayMs);
   }
 
@@ -90,12 +98,15 @@ export class IOService implements OnDestroy {
       await this.loadVectors(frame.id);
 
       const annotations = await api.loadAnnotations(frame.id);
-      if (annotations.length > 0) {
-        const dataUrls: string[] = annotations.map(
-          (annotation) => `data:image/png;base64,${annotation.maskPngBase64}`
-        );
-        await this.canvasManagerService.loadAllCanvas(dataUrls);
+      const labels = this.labelService.listSegmentationLabels;
+
+      this.canvasManagerService.clearAllMasks();
+      for (const annotation of annotations) {
+        const index = labels.findIndex((l) => l.id === annotation.labelId);
+        if (index < 0) continue;
+        this.canvasManagerService.setMask(index, base64ToUint8(annotation.maskBase64));
       }
+      this.stateManagerService.recomputeCanvasSum = true;
 
       this.dirty = false;
     } catch (error) {
@@ -141,51 +152,12 @@ export class IOService implements OnDestroy {
 
     try {
       const labels = this.labelService.listSegmentationLabels;
-      const width = this.stateManagerService.width;
-      const height = this.stateManagerService.height;
-      const isInstanceSeg = this.projectService.isInstanceSegmentation();
 
+      // One uint8 value mask per label; the backend encodes it as rle8.
       for (let i = 0; i < labels.length; i++) {
-        const canvas = this.canvasManagerService.labelCanvas[i];
-        const ctx = this.canvasManagerService.canvasCtx[i];
-
-        if (!canvas || !ctx) {
-          continue;
-        }
-
-        // Find label ID from database (match by name)
-        const labelId = await this.getLabelIdByName(labels[i].label);
-        if (labelId === null) {
-          console.warn(`Label not found in database: ${labels[i].label}`);
-          continue;
-        }
-
-        if (isInstanceSeg) {
-          // Get full RGBA data
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          await api.saveAnnotation(
-            frame.id,
-            labels[i].id,
-            new Uint8Array(imageData.data),
-            'Png'
-          );
-        } else {
-          // Get alpha channel only
-          const maskData = this.extractMaskData(
-            ctx,
-            canvas.width,
-            canvas.height
-          );
-
-          await api.saveAnnotation(frame.id, labels[i].id, maskData, 'Rle');
-        }
-
-        // const annotation: AnnotationSave = {
-        //   label_id: labelId,
-        //   mask_data:
-        //   width: canvas.width,
-        //   height: canvas.height,
-        // };
+        const mask = this.canvasManagerService.labelMasks[i];
+        if (!mask) continue;
+        await api.saveAnnotation(frame.id, labels[i].id, mask);
       }
 
       await this.saveVectors(frame.id);
@@ -224,57 +196,12 @@ export class IOService implements OnDestroy {
     });
   }
 
-  // ==========================================
-  // Private Helpers
-  // ==========================================
+}
 
-  /**
-   * Extract alpha channel as mask data from canvas.
-   */
-  private extractMaskData(
-    ctx: OffscreenCanvasRenderingContext2D,
-    width: number,
-    height: number
-  ): Uint8Array {
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const mask = new Uint8Array(width * height);
-
-    for (let i = 0; i < mask.length; i++) {
-      mask[i] = imageData.data[i * 4 + 3]; // Alpha channel
-    }
-
-    return mask;
-  }
-
-  /**
-   * Check if mask has any content.
-   */
-  private hasMaskContent(mask: Uint8Array): boolean {
-    return mask.some((v) => v > 0);
-  }
-
-  /**
-   * Get label ID from database by name.
-   */
-  private async getLabelIdByName(name: string): Promise<number | null> {
-    try {
-      const labels = await api.listLabels();
-      const found = labels.find((l) => l.name === name);
-      return found?.id ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Convert blob to data URL.
-   */
-  private blobToDataURL(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }
+/** Decode a base64 string into raw bytes (uint8 value mask). */
+function base64ToUint8(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
 }

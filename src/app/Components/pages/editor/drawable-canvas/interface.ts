@@ -1,5 +1,4 @@
 import { BehaviorSubject } from "rxjs";
-import { OpenCVService } from "../../../../Services/open-cv.service";
 import { EditorService } from "../services/editor.service";
 import { CanvasManagerService } from "./service/canvas-manager.service";
 import { StateManagerService } from "./service/state-manager.service";
@@ -11,8 +10,9 @@ export interface ToolContext {
   editorService: EditorService;
   
   // Scoped Data
-  color: string;
-  
+  color: string;   // active display colour (live stroke preview)
+  value: number;   // active mask value written on commit (1 = semantic, id = instance)
+
   // Coordinate Helper (The "Bridge" to ZoomPanService)
   getCoords: (event: MouseEvent | Point2D) => Point2D;
   swapMarkers: () => void;

@@ -8,6 +8,10 @@ import { BboxLabel, Rect } from '../../../../../../Core/interface';
 import { BboxManagerService } from '../../service/bbox-manager.service';
 import { EditorService } from '../../../services/editor.service';
 import { DrawService } from '../../service/draw.service';
+import {
+  VectorBoundingBox,
+  VectorEditorService,
+} from '../../service/vector-editor.service';
 import { Tools } from '../../../../../../Core/tools';
 import { Point2D } from '../../interface';
 
@@ -34,6 +38,7 @@ export class SVGElementsComponent implements OnInit, OnDestroy {
     public editorService: EditorService,
     public bboxManager: BboxManagerService,
     public drawService: DrawService,
+    public vectorEditor: VectorEditorService,
   ) {}
 
   ngOnInit(): void {
@@ -77,6 +82,30 @@ export class SVGElementsComponent implements OnInit, OnDestroy {
 
   isBboxClickable(): boolean {
     return this.editorService.isEraser() && this.editorService.eraseOnClick;
+  }
+
+  // ── Vector-shape bounding boxes ─────────────────────────────────────────────
+
+  /** Erase-on-click on a vector shape's bbox deletes the shape (undoable). */
+  vectorBboxClick(event: MouseEvent, box: VectorBoundingBox) {
+    if (this.isBboxClickable() && event.button === 0) {
+      event.stopPropagation();
+      this.vectorEditor.deleteShapeById(box.shapeId);
+    }
+  }
+
+  vectorLabelColor(labelId: number): string {
+    return (
+      this.labelService.listSegmentationLabels.find((l) => l.id === labelId)
+        ?.color ?? '#ffffff'
+    );
+  }
+
+  isVectorLabelVisible(labelId: number): boolean {
+    return (
+      this.labelService.listSegmentationLabels.find((l) => l.id === labelId)
+        ?.isVisible ?? true
+    );
   }
 
   isLassoTool(): boolean {

@@ -10,10 +10,14 @@ import { StateManagerService } from './state-manager.service';
 import { CanvasManagerService } from './canvas-manager.service';
 import { UndoRedoService } from './undo-redo.service';
 import { PostProcessService } from './post-process.service';
-import { OpenCVService } from '../../../../../Services/open-cv.service';
 
 import { Tools } from '../../../../../Core/tools';
 import { BboxLabel } from '../../../../../Core/interface';
+import {
+  swapUnderStroke,
+  clearComponentAt,
+  intRect,
+} from '../../../../../Core/misc/label-ops';
 import { Point2D, DrawingTool, ToolContext } from '../interface';
 import { PenTool, EraserTool, LassoTool, LineTool, LassoEraserTool } from '../tools';
 import { IOService } from '../../../../../Services/io.service';
@@ -44,7 +48,6 @@ export class DrawService implements OnDestroy {
     private canvasManagerService: CanvasManagerService,
     private undoRedoService: UndoRedoService,
     private postProcessService: PostProcessService,
-    private openCVService: OpenCVService,
     private ioService: IOService
   ) {
     this.initializeSubscriptions();
@@ -83,11 +86,8 @@ export class DrawService implements OnDestroy {
     const imageCoord = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updatePreviousPoint(this.stateService.currentPoint);
     this.stateService.updateCurrentPoint(imageCoord);
-    // Bound both endpoints of the segment at the current radius: the stroke is
-    // drawn from previousPoint to imageCoord with round caps on both ends. This
-    // also captures the very first point (the down position), which is otherwise
-    // never bounded and gets clipped on commit — most visibly with a light,
-    // slightly-moved touch where the padding is small.
+    // Bound both endpoints of the segment at the current radius (see original
+    // note): captures the down position too, which is otherwise never bounded.
     this.stateService.updateMinMaxPoints(imageCoord);
     this.stateService.updateMinMaxPoints(this.stateService.previousPoint);
 
@@ -96,14 +96,11 @@ export class DrawService implements OnDestroy {
     }
 
     this.currentToolContext.color = this.getFillColor();
+    this.currentToolContext.value = this.getActiveValue();
     tool.draw(event, this.currentToolContext);
   }
 
-  /**
-   * Abort an in-progress stroke without committing it (e.g. when a second
-   * finger lands and a pinch gesture takes over). Discards the buffer; no
-   * undo entry, no dirty flag.
-   */
+  /** Abort an in-progress stroke without committing it (e.g. pinch takeover). */
   public cancelDraw(): void {
     if (!this.stateService.isDrawing) return;
     this.stateService.isDrawing = false;
@@ -152,6 +149,7 @@ export class DrawService implements OnDestroy {
       stateService: this.stateService,
       editorService: this.editorService,
       color: this.getFillColor(),
+      value: this.getActiveValue(),
       getCoords: (e) => this.zoomPanService.getImageCoordinates(e),
       swapMarkers: () => this.swapMarkers(),
       singleDrawRequest: (ctx) => this.singleDrawRequest.next(ctx),
@@ -164,51 +162,26 @@ export class DrawService implements OnDestroy {
   // Shared actions
   // ==========================================
 
+  /** Swap the label under the stroke to the active label/instance value. */
   public swapMarkers(): void {
-    const activeIndex = this.labelService.getActiveIndex();
-    const ctx = this.canvasManagerService.getBufferCtx();
-    const bufferCanvas = this.canvasManagerService.getBufferCanvas();
-    ctx.fillStyle = this.getFillColor();
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+    const rect = intRect(this.stateService.getBoundingBox(), w, h);
+    if (!rect) return;
 
-    const rect = this.stateService.getBoundingBox();
-    ctx.globalCompositeOperation = 'source-in';
-    this.stateService.recomputeCanvasSum = true;
+    const region = this.canvasManagerService
+      .getBufferCtx()
+      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
 
-    const combinedCanvas = this.computeCombinedCanvasWithoutEdges();
-
-    ctx.drawImage(
-      combinedCanvas,
-      rect.x, rect.y, rect.width, rect.height,
-      rect.x, rect.y, rect.width, rect.height
+    swapUnderStroke(
+      this.canvasManagerService.getAllMasks(),
+      this.canvasManagerService.getActiveIndex(),
+      w,
+      region,
+      rect,
+      this.getActiveValue()
     );
-
-    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-    ctx.globalCompositeOperation = 'source-over';
-
-    this.canvasManagerService.getAllCanvasCtx().forEach((classCtx, index) => {
-      classCtx.globalCompositeOperation =
-        index === activeIndex ? 'source-over' : 'destination-out';
-      classCtx.drawImage(
-        bufferCanvas,
-        rect.x, rect.y, rect.width, rect.height,
-        rect.x, rect.y, rect.width, rect.height
-      );
-      classCtx.globalCompositeOperation = 'source-over';
-    });
-
     this.stateService.recomputeCanvasSum = true;
-  }
-
-  private computeCombinedCanvasWithoutEdges(): OffscreenCanvas {
-    const edgesOnly = this.editorService.edgesOnly;
-    if (edgesOnly) {
-      this.editorService.edgesOnly = false;
-      this.canvasManagerService.computeCombinedCanvas();
-      this.editorService.edgesOnly = edgesOnly;
-    } else {
-      this.canvasManagerService.computeCombinedCanvas();
-    }
-    return this.canvasManagerService.getCombinedCanvas();
   }
 
   private async handleGlobalPostProcessing(): Promise<void> {
@@ -216,15 +189,25 @@ export class DrawService implements OnDestroy {
       this.stateService.recomputeCanvasSum = true;
       await this.postProcessService.getPostProcessFunction();
     } else if (this.editorService.eraserPostProcess && this.editorService.isEraser()) {
-      await this.postProcessService.eraseAll_post_process();
+      await this.postProcessService.eraseConnectedComponents_post_process();
     }
   }
 
+  /** Active display colour, used for the live stroke preview only. */
   public getFillColor(): string {
     if (this.projectService.isInstanceSegmentation()) {
-      return this.labelService.activeSegInstance?.shade ?? '#ffffff';
+      return this.labelService.activeSegInstance?.shade || this.labelService.activeLabel?.color || '#ffffff';
     }
     return this.labelService.activeLabel?.color ?? '#ffffff';
+  }
+
+  /** Active mask value written on commit: instance id, or 1 for semantic. */
+  public getActiveValue(): number {
+    if (this.projectService.isInstanceSegmentation()) {
+      const v = this.labelService.activeSegInstance?.instance ?? 1;
+      return Math.min(255, Math.max(1, Math.round(v)));
+    }
+    return 1;
   }
 
   public clearCanvas(
@@ -233,34 +216,14 @@ export class DrawService implements OnDestroy {
     ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
   }
 
-  public refreshColor(
-    inputCtx: OffscreenCanvasRenderingContext2D | null = null,
-    inputColor: string | null = null
-  ): void {
-    if (this.projectService.isInstanceSegmentation()) {
-      this.redrawRequest.next(true);
-      return;
-    }
-
-    const ctx = inputCtx ?? this.canvasManagerService.getActiveCtx();
-    if (!ctx) return;
-
-    const color = inputColor ?? this.labelService.activeLabel?.color ?? '#ffffff';
-
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillRect(0, 0, this.stateService.width, this.stateService.height);
-    ctx.globalCompositeOperation = 'source-over';
-
+  /**
+   * Re-apply label colours to the displayed composite. Since colour lives only
+   * in the palettes now, this rebuilds them and recomposites — no pixel edits.
+   */
+  public recolor(): void {
+    this.canvasManagerService.rebuildPalettes();
+    this.stateService.recomputeCanvasSum = true;
     this.redrawRequest.next(true);
-  }
-
-  public refreshAllColors(): void {
-    this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
-      const label = this.labelService.listSegmentationLabels[index];
-      if (label) this.refreshColor(ctx, label.color);
-    });
   }
 
   // ==========================================
@@ -278,18 +241,15 @@ export class DrawService implements OnDestroy {
     this.editorService.canvasRedraw
       .pipe(takeUntil(this.destroy$))
       .subscribe((value) => {
-        if (value) {
-          this.stateService.recomputeCanvasSum = value;
-          this.refreshColor();
-        }
+        if (value) this.recolor();
       });
 
     this.editorService.canvasClear
       .pipe(takeUntil(this.destroy$))
       .subscribe((value) => {
         if (value >= 0) {
+          this.canvasManagerService.clearMaskAtIndex(value);
           this.stateService.recomputeCanvasSum = true;
-          this.canvasManagerService.clearCanvasAtIndex(value);
           this.ioService.markDirty();
           this.redrawRequest.next(true);
         }
@@ -300,40 +260,30 @@ export class DrawService implements OnDestroy {
   // Bbox actions
   // ==========================================
 
+  /** Erase the labelled object(s) under a clicked bounding box. */
   public eraseOnBboxClick(bbox: BboxLabel): void {
-    const id = bbox.instance;
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+    const rect = intRect(bbox.bbox, w, h);
+    if (!rect) return;
+
     const isCombined = this.editorService.labelledCombinedBoundingBox;
-    const sourceCtx = isCombined ? this.getCombinedCtxWithoutEdges() : null;
+    const labels = this.labelService.listSegmentationLabels;
 
-    this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
-      if (!isCombined) {
-        const label = this.labelService.listSegmentationLabels[index];
-        if (label?.label !== bbox.label.label) return;
+    this.canvasManagerService.getAllMasks().forEach((mask, index) => {
+      if (!isCombined && labels[index]?.label !== bbox.label.label) return;
+
+      for (let ry = 0; ry < rect.height; ry++) {
+        for (let rx = 0; rx < rect.width; rx++) {
+          const x = rect.x + rx;
+          const y = rect.y + ry;
+          if (mask[y * w + x] !== 0) clearComponentAt(mask, w, h, x, y);
+        }
       }
-
-      const maskSource = isCombined ? sourceCtx! : ctx;
-      const maskCanvas = this.openCVService.getMaskOfConnectedComponentsById(maskSource, id);
-
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.drawImage(
-        maskCanvas,
-        bbox.bbox.x, bbox.bbox.y, bbox.bbox.width, bbox.bbox.height,
-        bbox.bbox.x, bbox.bbox.y, bbox.bbox.width, bbox.bbox.height
-      );
-      ctx.globalCompositeOperation = 'source-over';
     });
 
     this.stateService.recomputeCanvasSum = true;
     this.ioService.markDirty();
     this.redrawRequest.next(true);
-  }
-
-  private getCombinedCtxWithoutEdges(): OffscreenCanvasRenderingContext2D {
-    if (this.editorService.edgesOnly) {
-      this.editorService.edgesOnly = false;
-      this.canvasManagerService.computeCombinedCanvas();
-      this.editorService.edgesOnly = true;
-    }
-    return this.canvasManagerService.getCombinedCtx();
   }
 }

@@ -1,29 +1,31 @@
 import { Injectable } from '@angular/core';
-import { from_hex_to_rgb } from '../../../../../Core/misc/colors';
 
+/**
+ * GPU compositor for the uint8-per-label model. Each label mask is uploaded as
+ * a layer of an `r8uint` texture array; a per-layer 256-entry palette buffer
+ * maps values to colours. The composite shader writes the top-most nonzero
+ * layer's colour per pixel, matching the CPU path.
+ */
 @Injectable({ providedIn: 'root' })
 export class WebGPUCanvasCompositorService {
   private device: GPUDevice | null = null;
 
-  // Pipelines
   private compositePipeline: GPUComputePipeline | null = null;
   private edgePipeline: GPUComputePipeline | null = null;
-  private binarizePipeline: GPUComputePipeline | null = null;
   private initialized = false;
 
   // Persistent resources (sized by prepareResources)
   private outputTexture: GPUTexture | null = null;
   private edgeOutputTexture: GPUTexture | null = null;
-  private inputTextureArray: GPUTexture | null = null;
+  private maskTextureArray: GPUTexture | null = null;
   private uniformBuffer: GPUBuffer | null = null;
   private edgeUniformBuffer: GPUBuffer | null = null;
   private stagingBuffer: GPUBuffer | null = null;
   private visibilityBuffer: GPUBuffer | null = null;
+  private paletteBuffer: GPUBuffer | null = null;
 
-  // Concurrency
   private isProcessing = false;
 
-  // Cached dimensions
   private cachedWidth = 0;
   private cachedHeight = 0;
   private cachedLayerCount = 0;
@@ -43,7 +45,14 @@ export class WebGPUCanvasCompositorService {
 
       await this.createCompositePipeline();
       await this.createEdgePipeline();
-      await this.createBinarizePipeline();
+
+      // Only advertise WebGPU if it produces provably-correct output — this
+      // guards the auto-enabled GPU path against a driver/shader mismatch that
+      // would otherwise render wrong masks silently (no exception to catch).
+      if (!(await this.selfTest())) {
+        console.warn('WebGPU self-test failed; using CPU compositor.');
+        return false;
+      }
 
       this.initialized = true;
       return true;
@@ -53,20 +62,68 @@ export class WebGPUCanvasCompositorService {
     }
   }
 
+  /**
+   * Composite a tiny known pattern and check the exact result: value→colour
+   * mapping via the palette, top-most-layer-wins ordering, and transparency.
+   * rgba8unorm stores 0/255 exactly, so the comparison is exact.
+   */
+  private async selfTest(): Promise<boolean> {
+    try {
+      await this.prepareResources(2, 2, 2);
+
+      const mask0 = new Uint8Array([1, 1, 0, 0]);
+      const mask1 = new Uint8Array([0, 2, 0, 2]);
+      const pal0 = new Uint8Array(256 * 4); // value 1 -> red
+      pal0[1 * 4] = 255;
+      pal0[1 * 4 + 3] = 255;
+      const pal1 = new Uint8Array(256 * 4); // value 2 -> blue
+      pal1[2 * 4 + 2] = 255;
+      pal1[2 * 4 + 3] = 255;
+
+      const out = await this.compositeMasks(
+        [mask0, mask1],
+        [pal0, pal1],
+        [true, true],
+        2,
+        2
+      );
+
+      const px = (i: number) => [
+        out.data[i * 4],
+        out.data[i * 4 + 1],
+        out.data[i * 4 + 2],
+        out.data[i * 4 + 3],
+      ];
+      const eq = (a: number[], b: number[]) => a.every((v, i) => v === b[i]);
+
+      return (
+        eq(px(0), [255, 0, 0, 255]) && // layer 0 only -> red
+        eq(px(1), [0, 0, 255, 255]) && // both set -> top layer (blue) wins
+        eq(px(2), [0, 0, 0, 0]) && //     neither -> transparent
+        eq(px(3), [0, 0, 255, 255]) //   layer 1 only -> blue
+      );
+    } catch (error) {
+      console.error('WebGPU self-test error:', error);
+      return false;
+    }
+  }
+
   destroy(): void {
     this.outputTexture?.destroy();
     this.edgeOutputTexture?.destroy();
-    this.inputTextureArray?.destroy();
+    this.maskTextureArray?.destroy();
     this.stagingBuffer?.destroy();
     this.visibilityBuffer?.destroy();
+    this.paletteBuffer?.destroy();
     this.uniformBuffer?.destroy();
     this.edgeUniformBuffer?.destroy();
 
     this.outputTexture = null;
     this.edgeOutputTexture = null;
-    this.inputTextureArray = null;
+    this.maskTextureArray = null;
     this.stagingBuffer = null;
     this.visibilityBuffer = null;
+    this.paletteBuffer = null;
     this.uniformBuffer = null;
     this.edgeUniformBuffer = null;
 
@@ -93,18 +150,19 @@ export class WebGPUCanvasCompositorService {
       this.outputTexture &&
       this.stagingBuffer &&
       this.visibilityBuffer &&
-      this.inputTextureArray;
+      this.paletteBuffer &&
+      this.maskTextureArray;
 
     if (cacheHit) return;
 
     await this.waitForCompletion();
 
-    // Destroy old resources
     this.outputTexture?.destroy();
     this.edgeOutputTexture?.destroy();
-    this.inputTextureArray?.destroy();
+    this.maskTextureArray?.destroy();
     this.stagingBuffer?.destroy();
     this.visibilityBuffer?.destroy();
+    this.paletteBuffer?.destroy();
     this.uniformBuffer?.destroy();
     this.edgeUniformBuffer?.destroy();
 
@@ -126,13 +184,11 @@ export class WebGPUCanvasCompositorService {
       usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
     });
 
-    this.inputTextureArray = this.device.createTexture({
+    // One 8-bit unsigned integer per pixel per label.
+    this.maskTextureArray = this.device.createTexture({
       size: { width, height, depthOrArrayLayers: arrayLayers },
-      format: 'rgba8unorm',
-      usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
+      format: 'r8uint',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
 
     this.uniformBuffer = this.device.createBuffer({
@@ -151,17 +207,23 @@ export class WebGPUCanvasCompositorService {
     });
 
     this.visibilityBuffer = this.device.createBuffer({
-      size: Math.max(layerCount * 4, 4),
+      size: Math.max(arrayLayers * 4, 4),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    // Packed RGBA (u32) per value (256) per layer.
+    this.paletteBuffer = this.device.createBuffer({
+      size: arrayLayers * 256 * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
     this.cachedWidth = width;
     this.cachedHeight = height;
-    this.cachedLayerCount = layerCount;
+    this.cachedLayerCount = arrayLayers;
   }
 
   private waitForCompletion(): Promise<void> {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const check = () => {
         if (!this.isProcessing) resolve();
         else requestAnimationFrame(check);
@@ -184,9 +246,19 @@ export class WebGPUCanvasCompositorService {
       }
 
       @group(0) @binding(0) var<uniform> uniforms: Uniforms;
-      @group(0) @binding(1) var inputTextures: texture_2d_array<f32>;
+      @group(0) @binding(1) var masks: texture_2d_array<u32>;
       @group(0) @binding(2) var outputTexture: texture_storage_2d<rgba8unorm, write>;
       @group(0) @binding(3) var<storage, read> visibilityFlags: array<u32>;
+      @group(0) @binding(4) var<storage, read> palette: array<u32>;
+
+      fn unpack(p: u32) -> vec4<f32> {
+        return vec4<f32>(
+          f32(p & 0xffu) / 255.0,
+          f32((p >> 8u) & 0xffu) / 255.0,
+          f32((p >> 16u) & 0xffu) / 255.0,
+          f32((p >> 24u) & 0xffu) / 255.0
+        );
+      }
 
       @compute @workgroup_size(8, 8)
       fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -195,24 +267,13 @@ export class WebGPUCanvasCompositorService {
         if (x >= uniforms.width || y >= uniforms.height) { return; }
 
         var finalColor = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-
         for (var i = 0u; i < uniforms.layerCount; i++) {
           if (visibilityFlags[i] == 0u) { continue; }
-
-          let layerColor = textureLoad(inputTextures, vec2<i32>(i32(x), i32(y)), i32(i), 0);
-
-          let srcAlpha = layerColor.a;
-          let dstAlpha = finalColor.a;
-          let outAlpha = srcAlpha + dstAlpha * (1.0 - srcAlpha);
-
-          if (outAlpha > 0.0) {
-            finalColor = vec4<f32>(
-              (layerColor.rgb * srcAlpha + finalColor.rgb * dstAlpha * (1.0 - srcAlpha)) / outAlpha,
-              outAlpha
-            );
-          }
+          let v = textureLoad(masks, vec2<i32>(i32(x), i32(y)), i32(i), 0).r;
+          if (v == 0u) { continue; }
+          // Later (higher-index) layers paint over earlier ones.
+          finalColor = unpack(palette[i * 256u + v]);
         }
-
         textureStore(outputTexture, vec2<i32>(i32(x), i32(y)), finalColor);
       }
     `;
@@ -237,37 +298,35 @@ export class WebGPUCanvasCompositorService {
       @group(0) @binding(1) var inputTexture: texture_2d<f32>;
       @group(0) @binding(2) var outputTexture: texture_storage_2d<rgba8unorm, write>;
 
-      fn sobel_edge(x: i32, y: i32) -> f32 {
-        let tl = textureLoad(inputTexture, vec2<i32>(x - 1, y - 1), 0).a;
-        let tc = textureLoad(inputTexture, vec2<i32>(x,     y - 1), 0).a;
-        let tr = textureLoad(inputTexture, vec2<i32>(x + 1, y - 1), 0).a;
-        let ml = textureLoad(inputTexture, vec2<i32>(x - 1, y    ), 0).a;
-        let mr = textureLoad(inputTexture, vec2<i32>(x + 1, y    ), 0).a;
-        let bl = textureLoad(inputTexture, vec2<i32>(x - 1, y + 1), 0).a;
-        let bc = textureLoad(inputTexture, vec2<i32>(x,     y + 1), 0).a;
-        let br = textureLoad(inputTexture, vec2<i32>(x + 1, y + 1), 0).a;
-
-        let gx = -tl - 2.0 * ml - bl + tr + 2.0 * mr + br;
-        let gy = -tl - 2.0 * tc - tr + bl + 2.0 * bc + br;
-        return sqrt(gx * gx + gy * gy);
-      }
-
       @compute @workgroup_size(8, 8)
       fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let x = i32(global_id.x);
         let y = i32(global_id.y);
-
         if (u32(x) >= uniforms.width || u32(y) >= uniforms.height) { return; }
 
-        if (x < 1 || y < 1 || u32(x) >= uniforms.width - 1u || u32(y) >= uniforms.height - 1u) {
+        let center = textureLoad(inputTexture, vec2<i32>(x, y), 0);
+
+        // Background never becomes an edge — that's what previously turned the
+        // transparent side of a boundary into a black outline.
+        if (center.a == 0.0) {
           textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(0.0));
           return;
         }
 
-        let center = textureLoad(inputTexture, vec2<i32>(x, y), 0);
-        let edge = sobel_edge(x, y);
+        if (x < 1 || y < 1 || u32(x) >= uniforms.width - 1u || u32(y) >= uniforms.height - 1u) {
+          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(center.rgb, 1.0));
+          return;
+        }
 
-        if (edge > uniforms.threshold) {
+        // A pixel is an edge when a 4-neighbour has a different colour — this
+        // catches label↔label / instance boundaries, not just label↔background.
+        let l = textureLoad(inputTexture, vec2<i32>(x - 1, y), 0);
+        let r = textureLoad(inputTexture, vec2<i32>(x + 1, y), 0);
+        let u = textureLoad(inputTexture, vec2<i32>(x, y - 1), 0);
+        let d = textureLoad(inputTexture, vec2<i32>(x, y + 1), 0);
+        let isEdge = any(center != l) || any(center != r) || any(center != u) || any(center != d);
+
+        if (isEdge) {
           textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(center.rgb, 1.0));
         } else {
           textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(0.0));
@@ -282,50 +341,13 @@ export class WebGPUCanvasCompositorService {
     });
   }
 
-  private async createBinarizePipeline(): Promise<void> {
-    const shaderCode = `
-      struct Uniforms {
-        width: u32,
-        height: u32,
-        r: f32,
-        g: f32,
-        b: f32,
-        _pad: f32,
-      }
-
-      @group(0) @binding(0) var<uniform> uniforms: Uniforms;
-      @group(0) @binding(1) var inputTexture: texture_2d<f32>;
-      @group(0) @binding(2) var outputTexture: texture_storage_2d<rgba8unorm, write>;
-
-      @compute @workgroup_size(8, 8)
-      fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-        let x = global_id.x;
-        let y = global_id.y;
-        if (x >= uniforms.width || y >= uniforms.height) { return; }
-
-        let pixel = textureLoad(inputTexture, vec2<i32>(i32(x), i32(y)), 0);
-        if (pixel.a > 0.0) {
-          textureStore(outputTexture, vec2<i32>(i32(x), i32(y)),
-            vec4<f32>(uniforms.r, uniforms.g, uniforms.b, pixel.a));
-        } else {
-          textureStore(outputTexture, vec2<i32>(i32(x), i32(y)), vec4<f32>(0.0));
-        }
-      }
-    `;
-
-    const module = this.device!.createShaderModule({ code: shaderCode });
-    this.binarizePipeline = this.device!.createComputePipeline({
-      layout: 'auto',
-      compute: { module, entryPoint: 'main' },
-    });
-  }
-
   // ==========================================
-  // Composite (with optional edge detection)
+  // Composite
   // ==========================================
 
-  async compositeCanvases(
-    canvases: OffscreenCanvas[],
+  async compositeMasks(
+    masks: Uint8Array[],
+    palettes: Uint8Array[],
     visibilityFlags: boolean[],
     width: number,
     height: number,
@@ -341,54 +363,70 @@ export class WebGPUCanvasCompositorService {
       !this.outputTexture ||
       !this.stagingBuffer ||
       !this.visibilityBuffer ||
+      !this.paletteBuffer ||
       !this.edgeOutputTexture ||
-      !this.inputTextureArray
+      !this.maskTextureArray
     ) {
       throw new Error('GPU resources not prepared');
     }
 
-    if (canvases.length === 0) {
+    if (masks.length === 0) {
       return new ImageData(width, height);
     }
-
-    if (canvases.length > this.cachedLayerCount) {
+    if (masks.length > this.cachedLayerCount) {
       throw new Error(
-        `Layer count (${canvases.length}) exceeds prepared count (${this.cachedLayerCount}). Call prepareResources first.`
+        `Layer count (${masks.length}) exceeds prepared count (${this.cachedLayerCount}). Call prepareResources first.`
       );
     }
 
     this.isProcessing = true;
 
     try {
-      // Upload each canvas into its slice of the cached array texture
-      for (let i = 0; i < canvases.length; i++) {
-        this.device.queue.copyExternalImageToTexture(
-          { source: canvases[i] },
-          { texture: this.inputTextureArray, origin: { x: 0, y: 0, z: i } },
-          { width, height }
+      // Upload each mask into its array slice (1 byte/pixel).
+      for (let i = 0; i < masks.length; i++) {
+        this.device.queue.writeTexture(
+          { texture: this.maskTextureArray, origin: { x: 0, y: 0, z: i } },
+          masks[i],
+          { bytesPerRow: width, rowsPerImage: height },
+          { width, height, depthOrArrayLayers: 1 }
         );
       }
 
-      // Visibility flags (zero-pad to cachedLayerCount so stale slots aren't read)
+      // Visibility flags, zero-padded to the prepared layer count.
       const visibilityData = new Uint32Array(this.cachedLayerCount);
-      for (let i = 0; i < canvases.length; i++) {
+      for (let i = 0; i < masks.length; i++) {
         visibilityData[i] = visibilityFlags[i] ? 1 : 0;
       }
       this.device.queue.writeBuffer(this.visibilityBuffer, 0, visibilityData);
 
+      // Palettes packed as u32 RGBA per (layer, value).
+      const paletteData = new Uint32Array(this.cachedLayerCount * 256);
+      for (let i = 0; i < masks.length; i++) {
+        const pal = palettes[i];
+        if (!pal) continue;
+        const base = i * 256;
+        for (let v = 0; v < 256; v++) {
+          const p = v * 4;
+          paletteData[base + v] =
+            pal[p] | (pal[p + 1] << 8) | (pal[p + 2] << 16) | (pal[p + 3] << 24);
+        }
+      }
+      this.device.queue.writeBuffer(this.paletteBuffer, 0, paletteData);
+
       const encoder = this.device.createCommandEncoder();
 
       // Pass 1: composite
-      const compositeUniforms = new Uint32Array([width, height, canvases.length, 0]);
+      const compositeUniforms = new Uint32Array([width, height, masks.length, 0]);
       this.device.queue.writeBuffer(this.uniformBuffer!, 0, compositeUniforms);
 
       const compositeBindGroup = this.device.createBindGroup({
         layout: this.compositePipeline!.getBindGroupLayout(0),
         entries: [
           { binding: 0, resource: { buffer: this.uniformBuffer! } },
-          { binding: 1, resource: this.inputTextureArray.createView({ dimension: '2d-array' }) },
+          { binding: 1, resource: this.maskTextureArray.createView({ dimension: '2d-array' }) },
           { binding: 2, resource: this.outputTexture.createView() },
           { binding: 3, resource: { buffer: this.visibilityBuffer } },
+          { binding: 4, resource: { buffer: this.paletteBuffer } },
         ],
       });
 
@@ -425,7 +463,6 @@ export class WebGPUCanvasCompositorService {
         finalTexture = this.edgeOutputTexture;
       }
 
-      // Copy result to staging
       const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
       encoder.copyTextureToBuffer(
         { texture: finalTexture },
@@ -449,101 +486,5 @@ export class WebGPUCanvasCompositorService {
     } finally {
       this.isProcessing = false;
     }
-  }
-
-  // ==========================================
-  // Binarize (recolor non-transparent pixels)
-  // ==========================================
-
-  async binarizeCanvas(
-    canvas: OffscreenCanvas,
-    bbox: { x: number; y: number; width: number; height: number } | null,
-    color: string
-  ): Promise<ImageData> {
-    if (!this.device || !this.binarizePipeline) {
-      throw new Error('GPU not initialized');
-    }
-
-    const [r, g, b] = from_hex_to_rgb(color);
-    const x0 = bbox?.x ?? 0;
-    const y0 = bbox?.y ?? 0;
-    const width = bbox?.width ?? canvas.width;
-    const height = bbox?.height ?? canvas.height;
-
-    const inputTexture = this.device.createTexture({
-      size: [width, height],
-      format: 'rgba8unorm',
-      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
-    });
-
-    // GPU-side copy, no CPU readback
-    this.device.queue.copyExternalImageToTexture(
-      { source: canvas, origin: { x: x0, y: y0 } },
-      { texture: inputTexture },
-      { width, height }
-    );
-
-    const outputTexture = this.device.createTexture({
-      size: [width, height],
-      format: 'rgba8unorm',
-      usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
-    });
-
-    const uniformBuffer = this.device.createBuffer({
-      size: 32,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    const uniformData = new ArrayBuffer(32);
-    new Uint32Array(uniformData, 0, 2).set([width, height]);
-    new Float32Array(uniformData, 8, 4).set([r / 255, g / 255, b / 255, 0]);
-    this.device.queue.writeBuffer(uniformBuffer, 0, uniformData);
-
-    const bindGroup = this.device.createBindGroup({
-      layout: this.binarizePipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: uniformBuffer } },
-        { binding: 1, resource: inputTexture.createView() },
-        { binding: 2, resource: outputTexture.createView() },
-      ],
-    });
-
-    const encoder = this.device.createCommandEncoder();
-    const pass = encoder.beginComputePass();
-    pass.setPipeline(this.binarizePipeline);
-    pass.setBindGroup(0, bindGroup);
-    pass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
-    pass.end();
-
-    const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
-    const stagingBuffer = this.device.createBuffer({
-      size: bytesPerRow * height,
-      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-    });
-
-    encoder.copyTextureToBuffer(
-      { texture: outputTexture },
-      { buffer: stagingBuffer, bytesPerRow },
-      { width, height }
-    );
-
-    this.device.queue.submit([encoder.finish()]);
-    await stagingBuffer.mapAsync(GPUMapMode.READ);
-
-    const mapped = new Uint8ClampedArray(stagingBuffer.getMappedRange());
-    const result = new ImageData(width, height);
-    for (let y = 0; y < height; y++) {
-      const srcOffset = y * bytesPerRow;
-      const dstOffset = y * width * 4;
-      result.data.set(mapped.subarray(srcOffset, srcOffset + width * 4), dstOffset);
-    }
-    stagingBuffer.unmap();
-
-    inputTexture.destroy();
-    outputTexture.destroy();
-    stagingBuffer.destroy();
-    uniformBuffer.destroy();
-
-    return result;
   }
 }

@@ -1,12 +1,10 @@
 import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import {
-  binarizeArray,
-  colorizeArrayInplace,
-} from '../../Core/misc/binarize';
+import { applyResultMask } from '../../Core/misc/label-ops';
 import { CanvasManagerService } from '../../Components/pages/editor/drawable-canvas/service/canvas-manager.service';
 import { StateManagerService } from '../../Components/pages/editor/drawable-canvas/service/state-manager.service';
 import { ImageAdjustmentService } from '../../Components/pages/editor/drawable-canvas/service/image-adjustment/image-adjustment.service';
+import { LabelsService } from '../../Services/Labels/labels.service';
 
 /**
  * Experimental: snap brush strokes to superpixel boundaries
@@ -32,7 +30,8 @@ export class SuperpixelService {
   constructor(
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService,
-    private imageProcessingService: ImageAdjustmentService
+    private imageProcessingService: ImageAdjustmentService,
+    private labelService: LabelsService
   ) {}
 
   /** Refine the stroke in the buffer canvas: keep only the touched
@@ -46,15 +45,13 @@ export class SuperpixelService {
       height: this.stateService.height,
     };
 
-    // The buffer holds the brush stroke; keep its color for the refined output.
+    // The buffer holds the brush stroke; the Rust side reads its alpha.
     const maskData = bufferCtx.getImageData(
       rect.x,
       rect.y,
       rect.width,
       rect.height
     ).data;
-    let out = binarizeArray(maskData);
-    let currentColor = out.color;
 
     const canvas = this.imageProcessingService.getCurrentCanvas();
     if (!canvas) return;
@@ -66,7 +63,7 @@ export class SuperpixelService {
     // Compute the superpixel map on the first stroke of an image, reuse after
     // (mirrors the SAM feature-extraction flag). The command returns an RGBA
     // mask (white/transparent), like flood_fill.
-    const mask = await invoke<Uint8ClampedArray>('superpixel_refine', {
+    const result = await invoke<ArrayBufferLike>('superpixel_refine', {
       image: this.mapComputed ? [] : imgData.buffer,
       brush: maskData.buffer,
       width: rect.width,
@@ -78,21 +75,15 @@ export class SuperpixelService {
     });
     this.mapComputed = true;
 
-    const newMask = new ImageData(
-      new Uint8ClampedArray(mask),
-      rect.width,
-      rect.height
-    );
-    colorizeArrayInplace(newMask.data, [
-      currentColor[0],
-      currentColor[1],
-      currentColor[2],
+    const value = Math.min(
       255,
-    ]);
-
-    const activeCtx = this.canvasManagerService.getActiveCtx();
-    bufferCtx.putImageData(newMask, rect.x, rect.y);
-    activeCtx.drawImage(bufferCtx.canvas, 0, 0);
+      Math.max(1, Math.round(this.labelService.activeSegInstance?.instance ?? 1))
+    );
+    const mask = this.canvasManagerService.getActiveMask();
+    if (mask) {
+      applyResultMask(mask, new Uint8Array(result), value);
+      this.stateService.recomputeCanvasSum = true;
+    }
   }
 
   /** Invalidate the cached superpixel map/overlay (e.g. when the target count

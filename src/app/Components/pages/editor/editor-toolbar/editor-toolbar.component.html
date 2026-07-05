@@ -44,72 +44,41 @@
         </p-selectButton>
       </div>
 
-      <p-block-ui
-        [target]="linewidth"
-        [blocked]="!editorService.isToolWithBrushSize()"
-      />
-      <blockable-p #linewidth>
-        <input
-          type="text"
-          pInputText
-          [(ngModel)]="editorService.lineWidth"
-          class="mb-3 w-full"
-        />
-        <p-slider
-          [(ngModel)]="brushSizeSlider"
-          class="w-full"
-          pTooltip="Ctrl+Wheel"
-          [min]="0"
-          [max]="1000"
-        />
-      </blockable-p>
+      @if (editorService.isToolWithBrushSize()) {
+        <div class="flex flex-col" style="min-width: 9rem">
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="editorService.lineWidth"
+            class="mb-3 w-full"
+          />
+          <p-slider
+            [(ngModel)]="brushSizeSlider"
+            class="w-full"
+            pTooltip="Ctrl+Wheel"
+            [min]="0"
+            [max]="1000"
+          />
+        </div>
+      }
 
-      <p-block-ui
-        [target]="swapToggle"
-        [blocked]="!editorService.isDrawingTool()"
-      />
-      <app-labelled-switch #swapToggle [(checked)]="editorService.swapMarkers">
-        Swap existing markers</app-labelled-switch
-      >
+      @if (editorService.isDrawingTool()) {
+        <app-labelled-switch [(checked)]="editorService.swapMarkers">
+          Swap existing labels</app-labelled-switch
+        >
+      }
 
-      <p-block-ui
-        [target]="eraseAllToggle"
-        [blocked]="!editorService.isEraser()"
-      />
-      <app-labelled-switch #eraseAllToggle [(checked)]="editorService.eraseAll">
-        Erase all labels</app-labelled-switch
-      >
+      @if (editorService.isEraser()) {
+        <app-labelled-switch [(checked)]="editorService.eraseAll">
+          Erase all labels</app-labelled-switch
+        >
+      }
 
-      <app-labelled-switch
-        [(checked)]="editorService.edgesOnly"
-        (checkedChange)="editorService.requestCanvasRedraw()"
-        [tooltipLabel]="'Ctrl+E'"
-      >
-        Show only edges</app-labelled-switch
-      >
-
-      <button
-        pButton
-        pRipple
-        icon="pi pi-undo"
-        (click)="editorService.requestUndo()"
-        pTooltip="Ctrl+Z"
-        aria-label="Undo"
-      ></button>
-      <button
-        pButton
-        pRipple
-        icon="pi pi-refresh"
-        (click)="editorService.requestRedo()"
-        pTooltip="Ctrl+Y"
-        aria-label="Redo"
-      ></button>
-      <app-labelled-switch
-        [(checked)]="editorService.eraserPostProcess"
-        *ngIf="editorService.isEraser()"
-      >
-        Post-process erasing</app-labelled-switch
-      >
+      @if (editorService.isEraser()) {
+        <app-labelled-switch [(checked)]="editorService.eraserPostProcess">
+          Post-process erasing</app-labelled-switch
+        >
+      }
     </div>
   </ng-template>
   <ng-template pTemplate="end"> </ng-template>

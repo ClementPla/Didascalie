@@ -5,6 +5,7 @@ import { TreeNode } from 'primeng/api';
 import { MulticlassTask, MultilabelTask } from '../../Core/task';
 import {TextLabel} from "../../Core/interface";
 import { api, ProjectConfig } from '../../lib/api';
+import { generate_shades } from '../../Core/misc/colors';
 @Injectable({
   providedIn: 'root',
 })
@@ -147,13 +148,15 @@ export class LabelsService {
       this.activeSegInstance = {
         label: this.activeLabel,
         instance: 1,
-        shade: '',
+        shade: this.activeLabel.shades?.[1] ?? this.activeLabel.color,
         id: this.activeLabel.id,
       };
     } else {
       let current_instance = this.activeSegInstance.instance;
+      // Instance ids are the pixel value, so they must stay >= 1 (0 = empty).
+      // Wrap back to 1, never 0, so ids never collide at paint time.
       if (current_instance >= this.activeLabel.shades!.length - 1) {
-        current_instance = -1;
+        current_instance = 0;
       }
       current_instance++;
       let new_shade = this.activeLabel.shades![current_instance];
@@ -179,8 +182,9 @@ export class LabelsService {
     this.maxID = 0;
   }
 
-  private generateShades(baseColor: string, count: number = 10): string[] {
-    return [baseColor]; // placeholder
+  private generateShades(baseColor: string, count: number = 32): string[] {
+    // Index 0 is the base colour; instance ids (the pixel values) index in.
+    return generate_shades(baseColor, count);
   }
   getDefinitions(): Pick<
     ProjectConfig,

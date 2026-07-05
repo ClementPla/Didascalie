@@ -26,14 +26,8 @@ export interface AnnotationResponse {
   labelId: number;
   labelName: string;
   color: string;
-  maskPngBase64: string;
-  width: number;
-  height: number;
-}
-
-export interface AnnotationSave {
-  label_id: number;
-  mask_data: number[];
+  /** Base64 of the raw uint8 value mask (0 = bg, 1 = semantic, id = instance). */
+  maskBase64: string;
   width: number;
   height: number;
 }
@@ -249,19 +243,16 @@ export const api = {
   loadAnnotations: (frameId: number) =>
     invoke<AnnotationResponse[]>('load_annotations', { frameId }),
 
-  saveAnnotation: (
-    frameId: number,
-    labelId: number,
-    maskData: Uint8Array,
-    encoding: 'Rle' | 'Png',
-  ) => {
-    const payload = {
+  saveAnnotation: (frameId: number, labelId: number, maskData: Uint8Array) => {
+    // Send the mask as raw bytes (Rust receives Vec<u8>) instead of a JSON
+    // number array — the latter is pathologically slow/large for big masks.
+    // `.slice().buffer` passes a detached-safe copy so the live label mask is
+    // never at risk if the IPC layer were to transfer (neuter) the buffer.
+    return invoke<void>('save_annotation', {
       frameId,
       labelId,
-      maskData: Array.from(maskData),
-      encoding,
-    };
-    return invoke<void>('save_annotation', payload);
+      maskData: maskData.slice().buffer,
+    });
   },
 
   /** Load every vector shape on a frame, grouped by owning label. */

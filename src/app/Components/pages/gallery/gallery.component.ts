@@ -30,6 +30,7 @@ import { LabelsService } from '../../../Services/Labels/labels.service';
 import { GalleryService } from './gallery.service';
 import { BatchAnnotationService } from '../../../Services/Labels/batch-annotation.service';
 import { UIStateService } from '../../../Services/uistate.service';
+import { NotificationService } from '../../../Services/notification.service';
 import { api } from '../../../lib/api';
 
 // Components
@@ -136,6 +137,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     public galleryService: GalleryService,
     private batchAnnotationService: BatchAnnotationService,
     private uiState: UIStateService,
+    private notifications: NotificationService,
     private router: Router,
     private cdr: ChangeDetectorRef,
     private zone: NgZone,
@@ -256,6 +258,10 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
         }));
     } catch (error) {
       console.error('Failed to load gallery items:', error);
+      this.notifications.error(
+        'Failed to load gallery',
+        error instanceof Error ? error.message : String(error)
+      );
       return [];
     } finally {
       this.uiState.endLoading();

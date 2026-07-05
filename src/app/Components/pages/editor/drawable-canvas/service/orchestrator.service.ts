@@ -50,7 +50,9 @@ export class OrchestratorService {
       .pipe(auditTime(0, animationFrameScheduler))
       .subscribe((value) => {
         if (value) {
-          this.drawService.refreshAllColors();
+          // Colour lives in the palettes now; rebuild them and recomposite.
+          this.canvasManager.rebuildPalettes();
+          this.state.recomputeCanvasSum = true;
           this.redrawRequest.next();
         }
       });
@@ -164,18 +166,6 @@ export class OrchestratorService {
   // ==========================================
   // Canvas operations
   // ==========================================
-
-  public loadCanvas(data: string, index: number) {
-    this.canvasManager.loadCanvas(data, index);
-    this.undoRedo.captureInitialState(index);
-  }
-
-  public async loadAllCanvas(masks: string[]) {
-    this.canvasManager.loadAllCanvas(masks);
-    this.undoRedo.empty();
-    await this.undoRedo.captureInitialStates();
-    this.redrawRequest.next();
-  }
 
   public ensurePixelPerfectDrawing(ctx: CanvasRenderingContext2D) {
     this.canvasManager.ensurePixelPerfectDrawing(ctx);

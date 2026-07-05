@@ -250,8 +250,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     // Update state manager with frame dimensions
     this.stateManagerService.width = frameImage.frame.width;
     this.stateManagerService.height = frameImage.frame.height;
-    // Initialize canvas manager
-    this.canvasManagerService.initCanvas();
+    // Allocate the per-label masks for this frame's dimensions.
+    await this.canvasManagerService.updateCanvasesDimensions();
     // Load annotations
     await this.loadCanvas();
   }
@@ -388,7 +388,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.canvasManagerService.updateCanvasesDimensions();
 
       // Clear and reload
-      this.canvasManagerService.clearAllCanvas();
+      this.canvasManagerService.clearAllMasks();
       await this.ioService.load();
       // Reset undo/redo and capture initial state
       this.orchestratorService.resetHistory();
@@ -444,10 +444,19 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   // ==========================================
 
   private cycleToNextLabel() {
-    const currentIndex = this.labelService.getActiveIndex();
     const labels = this.labelService.listSegmentationLabels;
-    const nextIndex = (currentIndex + 1) % labels.length;
-    this.labelService.activeLabel = labels[nextIndex];
+    if (labels.length === 0) return;
+    const nextIndex = (this.labelService.getActiveIndex() + 1) % labels.length;
+    const next = labels[nextIndex];
+    // Mirror a tree click so the selection highlight and instance state stay
+    // consistent whichever way the active label was changed.
+    this.labelService.activeLabel = next;
+    this.labelService.activeSegInstance = {
+      label: next,
+      instance: -1,
+      shade: next.color,
+      id: next.id,
+    };
   }
 
   private togglePostProcessing() {
@@ -482,15 +491,17 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * The right sidebar exists only for processing settings (image adjustments /
-   * post-processing). It appears when any of those modes is on, so the default
-   * state with nothing toggled is closed.
+   * The right settings panel appears whenever there is something to configure
+   * (image adjustments, post-processing, bounding boxes, or pen pressure), so
+   * the default state with nothing toggled is closed.
    */
-  get showProcessingSettings(): boolean {
+  get showSettingsPanel(): boolean {
     return (
       this.editorService.useProcessing ||
       this.editorService.penPostProcess ||
-      this.editorService.eraserPostProcess
+      this.editorService.eraserPostProcess ||
+      this.editorService.showBoundingBox ||
+      this.editorService.pressureSensitivity
     );
   }
 

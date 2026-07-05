@@ -34,10 +34,8 @@ export class LineTool extends BaseTool {
     ctx.beginPath();
     ctx.moveTo(this.startPoint.x, this.startPoint.y);
     ctx.lineTo(endPoint.x, endPoint.y);
-    console.log('Drawing line from', this.startPoint, 'to', endPoint);
     ctx.stroke();
 
-    this.binarizeBuffer(context);
     this.commitBufferToActive(context);
 
     this.startPoint = null;

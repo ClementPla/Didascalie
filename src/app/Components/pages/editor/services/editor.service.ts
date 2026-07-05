@@ -19,7 +19,7 @@ export class EditorService {
   public labelOpacity: number = 1;
   public lineWidth: number = 10;
   /** Scale the brush radius by pen/touch pressure while drawing. */
-  public pressureSensitivity: boolean = true;
+  public pressureSensitivity: boolean = false;
   /** Live pointer pressure in [0, 1]. Updated per pointer event by the canvas
    *  input directive, read by the drawing tools and cursor. */
   public strokePressure: number = 1;
@@ -63,7 +63,10 @@ export class EditorService {
 
   public floodFillTolerance: number = 3.0;
 
-  public webGPURendering: boolean = false;
+  // On by default: the compositor self-tests at startup and reports itself
+  // unavailable (falling back to CPU) if WebGPU is missing or produces wrong
+  // output, so enabling this can't break rendering.
+  public webGPURendering: boolean = true;
   public resetZoomAfterNavigation: boolean = true;
   constructor() {}
 

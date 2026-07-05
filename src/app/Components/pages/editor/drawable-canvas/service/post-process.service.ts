@@ -4,18 +4,25 @@ import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
 import { ImageAdjustmentService } from './image-adjustment/image-adjustment.service';
 import { invoke } from '@tauri-apps/api/core';
+import { binarizeArray } from '../../../../../Core/misc/binarize';
 import {
-  binarizeArray,
-  colorizeArray,
-  colorizeArrayInplace,
-} from '../../../../../Core/misc/binarize';
-import { OpenCVService } from '../../../../../Services/open-cv.service';
+  applyResultMask,
+  applyRegionResult,
+  componentsUnderStroke,
+  unionPresence,
+  intRect,
+} from '../../../../../Core/misc/label-ops';
 import { PostProcessOption } from '../../../../../Core/tools';
 import { LabelsService } from '../../../../../Services/Labels/labels.service';
-import { from_hex_to_rgb } from '../../../../../Core/misc/colors';
+import { ProjectService } from '../../../../../Services/ProjectService/project.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { findExperimentalPostProcess } from '../../../../../experimental/registry';
 
+/**
+ * Runs the Rust post-process commands and writes their single-channel results
+ * into the active label mask. Colour is no longer applied here — it lives in
+ * the label palette and is resolved at composite time.
+ */
 @Injectable({
   providedIn: 'root',
 })
@@ -26,104 +33,69 @@ export class PostProcessService {
     private imageProcessingService: ImageAdjustmentService,
     private canvasManagerService: CanvasManagerService,
     private stateService: StateManagerService,
-    private openCVService: OpenCVService,
     private labelService: LabelsService,
+    private projectService: ProjectService,
     private zoomPanService: ZoomPanService,
     private injector: Injector
   ) {}
 
-  async sam_post_process() {
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
-    let bbox = this.stateService.getBoundingBox();
-    let rect = {
-      x: 0,
-      y: 0,
-      width: this.stateService.width,
-      height: this.stateService.height,
-    };
-    const maskData = bufferCtx.getImageData(
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height
-    ).data;
-
-    let out = binarizeArray(maskData);
-
-    // Binary mask
-    let currentColor = out.color;
-    let binaryMask = out.data;
-    const canvas = this.imageProcessingService.getCurrentCanvas();
-    if (!canvas) return;
-    const imgData = (canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null)!
-      .getImageData(
-        0,
-        0,
-        this.stateService.width,
-        this.stateService.height
-      ).data;
-    let imageBitmap: ArrayBufferLike;
-    if (!this.featuresExtracted) {
-      imageBitmap = await invoke<ArrayBufferLike>('mask_sam_segment', {
-        coarseMask: binaryMask,
-        image: imgData.buffer,
-        threshold: this.editorService.samThreshold,
-        width: this.stateService.width,
-        height: this.stateService.height,
-        extractFeatures: true,
-      });
-    } else {
-      imageBitmap = await invoke<ArrayBufferLike>('mask_sam_segment', {
-        coarseMask: binaryMask,
-        image: [],
-        threshold: this.editorService.samThreshold,
-        width: this.stateService.width,
-        height: this.stateService.height,
-        extractFeatures: false,
-      });
+  /** Active mask value to write: instance id, or 1 for semantic labels. */
+  private activeValue(): number {
+    if (this.projectService.isInstanceSegmentation()) {
+      const v = this.labelService.activeSegInstance?.instance ?? 1;
+      return Math.min(255, Math.max(1, Math.round(v)));
     }
-    let outBuffer = new Uint8ClampedArray(imageBitmap);
-    // imageBitmap is a grayscale image with the same size as the input image.
-    let outData = colorizeArray(outBuffer, [
-      currentColor[0],
-      currentColor[1],
-      currentColor[2],
-      255,
-    ]);
+    return 1;
+  }
 
+  private imageContext(): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null {
+    const canvas = this.imageProcessingService.getCurrentCanvas();
+    if (!canvas) return null;
+    return canvas.getContext('2d', { alpha: false }) as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null;
+  }
+
+  async sam_post_process() {
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+
+    const bufferCtx = this.canvasManagerService.getBufferCtx();
+    const coarseMask = binarizeArray(bufferCtx.getImageData(0, 0, w, h).data).data;
+
+    const imgCtx = this.imageContext();
+    if (!imgCtx) return;
+    const imgData = imgCtx.getImageData(0, 0, w, h).data;
+
+    const result = await invoke<ArrayBufferLike>('mask_sam_segment', {
+      coarseMask,
+      image: this.featuresExtracted ? [] : imgData.buffer,
+      threshold: this.editorService.samThreshold,
+      width: w,
+      height: h,
+      extractFeatures: !this.featuresExtracted,
+    });
     this.featuresExtracted = true;
-    let activeCtx = this.canvasManagerService.getActiveCtx();
-    let bufferCanvas = this.canvasManagerService.getBufferCanvas();
-    bufferCtx.putImageData(
-      new ImageData(outData, rect.width, rect.height),
-      rect.x,
-      rect.y
-    );
-    bufferCtx.globalCompositeOperation = 'destination-in';
-    bufferCtx.fillStyle = 'white';
-    bufferCtx.fillRect(bbox.x, bbox.y, bbox.width, bbox.height);
-    bufferCtx.globalCompositeOperation = 'source-over';
-    activeCtx.drawImage(bufferCanvas, 0, 0);
+
+    const mask = this.canvasManagerService.getActiveMask();
+    if (mask) applyResultMask(mask, new Uint8Array(result), this.activeValue());
   }
 
   async otsu_post_process() {
-    const rect = this.stateService.getBoundingBox();
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+    const rect = intRect(this.stateService.getBoundingBox(), w, h);
+    if (!rect) return;
 
-    const canvas = this.imageProcessingService.getCurrentCanvas();
-    if (!canvas) return;
+    const imgCtx = this.imageContext();
+    if (!imgCtx) return;
+    const imageData = imgCtx.getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    const maskData = this.canvasManagerService
+      .getBufferCtx()
+      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
 
-    const imageData = (canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null)?.getImageData(rect.x, rect.y, rect.width, rect.height).data;
-    if (!imageData) return;
-
-    const maskData = bufferCtx.getImageData(
-      rect.x,
-      rect.y,
-      rect.width,
-      rect.height
-    ).data;
-
-    return invoke<Uint8ClampedArray>('otsu_segmentation', {
+    const result = await invoke<ArrayBufferLike>('otsu_segmentation', {
       mask: maskData.buffer,
       image: imageData.buffer,
       opening: this.editorService.autoPostProcessOpening,
@@ -132,111 +104,64 @@ export class PostProcessService {
       connectedness: this.editorService.enforceConnectivity,
       width: rect.width,
       height: rect.height,
-    }).then((mask: Uint8ClampedArray) => {
-      const newMAsk = new ImageData(
-        new Uint8ClampedArray(mask),
-        rect.width,
-        rect.height
-      );
-      const activeCtx = this.canvasManagerService.getActiveCtx();
-      bufferCtx.putImageData(newMAsk, rect.x, rect.y);
-      activeCtx.drawImage(
-        bufferCtx.canvas,
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height,
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height
-      );
     });
+
+    const mask = this.canvasManagerService.getActiveMask();
+    if (mask) applyRegionResult(mask, w, new Uint8Array(result), rect, this.activeValue());
   }
 
   async flood_fill_post_process() {
-    let rect = this.stateService.getBoundingBox();
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
-    const canvas = this.imageProcessingService.getCurrentCanvas();
-    if (!canvas) return;
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+    const rect = intRect(this.stateService.getBoundingBox(), w, h);
+    if (!rect) return;
 
-    const imageData = (canvas.getContext('2d', { alpha: false }) as
-  CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null)!.getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    const imgCtx = this.imageContext();
+    if (!imgCtx) return;
+    const imageData = imgCtx.getImageData(rect.x, rect.y, rect.width, rect.height).data;
 
     const clickX = Math.floor(this.zoomPanService.currentPixel.x - rect.x);
     const clickY = Math.floor(this.zoomPanService.currentPixel.y - rect.y);
-    const currentColor = this.labelService.activeLabel!.color;
-    if (!currentColor) {
-      return;
-    }
-    let rgbColor = from_hex_to_rgb(currentColor);
-    return invoke<Uint8ClampedArray>('flood_fill_mask', {
+
+    const result = await invoke<ArrayBufferLike>('flood_fill_mask', {
       image: imageData.buffer,
       width: rect.width,
       height: rect.height,
-      startX: clickX, // Relative to bounding box
+      startX: clickX,
       startY: clickY,
-      tolerance: this.editorService.floodFillTolerance, // Delta E tolerance (0-100, typically 10-30 works well)
-    }).then((mask: Uint8ClampedArray) => {
-      const newMask = new ImageData(
-        new Uint8ClampedArray(mask),
-        rect.width,
-        rect.height
-      );
-      colorizeArrayInplace(newMask.data, [
-        rgbColor[0],
-        rgbColor[1],
-        rgbColor[2],
-        255,
-      ]);
-
-      const activeCtx = this.canvasManagerService.getActiveCtx();
-      bufferCtx.putImageData(newMask, rect.x, rect.y);
-      activeCtx.drawImage(
-        bufferCtx.canvas,
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height,
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height
-      );
+      tolerance: this.editorService.floodFillTolerance,
     });
+
+    const mask = this.canvasManagerService.getActiveMask();
+    if (mask) applyRegionResult(mask, w, new Uint8Array(result), rect, this.activeValue());
   }
 
-  async eraseAll_post_process() {
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
+  /**
+   * Erase the connected components (across the active mask, or every mask when
+   * "erase all" is on) that the eraser stroke touched.
+   */
+  async eraseConnectedComponents_post_process() {
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+    const rect = intRect(this.stateService.getBoundingBox(), w, h);
+    if (!rect) return;
 
-    let inputCtx;
-    if (this.editorService.eraseAll) {
-      if (this.editorService.edgesOnly) {
-        this.editorService.edgesOnly = false;
-        this.canvasManagerService.computeCombinedCanvas();
-        this.editorService.edgesOnly = true;
-      }
+    const region = this.canvasManagerService
+      .getBufferCtx()
+      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
 
-      inputCtx = this.canvasManagerService.getCombinedCtx();
-    } else {
-      inputCtx = this.canvasManagerService.getActiveCtx();
-    }
-
-    let bbox = this.stateService.getBoundingBox();
-    const maskCanvas = this.openCVService.getMaskOfConnectedComponentsInRegion(
-      inputCtx,
-      bufferCtx,
-      bbox
-    );
+    const masks = this.canvasManagerService.getAllMasks();
     const activeIndex = this.canvasManagerService.getActiveIndex();
+    const eraseAll = this.editorService.eraseAll;
 
-    this.canvasManagerService.getAllCanvasCtx().forEach((ctx, index) => {
-      if (index !== activeIndex && !this.editorService.eraseAll) return;
-      // ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.drawImage(maskCanvas, 0, 0);
-      ctx.globalCompositeOperation = 'source-over';
-    });
+    const presence = eraseAll ? unionPresence(masks, w, h) : masks[activeIndex];
+    if (!presence) return;
+
+    const toClear = componentsUnderStroke(presence, w, h, region, rect);
+    const targets = eraseAll ? masks : [masks[activeIndex]].filter(Boolean);
+    for (const px of toClear) {
+      for (const mask of targets) mask[px] = 0;
+    }
   }
 
   async getPostProcessFunction(): Promise<void> {

@@ -1,12 +1,19 @@
 import { Injectable, signal } from '@angular/core';
 import { Subject } from 'rxjs';
 
-export type NotificationSeverity = 'success' | 'info' | 'warn' | 'error';
+export type NotificationSeverity =
+  | 'success'
+  | 'info'
+  | 'warn'
+  | 'error'
+  | 'secondary';
 
 export interface AppNotification {
   severity: NotificationSeverity;
   summary: string;
   detail?: string;
+  /** Toast lifetime in ms; overrides the default when set (e.g. a brief cue). */
+  life?: number;
 }
 
 /**

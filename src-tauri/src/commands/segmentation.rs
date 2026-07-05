@@ -1,5 +1,5 @@
 use super::images::{convert_image_to_luma_u8_array, convert_image_to_mask_array};
-use image::{GenericImageView, GrayImage, Luma};
+use image::{GrayImage, Luma};
 use imageproc::region_labelling::{connected_components, Connectivity};
 use itertools::Itertools;
 use ndarray::{Array2, Zip};
@@ -272,18 +272,6 @@ pub async fn otsu_segmentation(
     let mask = image::DynamicImage::ImageRgba8(
         image::RgbaImage::from_raw(width as u32, height as u32, mask).unwrap(),
     );
-    let color = mask
-        .pixels()
-        .collect::<Vec<_>>()
-        .iter()
-        .find_map(|(_, _, pixel)| {
-            if pixel[3] > 0 {
-                Some([pixel[0], pixel[1], pixel[2], 255])
-            } else {
-                None
-            }
-        })
-        .unwrap_or([0, 0, 0, 0]);
 
     let image = convert_image_to_luma_u8_array(&image);
     let mask = convert_image_to_mask_array(&mask);
@@ -295,16 +283,15 @@ pub async fn otsu_segmentation(
     let morphed_mask = morpho_mask(&refined_mask, opening, connectedness, kernel_size);
     refined_mask.assign(&morphed_mask);
 
-    // 3. Convert refined mask back to blob
-    let output_mask_image: image::DynamicImage = image::DynamicImage::ImageRgba8(
-        image::ImageBuffer::from_fn(width as u32, height as u32, |x, y| {
-            let value = *refined_mask.get([y as usize, x as usize]).unwrap();
-            if value {
-                image::Rgba(color)
-            } else {
-                image::Rgba([0, 0, 0, 0])
+    // 3. Single-channel presence mask (255 = foreground), row-major. The
+    // frontend writes the active label / instance value wherever it is nonzero.
+    let mut output = vec![0u8; width * height];
+    for y in 0..height {
+        for x in 0..width {
+            if *refined_mask.get([y, x]).unwrap() {
+                output[y * width + x] = 255;
             }
-        }),
-    );
-    Ok(Response::new(output_mask_image.to_rgba8().into_vec()))
+        }
+    }
+    Ok(Response::new(output))
 }

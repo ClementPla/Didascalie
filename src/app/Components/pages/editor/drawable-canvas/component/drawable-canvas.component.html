@@ -45,9 +45,6 @@
   <!-- Viewport (fills the grid cell; canvases fill the viewport) -->
   <div
     class="canvas-viewport overflow-hidden relative"
-    [ngClass]="{
-      'fixed inset-0 z-[2500]': isFullscreen
-    }"
     #viewport
   >
     <app-svgelements
@@ -98,21 +95,6 @@
 
     <!-- Floating buttons -->
     <div class="absolute flex gap-2 items-center left-5 top-2 z-40">
-      @if (!isFullscreen) {
-        <p-button
-          pRipple [rounded]="true" [raised]="true"
-          (click)="switchFullScreen()"
-          icon="pi pi-window-maximize" severity="help"
-          ariaLabel="Enter fullscreen"
-        ></p-button>
-      } @else {
-        <p-button
-          pButton pRipple [rounded]="true" [raised]="true"
-          (click)="switchFullScreen()"
-          icon="pi pi-window-minimize" severity="help"
-          ariaLabel="Exit fullscreen"
-        ></p-button>
-      }
       <p-button
         [rounded]="true" [raised]="true"
         (click)="zoomPanService.resetZoomAndPan(true, true)"
@@ -124,6 +106,17 @@
     <!-- Vector shape properties (shown when a shape is selected with the Node tool) -->
     @if (editorService.isNodeTool() && vectorEditor.selectedShape(); as shape) {
       <div class="absolute flex gap-2 items-center right-5 top-2 z-40">
+        <p-select
+          [options]="labelService.listSegmentationLabels"
+          optionLabel="label"
+          optionValue="id"
+          [ngModel]="shape.labelId"
+          (onChange)="vectorEditor.moveSelectedToLabel($event.value)"
+          appendTo="body"
+          pTooltip="Move to label layer"
+          [style]="{ 'min-width': '9rem' }"
+          ariaLabel="Move shape to label layer"
+        ></p-select>
         <p-button
           [rounded]="true" [raised]="true" severity="danger"
           icon="pi pi-trash" pTooltip="Delete shape (Del)"

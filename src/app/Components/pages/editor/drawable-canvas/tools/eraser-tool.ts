@@ -27,44 +27,16 @@ export class EraserTool extends BaseTool {
 
     context.stateService.updatePreviousPoint(point);
     context.stateService.updateCurrentPoint(point);
-    
-    // We binarize immediately during draw for the eraser to ensure the mask is sharp
-    // (This matches your original logic calling binarize inside eraserPen)
-    this.binarizeBuffer(context); 
 
-    // Apply the buffer as an eraser to the target canvas(es)
-    this.applyEraserToTargets(context);
+    // When eraserPostProcess is on we only record the stroke on the buffer; the
+    // connected-component erase runs once in DrawService after the stroke ends.
+    if (!context.editorService.eraserPostProcess) {
+      this.eraseBufferFromTargets(context);
+    }
     context.redrawRequest();
   }
 
   async end(context: ToolContext) {
     // Post-process logic is handled by the DrawService orchestrator
-  }
-
-  private applyEraserToTargets(context: ToolContext) {
-    // If we are just recording points for SVG post-process, skip canvas manipulation
-    if (context.editorService.eraserPostProcess) {
-      // Assuming 'svgUIService' is reachable via context or handled separately
-      // context.svgUIService.addPoint(context.stateService.currentPoint);
-      return; 
-    }
-
-    const bufferCanvas = context.canvasManager.getBufferCanvas();
-    const bbox = context.stateService.getBoundingBox();
-
-    // Determine which canvases to erase from
-    const targets = context.editorService.eraseAll 
-      ? context.canvasManager.getAllCanvasCtx() 
-      : [context.canvasManager.getActiveCtx()];
-
-    targets.forEach(ctx => {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.drawImage(
-        bufferCanvas,
-        bbox.x, bbox.y, bbox.width, bbox.height,
-        bbox.x, bbox.y, bbox.width, bbox.height
-      );
-      ctx.globalCompositeOperation = 'source-over';
-    });
   }
 }

@@ -29,6 +29,35 @@ export function from_hex_to_rgb(hex: string) {
     return [r, g, b]
 }
 
+/**
+ * Build a 256-entry RGBA lookup table mapping a label's pixel values to display
+ * colours. Index 0 stays transparent (background). For a semantic label every
+ * value maps to `baseColor`; for an instance label (`shades` provided) value
+ * `v` maps to `shades[v]`, falling back to `baseColor` when a shade is missing
+ * or malformed. Returned as a flat `Uint8Array(256*4)`.
+ */
+export function buildLabelPalette(baseColor: string, shades: string[] | null): Uint8Array {
+    const pal = new Uint8Array(256 * 4);
+    const [br, bg, bb] = from_hex_to_rgb(baseColor);
+
+    for (let v = 1; v < 256; v++) {
+        let r = br, g = bg, b = bb;
+        if (shades && shades.length > 0) {
+            const hex = shades[v] ?? shades[v % shades.length];
+            const [sr, sg, sb] = from_hex_to_rgb(hex ?? '');
+            if (Number.isFinite(sr) && Number.isFinite(sg) && Number.isFinite(sb)) {
+                r = sr; g = sg; b = sb;
+            }
+        }
+        if (!Number.isFinite(r)) { r = 255; g = 255; b = 255; }
+        pal[v * 4] = r;
+        pal[v * 4 + 1] = g;
+        pal[v * 4 + 2] = b;
+        pal[v * 4 + 3] = 255;
+    }
+    return pal;
+}
+
 function componentToHex(c: number): string {
     var hex = c.toString(16);
     return hex.length == 1 ? "0" + hex : hex;

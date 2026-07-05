@@ -71,6 +71,34 @@ export function flattenShape(shape: VectorShape, samples = 16): Pt[] {
   return pts;
 }
 
+export interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Axis-aligned bounding box of a shape in image space, or null when it has no
+ * geometry. Uses the flattened polyline so curved segments are covered.
+ */
+export function shapeBounds(shape: VectorShape): Bounds | null {
+  const pts = flattenShape(shape);
+  if (pts.length === 0) return null;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
 /** Squared distance from p to segment ab. */
 function distSqToSegment(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;

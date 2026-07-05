@@ -7,7 +7,7 @@ use crate::types::image::{AnnotationData, MaskEncoding};
 
 /// Current on-disk schema version. Bump this whenever the schema changes and
 /// add a matching arm in `run_migrations`.
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 /// Common configuration for all connections
 fn configure_connection(conn: &Connection) -> Result<()> {
@@ -41,6 +41,14 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )));
     }
 
+    // Always ensure the baseline tables exist, regardless of stored version.
+    // The baseline SCHEMA is entirely `CREATE ... IF NOT EXISTS`, so this is a
+    // no-op when everything is present but backfills tables that were added to
+    // SCHEMA after a project was created (e.g. `registrations` on a project
+    // made before registration existed) without needing a version bump.
+    conn.execute_batch(super::schema::SCHEMA)
+        .map_err(AppError::Database)?;
+
     if version == SCHEMA_VERSION {
         return Ok(());
     }
@@ -50,11 +58,9 @@ fn run_migrations(conn: &Connection) -> Result<()> {
     let tx = conn.unchecked_transaction().map_err(AppError::Database)?;
     let mut v = version;
 
-    // v0 -> v1: baseline. `CREATE TABLE IF NOT EXISTS`, so this is also the
-    // adoption path for legacy databases that predate versioning.
+    // v0 -> v1: baseline. The baseline SCHEMA was already applied above, so this
+    // only stamps the version (also the adoption path for legacy unversioned DBs).
     if v < 1 {
-        tx.execute_batch(super::schema::SCHEMA)
-            .map_err(AppError::Database)?;
         v = 1;
     }
 
@@ -65,8 +71,18 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         v = 2;
     }
 
+    // v2 -> v3: uint8-per-label masks. No DDL change — the `annotations`
+    // table is unchanged and its `encoding` column already accepts the new
+    // `rle8` value. Bumping the version only stamps the file so older builds
+    // (which support up to v2) refuse to open it rather than mis-reading the
+    // new encoding. New masks are written as `rle8`; legacy `rle`/`png` rows
+    // stay readable and are upgraded lazily on the next save.
+    if v < 3 {
+        v = 3;
+    }
+
     // Future migrations go here, one block per version:
-    //   if v < 3 { tx.execute_batch(MIGRATION_V3)?; v = 3; }
+    //   if v < 4 { tx.execute_batch(MIGRATION_V4)?; v = 4; }
 
     // PRAGMA doesn't accept bound parameters; v is an internal integer.
     tx.execute_batch(&format!("PRAGMA user_version = {};", v))
@@ -244,25 +260,6 @@ pub fn load_annotations(conn: &Connection, frame_id: i64) -> Result<Vec<Annotati
     Ok(rows.filter_map(|r| r.ok()).collect())
 }
 
-// ============ Review ============
-
-pub fn mark_image_opened(conn: &Connection, image_id: i64) -> Result<()> {
-    conn.execute(
-        "INSERT OR IGNORE INTO review_status (image_id) VALUES (?1)",
-        params![image_id],
-    )?;
-    Ok(())
-}
-
-pub fn mark_image_reviewed(conn: &Connection, image_id: i64, reviewed: bool) -> Result<()> {
-    conn.execute(
-        "UPDATE review_status SET reviewed = ?1 WHERE image_id = ?2",
-        params![reviewed, image_id],
-    )?;
-    Ok(())
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,6 +302,31 @@ mod tests {
         assert_eq!(read_version(&conn), 0);
 
         run_migrations(&conn).unwrap();
+        assert_eq!(read_version(&conn), SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn backfills_tables_added_after_versioning() {
+        // Simulate an older project stamped at an earlier version whose baseline
+        // predates the `registrations` table.
+        let conn = Connection::open_in_memory().unwrap();
+        configure_connection(&conn).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE project (id INTEGER PRIMARY KEY);
+             PRAGMA user_version = 2;",
+        )
+        .unwrap();
+
+        run_migrations(&conn).unwrap();
+
+        let has_registrations: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='registrations'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(has_registrations, 1);
         assert_eq!(read_version(&conn), SCHEMA_VERSION);
     }
 

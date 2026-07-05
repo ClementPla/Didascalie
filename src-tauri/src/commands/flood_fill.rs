@@ -96,14 +96,12 @@ pub fn flood_fill_mask(
         elapsed.as_secs_f64() * 1000.0
     );
 
-    let mut output_data = Vec::with_capacity(total_pixels * 4);
-    for &filled in &output_mask {
-        if filled {
-            output_data.extend_from_slice(&[255, 255, 255, 255]);
-        } else {
-            output_data.extend_from_slice(&[0, 0, 0, 0]);
-        }
-    }
+    // Single-channel presence mask (255 = filled). The frontend writes the
+    // active label / instance value wherever this is nonzero.
+    let output_data: Vec<u8> = output_mask
+        .iter()
+        .map(|&filled| if filled { 255u8 } else { 0 })
+        .collect();
 
     Ok(Response::new(output_data))
 }

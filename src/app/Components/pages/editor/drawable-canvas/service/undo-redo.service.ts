@@ -9,11 +9,18 @@ import { IOService } from '../../../../../Services/io.service';
 import { VectorEditorService } from './vector-editor.service';
 
 interface LayerUndoRedoState {
-  data: OffscreenCanvas;
+  data: Uint8Array;
 }
 
-/** Which subsystem a tracked action belongs to, for unified undo ordering. */
-type ActionKind = 'raster' | 'vector';
+/**
+ * One entry in the unified undo timeline. A raster action records exactly which
+ * layer(s) it snapshotted, so undo/redo route to those layers' stacks
+ * regardless of which layer is active now (or what the current tool mode is).
+ * Multi-layer operations simply list every layer they touched.
+ */
+type UndoToken =
+  | { kind: 'vector' }
+  | { kind: 'raster'; layers: number[] };
 
 @Injectable({
   providedIn: 'root',
@@ -23,19 +30,16 @@ export class UndoRedoService {
     false
   );
 
-  // Per-layer undo/redo stacks
+  // One history stack per layer. A multi-layer action pushes a snapshot to each
+  // affected layer's stack, so every layer always has a complete history.
   private layerUndoStacks: Map<number, UndoRedo<LayerUndoRedoState>> =
     new Map();
 
-  // Global undo/redo for multi-layer operations
-  private globalUndoRedo: UndoRedo<OffscreenCanvas[]> = new UndoRedo<
-    OffscreenCanvas[]
-  >();
-
   // Unified action timeline: the interleaved order of raster and vector actions
-  // so a single Ctrl+Z undoes the most recent action regardless of its kind.
-  private actionOrder: ActionKind[] = [];
-  private redoOrder: ActionKind[] = [];
+  // so a single Ctrl+Z undoes the most recent action regardless of its kind or
+  // which layer it touched.
+  private actionOrder: UndoToken[] = [];
+  private redoOrder: UndoToken[] = [];
 
   constructor(
     private canvasManagerService: CanvasManagerService,
@@ -61,7 +65,7 @@ export class UndoRedoService {
 
     // Every committed vector action joins the unified timeline.
     this.vectorEditor.committed$.subscribe(() => {
-      this.actionOrder.push('vector');
+      this.actionOrder.push({ kind: 'vector' });
       this.redoOrder = [];
     });
   }
@@ -73,20 +77,19 @@ export class UndoRedoService {
   /** Undo the most recent action across both subsystems. */
   async undo(): Promise<void> {
     while (this.actionOrder.length > 0) {
-      const kind = this.actionOrder[this.actionOrder.length - 1];
-      if (kind === 'vector') {
+      const token = this.actionOrder[this.actionOrder.length - 1];
+      if (token.kind === 'vector') {
         if (this.vectorEditor.undo()) {
           this.actionOrder.pop();
-          this.redoOrder.push('vector');
+          this.redoOrder.push(token);
           return;
         }
         this.actionOrder.pop(); // stale token, drop and try the next one
         continue;
       }
-      // Raster behaves exactly as before; its token is consumed regardless.
       this.actionOrder.pop();
-      this.redoOrder.push('raster');
-      await this.rasterUndo();
+      this.redoOrder.push(token);
+      this.rasterUndo(token.layers);
       return;
     }
   }
@@ -94,26 +97,23 @@ export class UndoRedoService {
   /** Redo the most recently undone action across both subsystems. */
   async redo(): Promise<void> {
     while (this.redoOrder.length > 0) {
-      const kind = this.redoOrder[this.redoOrder.length - 1];
-      if (kind === 'vector') {
+      const token = this.redoOrder[this.redoOrder.length - 1];
+      if (token.kind === 'vector') {
         if (this.vectorEditor.redo()) {
           this.redoOrder.pop();
-          this.actionOrder.push('vector');
+          this.actionOrder.push(token);
           return;
         }
         this.redoOrder.pop();
         continue;
       }
       this.redoOrder.pop();
-      this.actionOrder.push('raster');
-      await this.rasterRedo();
+      this.actionOrder.push(token);
+      this.rasterRedo(token.layers);
       return;
     }
   }
 
-  /**
-   * Get or create an UndoRedo instance for a specific layer
-   */
   private getLayerUndoRedo(layerIndex: number): UndoRedo<LayerUndoRedoState> {
     if (!this.layerUndoStacks.has(layerIndex)) {
       this.layerUndoStacks.set(layerIndex, new UndoRedo<LayerUndoRedoState>());
@@ -121,85 +121,33 @@ export class UndoRedoService {
     return this.layerUndoStacks.get(layerIndex)!;
   }
 
-  private async rasterUndo() {
-    try {
-      if (this.editorService.affectsMultipleLabels()) {
-        // Global undo for multi-layer operations
-        const element = this.globalUndoRedo.undo();
-        if (!element) return;
-        await this.restoreGlobalState(element);
-      } else {
-        // Per-layer undo
-        const activeIndex = this.labelService.getActiveIndex();
-        const layerUndoRedo = this.getLayerUndoRedo(activeIndex);
-        const element = layerUndoRedo.undo();
-        if (!element) return;
-        await this.restoreLayerState(element, activeIndex);
-      }
-    } catch (error) {
-      console.error('Error during undo:', error);
+  private rasterUndo(layers: number[]) {
+    let changed = false;
+    for (const index of layers) {
+      const element = this.getLayerUndoRedo(index).undo();
+      if (element) changed = this.applyLayerState(element, index) || changed;
     }
+    if (changed) this.afterRestore();
   }
 
-  private async rasterRedo() {
-    try {
-      if (this.editorService.affectsMultipleLabels()) {
-        // Global redo for multi-layer operations
-        const element = this.globalUndoRedo.redo();
-        if (!element) return;
-        await this.restoreGlobalState(element);
-      } else {
-        // Per-layer redo
-        const activeIndex = this.labelService.getActiveIndex();
-        const layerUndoRedo = this.getLayerUndoRedo(activeIndex);
-        const element = layerUndoRedo.redo();
-        if (!element) return;
-        await this.restoreLayerState(element, activeIndex);
-      }
-    } catch (error) {
-      console.error('Error during redo:', error);
+  private rasterRedo(layers: number[]) {
+    let changed = false;
+    for (const index of layers) {
+      const element = this.getLayerUndoRedo(index).redo();
+      if (element) changed = this.applyLayerState(element, index) || changed;
     }
+    if (changed) this.afterRestore();
   }
 
-  /**
-   * Restore state for a single layer
-   */
-  private async restoreLayerState(
-    element: LayerUndoRedoState,
-    layerIndex: number
-  ): Promise<void> {
-    const allCtx = this.canvasManagerService.getAllCanvasCtx();
-    const ctx = allCtx[layerIndex];
-
-    if (!ctx) {
-      console.error(`Context at index ${layerIndex} is null`);
-      return;
-    }
-
-    const sourceCanvas = element.data;
-    ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
-    ctx.drawImage(sourceCanvas, 0, 0);
-    this.ioService.markDirty();
-    this.redrawRequest.next(true);
+  /** Copy a snapshot back into a layer mask. Returns false if the layer is gone. */
+  private applyLayerState(element: LayerUndoRedoState, layerIndex: number): boolean {
+    const mask = this.canvasManagerService.getAllMasks()[layerIndex];
+    if (!mask) return false;
+    mask.set(element.data);
+    return true;
   }
 
-  /**
-   * Restore state for all layers (multi-layer operations)
-   */
-  private async restoreGlobalState(
-    dataArray: OffscreenCanvas[]
-  ): Promise<void> {
-    const allCtx = this.canvasManagerService.getAllCanvasCtx();
-
-    allCtx.forEach((ctx, index) => {
-      if (!ctx) {
-        console.warn(`Context at index ${index} is null`);
-        return;
-      }
-      const sourceCanvas = dataArray[index];
-      ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
-      ctx.drawImage(sourceCanvas, 0, 0);
-    });
+  private afterRestore() {
     this.ioService.markDirty();
     this.redrawRequest.next(true);
   }
@@ -209,7 +157,6 @@ export class UndoRedoService {
    */
   empty() {
     this.layerUndoStacks.clear();
-    this.globalUndoRedo.empty();
     this.actionOrder = [];
     this.redoOrder = [];
   }
@@ -230,118 +177,69 @@ export class UndoRedoService {
     this.layerUndoStacks.delete(layerIndex);
   }
 
+  /** The layer indices a raster action snapshots: the active one, or all of
+   *  them for multi-layer operations (erase-all, swap). */
+  private affectedLayers(): number[] {
+    if (this.editorService.affectsMultipleLabels()) {
+      return this.canvasManagerService.getAllMasks().map((_, i) => i);
+    }
+    return [this.labelService.getActiveIndex()];
+  }
+
   /**
-   * Update undo/redo state after a canvas modification
+   * Record a raster modification: snapshot each affected layer and append the
+   * action to the unified timeline.
    */
   public async updateUndoRedo(): Promise<void> {
-    if (this.editorService.affectsMultipleLabels()) {
-      // Save all layers for global operations
-      const allCanvas = this.canvasManagerService.getAllCanvas();
-      const clonedCanvases = allCanvas.map((canvas) => {
-        const clone = new OffscreenCanvas(canvas.width, canvas.height);
-        const cloneCtx = clone.getContext('2d');
-        cloneCtx?.drawImage(canvas, 0, 0);
-        return clone;
-      });
-      this.globalUndoRedo.push(clonedCanvases);
-    } else {
-      // Save current layer state
-      const activeIndex = this.labelService.getActiveIndex();
-      const activeCanvas = this.canvasManagerService.getActiveCanvas();
+    const masks = this.canvasManagerService.getAllMasks();
+    const layers = this.affectedLayers().filter((i) => i >= 0 && masks[i]);
 
-      const clone = new OffscreenCanvas(
-        activeCanvas.width,
-        activeCanvas.height
-      );
-      const cloneCtx = clone.getContext('2d');
-      cloneCtx?.drawImage(activeCanvas, 0, 0);
-
-      const layerUndoRedo = this.getLayerUndoRedo(activeIndex);
-      layerUndoRedo.push({ data: clone });
+    for (const index of layers) {
+      this.getLayerUndoRedo(index).push({ data: new Uint8Array(masks[index]) });
     }
 
-    // Record this raster action in the unified timeline; a new action
-    // invalidates the redo history.
-    this.actionOrder.push('raster');
+    // A new action invalidates the redo history.
+    this.actionOrder.push({ kind: 'raster', layers });
     this.redoOrder = [];
   }
 
-  /**
-   * Check if undo is available for current context
-   */
   canUndo(): boolean {
-    if (this.editorService.affectsMultipleLabels()) {
-      return this.globalUndoRedo.canUndo();
-    } else {
-      const activeIndex = this.labelService.getActiveIndex();
-      const layerUndoRedo = this.getLayerUndoRedo(activeIndex);
-      return layerUndoRedo.canUndo();
-    }
+    return this.actionOrder.length > 0;
   }
 
-  /**
-   * Check if redo is available for current context
-   */
   canRedo(): boolean {
-    if (this.editorService.affectsMultipleLabels()) {
-      return this.globalUndoRedo.canRedo();
-    } else {
-      const activeIndex = this.labelService.getActiveIndex();
-      const layerUndoRedo = this.getLayerUndoRedo(activeIndex);
-      return layerUndoRedo.canRedo();
-    }
+    return this.redoOrder.length > 0;
   }
 
-  /**
-   * Get debug info about undo/redo stacks
-   */
   getDebugInfo(): any {
     return {
-      globalStackSize: this.globalUndoRedo.size(),
+      actions: this.actionOrder.length,
+      redos: this.redoOrder.length,
       layerStacks: Array.from(this.layerUndoStacks.entries()).map(
-        ([index, stack]) => ({
-          layerIndex: index,
-          stackSize: stack.size(),
-        })
+        ([index, stack]) => ({ layerIndex: index, stackSize: stack.size() })
       ),
     };
   }
 
   /**
-   * Capture initial state for all layers (call after loading canvases)
+   * Capture initial state for all layers (call after loading masks). Every
+   * layer stack starts with a baseline so the first action on it is undoable.
    */
   public async captureInitialStates(): Promise<void> {
-    const allCanvas = this.canvasManagerService.getAllCanvas();
-
-    allCanvas.forEach((canvas, index) => {
-      const clone = new OffscreenCanvas(canvas.width, canvas.height);
-      const cloneCtx = clone.getContext('2d');
-      cloneCtx?.drawImage(canvas, 0, 0);
-
-      const layerUndoRedo = this.getLayerUndoRedo(index);
-      layerUndoRedo.push({ data: clone });
+    this.canvasManagerService.getAllMasks().forEach((mask, index) => {
+      this.getLayerUndoRedo(index).push({ data: new Uint8Array(mask) });
     });
-
   }
 
   /**
-   * Capture initial state for a specific layer (call after loading a single canvas)
+   * Capture initial state for a specific layer (call after loading a single mask)
    */
   public async captureInitialState(layerIndex: number): Promise<void> {
-    const allCanvas = this.canvasManagerService.getAllCanvas();
-    const canvas = allCanvas[layerIndex];
-
-    if (!canvas) {
-      console.error(`Canvas at index ${layerIndex} not found`);
+    const mask = this.canvasManagerService.getAllMasks()[layerIndex];
+    if (!mask) {
+      console.error(`Mask at index ${layerIndex} not found`);
       return;
     }
-
-    const clone = new OffscreenCanvas(canvas.width, canvas.height);
-    const cloneCtx = clone.getContext('2d');
-    cloneCtx?.drawImage(canvas, 0, 0);
-
-    const layerUndoRedo = this.getLayerUndoRedo(layerIndex);
-    layerUndoRedo.push({ data: clone });
-
+    this.getLayerUndoRedo(layerIndex).push({ data: new Uint8Array(mask) });
   }
 }

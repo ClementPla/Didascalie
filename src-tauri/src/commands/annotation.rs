@@ -1,9 +1,8 @@
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
-use image::{ImageFormat};
 use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
 use tauri::State;
-use crate::utils::AppError;
 use crate::utils::error::Result;
 use crate::storage::{DbState, queries, rle};
 use crate::types::image::{AnnotationResponse, MaskEncoding, LabelId};
@@ -14,28 +13,13 @@ pub fn save_annotation(
     frame_id: i64,
     label_id: i64,
     mask_data: Vec<u8>,
-    encoding: MaskEncoding,
 ) -> Result<()> {
-
-    
+    // The uint8-per-label model always persists a value-aware RLE. Legacy
+    // encodings (binary `rle`, instance `png`) remain readable on load but are
+    // never written; a re-saved frame is transparently upgraded to `rle8`.
     db.with_conn(|conn| {
-        let (width, height) = queries::get_frame_dimensions(conn, frame_id)?;
-        
-        let encoded_data = match encoding {
-            MaskEncoding::Rle => {
-                rle::encode(&mask_data, width as usize, height as usize)
-            }
-            MaskEncoding::Png => {
-                let img = image::RgbaImage::from_raw(width, height, mask_data)
-                    .ok_or_else(|| AppError::Generic("Invalid RGBA mask dimensions".to_string()))?;
-                let mut png_bytes = Vec::new();
-                img.write_to(&mut std::io::Cursor::new(&mut png_bytes), ImageFormat::Png)
-                    .map_err(|e| AppError::Generic(format!("Failed to encode PNG: {}", e)))?;
-                png_bytes
-            }
-        };
-        
-        queries::save_annotation(conn, frame_id, label_id, &encoded_data, encoding)
+        let encoded = rle::encode8(&mask_data);
+        queries::save_annotation(conn, frame_id, label_id, &encoded, MaskEncoding::Rle8)
     })
 }
 
@@ -48,39 +32,12 @@ pub fn load_annotations(db: State<DbState>, frame_id: i64) -> Result<Vec<Annotat
         annotations
             .into_iter()
             .map(|a| {
-                let png_bytes = match a.encoding {
-                    MaskEncoding::Png => {
-                        // Instance segmentation: already RGBA PNG, return as-is
-                        a.mask_data
-                    }
-                    MaskEncoding::Rle => {
-                        // Regular segmentation: decode RLE, apply color, return RGBA PNG
-                        let alpha = rle::decode(&a.mask_data, width as usize, height as usize);
-                        let (r, g, b) = parse_hex_color(&a.color)?;
-                        
-                        // Build RGBA image
-                        let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-                        for a_val in alpha {
-                            rgba.push(r);
-                            rgba.push(g);
-                            rgba.push(b);
-                            rgba.push(a_val);
-                        }
-                        
-                        let img = image::RgbaImage::from_raw(width, height, rgba)
-                            .ok_or_else(|| AppError::Generic("Invalid mask dimensions".to_string()))?;
-                        let mut png_bytes = Vec::new();
-                        img.write_to(&mut std::io::Cursor::new(&mut png_bytes), ImageFormat::Png)
-                            .map_err(|e| AppError::Generic(format!("Failed to encode PNG: {}", e)))?;
-                        png_bytes
-                    }
-                };
-
+                let mask = decode_to_uint8(&a.mask_data, &a.encoding, width, height);
                 Ok(AnnotationResponse {
                     label_id: a.label_id,
                     label_name: a.label_name,
                     color: a.color,
-                    mask_png_base64: BASE64_STANDARD.encode(&png_bytes),
+                    mask_base64: BASE64_STANDARD.encode(&mask),
                     width,
                     height,
                 })
@@ -89,40 +46,47 @@ pub fn load_annotations(db: State<DbState>, frame_id: i64) -> Result<Vec<Annotat
     })
 }
 
-/// Parse hex color string (#RRGGBB or #RGB) to RGB tuple
-fn parse_hex_color(color: &str) -> Result<(u8, u8, u8)> {
-    let hex = color.trim_start_matches('#');
-    
-    match hex.len() {
-        6 => {
-            let r = u8::from_str_radix(&hex[0..2], 16)
-                .map_err(|_| AppError::Generic(format!("Invalid color: {}", color)))?;
-            let g = u8::from_str_radix(&hex[2..4], 16)
-                .map_err(|_| AppError::Generic(format!("Invalid color: {}", color)))?;
-            let b = u8::from_str_radix(&hex[4..6], 16)
-                .map_err(|_| AppError::Generic(format!("Invalid color: {}", color)))?;
-            Ok((r, g, b))
-        }
-        3 => {
-            let r = u8::from_str_radix(&hex[0..1], 16)
-                .map_err(|_| AppError::Generic(format!("Invalid color: {}", color)))?;
-            let g = u8::from_str_radix(&hex[1..2], 16)
-                .map_err(|_| AppError::Generic(format!("Invalid color: {}", color)))?;
-            let b = u8::from_str_radix(&hex[2..3], 16)
-                .map_err(|_| AppError::Generic(format!("Invalid color: {}", color)))?;
-            Ok((r * 17, g * 17, b * 17))  // Expand #RGB to #RRGGBB
-        }
-        _ => Err(AppError::Generic(format!("Invalid color format: {}", color)))
+/// Decode any stored encoding into a `width*height` uint8 value mask.
+/// Legacy `rle` (binary) collapses to `1` where present; legacy instance `png`
+/// maps each distinct opaque colour to an instance id in first-seen order.
+pub(crate) fn decode_to_uint8(data: &[u8], encoding: &MaskEncoding, width: u32, height: u32) -> Vec<u8> {
+    let (w, h) = (width as usize, height as usize);
+    match encoding {
+        MaskEncoding::Rle8 => rle::decode8(data, w, h),
+        MaskEncoding::Rle => rle::decode(data, w, h)
+            .into_iter()
+            .map(|v| if v > 0 { 1 } else { 0 })
+            .collect(),
+        MaskEncoding::Png => decode_instance_png(data, w, h),
     }
 }
-#[tauri::command]
-pub fn mark_reviewed(db: State<DbState>, image_id: i64) -> Result<()> {
-    db.with_conn(|conn| {
-        queries::mark_image_opened(conn, image_id)?;
-        queries::mark_image_reviewed(conn, image_id, true)
-    })
-}
 
+/// Legacy instance masks were RGBA PNGs where each instance had its own shade.
+/// Rebuild a uint8 id mask by assigning ids (1..=255) to distinct opaque
+/// colours in the order they first appear.
+fn decode_instance_png(data: &[u8], w: usize, h: usize) -> Vec<u8> {
+    let mut mask = vec![0u8; w * h];
+    let img = match image::load_from_memory(data) {
+        Ok(img) => img.to_rgba8(),
+        Err(_) => return mask,
+    };
+
+    let mut ids: HashMap<[u8; 3], u8> = HashMap::new();
+    let mut next_id: u8 = 1;
+    for (i, px) in img.pixels().enumerate().take(mask.len()) {
+        if px[3] == 0 {
+            continue;
+        }
+        let key = [px[0], px[1], px[2]];
+        let id = *ids.entry(key).or_insert_with(|| {
+            let id = next_id;
+            next_id = next_id.saturating_add(1);
+            id
+        });
+        mask[i] = id;
+    }
+    mask
+}
 
 #[tauri::command]
 pub fn list_labels(db: State<DbState>) -> Result<Vec<LabelId>> {

@@ -55,7 +55,7 @@ pub fn crf_refine(
     let has_bg = seed_fg.iter().any(|&f| !f);
     // Nothing to refine (region is entirely painted or entirely empty).
     if !has_fg || !has_bg {
-        return Ok(Response::new(labels_to_rgba(&seed_fg)));
+        return Ok(Response::new(labels_to_mask(&seed_fg)));
     }
 
     // Per-pixel RGB as f32 for cache-friendly neighbor reads.
@@ -209,7 +209,7 @@ pub fn crf_refine(
     );
 
     let out_fg: Vec<bool> = q.iter().map(|&p| p > 0.5).collect();
-    Ok(Response::new(labels_to_rgba(&out_fg)))
+    Ok(Response::new(labels_to_mask(&out_fg)))
 }
 
 #[inline]
@@ -238,15 +238,9 @@ fn min_dist(samples: &[[f32; 3]], c: [f32; 3]) -> f32 {
     if best == f32::MAX { 0.0 } else { best.sqrt() }
 }
 
-/// Pack a boolean foreground mask into a white / transparent RGBA buffer.
-fn labels_to_rgba(fg: &[bool]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(fg.len() * 4);
-    for &f in fg {
-        if f {
-            out.extend_from_slice(&[255, 255, 255, 255]);
-        } else {
-            out.extend_from_slice(&[0, 0, 0, 0]);
-        }
-    }
-    out
+/// Pack a boolean foreground mask into a single-channel presence buffer
+/// (255 = foreground, 0 = background). The frontend writes the active label /
+/// instance value wherever this is nonzero.
+fn labels_to_mask(fg: &[bool]) -> Vec<u8> {
+    fg.iter().map(|&f| if f { 255u8 } else { 0 }).collect()
 }

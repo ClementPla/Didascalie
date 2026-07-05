@@ -46,7 +46,7 @@
         (click)="labelsCollapsed = !labelsCollapsed"
       ></button>
     }
-    @if (showProcessingSettings) {
+    @if (showSettingsPanel) {
       <button
         pButton
         type="button"
@@ -104,146 +104,224 @@
   </div>
 
   <app-vertical-menu>
-    <!-- Save / navigation -->
-    <ng-template [appMenuGroup]="'Save'">
+    <ng-template [appMenuGroup]="'History'">
       <button
-        pButton type="button" icon="pi pi-chevron-left" severity="secondary" [raised]="true"
-        pTooltip="Previous" tooltipPosition="left" aria-label="Previous frame"
+        pButton
+        type="button"
+        icon="pi pi-undo"
+        [raised]="true"
+        (click)="editorService.requestUndo()"
+        pTooltip="Ctrl+Z"
+        aria-label="Undo"
+      ></button>
+      <button
+        pButton
+        type="button"
+        icon="pi pi-refresh"
+        [raised]="true"
+        (click)="editorService.requestRedo()"
+        pTooltip="Ctrl+Y"
+        tooltipPosition="left"
+        aria-label="Redo"
+      ></button>
+    </ng-template>
+    <ng-template [appMenuGroup]="'Navigate'">
+      <button
+        pButton
+        type="button"
+        icon="pi pi-chevron-left"
+        severity="secondary"
+        [raised]="true"
+        pTooltip="Previous sequence"
+        tooltipPosition="left"
+        aria-label="Previous sequence"
         (click)="navigatePrevious()"
       ></button>
       <button
-        pButton type="button" icon="pi pi-save" severity="secondary" [raised]="true"
-        pTooltip="Save (Ctrl+S)" tooltipPosition="left" aria-label="Save"
+        pButton
+        type="button"
+        icon="pi pi-save"
+        severity="secondary"
+        [raised]="true"
+        pTooltip="Save (Ctrl+S)"
+        tooltipPosition="left"
+        aria-label="Save"
         (click)="save()"
       ></button>
       <button
-        pButton type="button" icon="pi pi-chevron-right" severity="secondary" [raised]="true"
-        pTooltip="Next" tooltipPosition="left" aria-label="Next frame"
+        pButton
+        type="button"
+        icon="pi pi-chevron-right"
+        severity="secondary"
+        [raised]="true"
+        pTooltip="Next sequence"
+        tooltipPosition="left"
+        aria-label="Next sequence"
         (click)="navigateNext()"
       ></button>
       @if (isMultiframeActive) {
         <button
-          pButton type="button" icon="pi pi-images" severity="secondary" [raised]="true"
-          pTooltip="Frame navigation" tooltipPosition="left" aria-label="Frame navigation"
+          pButton
+          type="button"
+          icon="pi pi-images"
+          severity="secondary"
+          [raised]="true"
+          pTooltip="Jump to a frame in this sequence"
+          tooltipPosition="left"
+          aria-label="Frame navigation"
           (click)="frameNavPopover.toggle($event)"
         ></button>
       }
       <p-togglebutton
-        [ngModel]="isSequenceReviewed" (onChange)="toggleSequenceReviewed(!!$event.checked)"
-        onIcon="pi pi-verified" offIcon="pi pi-verified" [onLabel]="''" [offLabel]="''"
-        pTooltip="Sequence reviewed" tooltipPosition="left" ariaLabel="Sequence reviewed"
+        [ngModel]="isSequenceReviewed"
+        (onChange)="toggleSequenceReviewed(!!$event.checked)"
+        onIcon="pi pi-verified"
+        offIcon="pi pi-verified"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Mark sequence reviewed"
+        tooltipPosition="left"
+        ariaLabel="Mark sequence reviewed"
+        severity="primary"
+        fluid 
       ></p-togglebutton>
     </ng-template>
 
-    <!-- Tools -->
-    <ng-template [appMenuGroup]="'Tools'">
-      <p-togglebutton
-        [(ngModel)]="editorService.useProcessing" (onChange)="editorService.requestCanvasRedraw()"
-        onIcon="pi pi-sliders-h" offIcon="pi pi-sliders-h" [onLabel]="''" [offLabel]="''"
-        pTooltip="Image processing" tooltipPosition="left" ariaLabel="Image processing"
-      ></p-togglebutton>
+    <!-- Auto: automatic help while drawing -->
+    <ng-template [appMenuGroup]="'Auto'">
       <p-togglebutton
         [(ngModel)]="editorService.penPostProcess"
-        onIcon="pi pi-sparkles" offIcon="pi pi-sparkles" [onLabel]="''" [offLabel]="''"
-        pTooltip="Post-process drawing" tooltipPosition="left" ariaLabel="Post-process drawing"
+        onIcon="pi pi-sparkles"
+        offIcon="pi pi-sparkles"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Auto-segment the stroke (settings in the panel)"
+        tooltipPosition="left"
+        ariaLabel="Auto-segment the stroke"
       ></p-togglebutton>
-      <p-togglebutton
-        [(ngModel)]="editorService.showBoundingBox" (onChange)="editorService.requestCanvasRedraw()"
-        onIcon="pi pi-stop" offIcon="pi pi-stop" [onLabel]="''" [offLabel]="''"
-        pTooltip="Show bounding boxes" tooltipPosition="left" ariaLabel="Show bounding boxes"
-      ></p-togglebutton>
-      @if(editorService.showBoundingBox){
-      <p-togglebutton
-        [(ngModel)]="editorService.labelledCombinedBoundingBox" (onChange)="editorService.requestCanvasRedraw()"
-        onIcon="pi pi-clone" offIcon="pi pi-clone" [onLabel]="''" [offLabel]="''"
-        pTooltip="Combined-label boxes" tooltipPosition="left" ariaLabel="Combined-label boxes"
-      ></p-togglebutton>
-      <p-togglebutton
-        [(ngModel)]="editorService.eraseOnClick"
-        onIcon="pi pi-eraser" offIcon="pi pi-eraser" [onLabel]="''" [offLabel]="''"
-        pTooltip="Click box to erase" tooltipPosition="left" ariaLabel="Click box to erase"
-      ></p-togglebutton>
-      <button
-        pButton type="button" icon="pi pi-sliders-v" severity="secondary" [raised]="true"
-        pTooltip="Bounding box opacity" tooltipPosition="left" aria-label="Bounding box opacity"
-        (click)="bboxOpacityPopover.toggle($event)"
-      ></button>
-      }
       @if (projectService.isInstanceSegmentation()) {
         <p-togglebutton
           [(ngModel)]="editorService.incrementAfterStroke"
-          onIcon="pi pi-plus-circle" offIcon="pi pi-plus-circle" [onLabel]="''" [offLabel]="''"
-          pTooltip="Increment instance after stroke" tooltipPosition="left" ariaLabel="Increment instance after stroke"
+          onIcon="pi pi-plus-circle"
+          offIcon="pi pi-plus-circle"
+          [onLabel]="''"
+          [offLabel]="''"
+          pTooltip="New instance after each stroke"
+          tooltipPosition="left"
+          ariaLabel="New instance after each stroke"
         ></p-togglebutton>
       }
     </ng-template>
 
-    <!-- View -->
+    <!-- Display: what's drawn on top of the image -->
+    <ng-template [appMenuGroup]="'Display'">
+      <p-togglebutton
+        [(ngModel)]="editorService.useProcessing"
+        (onChange)="editorService.requestCanvasRedraw()"
+        onIcon="pi pi-sliders-h"
+        offIcon="pi pi-sliders-h"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Image adjustments (settings in the panel)"
+        tooltipPosition="left"
+        ariaLabel="Image adjustments"
+      ></p-togglebutton>
+      <p-togglebutton
+        [(ngModel)]="editorService.edgesOnly"
+        (onChange)="editorService.requestCanvasRedraw()"
+        onIcon="pi pi-stop-circle"
+        offIcon="pi pi-stop-circle"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Show only edges (Ctrl+E)"
+        tooltipPosition="left"
+        ariaLabel="Show only edges"
+      ></p-togglebutton>
+      <p-togglebutton
+        [(ngModel)]="editorService.showBoundingBox"
+        (onChange)="editorService.requestCanvasRedraw()"
+        onIcon="pi pi-stop"
+        offIcon="pi pi-stop"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Show bounding boxes"
+        tooltipPosition="left"
+        ariaLabel="Show bounding boxes"
+      ></p-togglebutton>
+      @if (editorService.showBoundingBox) {
+        <p-togglebutton
+          [(ngModel)]="editorService.labelledCombinedBoundingBox"
+          (onChange)="editorService.requestCanvasRedraw()"
+          onIcon="pi pi-clone"
+          offIcon="pi pi-clone"
+          [onLabel]="''"
+          [offLabel]="''"
+          pTooltip="Merge boxes across labels"
+          tooltipPosition="left"
+          ariaLabel="Merge boxes across labels"
+        ></p-togglebutton>
+        <p-togglebutton
+          [(ngModel)]="editorService.eraseOnClick"
+          onIcon="pi pi-eraser"
+          offIcon="pi pi-eraser"
+          [onLabel]="''"
+          [offLabel]="''"
+          pTooltip="Click a box to erase it"
+          tooltipPosition="left"
+          ariaLabel="Click a box to erase it"
+        ></p-togglebutton>
+      }
+    </ng-template>
+
+    <!-- View: zoom & rendering -->
     <ng-template [appMenuGroup]="'View'">
       <p-togglebutton
         [(ngModel)]="editorService.resetZoomAfterNavigation"
-        onIcon="pi pi-search" offIcon="pi pi-search" [onLabel]="''" [offLabel]="''"
-        pTooltip="Reset zoom after navigation" tooltipPosition="left" ariaLabel="Reset zoom after navigation"
+        onIcon="pi pi-arrows-alt"
+        offIcon="pi pi-arrows-alt"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Fit to view after navigation"
+        tooltipPosition="left"
+        ariaLabel="Fit to view after navigation"
       ></p-togglebutton>
       <p-togglebutton
-        [(ngModel)]="editorService.webGPURendering" (onChange)="editorService.requestCanvasRedraw()"
-        onIcon="pi pi-bolt" offIcon="pi pi-bolt" [onLabel]="''" [offLabel]="''"
-        pTooltip="Use WebGPU rendering" tooltipPosition="left" ariaLabel="Use WebGPU rendering"
+        [(ngModel)]="editorService.webGPURendering"
+        (onChange)="editorService.requestCanvasRedraw()"
+        onIcon="pi pi-bolt"
+        offIcon="pi pi-bolt"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="GPU rendering (faster on large images)"
+        tooltipPosition="left"
+        ariaLabel="GPU rendering"
       ></p-togglebutton>
     </ng-template>
 
-    <!-- Touchscreen -->
-    <ng-template [appMenuGroup]="'Touchscreen'">
+    <!-- Touch: touchscreen / stylus pressure -->
+    <ng-template [appMenuGroup]="'Touch'">
       <p-togglebutton
         [(ngModel)]="editorService.pressureSensitivity"
-        onIcon="pi pi-pencil" offIcon="pi pi-pencil" [onLabel]="''" [offLabel]="''"
-        pTooltip="Pen pressure (scale brush radius by pen/touch pressure)" tooltipPosition="left" ariaLabel="Pen pressure"
+        onIcon="pi pi-gauge"
+        offIcon="pi pi-gauge"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Pressure scales brush size (touch/stylus; max size in the panel)"
+        tooltipPosition="left"
+        ariaLabel="Pressure sensitivity"
       ></p-togglebutton>
-      @if (editorService.pressureSensitivity) {
-        <button
-          pButton type="button" icon="pi pi-expand" severity="secondary" [raised]="true"
-          pTooltip="Max size at full pressure" tooltipPosition="left" aria-label="Max size at full pressure"
-          (click)="pressureGainPopover.toggle($event)"
-        ></button>
-      }
     </ng-template>
   </app-vertical-menu>
 
-  <!-- Popovers for the relocated slider/navigation controls -->
+  <!-- Frame navigation popover (a picker, not a setting — stays a popover). -->
   <p-popover #frameNavPopover>
     <app-multi-frames-options
       (changeOfFrame)="changedOfFrame($event)"
     ></app-multi-frames-options>
   </p-popover>
-  <p-popover #bboxOpacityPopover>
-    <div class="flex flex-col gap-2 p-2" style="min-width: 13rem">
-      <label class="text-sm">Bounding box opacity</label>
-      <p-slider
-        [(ngModel)]="editorService.bbxOpacity"
-        [min]="0"
-        [max]="1"
-        [step]="0.01"
-      ></p-slider>
-    </div>
-  </p-popover>
-  <p-popover #pressureGainPopover>
-    <div class="flex flex-col gap-2 p-2" style="min-width: 15rem">
-      <label class="text-sm"
-        >Max size at full pressure: ×{{
-          editorService.pressureGain | number: '1.1-1'
-        }}</label
-      >
-      <p-slider
-        [(ngModel)]="editorService.pressureGain"
-        [min]="1"
-        [max]="100"
-        [step]="0.5"
-      ></p-slider>
-    </div>
-  </p-popover>
 
-  <!-- Right column: processing settings only (shown while a processing mode is on) -->
-  @if (showProcessingSettings && !settingsCollapsed) {
+  <!-- Right column: on-demand settings panel (opacity, pressure, adjustments, post-process) -->
+  @if (showSettingsPanel && !settingsCollapsed) {
     <div
       class="2xl:w-96 flex flex-col gap-4 min-h-0 overflow-y-auto shrink w-80"
     >

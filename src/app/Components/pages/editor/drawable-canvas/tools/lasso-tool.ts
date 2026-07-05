@@ -41,7 +41,6 @@ export class LassoTool extends BaseTool {
   private handleLassoDraw(context: ToolContext) {
     const ctx = context.canvasManager.getBufferCtx();
     this.fillShape(ctx, context.color); // Fill buffer
-    this.binarizeBuffer(context);       // Clean edges
 
     if (!context.editorService.penPostProcess) {
        if (context.editorService.swapMarkers) {
@@ -53,38 +52,15 @@ export class LassoTool extends BaseTool {
   }
 
   private handleLassoEraser(context: ToolContext) {
-    // If using post-process eraser (e.g. converting to SVG), handle that logic
-    if (context.editorService.eraserPostProcess) {
-       // Just delegate to draw/fill logic on buffer, PostProcess service handles the rest later
-       const ctx = context.canvasManager.getBufferCtx();
-       this.fillShape(ctx, context.color);
-       return;
-    }
-
-    // Otherwise, direct erasure
+    // Draw the lasso shape onto the buffer as the erase mask.
     const ctxBuffer = context.canvasManager.getBufferCtx();
-    
-    // 1. Draw shape on buffer
     this.fillShape(ctxBuffer, context.color);
-    this.binarizeBuffer(context);
 
-    // 2. Erase from target canvases using the buffer as mask
-    const targets = context.editorService.eraseAll 
-      ? context.canvasManager.getAllCanvasCtx() 
-      : [context.canvasManager.getActiveCtx()];
+    // With eraserPostProcess the connected-component erase runs later in
+    // DrawService; here we just leave the shape on the buffer.
+    if (context.editorService.eraserPostProcess) return;
 
-    const bbox = context.stateService.getBoundingBox();
-    const bufferCanvas = context.canvasManager.getBufferCanvas();
-
-    targets.forEach(ctx => {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.drawImage(
-        bufferCanvas,
-        bbox.x, bbox.y, bbox.width, bbox.height,
-        bbox.x, bbox.y, bbox.width, bbox.height
-      );
-      ctx.globalCompositeOperation = 'source-over';
-    });
+    this.eraseBufferFromTargets(context);
   }
 
   protected fillShape(ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D, color: string) {

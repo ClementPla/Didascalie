@@ -67,7 +67,7 @@ export class AppComponent implements OnInit, OnDestroy {
           severity: n.severity,
           summary: n.summary,
           detail: n.detail,
-          life: n.severity === 'error' ? 8000 : 4000,
+          life: n.life ?? (n.severity === 'error' ? 8000 : 4000),
         }),
       );
 

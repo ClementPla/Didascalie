@@ -55,14 +55,12 @@ pub async fn superpixel_refine(
 
     let mask = map.refine(&brush, similarity_threshold, min_overlap_fraction)?;
 
-    let mut output = Vec::with_capacity(mask.len() * 4);
-    for &included in &mask {
-        if included {
-            output.extend_from_slice(&[255, 255, 255, 255]);
-        } else {
-            output.extend_from_slice(&[0, 0, 0, 0]);
-        }
-    }
+    // Single-channel presence mask (255 = included). The frontend writes the
+    // active label / instance value wherever this is nonzero.
+    let output: Vec<u8> = mask
+        .iter()
+        .map(|&included| if included { 255u8 } else { 0 })
+        .collect();
 
     Ok(Response::new(output))
 }

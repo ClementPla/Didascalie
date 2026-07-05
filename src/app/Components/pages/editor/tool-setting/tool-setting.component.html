@@ -1,6 +1,6 @@
-<p-panel header="Processing" class="w-full">
+<p-panel header="Settings" class="w-full">
   <div>
-    <p-accordion [value]="['3', '4']" [multiple]="true">
+    <p-accordion [value]="['1', '2', '3', '4']" [multiple]="true">
       @if (editorService.useProcessing) {
         <p-accordion-panel value="3">
           <p-accordion-header>Image Adjustments</p-accordion-header>
@@ -115,6 +115,42 @@
                   >
                 </div>
               }
+            </div>
+          </p-accordion-content>
+        </p-accordion-panel>
+      }
+      @if (editorService.showBoundingBox) {
+        <p-accordion-panel value="1">
+          <p-accordion-header>Bounding boxes</p-accordion-header>
+          <p-accordion-content>
+            <div class="flex flex-col gap-2 p-2">
+              <label class="text-sm">Box opacity</label>
+              <p-slider
+                [(ngModel)]="editorService.bbxOpacity"
+                [min]="0"
+                [max]="1"
+                [step]="0.01"
+              ></p-slider>
+            </div>
+          </p-accordion-content>
+        </p-accordion-panel>
+      }
+      @if (editorService.pressureSensitivity) {
+        <p-accordion-panel value="2">
+          <p-accordion-header>Pen input</p-accordion-header>
+          <p-accordion-content>
+            <div class="flex flex-col gap-2 p-2">
+              <label class="text-sm"
+                >Max size at full pressure: ×{{
+                  editorService.pressureGain | number: '1.1-1'
+                }}</label
+              >
+              <p-slider
+                [(ngModel)]="editorService.pressureGain"
+                [min]="1"
+                [max]="10"
+                [step]="0.5"
+              ></p-slider>
             </div>
           </p-accordion-content>
         </p-accordion-panel>

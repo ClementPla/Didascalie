@@ -42,24 +42,57 @@
   padding-left: 0.5rem;
 }
 
-/* Normalize projected plain buttons AND toggle buttons to one square size, so
-   their icons line up in the column. Toggle buttons otherwise reserve width for
-   a (here empty) label, making them wider and pushing the icon off-center. */
 :host ::ng-deep .group-content {
+  // Size the DIRECT child of the group to a fixed square. This is what makes a
+  // group render correctly regardless of what it contains: a bare
+  // <button pButton> is itself the direct child, while a <p-togglebutton> is a
+  // wrapper around its control. Sizing the direct child (not just the inner
+  // .p-button) means a group made only of bare buttons still has a width —
+  // previously such a group collapsed because width:100% had no fixed-size
+  // sibling (e.g. a p-togglebutton) to resolve against.
   > * {
     display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
     width: 2.5rem;
     height: 2.5rem;
+    min-width: 0;
+    padding: 0;
   }
-
-  .p-button,
-  .p-togglebutton {
+  // A control NESTED inside a wrapper (the space makes this a descendant
+  // selector, so it never matches a bare direct-child button) fills the square.
+  > * :is(.button, .p-button, .p-togglebutton) {
     width: 100%;
     height: 100%;
     min-width: 0;
     padding: 0;
+    display: flex;
     justify-content: center;
     align-items: center;
+  }
+
+  // Rail toggle buttons are icon-only. Drop PrimeNG's border/shadow — the
+  // checked state's dark top/bottom lines are what look bad — and let the
+  // checked *background* alone signal the pressed state.
+  .p-togglebutton,
+  .p-togglebutton.p-togglebutton-checked {
+    border: 0;
+    box-shadow: none;
+    border-radius: var(--radius, 0.5rem);
+  }
+  // Center the icon: zero the content padding/gap and hide the empty label,
+  // which otherwise reserves width and nudges the icon off-centre.
+  .p-togglebutton-content {
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+  }
+  .p-togglebutton-label {
+    display: none;
+  }
+  .p-togglebutton-icon {
+    margin: 0;
   }
 }
 

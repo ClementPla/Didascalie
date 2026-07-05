@@ -6,6 +6,7 @@ import { LabelsService } from '../../../../../Services/Labels/labels.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { Tools } from '../../../../../Core/tools';
 import {
+  Bounds,
   Pt,
   VectorNode,
   VectorShape,
@@ -14,6 +15,7 @@ import {
   distanceToShape,
   isFlatHandle,
   makeNode,
+  shapeBounds,
   splitSegment,
 } from '../vector/vector.model';
 
@@ -21,6 +23,13 @@ import {
 const HIT_PX = 9;
 
 type HandleSide = 'in' | 'out';
+
+/** A shape's bounding box for the overlay (label colour resolved at render). */
+export interface VectorBoundingBox {
+  shapeId: string;
+  labelId: number;
+  rect: Bounds;
+}
 
 /**
  * Owns the vector shapes for the current frame plus the Pen (create) and Node
@@ -55,6 +64,17 @@ export class VectorEditorService {
   readonly selectedShape = computed(
     () => this._shapes().find((s) => s.id === this._selectedId()) ?? null,
   );
+
+  /** One bounding box per shape, for the bbox overlay. Recomputes only when the
+   *  shapes change; label visibility/colour are resolved at render time. */
+  readonly boundingBoxes = computed<VectorBoundingBox[]>(() => {
+    const boxes: VectorBoundingBox[] = [];
+    for (const shape of this._shapes()) {
+      const rect = shapeBounds(shape);
+      if (rect) boxes.push({ shapeId: shape.id, labelId: shape.labelId, rect });
+    }
+    return boxes;
+  });
 
   /** Fires whenever the shapes change in a way that should be saved (commit,
    *  undo and redo) — IOService subscribes to mark the frame dirty. */
@@ -217,6 +237,19 @@ export class VectorEditorService {
   deleteSelectedShape(): void {
     const shape = this.selectedShape();
     if (shape) this.deleteShape(shape.id);
+  }
+
+  /** Reassign the selected shape to a different label layer (the vector
+   *  equivalent of swapping a raster region to another label). */
+  moveSelectedToLabel(labelId: number): void {
+    if (this.labels.listSegmentationLabels.some((l) => l.id === labelId)) {
+      this.mutateSelected((s) => ({ ...s, labelId }));
+    }
+  }
+
+  /** Delete a shape by id (e.g. an erase-on-click on its bounding box). */
+  deleteShapeById(id: string): void {
+    if (this._shapes().some((s) => s.id === id)) this.deleteShape(id);
   }
 
   toggleFilled(): void {

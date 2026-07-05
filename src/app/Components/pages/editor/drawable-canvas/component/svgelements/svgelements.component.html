@@ -39,4 +39,25 @@
       (mousedown)="boundingBoxClick($event, rectLabel)"
     ></rect>
   }
+  @if (editorService.showBoundingBox) {
+    @for (box of vectorEditor.boundingBoxes(); track box.shapeId) {
+      @if (isVectorLabelVisible(box.labelId)) {
+        <rect
+          class="bbox"
+          [ngClass]="{ 'cursor-pointer': isBboxClickable() }"
+          [attr.x]="box.rect.x"
+          [attr.y]="box.rect.y"
+          [attr.width]="box.rect.width"
+          [attr.height]="box.rect.height"
+          [attr.fill]="vectorLabelColor(box.labelId) + getBboxOpacityAsString()"
+          [attr.stroke]="vectorLabelColor(box.labelId)"
+          [attr.stroke-width]="2"
+          [attr.stroke-dasharray]="'6 4'"
+          [attr.vector-effect]="'non-scaling-stroke'"
+          [attr.pointer-events]="isBboxClickable() ? 'fill' : 'none'"
+          (mousedown)="vectorBboxClick($event, box)"
+        ></rect>
+      }
+    }
+  }
 </svg>

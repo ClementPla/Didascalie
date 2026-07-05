@@ -10,45 +10,17 @@ export class LassoEraserTool extends LassoTool {
       return;
     }
 
-    // 2. Prepare the buffer (Draw the shape in white/color on the buffer)
+    // 2. Prepare the buffer (draw the lasso shape as the erase mask).
     const bufferCtx = context.canvasManager.getBufferCtx();
-    
-    // We reuse the fill logic from the parent class to draw the shape mask
-    this.fillShape(bufferCtx, context.color); 
-    
-    // Clean up the mask edges
-    this.binarizeBuffer(context);
+    this.fillShape(bufferCtx, context.color);
 
     // 3. Handle the erasing logic
     if (!context.editorService.eraserPostProcess) {
-      this.applyErasureToTargets(context);
+      this.eraseBufferFromTargets(context);
     }
 
     // 4. Cleanup
     this.points = [];
     context.updatePreviewPoints([]); // Clear the preview
-
-  }
-
-  private applyErasureToTargets(context: ToolContext) {
-    const bbox = context.stateService.getBoundingBox();
-    const bufferCanvas = context.canvasManager.getBufferCanvas();
-
-    // Determine targets based on "Erase All" flag
-    const targets = context.editorService.eraseAll 
-      ? context.canvasManager.getAllCanvasCtx() 
-      : [context.canvasManager.getActiveCtx()];
-
-    targets.forEach(ctx => {
-      ctx.globalCompositeOperation = 'destination-out';
-      
-      ctx.drawImage(
-        bufferCanvas,
-        bbox.x, bbox.y, bbox.width, bbox.height,
-        bbox.x, bbox.y, bbox.width, bbox.height
-      );
-      
-      ctx.globalCompositeOperation = 'source-over';
-    });
   }
 }
