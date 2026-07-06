@@ -88,6 +88,16 @@
           <small>Opacity</small>
         </p>
       </div>
+      @if (projectService.isInstanceSegmentation()) {
+        <div class="mt-2">
+          <app-labelled-switch
+            [(checked)]="editorService.incrementAfterStroke"
+            tooltipLabel="After each stroke, automatically select a new instance so the next stroke starts a fresh object"
+          >
+            Auto-increment instance after each stroke
+          </app-labelled-switch>
+        </div>
+      }
       <p-divider align="left" type="solid">
         <b>Labels</b>
       </p-divider>

@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PanelModule } from 'primeng/panel';
+import { PaginatorModule, PaginatorState } from 'primeng/paginator';
 
 import { SequenceService } from '../../../../Services/sequence.service';
 import { api } from '../../../../lib/api';
@@ -28,7 +29,7 @@ interface NavSequence {
 @Component({
   selector: 'app-sequence-navigator',
   standalone: true,
-  imports: [CommonModule, PanelModule, GalleryElementComponent],
+  imports: [CommonModule, PanelModule, PaginatorModule, GalleryElementComponent],
   templateUrl: './sequence-navigator.component.html',
   styleUrl: './sequence-navigator.component.scss',
 })
@@ -40,6 +41,12 @@ export class SequenceNavigatorComponent implements OnInit {
   @Output() sequenceSelected = new EventEmitter<number>();
 
   sequences: NavSequence[] = [];
+
+  /** Only a page of sequences is rendered at once — a long project can have
+   *  thousands, and one gallery element (+ IntersectionObserver) each makes the
+   *  full list expensive to build. */
+  readonly pageSize = 60;
+  first = 0;
 
   constructor() {
     // Re-load statuses and re-scroll whenever the active sequence changes
@@ -56,6 +63,16 @@ export class SequenceNavigatorComponent implements OnInit {
 
   get currentId(): number | null {
     return this.sequenceService.currentSequence()?.id ?? null;
+  }
+
+  /** The slice of sequences shown on the current page. */
+  get pagedSequences(): NavSequence[] {
+    return this.sequences.slice(this.first, this.first + this.pageSize);
+  }
+
+  onPage(event: PaginatorState): void {
+    this.first = event.first ?? 0;
+    this.scrollListTop();
   }
 
   async load(): Promise<void> {
@@ -81,6 +98,8 @@ export class SequenceNavigatorComponent implements OnInit {
           frameIds: frameIdsBySequence[s.id] ?? [],
         }));
 
+      // Keep the active sequence on the visible page so navigation reveals it.
+      this.focusCurrentPage();
       this.scrollToCurrent();
     } catch (error) {
       console.error('Failed to load sequence navigator:', error);
@@ -101,10 +120,27 @@ export class SequenceNavigatorComponent implements OnInit {
     this.sequenceSelected.emit(seq.id);
   }
 
+  /** Move the paginator to the page holding the active sequence. */
+  private focusCurrentPage(): void {
+    const id = this.currentId;
+    if (id == null) return;
+    const index = this.sequences.findIndex((s) => s.id === id);
+    if (index >= 0) {
+      this.first = Math.floor(index / this.pageSize) * this.pageSize;
+    }
+  }
+
   private scrollToCurrent(): void {
     setTimeout(() => {
       const el = this.host.nativeElement.querySelector('.is-current');
       el?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  private scrollListTop(): void {
+    setTimeout(() => {
+      const list = this.host.nativeElement.querySelector('.sequence-list');
+      list?.scrollTo({ top: 0 });
     });
   }
 }

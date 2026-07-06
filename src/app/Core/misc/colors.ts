@@ -67,23 +67,70 @@ export function from_rgb_to_hex(r: number, g: number, b: number): string {
     return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
 }
 
-export function generate_shades(hex: string, n: number) {
-    let [r, g, b] = from_hex_to_rgb(hex)
-    let shades = []
+/**
+ * Deterministic per-instance shades derived from a base colour. Same hue as the
+ * base, with lightness spread by a golden-ratio low-discrepancy sequence so
+ * consecutive instance ids look distinct. Fully deterministic — an instance id
+ * always maps to the same colour across sessions (no random shuffle), so painted
+ * instances never change colour on reload. Index `v` is the shade for pixel
+ * value `v` (index 0 is unused; 0 = background).
+ */
+export function generate_shades(hex: string, n: number): string[] {
+    const [h, s] = rgbToHsl(...(from_hex_to_rgb(hex) as [number, number, number]));
+    // Keep enough saturation that shades read as colour, not grey.
+    const sat = Math.min(1, Math.max(0.45, s));
+    const golden = 0.6180339887498949;
+    const shades: string[] = [];
     for (let i = 0; i < n; i++) {
-        let rnew = Math.floor(r * (1 - i / n))
-        let gnew = Math.floor( g * (1 - i / n))
-        let bnew = Math.floor( b * (1 - i / n))
-        let shade = from_rgb_to_hex(rnew, gnew, bnew)
-        shades.push(shade)
+        const t = (i * golden) % 1; // well-spread in [0, 1)
+        const light = 0.32 + 0.5 * t; // readable band: 0.32..0.82
+        const [r, g, b] = hslToRgb(h, sat, light);
+        shades.push(from_rgb_to_hex(r, g, b));
     }
+    return shades;
+}
 
-    // Shuffle the shades 
-
-    for (let i = shades.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shades[i], shades[j]] = [shades[j], shades[i]];
+/** RGB (0..255) → HSL (h in 0..360, s/l in 0..1). */
+export function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    let h = 0;
+    let s = 0;
+    const d = max - min;
+    if (d !== 0) {
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            default: h = (r - g) / d + 4; break;
+        }
+        h *= 60;
     }
+    return [h, s, l];
+}
 
-    return shades
+/** HSL (h in 0..360, s/l in 0..1) → RGB (0..255, rounded). */
+export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+    h = ((h % 360) + 360) % 360 / 360;
+    if (s === 0) {
+        const v = Math.round(l * 255);
+        return [v, v, v];
+    }
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    const hue = (t: number): number => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+    };
+    return [
+        Math.round(hue(h + 1 / 3) * 255),
+        Math.round(hue(h) * 255),
+        Math.round(hue(h - 1 / 3) * 255),
+    ];
 }

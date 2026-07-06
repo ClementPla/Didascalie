@@ -1,27 +1,38 @@
-<div class="flex flex-col gap-2 m-1">
-  <div class="flex gap-2 items-center">
-    <p-button
-      size="small"
-      icon="pi pi-plus"
-      label="New instance"
-      (click)="newInstance()"
-    ></p-button>
+<div class="flex flex-col gap-1 m-1">
+  <div class="flex gap-2 items-center text-sm">
+    <span class="opacity-70">Instances</span>
     @if (activeInstance() !== null) {
-      <span class="text-sm">Instance {{ activeInstance() }}</span>
+      <span class="font-medium">#{{ activeInstance() }} selected</span>
     }
   </div>
 
-  <div class="flex flex-wrap gap-1 max-w-64">
+  <div class="flex flex-wrap gap-1 items-center max-w-64">
     @for (value of instanceValues(); track value) {
       <div
-        class="aspect-square cursor-pointer hover:scale-125 rounded w-5"
-        (click)="changeActive(value)"
+        class="aspect-square cursor-pointer flex hover:scale-125 items-center justify-center rounded text-white w-6"
+        style="text-shadow: 0 0 2px rgba(0, 0, 0, 0.9); font-size: 0.65rem"
+        (click)="changeActive(value); $event.stopPropagation()"
         [style.background]="shadeFor(value)"
         [ngClass]="{
           'outline outline-2 outline-offset-1 outline-white': isSelected(value)
         }"
         [title]="'Instance ' + value"
-      ></div>
+      >
+        {{ value }}
+      </div>
     }
+
+    <!-- Add a new instance: selects the next id so the next stroke is a new object. -->
+    <div
+      class="aspect-square border border-dashed cursor-pointer flex hover:bg-white/10 hover:scale-125 items-center justify-center opacity-70 rounded w-6"
+      (click)="newInstance(); $event.stopPropagation()"
+      pTooltip="Start a new instance (#{{ nextInstanceId() }}) — your next stroke paints a fresh object"
+      tooltipPosition="top"
+      aria-label="New instance"
+    >
+      <i class="pi pi-plus" style="font-size: 0.65rem"></i>
+    </div>
   </div>
+
+  <small class="opacity-60">Pick a colour to edit that object, or + for a new one.</small>
 </div>

@@ -14,6 +14,7 @@ import { ALL_TOOLS, Tools } from '../../../../Core/tools';
 import { NgClass } from '@angular/common';
 import { EditorService } from '../services/editor.service';
 import { VectorEditorService } from '../drawable-canvas/service/vector-editor.service';
+import { ConvertService } from '../drawable-canvas/service/convert.service';
 
 @Component({
     selector: 'app-quick-access-menu',
@@ -27,7 +28,8 @@ export class QuickAccessMenuComponent {
   constructor(
     private cdr: ChangeDetectorRef,
     private editorService: EditorService,
-    private vectorEditor: VectorEditorService
+    private vectorEditor: VectorEditorService,
+    private convertService: ConvertService
   ) {}
 
   public radius: number = 200;
@@ -161,7 +163,18 @@ export class QuickAccessMenuComponent {
             command: () => this.vectorEditor.toggleClosed(),
             type: SegmentType.toggle,
           },
+          {
+            label: 'Rasterize',
+            icon: 'pi pi-th-large',
+            command: () => this.convertService.rasterize(),
+            type: SegmentType.button,
+          },
         ],
+      },
+      {
+        label: Tools.VECTORIZE.name,
+        icon: Tools.VECTORIZE.icon,
+        command: () => this.editorService.selectTool(Tools.VECTORIZE),
       },
     ];
   }

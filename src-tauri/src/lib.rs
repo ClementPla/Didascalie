@@ -144,6 +144,7 @@ pub fn run() {
             commands::annotation::load_annotations,
             commands::vector::save_vector_annotations,
             commands::vector::load_vector_annotations,
+            commands::vectorize::vectorize_component,
             commands::annotation::list_labels,
             commands::annotation::get_labels,
             // Classification commands
@@ -156,6 +157,10 @@ pub fn run() {
             commands::text_description::delete_text_description,
             // Export commands
             commands::export::export_annotations,
+            // Pluggable dataset import/export (COCO, YOLO, NIfTI, …)
+            commands::dataset_io::list_dataset_formats,
+            commands::dataset_io::export_dataset,
+            commands::dataset_io::import_dataset,
             // Registration commands
             commands::registration::save_registration,
             commands::registration::load_registration,

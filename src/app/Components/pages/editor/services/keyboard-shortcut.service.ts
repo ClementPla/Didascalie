@@ -33,6 +33,7 @@ export class KeyboardShortcutService implements OnDestroy {
     { keys: ['g'], action: 'selectPan', description: 'Select pan tool', category: 'tools' },
     { keys: ['b'], action: 'selectPath', description: 'Select path (bezier) tool', category: 'tools' },
     { keys: ['n'], action: 'selectNode', description: 'Select node (edit) tool', category: 'tools' },
+    { keys: ['v'], action: 'selectVectorize', description: 'Select vectorize tool', category: 'tools' },
 
     // Edit
     { keys: ['ctrl+z'], action: 'undo', description: 'Undo', category: 'edit' },

@@ -18,6 +18,7 @@ import {
 import { ThemeService } from '../../../Services/theme.service';
 import { UpdateService } from '../../../Services/update.service';
 import { LabelledSwitchComponent } from '../../../generics/labelled-switch/labelled-switch.component';
+import { ImportDialogComponent } from './import-dialog/import-dialog.component';
 
 @Component({
   selector: 'app-launcher',
@@ -29,6 +30,7 @@ import { LabelledSwitchComponent } from '../../../generics/labelled-switch/label
     ToastModule,
     SelectModule,
     LabelledSwitchComponent,
+    ImportDialogComponent,
   ],
   providers: [MessageService],
   templateUrl: './launcher.component.html',
@@ -37,6 +39,7 @@ import { LabelledSwitchComponent } from '../../../generics/labelled-switch/label
 export class LauncherComponent implements OnInit {
   readonly recentProjects = signal<RecentProject[]>([]);
   readonly isLoading = signal(false);
+  showImportDialog = false;
 
   constructor(
     private projectService: ProjectService,
@@ -54,6 +57,10 @@ export class LauncherComponent implements OnInit {
 
   newProject(): void {
     this.router.navigate(['/new']);
+  }
+
+  openImportDialog(): void {
+    this.showImportDialog = true;
   }
 
   async openFromDisk(): Promise<void> {

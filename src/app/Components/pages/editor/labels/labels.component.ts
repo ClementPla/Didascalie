@@ -22,6 +22,7 @@ import { EditorService } from '../services/editor.service';
 import { SegLabel } from '../../../../Core/interface';
 import { InstanceLabelComponent } from './instance-label/instance-label.component';
 import { TextLabel } from '../../../../Core/interface';
+import { LabelledSwitchComponent } from '../../../../generics/labelled-switch/labelled-switch.component';
 import { api } from '../../../../lib/api';
 
 @Component({
@@ -38,6 +39,7 @@ import { api } from '../../../../lib/api';
     FieldsetModule,
     DividerModule,
     InstanceLabelComponent,
+    LabelledSwitchComponent,
     TextareaModule,
     TagModule,
   ],

@@ -182,8 +182,9 @@ export class LabelsService {
     this.maxID = 0;
   }
 
-  private generateShades(baseColor: string, count: number = 32): string[] {
-    // Index 0 is the base colour; instance ids (the pixel values) index in.
+  private generateShades(baseColor: string, count: number = 256): string[] {
+    // One deterministic shade per possible instance id (pixel value 1..255), so
+    // an instance always displays the same colour. Index 0 is unused (0 = bg).
     return generate_shades(baseColor, count);
   }
   getDefinitions(): Pick<

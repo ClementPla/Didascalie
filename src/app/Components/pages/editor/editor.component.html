@@ -199,18 +199,6 @@
         tooltipPosition="left"
         ariaLabel="Auto-segment the stroke"
       ></p-togglebutton>
-      @if (projectService.isInstanceSegmentation()) {
-        <p-togglebutton
-          [(ngModel)]="editorService.incrementAfterStroke"
-          onIcon="pi pi-plus-circle"
-          offIcon="pi pi-plus-circle"
-          [onLabel]="''"
-          [offLabel]="''"
-          pTooltip="New instance after each stroke"
-          tooltipPosition="left"
-          ariaLabel="New instance after each stroke"
-        ></p-togglebutton>
-      }
     </ng-template>
 
     <!-- Display: what's drawn on top of the image -->

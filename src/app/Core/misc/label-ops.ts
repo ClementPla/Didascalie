@@ -194,6 +194,51 @@ export function componentsUnderStroke(
   return out;
 }
 
+/**
+ * Zero the 8-connected component of `mask` whose pixels all share the value at
+ * (x, y). Same-value flooding (not just nonzero) keeps touching instances
+ * separate, so vectorizing one instance only clears that instance's pixels.
+ * Returns false if (x, y) is out of range or background.
+ */
+export function clearValueComponentAt(
+  mask: Uint8Array,
+  w: number,
+  h: number,
+  x: number,
+  y: number
+): boolean {
+  if (x < 0 || y < 0 || x >= w || y >= h) return false;
+  const start = y * w + x;
+  const value = mask[start];
+  if (value === 0) return false;
+
+  const stack = [start];
+  const seen = new Uint8Array(mask.length);
+  seen[start] = 1;
+  let cleared = false;
+  while (stack.length) {
+    const idx = stack.pop()!;
+    mask[idx] = 0;
+    cleared = true;
+    const px = idx % w;
+    const py = (idx / w) | 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = px + dx;
+        const ny = py + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const ni = ny * w + nx;
+        if (!seen[ni] && mask[ni] === value) {
+          seen[ni] = 1;
+          stack.push(ni);
+        }
+      }
+    }
+  }
+  return cleared;
+}
+
 /** Zero the connected component of `mask` containing pixel (x, y). */
 export function clearComponentAt(
   mask: Uint8Array,

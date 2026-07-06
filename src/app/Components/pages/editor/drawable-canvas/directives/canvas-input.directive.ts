@@ -3,6 +3,7 @@ import { ZoomPanService } from '../service/zoom-pan.service';
 import { EditorService } from '../../services/editor.service';
 import { DrawService } from '../service/draw.service';
 import { VectorEditorService } from '../service/vector-editor.service';
+import { ConvertService } from '../service/convert.service';
 import { Point2D } from '../interface';
 
 @Directive({
@@ -27,6 +28,7 @@ export class CanvasInputDirective {
     private editorService: EditorService,
     private drawService: DrawService,
     private vectorEditor: VectorEditorService,
+    private convertService: ConvertService,
   ) {}
 
   // ==========================================
@@ -158,6 +160,16 @@ export class CanvasInputDirective {
     if (this.editorService.isVectorTool()) {
       if (event.button === 0) {
         this.vectorEditor.onPointerDown(
+          this.zoomPanService.getImageCoordinatesRaw(event),
+        );
+      }
+      return;
+    }
+
+    // Vectorize: a left-click traces the clicked component into a shape.
+    if (this.editorService.isVectorizeTool()) {
+      if (event.button === 0) {
+        void this.convertService.vectorizeAt(
           this.zoomPanService.getImageCoordinatesRaw(event),
         );
       }

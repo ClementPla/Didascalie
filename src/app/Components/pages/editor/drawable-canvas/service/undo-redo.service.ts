@@ -20,7 +20,10 @@ interface LayerUndoRedoState {
  */
 type UndoToken =
   | { kind: 'vector' }
-  | { kind: 'raster'; layers: number[] };
+  | { kind: 'raster'; layers: number[] }
+  // A single user action that touched both subsystems (e.g. rasterize /
+  // vectorize): undone/redone atomically so one Ctrl+Z reverts the whole thing.
+  | { kind: 'compound'; tokens: UndoToken[] };
 
 @Injectable({
   providedIn: 'root',
@@ -40,6 +43,11 @@ export class UndoRedoService {
   // which layer it touched.
   private actionOrder: UndoToken[] = [];
   private redoOrder: UndoToken[] = [];
+
+  // While a group is open, new tokens are buffered instead of appended to the
+  // timeline; endGroup() folds them into one compound token (see beginGroup).
+  private grouping = false;
+  private groupBuffer: UndoToken[] = [];
 
   constructor(
     private canvasManagerService: CanvasManagerService,
@@ -65,9 +73,43 @@ export class UndoRedoService {
 
     // Every committed vector action joins the unified timeline.
     this.vectorEditor.committed$.subscribe(() => {
-      this.actionOrder.push({ kind: 'vector' });
-      this.redoOrder = [];
+      this.pushToken({ kind: 'vector' });
     });
+  }
+
+  /** Append a token to the timeline, or buffer it when a group is open. */
+  private pushToken(token: UndoToken): void {
+    if (this.grouping) {
+      this.groupBuffer.push(token);
+      return;
+    }
+    this.actionOrder.push(token);
+    this.redoOrder = [];
+  }
+
+  // ==========================================
+  // Grouped (compound) actions
+  // ==========================================
+
+  /**
+   * Begin a compound action: any raster snapshots and vector commits recorded
+   * until endGroup() collapse into a single timeline entry, so one undo reverts
+   * them together. Used by rasterize/vectorize, which edit both subsystems.
+   */
+  beginGroup(): void {
+    this.grouping = true;
+    this.groupBuffer = [];
+  }
+
+  endGroup(): void {
+    this.grouping = false;
+    const buffer = this.groupBuffer;
+    this.groupBuffer = [];
+    if (buffer.length === 0) return;
+    const token: UndoToken =
+      buffer.length === 1 ? buffer[0] : { kind: 'compound', tokens: buffer };
+    this.actionOrder.push(token);
+    this.redoOrder = [];
   }
 
   // ==========================================
@@ -86,6 +128,18 @@ export class UndoRedoService {
         }
         this.actionOrder.pop(); // stale token, drop and try the next one
         continue;
+      }
+      if (token.kind === 'compound') {
+        this.actionOrder.pop();
+        this.redoOrder.push(token);
+        // Undo sub-actions in reverse; the subsystems are independent so the
+        // final state is order-independent.
+        for (let i = token.tokens.length - 1; i >= 0; i--) {
+          const sub = token.tokens[i];
+          if (sub.kind === 'vector') this.vectorEditor.undo();
+          else if (sub.kind === 'raster') this.rasterUndo(sub.layers);
+        }
+        return;
       }
       this.actionOrder.pop();
       this.redoOrder.push(token);
@@ -106,6 +160,15 @@ export class UndoRedoService {
         }
         this.redoOrder.pop();
         continue;
+      }
+      if (token.kind === 'compound') {
+        this.redoOrder.pop();
+        this.actionOrder.push(token);
+        for (const sub of token.tokens) {
+          if (sub.kind === 'vector') this.vectorEditor.redo();
+          else if (sub.kind === 'raster') this.rasterRedo(sub.layers);
+        }
+        return;
       }
       this.redoOrder.pop();
       this.actionOrder.push(token);
@@ -191,16 +254,23 @@ export class UndoRedoService {
    * action to the unified timeline.
    */
   public async updateUndoRedo(): Promise<void> {
+    this.snapshotLayers(this.affectedLayers());
+  }
+
+  /**
+   * Snapshot an explicit set of layers as one raster action. Used by operations
+   * that know exactly which masks they touched (e.g. rasterize), independent of
+   * the current tool/label. Safe to call inside a group.
+   */
+  public snapshotLayers(layerIndices: number[]): void {
     const masks = this.canvasManagerService.getAllMasks();
-    const layers = this.affectedLayers().filter((i) => i >= 0 && masks[i]);
+    const layers = layerIndices.filter((i) => i >= 0 && masks[i]);
+    if (layers.length === 0) return;
 
     for (const index of layers) {
       this.getLayerUndoRedo(index).push({ data: new Uint8Array(masks[index]) });
     }
-
-    // A new action invalidates the redo history.
-    this.actionOrder.push({ kind: 'raster', layers });
-    this.redoOrder = [];
+    this.pushToken({ kind: 'raster', layers });
   }
 
   canUndo(): boolean {

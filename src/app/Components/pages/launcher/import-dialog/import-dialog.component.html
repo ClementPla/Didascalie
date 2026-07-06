@@ -1,0 +1,147 @@
+<p-dialog
+  header="Import annotations"
+  [visible]="visible()"
+  (visibleChange)="visible.set($event)"
+  [modal]="true"
+  [dismissableMask]="true"
+  [style]="{ width: '34rem' }"
+  appendTo="body"
+>
+  @if (!importFormats().length) {
+    <p class="opacity-70">No import formats available.</p>
+  } @else {
+    <div class="flex flex-col gap-5">
+      <p class="opacity-70 text-sm">
+        Annotations are matched to the target project's frames by filename; unknown labels are
+        created.
+      </p>
+
+      <!-- Target project -->
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium">Target project</label>
+        <div class="flex gap-2 items-center">
+          @if (recentProjects().length) {
+            <p-select
+              [options]="recentProjects()"
+              optionLabel="name"
+              optionValue="path"
+              placeholder="Recent project…"
+              [(ngModel)]="targetPath"
+              appendTo="body"
+              class="flex-1"
+            ></p-select>
+          }
+          <p-button
+            label="Browse…"
+            icon="pi pi-folder-open"
+            severity="secondary"
+            (onClick)="browseTarget()"
+          ></p-button>
+        </div>
+        @if (targetPath) {
+          <small class="opacity-70 truncate">{{ targetPath }}</small>
+        }
+      </div>
+
+      <!-- Format -->
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium">Format</label>
+        <p-select
+          [options]="importFormats()"
+          optionLabel="name"
+          [ngModel]="selectedFormat()"
+          (onChange)="selectFormat($event.value)"
+          appendTo="body"
+        ></p-select>
+        @if (selectedFormat(); as format) {
+          <small class="opacity-70">{{ format.description }}</small>
+        }
+      </div>
+
+      <!-- Source -->
+      <div class="flex flex-col gap-1">
+        <label class="text-sm font-medium">Source</label>
+        <div class="flex gap-2 items-center">
+          <p-button
+            label="Pick file"
+            icon="pi pi-file"
+            severity="secondary"
+            (onClick)="chooseSource(false)"
+          ></p-button>
+          <p-button
+            label="Pick folder"
+            icon="pi pi-folder"
+            severity="secondary"
+            (onClick)="chooseSource(true)"
+          ></p-button>
+          @if (sourcePath) {
+            <small class="opacity-70 truncate" style="max-width: 16rem">{{ sourcePath }}</small>
+          }
+        </div>
+      </div>
+
+      <!-- Options -->
+      @if (selectedFormat(); as format) {
+        @if (format.importOptions.length) {
+          <div class="flex flex-col gap-3">
+            <p-divider align="left"><b>Options</b></p-divider>
+            @for (opt of format.importOptions; track opt.key) {
+              @switch (opt.type) {
+                @case ('bool') {
+                  <div class="flex gap-2 items-center">
+                    <p-toggleswitch [(ngModel)]="importOptionValues[opt.key]"></p-toggleswitch>
+                    <span class="text-sm">{{ opt.label }}</span>
+                  </div>
+                }
+                @case ('enum') {
+                  <div class="flex flex-col gap-1">
+                    <label class="text-sm">{{ opt.label }}</label>
+                    <p-select
+                      [options]="$any(opt).choices"
+                      optionLabel="label"
+                      optionValue="value"
+                      [(ngModel)]="importOptionValues[opt.key]"
+                      appendTo="body"
+                    ></p-select>
+                  </div>
+                }
+                @case ('int') {
+                  <div class="flex flex-col gap-1">
+                    <label class="text-sm">{{ opt.label }}</label>
+                    <input
+                      type="number"
+                      pInputText
+                      [(ngModel)]="importOptionValues[opt.key]"
+                      [min]="$any(opt).min"
+                      [max]="$any(opt).max"
+                    />
+                  </div>
+                }
+              }
+            }
+          </div>
+        }
+      }
+
+      @if (error) {
+        <small class="text-red-500">{{ error }}</small>
+      }
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      [text]="true"
+      severity="secondary"
+      (onClick)="visible.set(false)"
+    ></p-button>
+    <p-button
+      label="Import & open"
+      icon="pi pi-upload"
+      (onClick)="runImport()"
+      [disabled]="!canImport"
+    ></p-button>
+    @if (isImporting) { <span class="text-sm opacity-70 ml-2">Importing…</span> }
+  </ng-template>
+</p-dialog>

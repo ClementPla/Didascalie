@@ -117,7 +117,13 @@ export class EditorService {
     return this.selectedTool === Tools.NODE;
   }
 
-  /** True for any vector tool (Path/Node) — used to route input to the SVG layer. */
+  /** Convert tool: click a connected pixel region to trace it into a shape. */
+  public isVectorizeTool(): boolean {
+    return this.selectedTool === Tools.VECTORIZE;
+  }
+
+  /** True for the shape-editing vector tools (Path/Node) — routes pointer input
+   *  to the SVG layer. Excludes Vectorize, which acts on the raster masks. */
   public isVectorTool(): boolean {
     return this.isPathTool() || this.isNodeTool();
   }

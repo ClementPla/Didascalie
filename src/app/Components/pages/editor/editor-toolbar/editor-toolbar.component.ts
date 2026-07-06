@@ -6,6 +6,8 @@ import { ALL_TOOLS, VECTOR_TOOLS } from '../../../../Core/tools';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EditorService } from '../services/editor.service';
+import { ConvertService } from '../drawable-canvas/service/convert.service';
+import { VectorEditorService } from '../drawable-canvas/service/vector-editor.service';
 import { SliderModule } from 'primeng/slider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { BlockUIModule } from 'primeng/blockui';
@@ -41,7 +43,16 @@ export class EditorToolbarComponent {
   private readonly brushMax = 1024;
   private readonly brushSteps = 1000;
 
-  constructor(public editorService: EditorService) {}
+  constructor(
+    public editorService: EditorService,
+    public vectorEditor: VectorEditorService,
+    private convertService: ConvertService,
+  ) {}
+
+  /** Burn the selected shape (or the active label's shapes) into the masks. */
+  rasterize(): void {
+    this.convertService.rasterize();
+  }
 
   /** Slider position [0, brushSteps] mapped logarithmically from lineWidth. */
   get brushSizeSlider(): number {

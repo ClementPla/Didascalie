@@ -194,6 +194,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       selectPan: () => this.editorService.selectTool(Tools.PAN),
       selectPath: () => this.editorService.selectTool(Tools.PATH),
       selectNode: () => this.editorService.selectTool(Tools.NODE),
+      selectVectorize: () => this.editorService.selectTool(Tools.VECTORIZE),
 
       undo: () => this.editorService.requestUndo(),
       redo: () => this.editorService.requestRedo(),

@@ -68,7 +68,14 @@
       [disabled]="isLoading()"
       (click)="openFromDisk()"
     ></p-button>
-    
+    <p-button
+      icon="pi pi-upload"
+      label="Import annotations…"
+      severity="secondary"
+      size="large"
+      [disabled]="isLoading()"
+      (click)="openImportDialog()"
+    ></p-button>
   </div>
 
   @if (recentProjects().length > 0) {
@@ -114,4 +121,5 @@
   }
 
   <p-toast position="bottom-left"></p-toast>
+  <app-import-dialog [(visible)]="showImportDialog"></app-import-dialog>
 </div>

@@ -42,6 +42,20 @@
             </span>
           </ng-template>
         </p-selectButton>
+
+        <p-button
+          severity="secondary"
+          [outlined]="true"
+          pTooltip="Rasterize shapes into the label mask"
+          tooltipPosition="bottom"
+          [disabled]="!vectorEditor.hasShapes()"
+          (onClick)="rasterize()"
+        >
+          <span class="flex gap-2 items-center">
+            <i class="pi pi-th-large"></i>
+            <div class="hidden lg:block">Rasterize</div>
+          </span>
+        </p-button>
       </div>
 
       @if (editorService.isToolWithBrushSize()) {

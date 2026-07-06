@@ -31,6 +31,8 @@ export class Tools {
   // Vector tools: a different class of tool (SVG shapes, not raster masks).
   public static PATH = new Tool(5, 'Path', 'pi pi-pen-to-square', 'B');
   public static NODE = new Tool(6, 'Node', 'pi pi-share-alt', 'N');
+  // Convert tool: click a connected region of pixels to trace it into a shape.
+  public static VECTORIZE = new Tool(7, 'Vectorize', 'pi pi-bullseye', 'V');
 }
 export const ALL_TOOLS = [
   Tools.PAN,
@@ -42,7 +44,7 @@ export const ALL_TOOLS = [
 ];
 
 /** Vector tools, rendered as a separate, visually distinct toolbar group. */
-export const VECTOR_TOOLS = [Tools.PATH, Tools.NODE];
+export const VECTOR_TOOLS = [Tools.PATH, Tools.NODE, Tools.VECTORIZE];
 
 export enum PostProcessOption {
   MEDSAM = 'MedSAM',

@@ -5,7 +5,7 @@
     </p>
   } @else {
     <div class="gallery-scroll sequence-list">
-      @for (seq of sequences; track seq.id) {
+      @for (seq of pagedSequences; track seq.id) {
         <app-gallery-element
           class="block w-full"
           [class.is-current]="seq.id === currentId"
@@ -23,5 +23,15 @@
         ></app-gallery-element>
       }
     </div>
+
+    @if (sequences.length > pageSize) {
+      <p-paginator
+        [first]="first"
+        [rows]="pageSize"
+        [totalRecords]="sequences.length"
+        (onPageChange)="onPage($event)"
+        styleClass="sequence-paginator"
+      ></p-paginator>
+    }
   }
 </p-panel>

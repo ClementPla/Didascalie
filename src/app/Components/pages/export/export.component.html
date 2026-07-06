@@ -1,99 +1,81 @@
-<div class="flex justify-center p-6 w-full">
-  <p-panel header="Export Annotations" class="max-w-3xl w-full">
-    <div class="flex flex-col gap-4">
-      <!-- Export Options -->
-      <div class="flex flex-col gap-2">
-        <h4>Export Options</h4>
-
-        <div class="flex gap-2 items-center">
-          <p-toggleswitch
-            [(ngModel)]="exportIndividualMask"
-            inputId="individualMask"
-          />
-          <label for="individualMask">Individual masks (one per label)</label>
+<div class="flex flex-col gap-6 items-center p-6 w-full">
+  <!-- ── Export ─────────────────────────────────────────────────────────── -->
+  <p-panel header="Export dataset" class="max-w-3xl w-full">
+    @if (!projectService.isOpen()) {
+      <p class="opacity-70">Open a project to export.</p>
+    } @else {
+      <div class="flex flex-col gap-5" style="max-width: 32rem">
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium">Format</label>
+          <p-select
+            [options]="exportFormats()"
+            optionLabel="name"
+            [ngModel]="selectedFormat()"
+            (onChange)="selectFormat($event.value)"
+            appendTo="body"
+          ></p-select>
+          @if (selectedFormat(); as format) {
+            <small class="opacity-70">{{ format.description }}</small>
+          }
         </div>
 
-        <div class="flex gap-2 items-center">
-          <p-toggleswitch
-            [(ngModel)]="exportCombinedMask"
-            inputId="combinedMask"
-          />
-          <label for="combinedMask">Combined mask</label>
+        <div class="flex flex-col gap-1">
+          <label class="text-sm font-medium">Frames</label>
+          <p-selectButton [options]="reviewedOptions" [(ngModel)]="onlyReviewed"></p-selectButton>
         </div>
 
-        <div class="flex gap-2 items-center">
-          <p-toggleswitch [(ngModel)]="exportColorMap" inputId="colorMap" />
-          <label for="colorMap">Color map</label>
+        @if (selectedFormat(); as format) {
+          @if (format.exportOptions.length) {
+            <div class="flex flex-col gap-3">
+              <p-divider align="left"><b>Options</b></p-divider>
+              @for (opt of format.exportOptions; track opt.key) {
+                @switch (opt.type) {
+                  @case ('bool') {
+                    <div class="flex gap-2 items-center">
+                      <p-toggleswitch [(ngModel)]="exportOptionValues[opt.key]"></p-toggleswitch>
+                      <span class="text-sm">{{ opt.label }}</span>
+                    </div>
+                  }
+                  @case ('enum') {
+                    <div class="flex flex-col gap-1">
+                      <label class="text-sm">{{ opt.label }}</label>
+                      <p-select
+                        [options]="$any(opt).choices"
+                        optionLabel="label"
+                        optionValue="value"
+                        [(ngModel)]="exportOptionValues[opt.key]"
+                        appendTo="body"
+                      ></p-select>
+                    </div>
+                  }
+                  @case ('int') {
+                    <div class="flex flex-col gap-1">
+                      <label class="text-sm">{{ opt.label }}</label>
+                      <input
+                        type="number"
+                        pInputText
+                        [(ngModel)]="exportOptionValues[opt.key]"
+                        [min]="$any(opt).min"
+                        [max]="$any(opt).max"
+                      />
+                    </div>
+                  }
+                }
+              }
+            </div>
+          }
+        }
+
+        <div class="flex gap-3 items-center">
+          <p-button label="Export" icon="pi pi-download" (onClick)="export()" [disabled]="!canExport"></p-button>
+          @if (isExporting) {
+            <span class="text-sm opacity-70">{{ exportProgress }}% — {{ currentFile }}</span>
+          }
         </div>
-        <div class="flex gap-2 items-center">
-          <p-toggleswitch
-            [(ngModel)]="exportClassifications"
-            inputId="classifications"
-          />
-          <label for="classifications">Classifications</label>
-        </div>
-        <div class="flex gap-2 items-center">
-          <p-toggleswitch [(ngModel)]="exportVectors" inputId="vectors" />
-          <label for="vectors">Vector shapes (JSON file)</label>
-        </div>
-        <div class="flex gap-2 items-center">
-          <p-toggleswitch
-            [(ngModel)]="exportRasterizeVectors"
-            inputId="rasterizeVectors"
-          />
-          <label for="rasterizeVectors">Rasterize vectors into masks</label>
-        </div>
+        @if (exportError) {
+          <small class="text-red-500">{{ exportError }}</small>
+        }
       </div>
-
-      <p-divider />
-
-      <!-- Frame Selection -->
-      <div class="flex flex-col gap-2">
-        <h4>Frames to Export</h4>
-        <p-selectbutton
-          [options]="exportOptionsDefinedRevisions"
-          [(ngModel)]="exportOnlyReviewed"
-          optionLabel="label"
-          optionValue="value"
-        />
-      </div>
-
-      <p-divider />
-
-      <!-- Progress -->
-      @if (isExporting) {
-        <div class="flex flex-col gap-2 items-center">
-          <p-knob
-            [ngModel]="exportProgress"
-            [readonly]="true"
-            [size]="100"
-            valueTemplate="{value}%"
-          />
-          <small>{{ filesExported }} / {{ totalFiles }} files exported</small>
-        </div>
-      }
-
-      <!-- Error Message -->
-      @if (exportError) {
-        <div class="bg-red-100 p-3 rounded text-red-700">
-          {{ exportError }}
-        </div>
-      }
-
-      <!-- Export Button -->
-      <p-button
-        label="Export"
-        icon="pi pi-download"
-        [disabled]="!canExport"
-        [loading]="isExporting"
-        (onClick)="export()"
-      />
-
-      <!-- Info -->
-      <small [style.color]="'var(--p-text-muted-color)'">
-        Project: {{ projectName }}<br />
-        Labels: {{ labelService.listSegmentationLabels.length }}
-      </small>
-    </div>
+    }
   </p-panel>
 </div>

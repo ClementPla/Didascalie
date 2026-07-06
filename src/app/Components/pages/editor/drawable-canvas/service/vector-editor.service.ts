@@ -252,6 +252,27 @@ export class VectorEditorService {
     if (this._shapes().some((s) => s.id === id)) this.deleteShape(id);
   }
 
+  /** Remove several shapes in a single committed action (e.g. rasterize). */
+  deleteShapesByIds(ids: string[]): void {
+    if (ids.length === 0) return;
+    const remove = new Set(ids);
+    if (!this._shapes().some((s) => remove.has(s.id))) return;
+    this._shapes.update((list) => list.filter((s) => !remove.has(s.id)));
+    this._selectedId.set(null);
+    this._selectedNode.set(null);
+    this.commit();
+  }
+
+  /** Append shapes in a single committed action (e.g. vectorize). Selects the
+   *  first added shape so it can be tweaked immediately with the Node tool. */
+  addShapes(shapes: VectorShape[]): void {
+    if (shapes.length === 0) return;
+    this._shapes.update((list) => [...list, ...shapes]);
+    this._selectedId.set(shapes[0].id);
+    this._selectedNode.set(null);
+    this.commit();
+  }
+
   toggleFilled(): void {
     this.mutateSelected((s) => ({ ...s, filled: s.closed ? !s.filled : false }));
   }

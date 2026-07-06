@@ -141,6 +141,44 @@ export interface ExportResult {
   errors: string[];
 }
 
+// ── Pluggable dataset formats (COCO, YOLO, NIfTI, …) ──────────────────────────
+
+export interface FormatChoice {
+  value: string;
+  label: string;
+}
+
+/** A single self-describing option a format exposes to the UI. */
+export type FormatOption =
+  | { type: 'bool'; key: string; label: string; default: boolean }
+  | { type: 'enum'; key: string; label: string; choices: FormatChoice[]; default: string }
+  | { type: 'int'; key: string; label: string; default: number; min: number; max: number };
+
+export interface DatasetFormat {
+  id: string;
+  name: string;
+  description: string;
+  canExport: boolean;
+  canImport: boolean;
+  exportOptions: FormatOption[];
+  importOptions: FormatOption[];
+  capabilities: {
+    masks: boolean;
+    polygons: boolean;
+    bboxes: boolean;
+    classifications: boolean;
+    instances: boolean;
+  };
+}
+
+export interface ImportResult {
+  framesMatched: number;
+  framesUnmatched: number;
+  annotationsImported: number;
+  labelsCreated: number;
+  errors: string[];
+}
+
 export interface GallerySequence {
   id: number;
   name: string;
@@ -266,6 +304,26 @@ export const api = {
     shapes: VectorShape[],
   ) => invoke<void>('save_vector_annotations', { frameId, labelId, shapes }),
 
+  /**
+   * Trace the connected component of a label mask under pixel (x, y) into
+   * simplified outer-contour polygons (image-pixel coords). Empty when the
+   * clicked pixel is background.
+   */
+  vectorizeComponent: (
+    mask: Uint8Array,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+  ) =>
+    invoke<number[][][]>('vectorize_component', {
+      mask: mask.slice().buffer,
+      width,
+      height,
+      x,
+      y,
+    }),
+
   saveTaskDefinitions: (definitions: TaskDefinitions) =>
     invoke('save_task_definitions', {
       definitions: definitions,
@@ -337,6 +395,27 @@ export const api = {
 
   exportAnnotations: (options: ExportOptions) =>
     invoke<ExportResult>('export_annotations', { options }),
+
+  /** Metadata + option schema for every import/export format. */
+  listDatasetFormats: () => invoke<DatasetFormat[]>('list_dataset_formats'),
+
+  /** Export the open project in a chosen format. */
+  exportDataset: (
+    formatId: string,
+    outputFolder: string,
+    onlyReviewed: boolean,
+    options: Record<string, unknown>,
+  ) =>
+    invoke<ExportResult>('export_dataset', {
+      formatId,
+      outputFolder,
+      onlyReviewed,
+      options,
+    }),
+
+  /** Import annotations into the open project (matched by filename). */
+  importDataset: (formatId: string, path: string, options: Record<string, unknown>) =>
+    invoke<ImportResult>('import_dataset', { formatId, path, options }),
   saveRegistration(sequenceId: number, data: RegistrationData): Promise<void> {
     return invoke('save_registration', { sequenceId, data });
   },

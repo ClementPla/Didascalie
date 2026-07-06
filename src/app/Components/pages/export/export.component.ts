@@ -1,100 +1,111 @@
-import { ChangeDetectorRef, Component, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { PanelModule } from 'primeng/panel';
 import { DividerModule } from 'primeng/divider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
-import { FormsModule } from '@angular/forms';
-import { FloatLabelModule } from 'primeng/floatlabel';
 import { InputTextModule } from 'primeng/inputtext';
 import { ButtonModule } from 'primeng/button';
-import { KnobModule } from 'primeng/knob';
-import { RadioButtonModule } from 'primeng/radiobutton';
+import { SelectModule } from 'primeng/select';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
 
 import { ProjectService } from '../../../Services/ProjectService/project.service';
-import { SequenceService } from '../../../Services/sequence.service';
-import { LabelsService } from '../../../Services/Labels/labels.service';
-import { api, ExportOptions, ExportResult } from '../../../lib/api';
+import { api, DatasetFormat } from '../../../lib/api';
 
-interface ExportProgress {
+interface Progress {
   current: number;
   total: number;
   currentFile: string;
 }
 
+/**
+ * Schema-driven export: the format list and every format's options come from the
+ * backend registry, so new formats appear here with no UI changes. Import lives
+ * separately on the opening page (launcher).
+ */
 @Component({
   selector: 'app-export',
   imports: [
+    CommonModule,
+    FormsModule,
     PanelModule,
     DividerModule,
     ToggleSwitchModule,
-    FormsModule,
-    FloatLabelModule,
     InputTextModule,
     ButtonModule,
-    KnobModule,
+    SelectModule,
     SelectButtonModule,
-    RadioButtonModule,
   ],
   templateUrl: './export.component.html',
   styleUrl: './export.component.scss',
 })
-export class ExportComponent implements OnDestroy {
-  // Export options
-  exportIndividualMask: boolean = true;
-  exportCombinedMask: boolean = true;
-  exportColorMap: boolean = true;
-  exportOnlyReviewed: boolean = true;
-  exportClassifications: boolean = true;
-  exportVectors: boolean = true;
-  exportRasterizeVectors: boolean = true;
+export class ExportComponent implements OnInit, OnDestroy {
+  private readonly formats = signal<DatasetFormat[]>([]);
+  readonly exportFormats = computed(() => this.formats().filter((f) => f.canExport));
 
-  // Progress tracking
-  totalFiles: number = 0;
-  filesExported: number = 0;
-  isExporting: boolean = false;
+  // Export state.
+  readonly selectedFormat = signal<DatasetFormat | null>(null);
+  exportOptionValues: Record<string, any> = {};
+  onlyReviewed = true;
+  totalFiles = 0;
+  filesExported = 0;
+  isExporting = false;
   exportError: string | null = null;
-  currentFile: string = '';
+  currentFile = '';
 
-  // UI options
-  exportOptionsDefinedRevisions = [
-    { label: 'All', value: false },
+  readonly reviewedOptions = [
+    { label: 'All frames', value: false },
     { label: 'Reviewed only', value: true },
   ];
 
-  // Event listeners
   private unlisten: UnlistenFn | null = null;
 
   constructor(
     public projectService: ProjectService,
-    public sequenceService: SequenceService,
-    public labelService: LabelsService,
     private cdr: ChangeDetectorRef,
-  ) {
-    this.setupListeners();
+  ) {}
+
+  async ngOnInit(): Promise<void> {
+    this.unlisten = await listen<Progress>('export-progress', (event) => {
+      this.filesExported = event.payload.current;
+      this.totalFiles = event.payload.total;
+      this.currentFile = event.payload.currentFile;
+      this.cdr.detectChanges();
+    });
+
+    try {
+      const formats = await api.listDatasetFormats();
+      this.formats.set(formats);
+      const firstExport = formats.find((f) => f.canExport);
+      if (firstExport) this.selectFormat(firstExport);
+    } catch (error) {
+      console.error('Failed to list dataset formats:', error);
+    }
   }
 
   ngOnDestroy(): void {
-    if (this.unlisten) {
-      this.unlisten();
-    }
+    this.unlisten?.();
   }
 
-  // ==========================================
-  // Export
-  // ==========================================
+  // ── Export ────────────────────────────────────────────────────────────────
+
+  selectFormat(format: DatasetFormat): void {
+    this.selectedFormat.set(format);
+    this.exportOptionValues = {};
+    for (const opt of format.exportOptions) this.exportOptionValues[opt.key] = opt.default;
+  }
 
   async export(): Promise<void> {
-    // Select output folder
-    const outputFolder = await save({
-      title: 'Select Export Folder',
-      defaultPath: `${this.projectName}_export`,
-    });
+    const format = this.selectedFormat();
+    if (!format) return;
 
-    if (!outputFolder) {
-      return; // User cancelled
-    }
+    const outputFolder = await save({
+      title: 'Select export folder',
+      defaultPath: `${this.projectName}_${format.id}`,
+    });
+    if (!outputFolder) return;
 
     this.filesExported = 0;
     this.totalFiles = 0;
@@ -102,66 +113,37 @@ export class ExportComponent implements OnDestroy {
     this.exportError = null;
 
     try {
-      const options: ExportOptions = {
-        output_folder: outputFolder,
-        individual_mask: this.exportIndividualMask,
-        combined_mask: this.exportCombinedMask,
-        colormap: this.exportColorMap,
-        only_reviewed: this.exportOnlyReviewed,
-        instance_segmentation: this.projectService.isInstanceSegmentation(),
-        classifications: this.exportClassifications,
-        vectors: this.exportVectors,
-        rasterize_vectors: this.exportRasterizeVectors,
-      };
-
-      const result = await api.exportAnnotations(options);
-
+      const result = await api.exportDataset(
+        format.id,
+        outputFolder,
+        this.onlyReviewed,
+        this.exportOptionValues,
+      );
       if (result.errors.length > 0) {
-        this.exportError = `Exported ${result.total_exported} files with ${result.errors.length} errors`;
+        this.exportError = `Exported with ${result.errors.length} error(s) — see console.`;
         console.error('Export errors:', result.errors);
-      } else {
-        console.log(`Export completed: ${result.total_exported} files`);
       }
     } catch (error) {
-      console.error('Export failed:', error);
       this.exportError = `Export failed: ${error}`;
+      console.error('Export failed:', error);
     } finally {
       this.isExporting = false;
       this.cdr.detectChanges();
     }
   }
 
-  // ==========================================
-  // Event Listeners
-  // ==========================================
-
-  private async setupListeners(): Promise<void> {
-    this.unlisten = await listen<ExportProgress>('export-progress', (event) => {
-      this.filesExported = event.payload.current;
-      this.totalFiles = event.payload.total;
-      this.currentFile = event.payload.currentFile;
-      this.cdr.detectChanges();
-    });
-  }
-
-  // ==========================================
-  // Getters
-  // ==========================================
+  // ── Getters ───────────────────────────────────────────────────────────────
 
   get projectName(): string {
     return this.projectService.config().name || 'project';
   }
 
   get canExport(): boolean {
-    return this.projectService.isOpen() && !this.isExporting;
+    return this.projectService.isOpen() && !this.isExporting && !!this.selectedFormat();
   }
 
   get exportProgress(): number {
     if (this.totalFiles === 0) return 0;
     return Math.round((this.filesExported / this.totalFiles) * 100);
-  }
-
-  get hasLabels(): boolean {
-    return this.labelService.listSegmentationLabels.length > 0;
   }
 }

@@ -17,6 +17,9 @@ import { NotificationService } from './notification.service';
 })
 export class IOService implements OnDestroy {
   public requestedReload = new Subject<boolean>();
+  /** Emits after a frame's masks have been loaded into the canvas manager, so
+   *  UI derived from mask contents (e.g. the instance picker) can refresh. */
+  public readonly loaded$ = new Subject<void>();
   private destroy$ = new Subject<void>();
   private dirty = false;
 
@@ -109,6 +112,7 @@ export class IOService implements OnDestroy {
       this.stateManagerService.recomputeCanvasSum = true;
 
       this.dirty = false;
+      this.loaded$.next();
     } catch (error) {
       console.error('Failed to load annotations:', error);
       throw error;
