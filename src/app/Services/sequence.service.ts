@@ -204,7 +204,15 @@ export class SequenceService {
     this._loading.set(true);
 
     try {
-      const frameImage = await api.getFrameImage(frame.id);
+      // Images too large for the browser to decode are fetched as a server-side
+      // downsampled overview (native dims preserved on the frame). ~4096 keeps
+      // the backdrop within canvas limits; native detail comes from tiles later.
+      const OVERVIEW_MAX_DIM = 4096;
+      const large =
+        Math.max(frame.width, frame.height) > OVERVIEW_MAX_DIM;
+      const frameImage = large
+        ? await api.getFrameOverview(frame.id, OVERVIEW_MAX_DIM)
+        : await api.getFrameImage(frame.id);
       this._currentFrameImage.set(frameImage);
     } catch (error) {
       console.error('Failed to load frame image:', error);

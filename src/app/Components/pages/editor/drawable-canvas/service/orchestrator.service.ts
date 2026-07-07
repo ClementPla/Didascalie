@@ -112,7 +112,11 @@ export class OrchestratorService {
   // Image lifecycle
   // ==========================================
 
-  public async loadImage(imgSrc: string): Promise<HTMLImageElement> {
+  public async loadImage(
+    imgSrc: string,
+    nativeWidth?: number,
+    nativeHeight?: number,
+  ): Promise<HTMLImageElement> {
     this.isReadySubject.next(false);
     try {
       const img = await this.preloadImage(imgSrc);
@@ -123,7 +127,11 @@ export class OrchestratorService {
       // is triggered by the imageProc.output$ emission from setImage() below.
       this.releaseImagePyramid();
 
-      this.state.setWidthAndHeight(img.width, img.height);
+      // Masks/coordinates use the NATIVE size; `img` may be a downsampled
+      // overview (large images), drawn scaled to the native display space.
+      const w = nativeWidth ?? img.width;
+      const h = nativeHeight ?? img.height;
+      this.state.setWidthAndHeight(w, h);
       await this.canvasManager.updateCanvasesDimensions();
 
       this.imageProc.setImage(img);

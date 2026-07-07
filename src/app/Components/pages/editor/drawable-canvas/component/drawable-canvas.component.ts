@@ -102,7 +102,9 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     effect(() => {
       const frame = this.sequenceService.currentFrameImage();
-      if (frame && this.ctxImage) this.loadImage(frame.image_base64);
+      if (frame && this.ctxImage) {
+        this.loadImage(frame.image_base64, frame.frame.width, frame.frame.height);
+      }
     });
   }
 
@@ -135,7 +137,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       this.setViewportSize(r.width, r.height);
 
       const frame = this.sequenceService.currentFrameImage();
-      if (frame) this.loadImage(frame.image_base64);
+      if (frame) this.loadImage(frame.image_base64, frame.frame.width, frame.frame.height);
     });
   }
 
@@ -215,9 +217,9 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   // Image loading
   // ==========================================
 
-  public async loadImage(imageSrc: string) {
+  public async loadImage(imageSrc: string, nativeWidth?: number, nativeHeight?: number) {
     try {
-      await this.orchestrator.loadImage(imageSrc);
+      await this.orchestrator.loadImage(imageSrc, nativeWidth, nativeHeight);
       // Offscreen layers were resized inside the orchestrator.
       // The display canvases follow the viewport, not the image, so no
       // further sizing here.

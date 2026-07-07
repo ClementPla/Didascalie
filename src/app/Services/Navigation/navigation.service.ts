@@ -247,8 +247,13 @@ export class NavigationService {
     }
 
     try {
-      // Load raw background image layer into native system canvas orchestrator
-      await this.orchestrator.loadImage(frameImage.image_base64);
+      // Load raw background image layer into native system canvas orchestrator.
+      // Pass native dims: the image may be a downsampled overview for large frames.
+      await this.orchestrator.loadImage(
+        frameImage.image_base64,
+        frameImage.frame.width,
+        frameImage.frame.height,
+      );
 
       // Extract existing annotation vectors from previous save systems
       await this.ioService.load();

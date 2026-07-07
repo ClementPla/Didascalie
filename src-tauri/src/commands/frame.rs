@@ -119,6 +119,36 @@ pub fn get_frame_image(db: State<DbState>, frame_id: i64) -> Result<FrameImage> 
 }
 
 
+/// A display image for a frame, downsampled server-side so its longest side is
+/// ≤ `max_dim`. Images that already fit are returned unchanged. `frame.width` /
+/// `frame.height` are always the NATIVE dimensions, so the frontend keeps masks
+/// and coordinates at full resolution while displaying a decodable backdrop —
+/// this is what lets images too large for the browser to decode still open.
+#[tauri::command]
+pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Result<FrameImage> {
+    let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
+    let nw = meta.frame.width.max(0) as u32;
+    let nh = meta.frame.height.max(0) as u32;
+
+    if max_dim == 0 || (nw <= max_dim && nh <= max_dim) {
+        let mime = detect_mime_type(&bytes);
+        let image_base64 = format!("data:{};base64,{}", mime, BASE64.encode(&bytes));
+        return Ok(FrameImage { frame: meta.frame, image_base64 });
+    }
+
+    let img = image::load_from_memory(&bytes)
+        .map_err(|e| AppError::Generic(format!("Failed to decode image: {}", e)))?;
+    // Triangle (bilinear) keeps downsampling of a 100+ MP image fast; PNG keeps
+    // it lossless so no compression artefacts land on the annotation backdrop.
+    let scaled = img.resize(max_dim, max_dim, image::imageops::FilterType::Triangle);
+    let mut out = Vec::new();
+    scaled
+        .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
+        .map_err(|e| AppError::Generic(format!("Failed to encode overview: {}", e)))?;
+    let image_base64 = format!("data:image/png;base64,{}", BASE64.encode(&out));
+    Ok(FrameImage { frame: meta.frame, image_base64 })
+}
+
 #[tauri::command]
 pub fn get_frame_thumbnail(db: State<DbState>, frame_id: i64, max_size: u32) -> Result<FrameImage> {
   let mut frame_image = get_frame_image(db, frame_id)?;

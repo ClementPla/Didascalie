@@ -279,6 +279,10 @@ export const api = {
     invoke<FrameImage>('get_frame_image', {
       frameId: frameId,
     }),
+  /** Display image downsampled server-side to `maxDim`; `frame.width/height`
+   *  stay native. For images too large for the browser to decode directly. */
+  getFrameOverview: (frameId: number, maxDim: number) =>
+    invoke<FrameImage>('get_frame_overview', { frameId, maxDim }),
   getFrameThumbnail: (frameId: number, maxSize: number) =>
     invoke<{ image_base64: string }>('get_frame_thumbnail', {
       frameId: frameId,

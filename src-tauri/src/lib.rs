@@ -125,6 +125,7 @@ pub fn run() {
             commands::project::get_sequences_count,
             commands::frame::get_progress,
             commands::frame::get_frame_image,
+            commands::frame::get_frame_overview,
             commands::frame::get_frame_thumbnail,
             commands::frame::set_frames_reviewed,
             commands::frame::set_frame_reviewed,
