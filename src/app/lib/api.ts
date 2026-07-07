@@ -210,6 +210,15 @@ export interface RegistrationData {
   pairs: KeypointPair[];
 }
 
+/** Summary of one registration case (frame pair) within a sequence. */
+export interface RegistrationSummary {
+  referenceFrameId: number;
+  movingFrameId: number;
+  transformType: string;
+  hasHomography: boolean;
+  pairCount: number;
+}
+
 interface PingReply {
   ok: boolean;
   protocol_version: number;
@@ -425,6 +434,11 @@ export const api = {
     movingFrameId: number,
   ): Promise<RegistrationData | null> {
     return invoke('load_registration', { referenceFrameId, movingFrameId });
+  },
+
+  /** Every registration case (frame pair) stored for a sequence. */
+  listRegistrations(sequenceId: number): Promise<RegistrationSummary[]> {
+    return invoke('list_registrations', { sequenceId });
   },
 
   deleteRegistration(

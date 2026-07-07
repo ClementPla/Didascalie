@@ -34,6 +34,66 @@
   transform: translateX(50%);
 }
 
+// ── Registration cases list ────────────────────────────────────────────────
+.cases-section {
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.case-list {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.case-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+
+  &:hover {
+    background: color-mix(in srgb, var(--surface-border) 40%, transparent);
+  }
+
+  &.active {
+    background: color-mix(in srgb, var(--primary-color, #4c8df6) 22%, transparent);
+    outline: 1px solid var(--primary-color, #4c8df6);
+  }
+}
+
+.case-status {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--surface-400, #9ca3af);
+
+  &.fitted {
+    background: #5fb874;
+  }
+}
+
+.case-frames {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.case-count {
+  flex: 0 0 auto;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
 // Make the pair list the scroll container — not the whole sidebar.
 .pairs-section {
   flex: 1;

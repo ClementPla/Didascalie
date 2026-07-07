@@ -164,6 +164,7 @@ pub fn run() {
             // Registration commands
             commands::registration::save_registration,
             commands::registration::load_registration,
+            commands::registration::list_registrations,
             commands::registration::delete_registration,
             commands::registration::inference_connect,
             commands::registration::find_keypoints_prefill,

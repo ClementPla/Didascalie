@@ -44,6 +44,18 @@ export type PlacementState =
   | { phase: 'awaiting-moving'; pendingRef: Point2D }
   | { phase: 'awaiting-ref'; pendingMoving: Point2D };
 
+/**
+ * One registration case in the current sequence: a (reference, moving) frame
+ * pair. A sequence can hold many, and a frame may appear in several of them.
+ */
+export interface RegistrationCase {
+  referenceFrameId: string;
+  movingFrameId: string;
+  transformType: string;
+  hasHomography: boolean;
+  pairCount: number;
+}
+
 // ==========================================
 // Transform type selection
 // ==========================================
@@ -87,6 +99,29 @@ export class RegistrationStateService {
   readonly sequenceId = this._sequenceId.asReadonly();
   readonly referenceFrameId = this._referenceFrameId.asReadonly();
   readonly movingFrameId = this._movingFrameId.asReadonly();
+
+  // ── Registration cases for the current sequence ──────────────────────────
+  private _cases = signal<RegistrationCase[]>([]);
+  readonly cases = this._cases.asReadonly();
+
+  /** Key of the active (reference, moving) pair, for highlighting the list. */
+  readonly activeCaseKey = computed(() => {
+    const ref = this._referenceFrameId();
+    const moving = this._movingFrameId();
+    return ref && moving ? `${ref}:${moving}` : null;
+  });
+
+  setCases(cases: RegistrationCase[]): void {
+    this._cases.set(cases);
+  }
+
+  /** Switch the active pair to (ref, moving) in one step, resetting pairs so
+   *  they can be repopulated from the database for the new case. */
+  setActivePair(referenceFrameId: string, movingFrameId: string): void {
+    this._referenceFrameId.set(referenceFrameId);
+    this._movingFrameId.set(movingFrameId);
+    this.resetRegistration();
+  }
 
   readonly framesReady = computed(
     () => this._referenceFrameId() !== null && this._movingFrameId() !== null,
@@ -372,6 +407,7 @@ export class RegistrationStateService {
     this._placement.set({ phase: 'idle' });
     this._vis.set({ ...DEFAULT_VIS_OPTIONS });
     this._hoveredPairId.set(null);
+    this._cases.set([]);
   }
   setShowMovingWarped(v: boolean): void {
     this._vis.update((o) => ({

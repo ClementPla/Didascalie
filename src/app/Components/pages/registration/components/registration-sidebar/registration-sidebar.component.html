@@ -16,6 +16,65 @@
   </div>
 
   @if (!collapsed()) {
+    <!-- Registration cases: a sequence can hold many (reference, moving) pairs,
+         and a frame may appear in several of them. -->
+    <div class="cases-section sidebar-section">
+      <div class="pairs-header">
+        <h3>
+          Cases
+          <p-tag [value]="cases().length.toString()" severity="secondary"></p-tag>
+        </h3>
+        <p-button
+          icon="pi pi-plus"
+          size="small"
+          [text]="true"
+          pTooltip="Start a new registration case"
+          tooltipPosition="top"
+          (click)="newCaseRequested.emit()"
+        ></p-button>
+      </div>
+
+      @if (cases().length === 0) {
+        <p class="hint-text">
+          No cases yet. Place points and save, or “+” to start one.
+        </p>
+      } @else {
+        <ul class="case-list">
+          @for (c of cases(); track c.referenceFrameId + ':' + c.movingFrameId) {
+            <li
+              class="case-row"
+              [class.active]="isActiveCase(c)"
+              (click)="caseSelected.emit(c)"
+              [attr.aria-current]="isActiveCase(c)"
+            >
+              <span
+                class="case-status"
+                [class.fitted]="c.hasHomography"
+                [pTooltip]="c.hasHomography ? 'Fitted' : 'Not fitted'"
+                tooltipPosition="top"
+              ></span>
+              <span class="case-frames">
+                {{ frameLabel(c.referenceFrameId) }} →
+                {{ frameLabel(c.movingFrameId) }}
+              </span>
+              <span class="case-count">{{ c.pairCount }} pts</span>
+              <p-button
+                icon="pi pi-times"
+                size="small"
+                severity="danger"
+                [text]="true"
+                pTooltip="Delete case"
+                tooltipPosition="top"
+                (click)="$event.stopPropagation(); caseDeleted.emit(c)"
+              ></p-button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <p-divider></p-divider>
+
     <!-- Frame pickers -->
     <div class="sidebar-section">
       <h3>Frames</h3>

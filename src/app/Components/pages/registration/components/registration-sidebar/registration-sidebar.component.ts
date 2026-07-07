@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { InferenceClientService } from '../../../../../Services/inference-client.service';
 import {
   RegistrationStateService,
+  RegistrationCase,
   colorForIndex,
 } from '../../registration-state.service';
 import { ButtonModule } from 'primeng/button';
@@ -98,6 +99,22 @@ export class RegistrationSidebarComponent {
   public portDialogOpen = signal(false);
   @Output() public referenceFrameChange = new EventEmitter<string>();
   public selectedFunctionName = signal<string | null>(null);
+
+  // ── Registration cases (multiple frame pairs per sequence) ────────────────
+  public readonly cases = this.state.cases;
+  public readonly activeCaseKey = this.state.activeCaseKey;
+  @Output() public caseSelected = new EventEmitter<RegistrationCase>();
+  @Output() public caseDeleted = new EventEmitter<RegistrationCase>();
+  @Output() public newCaseRequested = new EventEmitter<void>();
+
+  /** Human-readable frame label for a frame id, falling back to the id. */
+  public frameLabel(id: string): string {
+    return this.frameOptions.find((f) => f.id === id)?.label ?? `Frame ${id}`;
+  }
+
+  public isActiveCase(c: RegistrationCase): boolean {
+    return this.activeCaseKey() === `${c.referenceFrameId}:${c.movingFrameId}`;
+  }
 
   public get selectedMovingFrameId(): string {
     return this.state.movingFrameId() ?? '';

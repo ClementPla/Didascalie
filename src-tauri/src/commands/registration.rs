@@ -29,6 +29,54 @@ pub struct RegistrationData {
     pub pairs: Vec<KeypointPair>,
 }
 
+/// One registration case in a sequence: a (reference, moving) frame pair with a
+/// summary of its state. A sequence can hold many, and a frame may appear in
+/// several (as reference and/or moving).
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistrationSummary {
+    pub reference_frame_id: i64,
+    pub moving_frame_id: i64,
+    pub transform_type: String,
+    pub has_homography: bool,
+    pub pair_count: i64,
+}
+
+/// List every registration case stored for a sequence.
+#[tauri::command]
+pub fn list_registrations(
+    db: State<DbState>,
+    sequence_id: i64,
+) -> Result<Vec<RegistrationSummary>> {
+    db.with_conn(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT r.reference_frame_id,
+                    r.moving_frame_id,
+                    r.transform_type,
+                    (r.homography IS NOT NULL AND r.homography != 'null') AS has_homography,
+                    COUNT(k.id) AS pair_count
+             FROM registrations r
+             LEFT JOIN keypoint_pairs k ON k.registration_id = r.id
+             WHERE r.sequence_id = ?1
+             GROUP BY r.id
+             ORDER BY r.id",
+        )?;
+        let rows = stmt
+            .query_map([sequence_id], |row| {
+                Ok(RegistrationSummary {
+                    reference_frame_id: row.get(0)?,
+                    moving_frame_id: row.get(1)?,
+                    transform_type: row.get(2)?,
+                    has_homography: row.get::<_, i64>(3)? != 0,
+                    pair_count: row.get(4)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    })
+}
+
 #[tauri::command]
 pub fn save_registration(
     db: State<DbState>,

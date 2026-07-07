@@ -18,7 +18,10 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { ViewportController, SyncGroup } from '../viewport-controller';
 import { Pyramid, PyramidService } from '../pyramid.service';
-import { RegistrationStateService } from '../registration-state.service';
+import {
+  RegistrationStateService,
+  RegistrationCase,
+} from '../registration-state.service';
 
 import { FrameLoaderService } from '../frame-loader.service';
 import { SequenceService } from '../../../../Services/sequence.service';
@@ -261,9 +264,11 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     } finally {
       this.registrationLoading = false;
     }
+    await this.refreshCases();
   }
 
   async onReferenceFrameChange(frameId: string): Promise<void> {
+    await this.save(); // persist the current pair before switching away
     this.registrationLoading = true;
     try {
       this.state.setReferenceFrame(frameId);
@@ -272,9 +277,11 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     } finally {
       this.registrationLoading = false;
     }
+    await this.refreshCases();
   }
 
   async onMovingFrameChange(frameId: string): Promise<void> {
+    await this.save(); // persist the current pair before switching away
     this.registrationLoading = true;
     try {
       this.state.setMovingFrame(frameId);
@@ -283,6 +290,138 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     } finally {
       this.registrationLoading = false;
     }
+    await this.refreshCases();
+  }
+
+  // ==========================================
+  // Registration cases (multiple frame pairs per sequence)
+  // ==========================================
+
+  /** Reload the sequence's list of registration cases from the database. */
+  private async refreshCases(): Promise<void> {
+    const seqIdStr = this.state.sequenceId();
+    if (!seqIdStr) {
+      this.state.setCases([]);
+      return;
+    }
+    const seqId = parseInt(seqIdStr, 10);
+    if (Number.isNaN(seqId)) return;
+    try {
+      const list = await api.listRegistrations(seqId);
+      this.state.setCases(
+        list.map((c) => ({
+          referenceFrameId: String(c.referenceFrameId),
+          movingFrameId: String(c.movingFrameId),
+          transformType: c.transformType,
+          hasHomography: c.hasHomography,
+          pairCount: c.pairCount,
+        })),
+      );
+    } catch (e) {
+      console.error('[Registration] listRegistrations failed:', e);
+    }
+  }
+
+  /** Make an existing case the active pair (saving the current one first). */
+  async onSelectCase(c: RegistrationCase): Promise<void> {
+    if (this.navInFlight) return;
+    if (
+      c.referenceFrameId === this.state.referenceFrameId() &&
+      c.movingFrameId === this.state.movingFrameId()
+    ) {
+      return; // already active
+    }
+    this.navInFlight = true;
+    try {
+      await this.save(); // persist current pair before switching
+      this.registrationLoading = true;
+      try {
+        this.state.setActivePair(c.referenceFrameId, c.movingFrameId);
+        await this.loadBothFrames();
+      } finally {
+        this.registrationLoading = false;
+      }
+      await this.refreshCases();
+    } finally {
+      this.navInFlight = false;
+    }
+  }
+
+  /**
+   * Start a fresh case: pick the first (reference, moving) frame combination in
+   * the sequence that isn't already a case, and switch to it with empty pairs.
+   */
+  async onNewCase(): Promise<void> {
+    if (this.navInFlight) return;
+    const frames = this.frameOptions();
+    if (frames.length < 2) return;
+
+    const cases = this.state.cases();
+    const currentRef = this.state.referenceFrameId();
+    const currentMov = this.state.movingFrameId();
+    // Treat the current (possibly unsaved) active pair as occupied too, so "+"
+    // always lands on a genuinely different pair.
+    const exists = (ref: string, mov: string) =>
+      (ref === currentRef && mov === currentMov) ||
+      cases.some((c) => c.referenceFrameId === ref && c.movingFrameId === mov);
+
+    // Prefer keeping the current reference; else search all ordered pairs.
+    let ref: string | null = null;
+    let moving: string | null = null;
+    if (currentRef) {
+      const m = frames.find((f) => f.id !== currentRef && !exists(currentRef, f.id));
+      if (m) {
+        ref = currentRef;
+        moving = m.id;
+      }
+    }
+    if (!ref || !moving) {
+      outer: for (const a of frames) {
+        for (const b of frames) {
+          if (a.id !== b.id && !exists(a.id, b.id)) {
+            ref = a.id;
+            moving = b.id;
+            break outer;
+          }
+        }
+      }
+    }
+    if (!ref || !moving) return; // every ordered pair already has a case
+
+    this.navInFlight = true;
+    try {
+      await this.save(); // persist current pair before switching
+      this.registrationLoading = true;
+      try {
+        this.state.setActivePair(ref, moving);
+        await this.loadBothFrames();
+      } finally {
+        this.registrationLoading = false;
+      }
+      await this.refreshCases();
+    } finally {
+      this.navInFlight = false;
+    }
+  }
+
+  /** Delete a stored case. If it was active, the pairs are cleared too. */
+  async onDeleteCase(c: RegistrationCase): Promise<void> {
+    const refId = parseInt(c.referenceFrameId, 10);
+    const movId = parseInt(c.movingFrameId, 10);
+    if (Number.isNaN(refId) || Number.isNaN(movId)) return;
+    try {
+      await api.deleteRegistration(refId, movId);
+    } catch (e) {
+      console.error('[Registration] deleteRegistration failed:', e);
+      return;
+    }
+    if (
+      c.referenceFrameId === this.state.referenceFrameId() &&
+      c.movingFrameId === this.state.movingFrameId()
+    ) {
+      this.state.clearPairs(); // in-memory pairs for the now-deleted active case
+    }
+    await this.refreshCases();
   }
 
   private async loadBothFrames(): Promise<void> {
@@ -379,6 +518,16 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     const pairs = this.state.pairs();
     const transform = this.state.transform();
 
+    // Don't materialise an empty case: switching to a pair you never annotated
+    // shouldn't create a junk 0-pair registration row. Still allow persisting an
+    // emptied *existing* case (e.g. after "Clear all pairs").
+    const isExistingCase = this.state
+      .cases()
+      .some((c) => c.referenceFrameId === refIdStr && c.movingFrameId === movIdStr);
+    if (pairs.length === 0 && !isExistingCase) {
+      return true;
+    }
+
     const data: RegistrationData = {
       referenceFrameId: refId,
       movingFrameId: movId,
@@ -395,6 +544,8 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
 
     try {
       await api.saveRegistration(seqId, data);
+      // Reflect a new/updated case (and its pair count) in the sidebar list.
+      await this.refreshCases();
       return true;
     } catch (e) {
       console.error('[Registration] Save failed:', e);

@@ -4,6 +4,9 @@
     [frameOptions]="frameOptions()"
     (referenceFrameChange)="onReferenceFrameChange($event)"
     (movingFrameChange)="onMovingFrameChange($event)"
+    (caseSelected)="onSelectCase($event)"
+    (caseDeleted)="onDeleteCase($event)"
+    (newCaseRequested)="onNewCase()"
     (backClicked)="goBack()"
   ></app-registration-sidebar>
 
