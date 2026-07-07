@@ -100,6 +100,7 @@ pub fn run() {
         .manage(InferenceClient::new())
         .manage(commands::superpixel::SuperpixelState::default())
         .manage(commands::frame::FrameImageCache::default())
+        .manage(commands::frame::ThumbnailCache::default())
         .setup(|app| {
             connection::coms::setup_zmq_receiver(app.handle().clone())?;
             Ok(())

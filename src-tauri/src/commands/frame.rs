@@ -14,7 +14,7 @@ use crate::utils::error::{ AppError, Result };
 // Types
 // ==========================================
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 pub struct Frame {
   pub id: i64,
   pub sequence_id: i64,
@@ -26,10 +26,45 @@ pub struct Frame {
   pub is_embedded: bool,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 pub struct FrameImage {
   pub frame: Frame,
   pub image_base64: String,
+}
+
+/// Bounded in-memory cache of generated thumbnails, keyed by (frame, size), so
+/// a frame's full image is decoded at most once per session — the gallery
+/// otherwise re-decodes the full (possibly 100+ MP) image on every scroll/hover.
+#[derive(Default)]
+pub struct ThumbnailCache {
+  inner: Mutex<ThumbnailCacheInner>,
+}
+
+#[derive(Default)]
+struct ThumbnailCacheInner {
+  map: std::collections::HashMap<(i64, u32), FrameImage>,
+  order: std::collections::VecDeque<(i64, u32)>,
+}
+
+const THUMBNAIL_CACHE_CAP: usize = 1024;
+
+impl ThumbnailCache {
+  fn get(&self, frame_id: i64, size: u32) -> Option<FrameImage> {
+    self.inner.lock().ok()?.map.get(&(frame_id, size)).cloned()
+  }
+
+  fn put(&self, frame_id: i64, size: u32, image: FrameImage) {
+    let Ok(mut guard) = self.inner.lock() else { return };
+    let key = (frame_id, size);
+    if guard.map.insert(key, image).is_none() {
+      guard.order.push_back(key);
+      while guard.order.len() > THUMBNAIL_CACHE_CAP {
+        if let Some(old) = guard.order.pop_front() {
+          guard.map.remove(&old);
+        }
+      }
+    }
+  }
 }
 
 
@@ -152,35 +187,35 @@ pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Re
 }
 
 #[tauri::command]
-pub fn get_frame_thumbnail(db: State<DbState>, frame_id: i64, max_size: u32) -> Result<FrameImage> {
-  let mut frame_image = get_frame_image(db, frame_id)?;
+pub fn get_frame_thumbnail(
+  db: State<DbState>,
+  cache: State<ThumbnailCache>,
+  frame_id: i64,
+  max_size: u32,
+) -> Result<FrameImage> {
+  if let Some(hit) = cache.get(frame_id, max_size) {
+    return Ok(hit);
+  }
 
-  // Decode the base64 image
-  let base64_data = frame_image.image_base64
-    .strip_prefix("data:")
-    .and_then(|s| s.split_once(";base64,"))
-    .map(|(_, data)| data)
-    .ok_or_else(|| AppError::Generic("Invalid image data format".to_string()))?;
+  // Read the raw file bytes directly — NOT via get_frame_image, which would
+  // base64-encode the whole full-resolution image just for us to decode it
+  // straight back (very slow for large images).
+  let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
 
-  let image_bytes = BASE64.decode(base64_data.as_bytes()).map_err(|e|
-    AppError::Generic(format!("Failed to decode base64: {}", e))
-  )?;
-
-  // Resize
-  let img = image
-    ::load_from_memory(&image_bytes)
+  let img = image::load_from_memory(&bytes)
     .map_err(|e| AppError::Generic(format!("Failed to decode image: {}", e)))?;
-
   let thumbnail = img.thumbnail(max_size, max_size);
 
-  // Re-encode as JPEG
   let mut jpeg_bytes = Vec::new();
   thumbnail
     .write_to(&mut std::io::Cursor::new(&mut jpeg_bytes), image::ImageFormat::Jpeg)
     .map_err(|e| AppError::Generic(format!("Failed to encode thumbnail: {}", e)))?;
 
-  frame_image.image_base64 = format!("data:image/jpeg;base64,{}", BASE64.encode(&jpeg_bytes));
-
+  let frame_image = FrameImage {
+    frame: meta.frame,
+    image_base64: format!("data:image/jpeg;base64,{}", BASE64.encode(&jpeg_bytes)),
+  };
+  cache.put(frame_id, max_size, frame_image.clone());
   Ok(frame_image)
 }
 
