@@ -70,7 +70,8 @@ export class DrawService implements OnDestroy {
     this.stateService.updateCurrentPoint(coords);
     this.stateService.updatePreviousPoint(coords);
 
-    this.clearCanvas(this.canvasManagerService.bufferCtx);
+    // Position + clear the stroke buffer window around the stroke start.
+    this.canvasManagerService.beginStrokeBuffer(coords);
     this.currentToolContext = this.createToolContext();
 
     const tool = this.tools.get(this.editorService.selectedTool);
@@ -105,7 +106,7 @@ export class DrawService implements OnDestroy {
     if (!this.stateService.isDrawing) return;
     this.stateService.isDrawing = false;
     this.currentToolContext = null;
-    this.clearCanvas(this.canvasManagerService.bufferCtx);
+    this.canvasManagerService.beginStrokeBuffer();
     this.redrawRequest.next(true);
   }
 
@@ -169,9 +170,7 @@ export class DrawService implements OnDestroy {
     const rect = intRect(this.stateService.getBoundingBox(), w, h);
     if (!rect) return;
 
-    const region = this.canvasManagerService
-      .getBufferCtx()
-      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    const region = this.canvasManagerService.readBufferRegion(rect);
 
     swapUnderStroke(
       this.canvasManagerService.getAllMasks(),

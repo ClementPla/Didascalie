@@ -16,6 +16,10 @@ import { connectedComponentBoxes, unionPresence } from '../../../../../Core/misc
  *  is ~4096²; a native composite over it goes blank). */
 const VIEWPORT_COMPOSITE_MIN_DIM = 4096;
 
+/** Max side (px) of the stroke scratch buffer — kept within WebKit's cap. On
+ *  larger images the buffer becomes a per-stroke window into the image. */
+const BUFFER_MAX_DIM = 4096;
+
 /**
  * Owns the per-label pixel data as `Uint8Array` masks (0 = absent, 1 = present
  * for semantic labels, 1..255 = instance id) and composites them into the
@@ -39,9 +43,13 @@ export class CanvasManagerService {
   combinedCanvas?: OffscreenCanvas;
   combinedCtx?: OffscreenCanvasRenderingContext2D;
 
-  /** Scratch canvas the drawing tools rasterize the in-progress stroke onto. */
+  /** Scratch canvas the drawing tools rasterize the in-progress stroke onto. On
+   *  large images it's a capped window; `bufferOrigin` is its top-left in image
+   *  space. The buffer context is translated by -origin so tools keep drawing in
+   *  image coordinates. */
   bufferCanvas: OffscreenCanvas;
   bufferCtx: OffscreenCanvasRenderingContext2D;
+  private bufferOrigin = { x: 0, y: 0 };
 
   requestRedraw: Subject<boolean> = new Subject<boolean>();
   private useWebGPU = false;
@@ -350,14 +358,23 @@ export class CanvasManagerService {
       }
     }
 
+    // The stroke scratch buffer holds only the in-progress stroke, so it's
+    // capped to a WebKit-legal size; on large images it's a moving window
+    // positioned per stroke (see beginStrokeBuffer). Small images get a
+    // native-size buffer at origin (0,0) — the pre-existing behaviour, byte for
+    // byte.
+    const bw = Math.min(width, BUFFER_MAX_DIM);
+    const bh = Math.min(height, BUFFER_MAX_DIM);
     if (!this.bufferCanvas) {
-      this.bufferCanvas = new OffscreenCanvas(width, height);
+      this.bufferCanvas = new OffscreenCanvas(bw, bh);
       this.bufferCtx = this.bufferCanvas.getContext('2d', { alpha: true })!;
     }
-    if (this.bufferCanvas.width !== width || this.bufferCanvas.height !== height) {
-      this.bufferCanvas.width = width;
-      this.bufferCanvas.height = height;
+    if (this.bufferCanvas.width !== bw || this.bufferCanvas.height !== bh) {
+      this.bufferCanvas.width = bw;
+      this.bufferCanvas.height = bh;
     }
+    this.bufferOrigin = { x: 0, y: 0 };
+    this.bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   async updateCanvasesDimensions() {
@@ -426,6 +443,52 @@ export class CanvasManagerService {
   }
   getBufferCtx() {
     return this.bufferCtx;
+  }
+
+  /** Top-left of the stroke buffer window in image space (0,0 for small images). */
+  getBufferOrigin(): { x: number; y: number } {
+    return { x: this.bufferOrigin.x, y: this.bufferOrigin.y };
+  }
+
+  /**
+   * Prepare the scratch buffer for a new stroke: clear it and position its
+   * window over the image. Tools then draw in image coordinates (the context is
+   * translated by -origin). On small images the window is the whole image at
+   * origin (0,0); on large images it's a `BUFFER_MAX_DIM` window centred on
+   * `center` (the stroke start), clamped to the image — a stroke straying beyond
+   * it is clipped, which is fine for the zoomed-in editing this targets.
+   */
+  beginStrokeBuffer(center?: { x: number; y: number }): void {
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+    const bw = this.bufferCanvas.width;
+    const bh = this.bufferCanvas.height;
+
+    let ox = 0;
+    let oy = 0;
+    if (center && (bw < w || bh < h)) {
+      ox = Math.max(0, Math.min(w - bw, Math.round(center.x - bw / 2)));
+      oy = Math.max(0, Math.min(h - bh, Math.round(center.y - bh / 2)));
+    }
+    this.bufferOrigin = { x: ox, y: oy };
+
+    const ctx = this.bufferCtx;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, bw, bh);
+    ctx.setTransform(1, 0, 0, 1, -ox, -oy); // tools draw in image space
+  }
+
+  /**
+   * Read an image-space rectangle back from the stroke buffer as RGBA. Handles
+   * the buffer window offset; pixels outside the window come back transparent.
+   */
+  readBufferRegion(rect: { x: number; y: number; width: number; height: number }): Uint8ClampedArray {
+    return this.bufferCtx.getImageData(
+      rect.x - this.bufferOrigin.x,
+      rect.y - this.bufferOrigin.y,
+      rect.width,
+      rect.height,
+    ).data;
   }
   getCombinedCtx() {
     return this.combinedCtx;

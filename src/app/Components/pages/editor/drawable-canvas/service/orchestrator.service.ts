@@ -282,6 +282,12 @@ export class OrchestratorService {
     this.canvasManager.compositeToDisplay(ctx, dpr);
   }
 
+  /** Top-left (image space) of the stroke buffer window; (0,0) for small
+   *  images. The live-stroke preview draws the buffer at this offset. */
+  public getBufferOrigin(): Point2D {
+    return this.canvasManager.getBufferOrigin();
+  }
+
   // ==========================================
   // Canvas operations
   // ==========================================

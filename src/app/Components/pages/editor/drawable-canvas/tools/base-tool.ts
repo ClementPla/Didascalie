@@ -19,8 +19,7 @@ export abstract class BaseTool {
     const rect = intRect(context.stateService.getBoundingBox(), w, h);
     if (!rect) return null;
 
-    const bufferCtx = context.canvasManager.getBufferCtx();
-    const region = bufferCtx.getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    const region = context.canvasManager.readBufferRegion(rect);
     return { region, rect };
   }
 

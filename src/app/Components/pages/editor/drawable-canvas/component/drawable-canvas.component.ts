@@ -156,11 +156,12 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(ctx => {
         if (ctx && this.ctxLabel) {
-          // singleDrawRequest is a buffer canvas at image-native resolution.
-          // It must go through the same view transform as the main label layer.
+          // The stroke buffer goes through the same view transform as the label
+          // layer, drawn at its window origin (0,0 for small images).
+          const origin = this.orchestrator.getBufferOrigin();
           this.applyLabelTransform();
           this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
-          this.ctxLabel.drawImage(ctx.canvas, 0, 0);
+          this.ctxLabel.drawImage(ctx.canvas, origin.x, origin.y);
           this.ctxLabel.resetTransform();
         }
       });

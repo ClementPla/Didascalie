@@ -61,6 +61,14 @@ export class PostProcessService {
     const w = this.stateService.width;
     const h = this.stateService.height;
 
+    // SAM reads the whole stroke buffer + full image at native resolution, which
+    // isn't available in the windowed/viewport-composite mode used for large
+    // images. Skip rather than send a truncated mask.
+    if (this.canvasManagerService.usesViewportComposite) {
+      console.warn('SAM post-process is unavailable for large images.');
+      return;
+    }
+
     const bufferCtx = this.canvasManagerService.getBufferCtx();
     const coarseMask = binarizeArray(bufferCtx.getImageData(0, 0, w, h).data).data;
 
@@ -91,9 +99,7 @@ export class PostProcessService {
     const imgCtx = this.imageContext();
     if (!imgCtx) return;
     const imageData = imgCtx.getImageData(rect.x, rect.y, rect.width, rect.height).data;
-    const maskData = this.canvasManagerService
-      .getBufferCtx()
-      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    const maskData = this.canvasManagerService.readBufferRegion(rect);
 
     const result = await invoke<ArrayBufferLike>('otsu_segmentation', {
       mask: maskData.buffer,
@@ -146,9 +152,7 @@ export class PostProcessService {
     const rect = intRect(this.stateService.getBoundingBox(), w, h);
     if (!rect) return;
 
-    const region = this.canvasManagerService
-      .getBufferCtx()
-      .getImageData(rect.x, rect.y, rect.width, rect.height).data;
+    const region = this.canvasManagerService.readBufferRegion(rect);
 
     const masks = this.canvasManagerService.getAllMasks();
     const activeIndex = this.canvasManagerService.getActiveIndex();
