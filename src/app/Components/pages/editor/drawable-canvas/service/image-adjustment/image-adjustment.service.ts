@@ -81,6 +81,31 @@ export class ImageAdjustmentService implements OnDestroy {
     return this.output$.value ?? this.sourceCanvas;
   }
 
+  /**
+   * Bake the current adjustments (brightness/contrast/gamma/curves) into
+   * `canvas` in place. No-op when adjustments are at identity or processing is
+   * off. Operates only on the given canvas — the display pyramid keeps its
+   * levels ≤ the WebKit cap, so this stays within the canvas-size limit even for
+   * very large source images (unlike the full-resolution render path).
+   */
+  applyCurrentAdjustmentsInPlace(canvas: OffscreenCanvas): void {
+    if (isIdentity(this.state) || !this.editorService.useProcessing) return;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true }) as
+      | OffscreenCanvasRenderingContext2D
+      | null;
+    if (!ctx) return;
+
+    const lut = composeRGBLUT(this.state);
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = image.data;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] = lut.r[d[i]];
+      d[i + 1] = lut.g[d[i + 1]];
+      d[i + 2] = lut.b[d[i + 2]];
+    }
+    ctx.putImageData(image, 0, 0);
+  }
+
   // ==========================================
   // Adjustment API
   // ==========================================

@@ -185,7 +185,13 @@ export class OrchestratorService {
   }
 
   private async rebuildImagePyramid(): Promise<void> {
-    const source = this.imageProc.getCurrentCanvas();
+    // Build from the decoded <img>, NOT the processed source canvas: on WebKit a
+    // native-resolution canvas over ~4096² can't be allocated (it goes blank),
+    // whereas `drawImage(hugeImg, 0,0, ≤cap, ≤cap)` downscales into a legal-size
+    // level. This is what lets large images display at all on WebKit. We bake
+    // the current adjustments into each (small) level below, so brightness/gamma
+    // still show without ever touching a native-size canvas.
+    const source = this.loadedImage;
     const w = this.state.width;
     const h = this.state.height;
     if (!source || w === 0 || h === 0) return;
@@ -207,6 +213,11 @@ export class OrchestratorService {
         // A newer rebuild started while we were building — discard this one.
         this.pyramid.invalidate(key);
         return;
+      }
+      // Bake current adjustments into each level (no-op at identity). Each level
+      // is ≤ the cap, so this stays within WebKit's canvas-size limit.
+      for (const level of pyr.levels) {
+        this.imageProc.applyCurrentAdjustmentsInPlace(level.canvas);
       }
       if (this.pyramidKey && this.pyramidKey !== key) {
         this.pyramid.invalidate(this.pyramidKey); // bound cache memory
