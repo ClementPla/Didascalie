@@ -16,7 +16,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { Pyramid, PyramidService } from '../../pyramid.service';
+import { Pyramid, PyramidService } from '../../../../../Services/pyramid.service';
 import { ViewportController } from '../../viewport-controller';
 import {
   RegistrationStateService,

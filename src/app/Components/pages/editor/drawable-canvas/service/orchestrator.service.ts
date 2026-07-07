@@ -11,11 +11,18 @@ import { ZoomPanService } from './zoom-pan.service';
 import { DrawService } from './draw.service';
 import { EditorService } from '../../services/editor.service';
 import { Point2D } from '../interface';
+import { Pyramid, PyramidService } from '../../../../../Services/pyramid.service';
 
 export interface ViewTransform {
   scale: number;
   offset: Point2D;
 }
+
+/** Only build a display pyramid past this native longest-side (px). Below it,
+ *  drawing the full image each frame is cheap, so we keep the simple path. */
+const PYRAMID_MIN_DIM = 4096;
+/** Debounce (ms) for rebuilding the pyramid after the processed image changes. */
+const PYRAMID_REBUILD_MS = 150;
 
 @Injectable({ providedIn: 'root' })
 export class OrchestratorService {
@@ -27,6 +34,18 @@ export class OrchestratorService {
 
   private loadedImage: HTMLImageElement | null = null;
 
+  // ── Display pyramid (large images) ─────────────────────────────────────────
+  // A multi-resolution copy of the *processed* image. When present, the display
+  // draws the level matched to the current zoom instead of scaling the full
+  // native image, which is much cheaper (especially on software-rendered
+  // webviews). Null for small images or until the first build completes — the
+  // component falls back to drawing the full processed image, so behaviour is
+  // never worse than before.
+  private imagePyramid: Pyramid | null = null;
+  private pyramidKey: string | null = null;
+  private pyramidVersion = 0;
+  private pyramidRebuildTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(
     private state: StateManagerService,
     private imageProc: ImageAdjustmentService,
@@ -36,9 +55,21 @@ export class OrchestratorService {
     private zoomPan: ZoomPanService,
     private drawService: DrawService,
     private editorService: EditorService,
+    private pyramid: PyramidService,
     private injector: Injector,
   ) {
     this.initializeRedrawAggregation();
+
+    // The processed image changed (frame load, brightness/gamma, …) — rebuild
+    // the display pyramid. Debounced so a slider drag doesn't thrash it; the
+    // full-image fallback covers the brief window until the rebuild lands.
+    this.imageProc.output$.subscribe(() => this.scheduleImagePyramidRebuild());
+  }
+
+  /** The current display pyramid of the processed image, or null (use the full
+   *  image). Read by the drawable-canvas when drawing the image layer. */
+  public get displayPyramid(): Pyramid | null {
+    return this.imagePyramid;
   }
 
   // ==========================================
@@ -87,6 +118,11 @@ export class OrchestratorService {
       const img = await this.preloadImage(imgSrc);
       this.loadedImage = img;
 
+      // Drop the previous frame's pyramid immediately — its dimensions differ,
+      // so drawing it onto the new frame would stretch the old image. A rebuild
+      // is triggered by the imageProc.output$ emission from setImage() below.
+      this.releaseImagePyramid();
+
       this.state.setWidthAndHeight(img.width, img.height);
       await this.canvasManager.updateCanvasesDimensions();
 
@@ -134,6 +170,67 @@ export class OrchestratorService {
       img.onerror = reject;
       img.src = src;
     });
+  }
+
+  // ==========================================
+  // Display pyramid (large images)
+  // ==========================================
+
+  private scheduleImagePyramidRebuild(): void {
+    if (this.pyramidRebuildTimer) clearTimeout(this.pyramidRebuildTimer);
+    this.pyramidRebuildTimer = setTimeout(() => {
+      this.pyramidRebuildTimer = null;
+      void this.rebuildImagePyramid();
+    }, PYRAMID_REBUILD_MS);
+  }
+
+  private async rebuildImagePyramid(): Promise<void> {
+    const source = this.imageProc.getCurrentCanvas();
+    const w = this.state.width;
+    const h = this.state.height;
+    if (!source || w === 0 || h === 0) return;
+
+    // Small images don't need a pyramid — draw the full image directly.
+    if (Math.max(w, h) <= PYRAMID_MIN_DIM) {
+      this.releaseImagePyramid();
+      return;
+    }
+
+    const gen = ++this.pyramidVersion;
+    const key = `editor-image:${gen}`;
+    try {
+      // Cap the finest stored level so we never keep a native-size copy of a
+      // large image in memory; the component draws the source when it needs
+      // finer than this.
+      const pyr = await this.pyramid.getPyramidForSource(source, w, h, key, PYRAMID_MIN_DIM);
+      if (gen !== this.pyramidVersion) {
+        // A newer rebuild started while we were building — discard this one.
+        this.pyramid.invalidate(key);
+        return;
+      }
+      if (this.pyramidKey && this.pyramidKey !== key) {
+        this.pyramid.invalidate(this.pyramidKey); // bound cache memory
+      }
+      this.pyramidKey = key;
+      this.imagePyramid = pyr;
+      this.redrawRequest.next();
+    } catch (e) {
+      console.error('[Orchestrator] display pyramid build failed:', e);
+    }
+  }
+
+  private releaseImagePyramid(): void {
+    if (this.pyramidRebuildTimer) {
+      clearTimeout(this.pyramidRebuildTimer);
+      this.pyramidRebuildTimer = null;
+    }
+    if (this.pyramidKey) {
+      this.pyramid.invalidate(this.pyramidKey);
+      this.pyramidKey = null;
+    }
+    // Bump the version so any in-flight build discards itself.
+    this.pyramidVersion++;
+    this.imagePyramid = null;
   }
 
   // ==========================================

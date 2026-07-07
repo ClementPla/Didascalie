@@ -17,7 +17,7 @@ import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { ViewportController, SyncGroup } from '../viewport-controller';
-import { Pyramid, PyramidService } from '../pyramid.service';
+import { Pyramid, PyramidService } from '../../../../Services/pyramid.service';
 import {
   RegistrationStateService,
   RegistrationCase,

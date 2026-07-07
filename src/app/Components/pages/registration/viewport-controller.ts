@@ -1,7 +1,7 @@
 // viewport-controller.ts
 
 import { signal, computed } from '@angular/core';
-import { PyramidLevel } from './pyramid.service';
+import { PyramidLevel } from '../../../Services/pyramid.service';
 
 // ==========================================
 // Types

@@ -15,7 +15,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { applyTransform, invertHomography, Point2D } from '../../registration.model';
-import { Pyramid, PyramidService } from '../../pyramid.service';
+import { Pyramid, PyramidService } from '../../../../../Services/pyramid.service';
 import { ViewportController } from '../../viewport-controller';
 import {
   RegistrationStateService,

@@ -14,7 +14,7 @@ import {
   RegistrationStateService,
   VisualizationMode,
 } from '../../registration-state.service';
-import { Pyramid, PyramidService } from '../../pyramid.service';
+import { Pyramid, PyramidService } from '../../../../../Services/pyramid.service';
 import { FrameLoaderService } from '../../frame-loader.service';
 import { ButtonModule } from 'primeng/button';
 import { PopoutToolbarComponent } from './popout-toolbar/popout-toolbar.component';

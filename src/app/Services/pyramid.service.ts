@@ -70,6 +70,25 @@ export class PyramidService implements OnDestroy {
   }
 
   /**
+   * Build (or return cached) a pyramid from an arbitrary canvas source, keyed by
+   * a caller-supplied `key`. Use when the source isn't an `<img>` with a stable
+   * `src` — e.g. an adjusted `OffscreenCanvas` in the editor. The caller owns
+   * invalidation: pass a new key (or call `invalidate`) when the pixels change.
+   */
+  async getPyramidForSource(
+    source: CanvasImageSource,
+    width: number,
+    height: number,
+    key: string,
+    finestPx = 0,
+  ): Promise<Pyramid> {
+    if (!this.cache.has(key)) {
+      this.cache.set(key, this.buildPyramidFromSource(source, width, height, finestPx));
+    }
+    return this.cache.get(key)!;
+  }
+
+  /**
    * Invalidate the cache entry for a given image src.
    * Call if the image data changes underneath.
    */
@@ -115,7 +134,26 @@ export class PyramidService implements OnDestroy {
         return lvl;
       }
     }
-    return pyramid.levels[0]; // native
+    return pyramid.levels[0]; // finest available
+  }
+
+  /**
+   * True when even the finest stored level is coarser than the viewport needs,
+   * so the caller should draw the full-resolution *source* instead of a level.
+   * Relevant for pyramids built via `getPyramidForSource(..., finestPx)`, which
+   * omit a native-resolution level to save memory on very large images.
+   */
+  needsNativeResolution(
+    pyramid: Pyramid,
+    viewScale: number,
+    viewportW: number,
+    viewportH: number,
+  ): boolean {
+    const finest = pyramid.levels[0];
+    if (!finest) return true;
+    const targetW = (viewportW * OVERSAMPLE_FACTOR) / viewScale;
+    const targetH = (viewportH * OVERSAMPLE_FACTOR) / viewScale;
+    return finest.width < targetW || finest.height < targetH;
   }
 
   /**
@@ -168,9 +206,50 @@ export class PyramidService implements OnDestroy {
     if (nativeWidth === 0 || nativeHeight === 0) {
       throw new Error(`PyramidService: image has zero dimensions (src: ${img.src})`);
     }
+    return this.buildPyramidFromSource(img, nativeWidth, nativeHeight);
+  }
 
-    // Level 0: native resolution.
-    const level0 = await this.makeLevel(img, nativeWidth, nativeHeight, 1.0, 'L0');
+  private async buildPyramidFromSource(
+    source: CanvasImageSource,
+    nativeWidth: number,
+    nativeHeight: number,
+    finestPx = 0,
+  ): Promise<Pyramid> {
+    if (nativeWidth === 0 || nativeHeight === 0) {
+      throw new Error('PyramidService: source has zero dimensions');
+    }
+
+    // Memory-bounded mode: skip the native-resolution copy entirely (it can be
+    // hundreds of MB on a large image) and store only levels whose longest side
+    // is ≤ finestPx, each downsampled directly from the source. The caller draws
+    // the source itself when it needs finer than the finest stored level (see
+    // needsNativeResolution).
+    if (finestPx > 0) {
+      let w = nativeWidth;
+      let h = nativeHeight;
+      let scale = 1.0;
+      while (Math.max(w, h) > finestPx && w >= 32 && h >= 32) {
+        w = Math.floor(w / 2);
+        h = Math.floor(h / 2);
+        scale /= 2;
+      }
+      const levels: PyramidLevel[] = [];
+      for (let i = 0; i < MAX_LEVELS && w >= 16 && h >= 16; i++) {
+        levels.push(await this.makeLevel(source, w, h, scale, `L(${w}×${h})`));
+        if (Math.max(w, h) <= 16) break;
+        w = Math.floor(w / 2);
+        h = Math.floor(h / 2);
+        scale /= 2;
+      }
+      if (levels.length === 0) {
+        levels.push(await this.makeLevel(source, nativeWidth, nativeHeight, 1.0, 'L0'));
+      }
+      return { levels, nativeWidth, nativeHeight };
+    }
+
+    // Default mode (includes a native L0): a step-by-step halving cascade for
+    // best downsampling quality. Used by the registration viewers.
+    const level0 = await this.makeLevel(source, nativeWidth, nativeHeight, 1.0, 'L0');
     const levels: PyramidLevel[] = [level0];
 
     let w = nativeWidth;

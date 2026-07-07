@@ -36,6 +36,7 @@ import { Point2D, Viewbox } from '../interface';
 import { FeatureFlagsService } from '../../../../../experimental/feature-flags.service';
 import { collectExperimentalOverlays } from '../../../../../experimental/registry';
 import { RenderStatsService } from '../../../../Utils/fps-display/render-stats.service';
+import { PyramidService } from '../../../../../Services/pyramid.service';
 
 @Component({
   selector: 'app-drawable-canvas',
@@ -95,6 +96,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     private featureFlags: FeatureFlagsService,
     private injector: Injector,
     private renderStats: RenderStatsService,
+    private pyramidService: PyramidService,
   ) {
     this.initSubscriptions();
 
@@ -325,14 +327,9 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     // Image layer
     this.clearDisplayCanvas(this.ctxImage);
     this.applyImageTransform();
-    this.ctxImage.imageSmoothingEnabled = false;
     const processedImage = this.orchestrator.getProcessedImage();
     if (!processedImage) return;
-    this.ctxImage.drawImage(
-      processedImage,
-      0, 0,
-      this.orchestrator.width, this.orchestrator.height
-    );
+    this.drawImageLayer(processedImage);
     this.ctxImage.resetTransform();
 
     // Experimental overlay layer (image-native resolution, same view
@@ -361,6 +358,45 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
     this.ctxLabel.drawImage(combined, 0, 0);
     this.ctxLabel.resetTransform();
+  }
+
+  /**
+   * Draw the base image under the current view transform. For large images a
+   * display pyramid is available: draw the resolution level matched to the
+   * current zoom (scaled up to native size by the same transform), which is far
+   * cheaper than sampling the full native image — especially on software-
+   * rendered webviews. Falls back to the full processed image when there's no
+   * pyramid (small images, or the brief window before a rebuild lands).
+   */
+  private drawImageLayer(processedImage: CanvasImageSource): void {
+    if (!this.ctxImage) return;
+
+    const pyramid = this.orchestrator.displayPyramid;
+    const scale = this.zoomPanService.getScale();
+    const vpW = this.viewportWidth * this.dpr;
+    const vpH = this.viewportHeight * this.dpr;
+
+    // Use a downsampled level only when it's crisp enough for the current zoom.
+    // Zoomed in past the finest stored level, draw the full-res source instead
+    // (the pyramid intentionally has no native-size copy — see the service).
+    if (pyramid && !this.pyramidService.needsNativeResolution(pyramid, scale, vpW, vpH)) {
+      const level = this.pyramidService.getLevelForViewport(pyramid, scale, vpW, vpH);
+      this.ctxImage.imageSmoothingEnabled = true;
+      this.ctxImage.imageSmoothingQuality = 'high';
+      this.ctxImage.drawImage(
+        level.canvas,
+        0, 0,
+        this.orchestrator.width, this.orchestrator.height,
+      );
+      return;
+    }
+
+    this.ctxImage.imageSmoothingEnabled = false;
+    this.ctxImage.drawImage(
+      processedImage,
+      0, 0,
+      this.orchestrator.width, this.orchestrator.height,
+    );
   }
 
   private clearDisplayCanvas(ctx: CanvasRenderingContext2D) {
