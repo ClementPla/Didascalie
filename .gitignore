@@ -48,3 +48,7 @@ Thumbs.db
 *.keystore
 *.p12
 *.pem
+
+# Quarto-rendered README artifacts
+README.html
+README_files/
