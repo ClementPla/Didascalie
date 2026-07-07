@@ -149,6 +149,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.resizeObserver?.disconnect();
     clearTimeout(this.wheelDecayTimeout);
     clearTimeout(this.edgeRecomputeTimeout);
+    if (this.bboxRecomputeTimer) clearTimeout(this.bboxRecomputeTimer);
   }
 
   private initSubscriptions() {
@@ -372,6 +373,12 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.clearDisplayCanvas(this.ctxLabel);
     if (this.orchestrator.usesViewportComposite) {
       this.orchestrator.compositeLabelLayer(this.ctxLabel, this.dpr);
+      // The combined-canvas path recomputes bboxes; the viewport path doesn't,
+      // so drive it here on mask change (debounced — it's an O(image) scan).
+      if (this.stateService.recomputeCanvasSum) {
+        this.stateService.recomputeCanvasSum = false;
+        this.scheduleViewportBboxRecompute();
+      }
     } else {
       const combined = await this.orchestrator.getCombinedLabelCanvas();
       if (combined) {
@@ -443,6 +450,19 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     for (const t of tiles) {
       this.ctxImage.drawImage(t.bitmap, t.x, t.y);
     }
+  }
+
+  private bboxRecomputeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Recompute the bbox overlay for the viewport-composite (large image) path,
+   *  debounced so a burst of strokes doesn't trigger a scan each time. */
+  private scheduleViewportBboxRecompute(): void {
+    if (this.bboxRecomputeTimer) clearTimeout(this.bboxRecomputeTimer);
+    this.bboxRecomputeTimer = setTimeout(() => {
+      this.bboxRecomputeTimer = null;
+      this.orchestrator.updateBoundingBoxes();
+      this.changeDetectorRef.detectChanges(); // refresh the SVG overlay
+    }, 300);
   }
 
   private clearDisplayCanvas(ctx: CanvasRenderingContext2D) {

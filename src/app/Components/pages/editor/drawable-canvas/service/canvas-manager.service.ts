@@ -9,7 +9,12 @@ import { WebGPUCanvasCompositorService } from './web-gpucanvas-compositor.servic
 import { ZoomPanService } from './zoom-pan.service';
 import { RenderStatsService } from '../../../../Utils/fps-display/render-stats.service';
 import { buildLabelPalette } from '../../../../../Core/misc/colors';
-import { connectedComponentBoxes, unionPresence } from '../../../../../Core/misc/label-ops';
+import {
+  connectedComponentBoxes,
+  connectedComponentBoxesDownsampled,
+  downsamplePresence,
+  unionPresence,
+} from '../../../../../Core/misc/label-ops';
 
 /** Longest side (px) past which we skip the native-size composite canvas and
  *  composite the label layer per-viewport instead (WebKit's 2D-canvas area cap
@@ -113,19 +118,56 @@ export class CanvasManagerService {
     this.renderStats.recordComposite(performance.now() - t0);
   }
 
+  /** Recompute the bbox overlay from the current masks (clears first). Public so
+   *  the viewport-composite path can drive it — computeCombinedCanvas, which
+   *  normally does this, is skipped for large images. */
+  updateBoundingBoxes(): void {
+    this.bboxManager.clear();
+    if (this.editorService.showBoundingBox) {
+      this.computeBoundingBoxes();
+    }
+  }
+
   private computeBoundingBoxes() {
     const w = this.stateService.width;
     const h = this.stateService.height;
     const labels = this.labelService.listSegmentationLabels;
 
+    // On big images (viewport-composite mode) find boxes on a downsampled
+    // presence grid (±step px) so we don't flood-fill 100M+ pixels per label on
+    // the main thread; smaller images stay exact.
+    const step = this.useViewportComposite
+      ? Math.max(1, Math.ceil(Math.max(w, h) / 2048))
+      : 1;
+
     if (this.editorService.labelledCombinedBoundingBox) {
-      const visible = this.labelMasks.filter((_, i) => labels[i]?.isVisible);
-      const union = unionPresence(visible, w, h);
-      this.bboxManager.addBboxes(connectedComponentBoxes(union, w, h), CombinedLabel);
+      if (step > 1) {
+        const dw = Math.ceil(w / step);
+        const dh = Math.ceil(h / step);
+        const grid = new Uint8Array(dw * dh);
+        this.labelMasks.forEach((mask, i) => {
+          if (labels[i]?.isVisible) downsamplePresence(mask, w, h, step, grid);
+        });
+        const boxes = connectedComponentBoxes(grid, dw, dh).map((b) => ({
+          x: b.x * step,
+          y: b.y * step,
+          width: b.width * step,
+          height: b.height * step,
+        }));
+        this.bboxManager.addBboxes(boxes, CombinedLabel);
+      } else {
+        const visible = this.labelMasks.filter((_, i) => labels[i]?.isVisible);
+        const union = unionPresence(visible, w, h);
+        this.bboxManager.addBboxes(connectedComponentBoxes(union, w, h), CombinedLabel);
+      }
     } else {
       this.labelMasks.forEach((mask, index) => {
         if (!labels[index]?.isVisible) return;
-        this.bboxManager.addBboxes(connectedComponentBoxes(mask, w, h), labels[index]);
+        const boxes =
+          step > 1
+            ? connectedComponentBoxesDownsampled(mask, w, h, step)
+            : connectedComponentBoxes(mask, w, h);
+        this.bboxManager.addBboxes(boxes, labels[index]);
       });
     }
   }

@@ -290,6 +290,12 @@ export class OrchestratorService {
     this.canvasManager.compositeToDisplay(ctx, dpr);
   }
 
+  /** Recompute the bbox overlay from the masks (viewport-composite path only —
+   *  the combined-canvas path already does this inside computeCombinedCanvas). */
+  public updateBoundingBoxes(): void {
+    this.canvasManager.updateBoundingBoxes();
+  }
+
   /** Top-left (image space) of the stroke buffer window; (0,0) for small
    *  images. The live-stroke preview draws the buffer at this offset. */
   public getBufferOrigin(): Point2D {

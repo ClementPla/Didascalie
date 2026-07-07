@@ -278,6 +278,55 @@ export function clearComponentAt(
 }
 
 /**
+ * OR a mask's presence into a `step`-downsampled grid: a cell is set when any
+ * pixel in its `step`×`step` block is nonzero. Pass `out` to accumulate several
+ * masks into one grid (e.g. a combined-label union). Returns the grid + dims.
+ */
+export function downsamplePresence(
+  mask: Uint8Array,
+  w: number,
+  h: number,
+  step: number,
+  out?: Uint8Array
+): { grid: Uint8Array; dw: number; dh: number } {
+  const dw = Math.ceil(w / step);
+  const dh = Math.ceil(h / step);
+  const grid = out ?? new Uint8Array(dw * dh);
+  for (let y = 0; y < h; y++) {
+    const drow = ((y / step) | 0) * dw;
+    const row = y * w;
+    for (let x = 0; x < w; x++) {
+      if (mask[row + x] !== 0) grid[drow + ((x / step) | 0)] = 1;
+    }
+  }
+  return { grid, dw, dh };
+}
+
+/**
+ * Approximate bounding boxes for a large mask: find components on a
+ * `step`-downsampled presence grid, then scale the boxes back up. Boxes are
+ * accurate to ±`step` px — fine for an overlay — but avoids allocating a
+ * full-size visited buffer and flood-filling 100M+ pixels.
+ */
+export function connectedComponentBoxesDownsampled(
+  mask: Uint8Array,
+  w: number,
+  h: number,
+  step: number
+): Rect[] {
+  if (step <= 1) return connectedComponentBoxes(mask, w, h);
+  const { grid, dw, dh } = downsamplePresence(mask, w, h, step);
+  const boxes = connectedComponentBoxes(grid, dw, dh);
+  for (const b of boxes) {
+    b.x *= step;
+    b.y *= step;
+    b.width *= step;
+    b.height *= step;
+  }
+  return boxes;
+}
+
+/**
  * Axis-aligned bounding boxes of the connected components (8-connected over
  * nonzero pixels) of `mask`. Drives the per-label bbox overlay; runs only when
  * that overlay is enabled.
