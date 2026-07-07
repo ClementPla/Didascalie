@@ -249,7 +249,7 @@ export class DrawService implements OnDestroy {
         if (value >= 0) {
           this.canvasManagerService.clearMaskAtIndex(value);
           this.stateService.recomputeCanvasSum = true;
-          this.ioService.markDirty();
+          this.ioService.markLabelDirty(value);
           this.redrawRequest.next(true);
         }
       });

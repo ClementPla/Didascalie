@@ -188,7 +188,10 @@ export class UndoRedoService {
     let changed = false;
     for (const index of layers) {
       const element = this.getLayerUndoRedo(index).undo();
-      if (element) changed = this.applyLayerState(element, index) || changed;
+      if (element && this.applyLayerState(element, index)) {
+        changed = true;
+        this.ioService.markLabelDirty(index); // restored pixels must be re-saved
+      }
     }
     if (changed) this.afterRestore();
   }
@@ -197,7 +200,10 @@ export class UndoRedoService {
     let changed = false;
     for (const index of layers) {
       const element = this.getLayerUndoRedo(index).redo();
-      if (element) changed = this.applyLayerState(element, index) || changed;
+      if (element && this.applyLayerState(element, index)) {
+        changed = true;
+        this.ioService.markLabelDirty(index);
+      }
     }
     if (changed) this.afterRestore();
   }
@@ -269,6 +275,7 @@ export class UndoRedoService {
 
     for (const index of layers) {
       this.getLayerUndoRedo(index).push({ data: new Uint8Array(masks[index]) });
+      this.ioService.markLabelDirty(index); // only these masks need re-saving
     }
     this.pushToken({ kind: 'raster', layers });
   }

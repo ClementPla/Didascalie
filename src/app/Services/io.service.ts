@@ -22,6 +22,8 @@ export class IOService implements OnDestroy {
   public readonly loaded$ = new Subject<void>();
   private destroy$ = new Subject<void>();
   private dirty = false;
+  /** Label-layer indices changed since the last save (see markLabelDirty). */
+  private readonly dirtyLabels = new Set<number>();
 
   /** Debounced autosave: persist this many ms after the last edit. */
   private readonly autosaveDelayMs = 5000;
@@ -56,6 +58,16 @@ export class IOService implements OnDestroy {
   public markDirty(): void {
     this.dirty = true;
     this.scheduleAutosave();
+  }
+
+  /**
+   * Record that a label layer's pixels changed, so `save()` only ships the
+   * masks that actually changed. Critical on large images: a full mask is huge
+   * (~136 MB at 8k×17k), so re-sending every label per save froze the UI.
+   */
+  public markLabelDirty(index: number): void {
+    if (index >= 0) this.dirtyLabels.add(index);
+    this.markDirty();
   }
 
   public isDirty(): boolean {
@@ -112,6 +124,7 @@ export class IOService implements OnDestroy {
       this.stateManagerService.recomputeCanvasSum = true;
 
       this.dirty = false;
+      this.dirtyLabels.clear();
       this.loaded$.next();
     } catch (error) {
       console.error('Failed to load annotations:', error);
@@ -157,10 +170,13 @@ export class IOService implements OnDestroy {
     try {
       const labels = this.labelService.listSegmentationLabels;
 
-      // One uint8 value mask per label; the backend encodes it as rle8.
-      for (let i = 0; i < labels.length; i++) {
+      // Only persist masks that changed since the last save — a full mask is
+      // huge on large images, so re-sending untouched labels froze the UI.
+      const dirty = [...this.dirtyLabels];
+      this.dirtyLabels.clear();
+      for (const i of dirty) {
         const mask = this.canvasManagerService.labelMasks[i];
-        if (!mask) continue;
+        if (!mask || !labels[i]) continue;
         await api.saveAnnotation(frame.id, labels[i].id, mask);
       }
 
