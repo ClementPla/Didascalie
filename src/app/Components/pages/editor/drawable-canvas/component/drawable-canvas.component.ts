@@ -351,13 +351,21 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       }
     }
 
-    // Label layer
-    const combined = await this.orchestrator.getCombinedLabelCanvas();
+    // Label layer. Large images composite the visible region directly into the
+    // display canvas (no native-size combined canvas); others draw the full
+    // combined canvas under the view transform.
     this.clearDisplayCanvas(this.ctxLabel);
-    this.applyLabelTransform();
-    this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
-    this.ctxLabel.drawImage(combined, 0, 0);
-    this.ctxLabel.resetTransform();
+    if (this.orchestrator.usesViewportComposite) {
+      this.orchestrator.compositeLabelLayer(this.ctxLabel, this.dpr);
+    } else {
+      const combined = await this.orchestrator.getCombinedLabelCanvas();
+      if (combined) {
+        this.applyLabelTransform();
+        this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
+        this.ctxLabel.drawImage(combined, 0, 0);
+        this.ctxLabel.resetTransform();
+      }
+    }
   }
 
   /**

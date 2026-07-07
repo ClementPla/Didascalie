@@ -11,6 +11,11 @@ import { RenderStatsService } from '../../../../Utils/fps-display/render-stats.s
 import { buildLabelPalette } from '../../../../../Core/misc/colors';
 import { connectedComponentBoxes, unionPresence } from '../../../../../Core/misc/label-ops';
 
+/** Longest side (px) past which we skip the native-size composite canvas and
+ *  composite the label layer per-viewport instead (WebKit's 2D-canvas area cap
+ *  is ~4096²; a native composite over it goes blank). */
+const VIEWPORT_COMPOSITE_MIN_DIM = 4096;
+
 /**
  * Owns the per-label pixel data as `Uint8Array` masks (0 = absent, 1 = present
  * for semantic labels, 1..255 = instance id) and composites them into the
@@ -27,8 +32,12 @@ export class CanvasManagerService {
   /** One 256-entry RGBA lookup table per label (value -> display colour). */
   palettes: Uint8Array[] = [];
 
-  combinedCanvas: OffscreenCanvas;
-  combinedCtx: OffscreenCanvasRenderingContext2D;
+  // Full-resolution RGBA composite of all label layers. Allocated only for
+  // images small enough to be a legal canvas (see `useViewportComposite`);
+  // large images composite straight into the viewport-sized display canvas
+  // instead, which is cheaper and dodges WebKit's canvas-size cap.
+  combinedCanvas?: OffscreenCanvas;
+  combinedCtx?: OffscreenCanvasRenderingContext2D;
 
   /** Scratch canvas the drawing tools rasterize the in-progress stroke onto. */
   bufferCanvas: OffscreenCanvas;
@@ -36,6 +45,13 @@ export class CanvasManagerService {
 
   requestRedraw: Subject<boolean> = new Subject<boolean>();
   private useWebGPU = false;
+
+  /** True for images too large for a native-size composite canvas: the label
+   *  layer is then composited per-viewport (see `compositeToDisplay`). */
+  private useViewportComposite = false;
+  get usesViewportComposite(): boolean {
+    return this.useViewportComposite;
+  }
 
   constructor(
     private stateService: StateManagerService,
@@ -119,7 +135,7 @@ export class CanvasManagerService {
         height,
         this.editorService.edgesOnly
       );
-      this.combinedCtx.putImageData(imageData, 0, 0);
+      this.combinedCtx?.putImageData(imageData, 0, 0);
     } catch (error) {
       console.error('WebGPU composition failed, falling back to CPU:', error);
       this.computeCombinedCanvasCPU();
@@ -127,6 +143,7 @@ export class CanvasManagerService {
   }
 
   computeCombinedCanvasCPU() {
+    if (!this.combinedCtx) return; // viewport-composite mode draws directly
     const w = this.stateService.width;
     const h = this.stateService.height;
     const labels = this.labelService.listSegmentationLabels;
@@ -158,6 +175,100 @@ export class CanvasManagerService {
 
     if (this.editorService.edgesOnly) {
       this.extractEdges(this.combinedCtx, this.zoomPan.getScale());
+    }
+  }
+
+  /**
+   * Composite the visible label layer directly into a viewport-sized display
+   * context (device pixels), sampling each label mask through the view
+   * transform. Used for images too large for a native composite canvas: work is
+   * bounded by the viewport (not the image), and no over-cap canvas is
+   * allocated. `dpr` is the device-pixel ratio the display canvas is scaled by.
+   */
+  compositeToDisplay(ctx: CanvasRenderingContext2D, dpr: number): void {
+    const dispW = ctx.canvas.width;   // device px
+    const dispH = ctx.canvas.height;
+    if (dispW === 0 || dispH === 0) return;
+
+    const w = this.stateService.width;
+    const h = this.stateService.height;
+    const masks = this.labelMasks;
+    const labels = this.labelService.listSegmentationLabels;
+
+    const scale = this.zoomPan.getScale() * dpr;
+    if (scale <= 0) return;
+    // Match applyViewTransform's integer-snapped offset so labels line up with
+    // the image layer exactly.
+    const offX = Math.round(this.zoomPan.getOffset().x) * dpr;
+    const offY = Math.round(this.zoomPan.getOffset().y) * dpr;
+    const invScale = 1 / scale;
+
+    const out = ctx.createImageData(dispW, dispH);
+    const data = out.data;
+    const edges = this.editorService.edgesOnly;
+    // Per-device-pixel source id (label*256 + value; 0 = background) — only kept
+    // for the edge pass.
+    const ids = edges ? new Int32Array(dispW * dispH) : null;
+
+    for (let dy = 0; dy < dispH; dy++) {
+      const iy = Math.floor((dy + 0.5 - offY) * invScale);
+      if (iy < 0 || iy >= h) continue;
+      const maskRow = iy * w;
+      const outRow = dy * dispW;
+      for (let dx = 0; dx < dispW; dx++) {
+        const ix = Math.floor((dx + 0.5 - offX) * invScale);
+        if (ix < 0 || ix >= w) continue;
+        const mi = maskRow + ix;
+
+        // Later labels paint over earlier ones (masks are disjoint in practice).
+        for (let li = 0; li < masks.length; li++) {
+          if (!labels[li]?.isVisible) continue;
+          const v = masks[li][mi];
+          if (v === 0) continue;
+          const pal = this.palettes[li];
+          if (!pal) continue;
+          const o = (outRow + dx) * 4;
+          const p = v * 4;
+          data[o] = pal[p];
+          data[o + 1] = pal[p + 1];
+          data[o + 2] = pal[p + 2];
+          data[o + 3] = pal[p + 3];
+          if (ids) ids[outRow + dx] = (li + 1) * 256 + v;
+        }
+      }
+    }
+
+    if (ids) this.keepEdgesOnly(data, ids, dispW, dispH);
+    ctx.putImageData(out, 0, 0);
+  }
+
+  /**
+   * Screen-space edge pass for the viewport composite: keep a foreground pixel
+   * only when a 4-neighbour has a different source id (label/instance/background
+   * boundary). Clears the interior, leaving ~1px outlines at display resolution.
+   */
+  private keepEdgesOnly(
+    data: Uint8ClampedArray,
+    ids: Int32Array,
+    w: number,
+    h: number
+  ): void {
+    // Snapshot foreground so we can zero interiors without affecting neighbours.
+    const keep = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        const id = ids[i];
+        if (id === 0) continue;
+        const edge =
+          x === 0 || y === 0 || x === w - 1 || y === h - 1 ||
+          ids[i - 1] !== id || ids[i + 1] !== id ||
+          ids[i - w] !== id || ids[i + w] !== id;
+        if (edge) keep[i] = 1;
+      }
+    }
+    for (let i = 0; i < keep.length; i++) {
+      if (!keep[i]) data[i * 4 + 3] = 0; // clear non-edge foreground
     }
   }
 
@@ -220,22 +331,32 @@ export class CanvasManagerService {
   // ==========================================
 
   private ensureAuxCanvases(width: number, height: number) {
-    if (!this.combinedCanvas) {
-      this.combinedCanvas = new OffscreenCanvas(width, height);
-      this.combinedCtx = this.combinedCanvas.getContext('2d', {
-        alpha: true,
-        desynchronized: true,
-      })!;
+    if (this.useViewportComposite) {
+      // Too large for a native composite canvas — release it (frees a lot of
+      // memory) and composite per-viewport instead.
+      this.combinedCanvas = undefined;
+      this.combinedCtx = undefined;
+    } else {
+      if (!this.combinedCanvas) {
+        this.combinedCanvas = new OffscreenCanvas(width, height);
+        this.combinedCtx = this.combinedCanvas.getContext('2d', {
+          alpha: true,
+          desynchronized: true,
+        })!;
+      }
+      if (this.combinedCanvas.width !== width || this.combinedCanvas.height !== height) {
+        this.combinedCanvas.width = width;
+        this.combinedCanvas.height = height;
+      }
     }
+
     if (!this.bufferCanvas) {
       this.bufferCanvas = new OffscreenCanvas(width, height);
       this.bufferCtx = this.bufferCanvas.getContext('2d', { alpha: true })!;
     }
-    for (const canvas of [this.combinedCanvas, this.bufferCanvas]) {
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
+    if (this.bufferCanvas.width !== width || this.bufferCanvas.height !== height) {
+      this.bufferCanvas.width = width;
+      this.bufferCanvas.height = height;
     }
   }
 
@@ -244,6 +365,7 @@ export class CanvasManagerService {
     const h = this.stateService.height;
     const nLabels = this.labelService.listSegmentationLabels.length;
 
+    this.useViewportComposite = Math.max(w, h) > VIEWPORT_COMPOSITE_MIN_DIM;
     this.ensureAuxCanvases(w, h);
 
     const needsRealloc =
@@ -296,7 +418,7 @@ export class CanvasManagerService {
   }
 
   resetCombinedCanvas() {
-    this.combinedCtx.clearRect(0, 0, this.stateService.width, this.stateService.height);
+    this.combinedCtx?.clearRect(0, 0, this.stateService.width, this.stateService.height);
   }
 
   getBufferCanvas() {

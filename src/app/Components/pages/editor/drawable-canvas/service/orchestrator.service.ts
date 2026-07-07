@@ -263,12 +263,23 @@ export class OrchestratorService {
     return this.imageProc.getCurrentCanvas();
   }
 
-  public async getCombinedLabelCanvas(): Promise<OffscreenCanvas> {
+  public async getCombinedLabelCanvas(): Promise<OffscreenCanvas | undefined> {
     if (this.state.recomputeCanvasSum) {
       await this.canvasManager.computeCombinedCanvas();
       this.state.recomputeCanvasSum = false;
     }
     return this.canvasManager.getCombinedCanvas();
+  }
+
+  /** True when the label layer is composited per-viewport (large images). */
+  public get usesViewportComposite(): boolean {
+    return this.canvasManager.usesViewportComposite;
+  }
+
+  /** Composite the visible label layer straight into a display context. Used
+   *  in viewport-composite mode instead of drawing a native combined canvas. */
+  public compositeLabelLayer(ctx: CanvasRenderingContext2D, dpr: number): void {
+    this.canvasManager.compositeToDisplay(ctx, dpr);
   }
 
   // ==========================================
