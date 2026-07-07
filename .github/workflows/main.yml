@@ -67,6 +67,9 @@ jobs:
           tagName: didascalie-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: "Didascalie v__VERSION__"
           releaseBody: "Download the installer for your platform from the assets below."
-          releaseDraft: true
+          # Publish directly (not as a draft) so GitHub's /releases/latest — which
+          # the updater's endpoint resolves — points at the new version and clients
+          # auto-update. A draft is invisible to /releases/latest.
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
