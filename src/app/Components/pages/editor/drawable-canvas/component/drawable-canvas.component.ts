@@ -11,8 +11,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { animationFrameScheduler, Subject } from 'rxjs';
+import { auditTime, takeUntil } from 'rxjs/operators';
 
 import { EditorService } from '../../services/editor.service';
 import { LabelsService } from '../../../../../Services/Labels/labels.service';
@@ -37,6 +37,7 @@ import { FeatureFlagsService } from '../../../../../experimental/feature-flags.s
 import { collectExperimentalOverlays } from '../../../../../experimental/registry';
 import { RenderStatsService } from '../../../../Utils/fps-display/render-stats.service';
 import { PyramidService } from '../../../../../Services/pyramid.service';
+import { TiledImageService } from '../service/tiled-image.service';
 
 @Component({
   selector: 'app-drawable-canvas',
@@ -97,6 +98,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     private injector: Injector,
     private renderStats: RenderStatsService,
     private pyramidService: PyramidService,
+    private tiledImage: TiledImageService,
   ) {
     this.initSubscriptions();
 
@@ -152,6 +154,12 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   private initSubscriptions() {
     this.orchestrator.redrawRequest
       .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.redrawAllCanvas());
+
+    // A native tile finished loading — redraw so it appears over the backdrop.
+    // Coalesce bursts (many tiles land together) into one redraw per frame.
+    this.tiledImage.tileLoaded$
+      .pipe(auditTime(0, animationFrameScheduler), takeUntil(this.destroy$))
       .subscribe(() => this.redrawAllCanvas());
 
     this.drawService.singleDrawRequest
@@ -220,6 +228,10 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   public async loadImage(imageSrc: string, nativeWidth?: number, nativeHeight?: number) {
     try {
       await this.orchestrator.loadImage(imageSrc, nativeWidth, nativeHeight);
+      const frameId = this.sequenceService.currentFrame()?.id;
+      if (frameId != null && nativeWidth && nativeHeight) {
+        this.tiledImage.setFrame(frameId, nativeWidth, nativeHeight);
+      }
       // Offscreen layers were resized inside the orchestrator.
       // The display canvases follow the viewport, not the image, so no
       // further sizing here.
@@ -399,15 +411,38 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
         0, 0,
         this.orchestrator.width, this.orchestrator.height,
       );
-      return;
+    } else {
+      this.ctxImage.imageSmoothingEnabled = false;
+      this.ctxImage.drawImage(
+        processedImage,
+        0, 0,
+        this.orchestrator.width, this.orchestrator.height,
+      );
     }
 
-    this.ctxImage.imageSmoothingEnabled = false;
-    this.ctxImage.drawImage(
-      processedImage,
-      0, 0,
-      this.orchestrator.width, this.orchestrator.height,
-    );
+    // Overlay crisp native tiles where zoomed in (large images only). Missing
+    // tiles let the (softer) backdrop above show through until they load.
+    this.drawNativeTiles(scale);
+  }
+
+  /** Draw cached native-resolution tiles for the visible region over the
+   *  backdrop. No-op for small images or when too zoomed out. The image view
+   *  transform is already applied by the caller. */
+  private drawNativeTiles(scale: number): void {
+    if (!this.ctxImage || !this.orchestrator.usesViewportComposite) return;
+    const frameId = this.sequenceService.currentFrame()?.id;
+    if (frameId == null) return;
+
+    const rect = this.orchestrator.getSVGViewBox(); // visible region, image space
+    const tiles = this.tiledImage.tilesFor(rect, frameId);
+    if (tiles.length === 0) return;
+
+    // Smooth when the tile is shown smaller than native, crisp when magnified.
+    this.ctxImage.imageSmoothingEnabled = scale < 1;
+    this.ctxImage.imageSmoothingQuality = 'high';
+    for (const t of tiles) {
+      this.ctxImage.drawImage(t.bitmap, t.x, t.y);
+    }
   }
 
   private clearDisplayCanvas(ctx: CanvasRenderingContext2D) {

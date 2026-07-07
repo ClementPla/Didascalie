@@ -3,6 +3,8 @@ use rusqlite::params;
 use serde::{ Serialize };
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
+use tauri::ipc::Response;
 use tauri::State;
 
 use crate::storage::DbState;
@@ -183,6 +185,77 @@ pub fn get_frame_thumbnail(db: State<DbState>, frame_id: i64, max_size: u32) -> 
 }
 
 // ==========================================
+// Native tile server (large images)
+// ==========================================
+
+/// Caches the decoded RGBA pixels of one frame so native-resolution tile
+/// requests don't re-decode the whole image each time. Holds a single frame
+/// (replaced when a different frame's tile is requested).
+#[derive(Default)]
+pub struct FrameImageCache {
+    inner: Mutex<Option<CachedFrame>>,
+}
+
+struct CachedFrame {
+    frame_id: i64,
+    rgba: Vec<u8>,
+    width: u32,
+    height: u32,
+}
+
+/// Copy an RGBA rectangle out of a full-image buffer. The output is always
+/// `w*h*4` bytes; areas outside the image are left transparent, so edge tiles
+/// come back a consistent size.
+fn crop_rgba(raw: &[u8], img_w: u32, img_h: u32, x: u32, y: u32, w: u32, h: u32) -> Vec<u8> {
+    let mut out = vec![0u8; (w as usize) * (h as usize) * 4];
+    if x >= img_w {
+        return out;
+    }
+    let copy_w = w.min(img_w - x);
+    for row in 0..h {
+        let iy = y + row;
+        if iy >= img_h {
+            break;
+        }
+        let src = ((iy * img_w + x) as usize) * 4;
+        let dst = ((row * w) as usize) * 4;
+        out[dst..dst + (copy_w as usize) * 4]
+            .copy_from_slice(&raw[src..src + (copy_w as usize) * 4]);
+    }
+    out
+}
+
+/// Return a native-resolution RGBA tile `(x, y, width, height)` of a frame as
+/// raw bytes (`width*height*4`, row-major). The first tile of a frame decodes
+/// the full image into the cache; later tiles are cheap crops.
+#[tauri::command]
+pub fn get_frame_tile(
+    db: State<DbState>,
+    cache: State<FrameImageCache>,
+    frame_id: i64,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+) -> std::result::Result<Response, String> {
+    let mut guard = cache.inner.lock().map_err(|e| e.to_string())?;
+
+    let stale = guard.as_ref().map_or(true, |c| c.frame_id != frame_id);
+    if stale {
+        let (_, bytes) = read_frame_bytes(&db, frame_id).map_err(|e| e.to_string())?;
+        let img = image::load_from_memory(&bytes)
+            .map_err(|e| format!("Failed to decode image: {}", e))?
+            .to_rgba8();
+        let (w, h) = (img.width(), img.height());
+        *guard = Some(CachedFrame { frame_id, rgba: img.into_raw(), width: w, height: h });
+    }
+
+    let c = guard.as_ref().unwrap();
+    let tile = crop_rgba(&c.rgba, c.width, c.height, x, y, width, height);
+    Ok(Response::new(tile))
+}
+
+// ==========================================
 // Frame Modification
 // ==========================================
 
@@ -257,4 +330,56 @@ fn detect_mime_type(data: &[u8]) -> &'static str {
   }
 
   "application/octet-stream"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::crop_rgba;
+
+    /// Build a 2x2 RGBA image whose R channel encodes (y*2 + x) so pixels are
+    /// distinguishable: (0,0)=0, (1,0)=1, (0,1)=2, (1,1)=3.
+    fn img_2x2() -> Vec<u8> {
+        let mut v = vec![0u8; 2 * 2 * 4];
+        for y in 0..2u32 {
+            for x in 0..2u32 {
+                let i = ((y * 2 + x) as usize) * 4;
+                v[i] = (y * 2 + x) as u8;
+                v[i + 3] = 255;
+            }
+        }
+        v
+    }
+
+    #[test]
+    fn crop_full_image_is_identity() {
+        let raw = img_2x2();
+        assert_eq!(crop_rgba(&raw, 2, 2, 0, 0, 2, 2), raw);
+    }
+
+    #[test]
+    fn crop_interior_pixel() {
+        let raw = img_2x2();
+        let tile = crop_rgba(&raw, 2, 2, 1, 1, 1, 1);
+        assert_eq!(tile.len(), 4);
+        assert_eq!(tile[0], 3); // pixel (1,1)
+        assert_eq!(tile[3], 255);
+    }
+
+    #[test]
+    fn crop_edge_tile_pads_out_of_bounds_with_zero() {
+        let raw = img_2x2();
+        // A 2x2 tile starting at (1,1) overhangs the image by one row/col.
+        let tile = crop_rgba(&raw, 2, 2, 1, 1, 2, 2);
+        assert_eq!(tile.len(), 2 * 2 * 4);
+        assert_eq!(tile[0], 3); // in-bounds pixel (1,1)
+        // The other three tile pixels are out of bounds → transparent zero.
+        assert_eq!(&tile[4..16], &[0u8; 12]);
+    }
+
+    #[test]
+    fn crop_fully_out_of_bounds_is_transparent() {
+        let raw = img_2x2();
+        let tile = crop_rgba(&raw, 2, 2, 5, 5, 2, 2);
+        assert_eq!(tile, vec![0u8; 2 * 2 * 4]);
+    }
 }

@@ -99,6 +99,7 @@ pub fn run() {
     let app = app.manage(DbState::new())
         .manage(InferenceClient::new())
         .manage(commands::superpixel::SuperpixelState::default())
+        .manage(commands::frame::FrameImageCache::default())
         .setup(|app| {
             connection::coms::setup_zmq_receiver(app.handle().clone())?;
             Ok(())
@@ -126,6 +127,7 @@ pub fn run() {
             commands::frame::get_progress,
             commands::frame::get_frame_image,
             commands::frame::get_frame_overview,
+            commands::frame::get_frame_tile,
             commands::frame::get_frame_thumbnail,
             commands::frame::set_frames_reviewed,
             commands::frame::set_frame_reviewed,

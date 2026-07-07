@@ -283,6 +283,16 @@ export const api = {
    *  stay native. For images too large for the browser to decode directly. */
   getFrameOverview: (frameId: number, maxDim: number) =>
     invoke<FrameImage>('get_frame_overview', { frameId, maxDim }),
+  /** A native-resolution RGBA tile (row-major, `width*height*4` bytes) of a
+   *  frame. Backs the tiled viewer for crisp detail on very large images. */
+  getFrameTile: (
+    frameId: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) =>
+    invoke<ArrayBuffer>('get_frame_tile', { frameId, x, y, width, height }),
   getFrameThumbnail: (frameId: number, maxSize: number) =>
     invoke<{ image_base64: string }>('get_frame_thumbnail', {
       frameId: frameId,
