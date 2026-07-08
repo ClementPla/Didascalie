@@ -54,7 +54,7 @@ export class ImageAdjustmentsComponent implements OnInit, OnDestroy {
     { id: 'b',   label: 'B',   color: '#4c8df6', sliderTarget: 'b',    curveTarget: 'b',    histKey: 'b'    },
   ];
 
-  activeTab: string = 'rgb';
+  activeTab = 'rgb';
   histogram: Histogram | null = null;
 
   private destroy$ = new Subject<void>();

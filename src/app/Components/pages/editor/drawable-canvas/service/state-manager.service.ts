@@ -5,15 +5,15 @@ import { EditorService } from '../../services/editor.service';
 @Injectable({ providedIn: 'root' })
 export class StateManagerService {
   /** Image native dimensions (px). */
-  public width: number = 0;
-  public height: number = 0;
+  public width = 0;
+  public height = 0;
 
-  public isDrawing: boolean = false;
+  public isDrawing = false;
   public currentPoint: Point2D = { x: -1, y: -1 };
   public previousPoint: Point2D = { x: -1, y: -1 };
   public minPoint: Point2D = { x: Number.MAX_VALUE, y: Number.MAX_VALUE };
   public maxPoint: Point2D = { x: 0, y: 0 };
-  public recomputeCanvasSum: boolean = false;
+  public recomputeCanvasSum = false;
 
   constructor(private editorService: EditorService) {}
 

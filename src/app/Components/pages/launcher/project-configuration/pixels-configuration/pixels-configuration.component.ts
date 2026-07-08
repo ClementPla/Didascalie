@@ -23,7 +23,7 @@ export class PixelsConfigurationComponent {
 
 
   addSegmentationClass() {
-    let color = getDefaultColor(
+    const color = getDefaultColor(
       this.labelService.listSegmentationLabels.length + 1
     );
     this.labelService.addSegLabel({

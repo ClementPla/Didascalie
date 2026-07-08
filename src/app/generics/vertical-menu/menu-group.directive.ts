@@ -5,6 +5,6 @@ import { Directive, Input, TemplateRef } from '@angular/core';
   standalone: true
 })
 export class MenuGroupDirective {
-  @Input('appMenuGroup') title: string = '';
+  @Input('appMenuGroup') title = '';
   constructor(public templateRef: TemplateRef<any>) {}
 }

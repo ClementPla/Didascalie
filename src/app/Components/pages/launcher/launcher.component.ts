@@ -59,6 +59,24 @@ export class LauncherComponent implements OnInit {
     this.router.navigate(['/new']);
   }
 
+  /**
+   * Manually check the release channel. If an update is found the banner
+   * appears (via `update.available()`); otherwise confirm we're up to date.
+   */
+  async checkForUpdates(): Promise<void> {
+    await this.update.checkForUpdates();
+    if (!this.update.available()) {
+      const version = this.update.currentVersion();
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Up to date',
+        detail: version
+          ? `You're running the latest version (v${version}).`
+          : "You're running the latest version.",
+      });
+    }
+  }
+
   openImportDialog(): void {
     this.showImportDialog = true;
   }

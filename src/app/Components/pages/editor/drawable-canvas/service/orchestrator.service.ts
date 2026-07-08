@@ -5,6 +5,7 @@ import { notifyExperimentalImageLoaded } from '../../../../../experimental/regis
 import { CanvasManagerService } from './canvas-manager.service';
 import { StateManagerService } from './state-manager.service';
 import { ImageAdjustmentService } from './image-adjustment/image-adjustment.service';
+import { RGBLUT } from './image-adjustment/image-processing.model';
 import { UndoRedoService } from './undo-redo.service';
 import { PostProcessService } from './post-process.service';
 import { ZoomPanService } from './zoom-pan.service';
@@ -269,6 +270,17 @@ export class OrchestratorService {
 
   public getProcessedImage(): HTMLCanvasElement | OffscreenCanvas | null {
     return this.imageProc.getCurrentCanvas();
+  }
+
+  /**
+   * Current image-adjustment LUT + version for the native tiles (large images),
+   * or null when processing is off / at identity so tiles draw unmodified. The
+   * backdrop pyramid bakes adjustments in per level; this lets the tiles drawn
+   * over it match, so adjustments show while zoomed in — not only zoomed out.
+   */
+  public tileAdjustment(): { lut: RGBLUT; version: number } | null {
+    const lut = this.imageProc.activeLUT();
+    return lut ? { lut, version: this.imageProc.version } : null;
   }
 
   public async getCombinedLabelCanvas(): Promise<OffscreenCanvas | undefined> {

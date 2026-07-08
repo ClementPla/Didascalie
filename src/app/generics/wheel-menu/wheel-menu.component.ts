@@ -47,7 +47,7 @@ interface Segment {
   styleUrl: './wheel-menu.component.scss',
 })
 export class WheelMenuComponent implements AfterViewInit {
-  @Input() radius: number = 256;
+  @Input() radius = 256;
   @Input() items: MenuItem[] = [];
   @Output() closeMenu: EventEmitter<boolean> = new EventEmitter<boolean>();
   @ViewChild('wheel') wheel!: HTMLElement;
@@ -110,7 +110,7 @@ export class WheelMenuComponent implements AfterViewInit {
       };
       let children;
       // Create a segment object
-      let segment: Segment = {
+      const segment: Segment = {
         path,
         barycenter,
         startAngle,
@@ -132,7 +132,7 @@ export class WheelMenuComponent implements AfterViewInit {
   }
 
   getViewbox(): string {
-    let areTheyAnyChildren = this.items.some(
+    const areTheyAnyChildren = this.items.some(
       (item) => item.children && item.children.length > 0
     );
     let dim = this.radius * 2;

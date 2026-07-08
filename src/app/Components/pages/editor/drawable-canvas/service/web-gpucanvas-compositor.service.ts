@@ -351,8 +351,8 @@ export class WebGPUCanvasCompositorService {
     visibilityFlags: boolean[],
     width: number,
     height: number,
-    edgesOnly: boolean = false,
-    edgeThreshold: number = 0.1
+    edgesOnly = false,
+    edgeThreshold = 0.1
   ): Promise<ImageData> {
     if (this.isProcessing) {
       await this.waitForCompletion();

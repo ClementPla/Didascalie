@@ -212,7 +212,7 @@ export class ProjectService {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (!stored) return [];
-      const parsed = JSON.parse(stored) as Array<Partial<RecentProject>>;
+      const parsed = JSON.parse(stored) as Partial<RecentProject>[];
       // Migration: older entries lack `last_opened`. Fill with 0 so they sort
       // to the bottom but don't crash any consumer.
       return parsed

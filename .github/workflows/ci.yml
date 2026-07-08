@@ -27,6 +27,11 @@ jobs:
       - name: Build (type + template check)
         run: npx ng build --configuration development
 
+      # Hard gate on error-level rules; the adoption backlog is `warn` (see
+      # eslint.config.js) and doesn't fail the build.
+      - name: Lint
+        run: npx ng lint
+
       # Informational for now: the existing specs are mostly CLI-generated
       # stubs. Promote to a hard gate as real tests are added.
       - name: Unit tests

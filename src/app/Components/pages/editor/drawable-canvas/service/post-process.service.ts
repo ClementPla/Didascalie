@@ -27,7 +27,7 @@ import { findExperimentalPostProcess } from '../../../../../experimental/registr
   providedIn: 'root',
 })
 export class PostProcessService {
-  public featuresExtracted: boolean = false;
+  public featuresExtracted = false;
   constructor(
     private editorService: EditorService,
     private imageProcessingService: ImageAdjustmentService,

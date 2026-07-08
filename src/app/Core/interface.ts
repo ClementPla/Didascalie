@@ -69,12 +69,12 @@ export interface LabelFormat {
   texts: string[] | null;
 }
 
-export type DownloadingInformations = {
+export interface DownloadingInformations {
   filename: string;
   progress: number;
   downloaded: boolean;
   total: number;
-};
+}
 
 
 export interface TextLabel {

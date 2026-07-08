@@ -101,7 +101,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   maxFrameCount = 0;
 
   // Batch annotation state
-  batchMulticlassChoices: Array<string | null> = [];
+  batchMulticlassChoices: (string | null)[] = [];
   batchMultilabelChoices: string[] = [];
 
   readonly statusOptions: { label: string; value: SequenceStatus }[] = [

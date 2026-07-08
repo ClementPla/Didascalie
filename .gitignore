@@ -52,3 +52,6 @@ Thumbs.db
 # Quarto-rendered README artifacts
 README.html
 README_files/
+
+# Generated API docs (Compodoc) — regenerate with `npm run compodoc:build`
+/documentation

@@ -101,8 +101,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
   private navInFlight = false;
-  public globalReviewed: number = 0;
-  public globalTotal: number = 0;
+  public globalReviewed = 0;
+  public globalTotal = 0;
 
   constructor(
     public editorService: EditorService,

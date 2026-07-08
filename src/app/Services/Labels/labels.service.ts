@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 import { SegInstance, SegLabel } from '../../Core/interface';
 import { constructLabelTreeNode } from './labelTreeNode';
 import { TreeNode } from 'primeng/api';
@@ -19,10 +20,23 @@ export class LabelsService {
   multiLabelTask: MultilabelTask | null = null;
 
   private _treeNode: TreeNode[] | null = null;
-  activeLabel: SegLabel | null = null;
+
+  private _activeLabel: SegLabel | null = null;
+  /** Emits when the active segmentation label changes (by reference). Lets the
+   *  vector editor continue a path across a mid-trace label switch. */
+  readonly activeLabelChanged$ = new Subject<SegLabel | null>();
+
+  get activeLabel(): SegLabel | null {
+    return this._activeLabel;
+  }
+  set activeLabel(label: SegLabel | null) {
+    if (this._activeLabel === label) return;
+    this._activeLabel = label;
+    this.activeLabelChanged$.next(label);
+  }
 
   activeSegInstance: SegInstance | null = null;
-  showAllLabels: boolean = true;
+  showAllLabels = true;
 
   maxID = 0;
 
@@ -159,7 +173,7 @@ export class LabelsService {
         current_instance = 0;
       }
       current_instance++;
-      let new_shade = this.activeLabel.shades![current_instance];
+      const new_shade = this.activeLabel.shades![current_instance];
 
       this.activeSegInstance = {
         label: this.activeLabel,
@@ -182,7 +196,7 @@ export class LabelsService {
     this.maxID = 0;
   }
 
-  private generateShades(baseColor: string, count: number = 256): string[] {
+  private generateShades(baseColor: string, count = 256): string[] {
     // One deterministic shade per possible instance id (pixel value 1..255), so
     // an instance always displays the same colour. Index 0 is unused (0 = bg).
     return generate_shades(baseColor, count);

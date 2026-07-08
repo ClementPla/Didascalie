@@ -108,7 +108,7 @@ export class ViewportPaneComponent
     return mapMovingToRef(pending, this.transform());
   });
 
-  readonly residualSegments = computed<Array<{ from: Point2D; to: Point2D }>>(
+  readonly residualSegments = computed<{ from: Point2D; to: Point2D }[]>(
     () => {
       if (this.side !== 'moving') return [];
       const t = this.transform();

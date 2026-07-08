@@ -33,19 +33,19 @@ export interface AnnotationResponse {
 }
 
 export interface TaskDefinitions {
-  segmentation_labels: Array<{
+  segmentation_labels: {
     name: string;
     color: string;
     is_instance: boolean;
-  }>;
-  classification_tasks: Array<{
+  }[];
+  classification_tasks: {
     name: string;
     classes: string[];
     multi_select: boolean;
-  }>;
-  text_description_tasks: Array<{
+  }[];
+  text_description_tasks: {
     name: string;
-  }>;
+  }[];
 }
 export interface LabelConfig {
   id: number;

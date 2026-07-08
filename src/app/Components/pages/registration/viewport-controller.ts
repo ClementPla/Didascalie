@@ -171,7 +171,7 @@ export class ViewportController {
 
   zoomAt(pivotViewport: { x: number; y: number }, factor: number): void {
     const pivotNative = this.viewportToNative(pivotViewport);
-    let ns = Math.min(this.maxScale, Math.max(this.minScale, this.targetScale * factor));
+    const ns = Math.min(this.maxScale, Math.max(this.minScale, this.targetScale * factor));
     const no = {
       x: pivotViewport.x - pivotNative.x * ns,
       y: pivotViewport.y - pivotNative.y * ns,

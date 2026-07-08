@@ -1,5 +1,5 @@
 export function binarizeArray(data: Uint8ClampedArray) {
-  let output = new Array<boolean>(data.length / 4);
+  const output = new Array<boolean>(data.length / 4);
   let currentColor = [0, 0, 0, 0];
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] > 0) {

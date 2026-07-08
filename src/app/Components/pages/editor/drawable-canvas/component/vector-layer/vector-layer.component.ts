@@ -6,6 +6,7 @@ import { LabelsService } from '../../../../../../Services/Labels/labels.service'
 import { EditorService } from '../../../services/editor.service';
 import { VectorEditorService } from '../../service/vector-editor.service';
 import { ZoomPanService } from '../../service/zoom-pan.service';
+import { Tools } from '../../../../../../Core/tools';
 import { Bounds, VectorNode, buildPathData } from '../../vector/vector.model';
 
 interface RenderShape {
@@ -108,11 +109,24 @@ export class VectorLayerComponent {
     e.preventDefault();
   }
 
+  // Ctrl/Cmd+A toggles selecting every path (all visible layers); add Shift to
+  // scope it to the active label only. Works from any tool — it switches into
+  // Select mode first so the selection can be moved/duplicated immediately.
   @HostListener('window:keydown.control.a', ['$event'])
   @HostListener('window:keydown.meta.a', ['$event'])
   onSelectAll(e: Event): void {
-    if (!this.isSelectionContext() || this.isEditableTarget(e)) return;
-    this.vectorEditor.selectAll();
+    if (this.isEditableTarget(e)) return;
+    this.editorService.selectTool(Tools.SELECT);
+    this.vectorEditor.selectAll(false);
+    e.preventDefault();
+  }
+
+  @HostListener('window:keydown.control.shift.a', ['$event'])
+  @HostListener('window:keydown.meta.shift.a', ['$event'])
+  onSelectAllCurrentLabel(e: Event): void {
+    if (this.isEditableTarget(e)) return;
+    this.editorService.selectTool(Tools.SELECT);
+    this.vectorEditor.selectAll(true);
     e.preventDefault();
   }
 

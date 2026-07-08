@@ -11,6 +11,8 @@ import {
   VectorNode,
   VectorShape,
   boundsIntersect,
+  cloneShape,
+  cloneShapes,
   closestSegment,
   distance,
   distanceToShape,
@@ -21,6 +23,7 @@ import {
   splitSegment,
   translateShape,
 } from '../vector/vector.model';
+import { VectorHistory } from '../vector/vector-history';
 
 /** Screen-pixel pick radius for nodes/handles/paths and the close-path target. */
 const HIT_PX = 9;
@@ -115,10 +118,9 @@ export class VectorEditorService {
    *  coordinator subscribes to record a 'vector' entry in the action order. */
   readonly committed$ = new Subject<void>();
 
-  // Vector-only undo/redo history (snapshots of the shapes array). The baseline
-  // (index 0) is the loaded state; undo never pops past it.
-  private undoStack: VectorShape[][] = [[]];
-  private redoStack: VectorShape[][] = [];
+  // Vector-only undo/redo history (snapshots of the shapes array), isolated in
+  // its own testable unit; this service just applies restored snapshots.
+  private readonly history = new VectorHistory();
 
   // ── Transient drag state (plain fields, not reactive) ─────────────────────
   private pointerDown = false;
@@ -149,6 +151,41 @@ export class VectorEditorService {
         this.finalizeDraft(false, false);
       }
     });
+
+    // Switching label mid-trace: finish the current path and start a new one
+    // from its last point on the new label, so the trace stays continuous.
+    this.labels.activeLabelChanged$.subscribe(() => this.continueDraftOnLabelChange());
+  }
+
+  /**
+   * When the active label changes while a Pen draft is in progress, finalize the
+   * current path on the old label and seed a new draft from its last point on
+   * the new label (both stay open) — e.g. tracing fibers and switching fibre
+   * type without breaking continuity. A draft too short to be a path is just
+   * retargeted to the new label.
+   */
+  private continueDraftOnLabelChange(): void {
+    const draft = this._draft();
+    if (!draft || !this.editor.isPathTool()) return;
+    const newId = this.labels.activeLabel?.id;
+    if (newId == null || newId === draft.labelId) return;
+
+    if (draft.nodes.length < 2) {
+      this._draft.set({ ...draft, labelId: newId });
+      return;
+    }
+
+    const last = draft.nodes[draft.nodes.length - 1];
+    this.finalizeDraft(false, false); // commit the current path (old label)
+    this._draft.set({
+      id: crypto.randomUUID(),
+      labelId: newId,
+      closed: false,
+      filled: false,
+      nodes: [makeNode(last.x, last.y)],
+    });
+    this._hover.set(null);
+    this.penHandleNode = null;
   }
 
   // ── Frame lifecycle (called by IOService) ─────────────────────────────────
@@ -157,15 +194,13 @@ export class VectorEditorService {
   setShapes(shapes: VectorShape[]): void {
     this._shapes.set(shapes);
     this.resetInteraction();
-    this.undoStack = [this.cloneShapes(shapes)];
-    this.redoStack = [];
+    this.history.reset(shapes);
   }
 
   clear(): void {
     this._shapes.set([]);
     this.resetInteraction();
-    this.undoStack = [[]];
-    this.redoStack = [];
+    this.history.reset([]);
   }
 
   private resetInteraction(): void {
@@ -227,6 +262,20 @@ export class VectorEditorService {
    * none); on a path, insert a new node at the click position.
    */
   onDoubleClick(p: Pt): void {
+    if (this.editor.isPathTool()) {
+      // Double-click finishes the current open path. The double-click's second
+      // press placed a duplicate node at the same spot; drop it so the path ends
+      // cleanly at the click point.
+      const draft = this._draft();
+      if (draft && draft.nodes.length >= 2) {
+        const n = draft.nodes;
+        if (distance(n[n.length - 1], n[n.length - 2]) < this.tol()) {
+          this._draft.set({ ...draft, nodes: n.slice(0, -1) });
+        }
+        this.finishDraft();
+      }
+      return;
+    }
     if (this.editor.isSelectTool()) {
       const hit = this.pickSelectable(p, this.tol());
       if (hit) {
@@ -505,7 +554,7 @@ export class VectorEditorService {
       const { nodeIndex, side } = this.handleDrag;
       this.mutateSelectedLive((s) => {
         const nd = s.nodes[nodeIndex];
-        let moved = { ...nd };
+        const moved = { ...nd };
         if (side === 'out') {
           moved.outX = p.x;
           moved.outY = p.y;
@@ -659,7 +708,7 @@ export class VectorEditorService {
   copySelection(): void {
     const sel = this.selectedShapes();
     if (sel.length === 0) return;
-    this.clipboard = sel.map((s) => this.cloneShape(s));
+    this.clipboard = sel.map(cloneShape);
   }
 
   /** Paste the clipboard into the current frame (fresh ids, offset, selected). */
@@ -675,12 +724,25 @@ export class VectorEditorService {
     this.addCopies(sel);
   }
 
-  /** Select every shape on the current frame (skipping hidden labels). */
-  selectAll(): void {
+  /**
+   * Select every path on the frame, or just those of the active label when
+   * `currentLabelOnly`. Hidden labels are always skipped. Toggles: if every
+   * path in scope is already selected, clears the selection instead.
+   */
+  selectAll(currentLabelOnly = false): void {
+    const activeId = this.labels.activeLabel?.id ?? null;
     const ids = this._shapes()
-      .filter((s) => this.isLabelVisible(s.labelId))
+      .filter(
+        (s) =>
+          this.isLabelVisible(s.labelId) &&
+          (!currentLabelOnly || s.labelId === activeId),
+      )
       .map((s) => s.id);
-    this._selectedIds.set(ids);
+
+    // Toggle off when everything in scope is already selected.
+    const selected = new Set(this._selectedIds());
+    const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
+    this._selectedIds.set(allSelected ? [] : ids);
     this._selectedNode.set(null);
   }
 
@@ -699,12 +761,8 @@ export class VectorEditorService {
     const labelId = this.labels.listSegmentationLabels.some((l) => l.id === s.labelId)
       ? s.labelId
       : this.labels.activeLabel?.id ?? s.labelId;
-    const moved = translateShape(this.cloneShape(s), PASTE_OFFSET, PASTE_OFFSET);
+    const moved = translateShape(cloneShape(s), PASTE_OFFSET, PASTE_OFFSET);
     return { ...moved, id: crypto.randomUUID(), labelId };
-  }
-
-  private cloneShape(s: VectorShape): VectorShape {
-    return { ...s, nodes: s.nodes.map((n) => ({ ...n })) };
   }
 
   // ── Selection helpers ─────────────────────────────────────────────────────
@@ -862,46 +920,38 @@ export class VectorEditorService {
   // ── Undo / redo ───────────────────────────────────────────────────────────
 
   canUndo(): boolean {
-    return this.undoStack.length > 1;
+    return this.history.canUndo();
   }
 
   canRedo(): boolean {
-    return this.redoStack.length > 0;
+    return this.history.canRedo();
   }
 
   /** Step back one committed change. Returns false if at the baseline. */
   undo(): boolean {
-    if (this.undoStack.length <= 1) return false;
-    const current = this.undoStack.pop()!;
-    this.redoStack.push(current);
-    this.restore(this.undoStack[this.undoStack.length - 1]);
+    const state = this.history.stepBack();
+    if (!state) return false;
+    this.restore(state);
     return true;
   }
 
   /** Re-apply a previously undone change. Returns false if none. */
   redo(): boolean {
-    const next = this.redoStack.pop();
-    if (!next) return false;
-    this.undoStack.push(next);
-    this.restore(next);
+    const state = this.history.stepForward();
+    if (!state) return false;
+    this.restore(state);
     return true;
   }
 
   /** Snapshot the new state and signal a fresh committed action. */
   private commit(): void {
-    this.undoStack.push(this.cloneShapes(this._shapes()));
-    this.redoStack = [];
+    this.history.commit(this._shapes());
     this.committed$.next(); // record a 'vector' entry in the unified order
     this.changed$.next(); // mark dirty
   }
 
-  /** Deep clone of the shape data (all fields are primitives). */
-  private cloneShapes(shapes: VectorShape[]): VectorShape[] {
-    return shapes.map((s) => ({ ...s, nodes: s.nodes.map((n) => ({ ...n })) }));
-  }
-
   private restore(state: VectorShape[]): void {
-    this._shapes.set(this.cloneShapes(state));
+    this._shapes.set(cloneShapes(state));
     // Heal selection references that the restored state no longer contains
     // (drop ids of deleted shapes; keep a multi-selection otherwise).
     const existing = new Set(this._shapes().map((s) => s.id));

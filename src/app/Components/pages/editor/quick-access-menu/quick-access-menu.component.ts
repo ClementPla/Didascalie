@@ -32,9 +32,9 @@ export class QuickAccessMenuComponent {
     private convertService: ConvertService
   ) {}
 
-  public radius: number = 200;
+  public radius = 200;
 
-  public isOpen: boolean = false;
+  public isOpen = false;
 
   public position: { x: number; y: number } = { x: 0, y: 0 };
 

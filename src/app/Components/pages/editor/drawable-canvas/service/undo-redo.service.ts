@@ -35,8 +35,8 @@ export class UndoRedoService {
 
   // One history stack per layer. A multi-layer action pushes a snapshot to each
   // affected layer's stack, so every layer always has a complete history.
-  private layerUndoStacks: Map<number, UndoRedo<LayerUndoRedoState>> =
-    new Map();
+  private layerUndoStacks =
+    new Map<number, UndoRedo<LayerUndoRedoState>>();
 
   // Unified action timeline: the interleaved order of raster and vector actions
   // so a single Ctrl+Z undoes the most recent action regardless of its kind or

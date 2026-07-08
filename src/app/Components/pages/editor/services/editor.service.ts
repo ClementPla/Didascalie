@@ -7,28 +7,28 @@ import { Tool, Tools, PostProcessOption } from '../../../../Core/tools';
 })
 export class EditorService {
   public _lastTool: Tool;
-  public penPostProcess: boolean = false;
-  public eraserPostProcess: boolean = false;
-  public autoPostProcessOpening: boolean = false;
+  public penPostProcess = false;
+  public eraserPostProcess = false;
+  public autoPostProcessOpening = false;
   public canvasClear: Subject<number> = new Subject<number>();
   public canvasRedraw: Subject<boolean> = new Subject<boolean>();
   public canvasSumRefresh: Subject<boolean> = new Subject<boolean>();
-  public edgesOnly: boolean = false;
-  public enforceConnectivity: boolean = false;
-  public eraseAll: boolean = false;
-  public labelOpacity: number = 1;
-  public lineWidth: number = 10;
+  public edgesOnly = false;
+  public enforceConnectivity = false;
+  public eraseAll = false;
+  public labelOpacity = 1;
+  public lineWidth = 10;
   /** Scale the brush radius by pen/touch pressure while drawing. */
-  public pressureSensitivity: boolean = false;
+  public pressureSensitivity = false;
   /** Live pointer pressure in [0, 1]. Updated per pointer event by the canvas
    *  input directive, read by the drawing tools and cursor. */
-  public strokePressure: number = 1;
+  public strokePressure = 1;
   /** Whether the active pointer reports real pressure (pen/touch). Mouse does
    *  not, so pressure scaling is skipped for it. */
-  public strokeIsPressure: boolean = false;
+  public strokeIsPressure = false;
   /** Brush radius multiplier at full pressure. Higher = more amplification;
    *  at 1.0 full pressure equals the base size. User-adjustable. */
-  public pressureGain: number = 2.5;
+  public pressureGain = 2.5;
 
   /** Lowest radius multiplier, at zero pressure. */
   private static readonly PRESSURE_MIN_SCALE = 0.15;
@@ -40,34 +40,34 @@ export class EditorService {
     const min = EditorService.PRESSURE_MIN_SCALE;
     return min + (this.pressureGain - min) * this.strokePressure;
   }
-  public morphoSize: number = 3;
+  public morphoSize = 3;
   public redo: Subject<boolean> = new Subject<boolean>();
   private _selectedTool: Tool = Tools.PEN;
   /** Emits the new tool whenever the active tool changes (any source). */
   public readonly toolChanged$ = new Subject<Tool>();
-  public swapMarkers: boolean = false;
+  public swapMarkers = false;
   public undo: Subject<boolean> = new Subject<boolean>();
-  public useInverse: boolean = false;
-  public useProcessing: boolean = false;
+  public useInverse = false;
+  public useProcessing = false;
 
-  public showBoundingBox: boolean = false;
-  public labelledCombinedBoundingBox: boolean = false;
-  public bbxOpacity: number = 0.4;
-  public eraseOnClick: boolean = false;
+  public showBoundingBox = false;
+  public labelledCombinedBoundingBox = false;
+  public bbxOpacity = 0.4;
+  public eraseOnClick = false;
 
-  public samThreshold: number = 0.5;
+  public samThreshold = 0.5;
 
   public postProcessOption: PostProcessOption = PostProcessOption.OTSU;
 
-  public incrementAfterStroke: boolean = false;
+  public incrementAfterStroke = false;
 
-  public floodFillTolerance: number = 3.0;
+  public floodFillTolerance = 3.0;
 
   // On by default: the compositor self-tests at startup and reports itself
   // unavailable (falling back to CPU) if WebGPU is missing or produces wrong
   // output, so enabling this can't break rendering.
-  public webGPURendering: boolean = true;
-  public resetZoomAfterNavigation: boolean = true;
+  public webGPURendering = true;
+  public resetZoomAfterNavigation = true;
   constructor() {}
 
   /** The active tool. Writing it (toolbar ngModel, selectTool, pan toggles)
@@ -146,7 +146,7 @@ export class EditorService {
     );
   }
 
-  public requestCanvasClear(index: number = -1) {
+  public requestCanvasClear(index = -1) {
     this.canvasClear.next(index);
   }
 

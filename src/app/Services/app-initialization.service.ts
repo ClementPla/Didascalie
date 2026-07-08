@@ -127,7 +127,7 @@ export class AppInitializationService {
   private async saveMasksFromCLI(frameId: number, imageConfig: ImageFromCLI): Promise<void> {
     if (!imageConfig.mask_data) return;
 
-    const labels = await invoke<Array<{ id: number; name: string }>>('list_labels');
+    const labels = await invoke<{ id: number; name: string }[]>('list_labels');
 
     for (let i = 0; i < imageConfig.mask_data.length; i++) {
       const maskDataUrl = imageConfig.mask_data[i];

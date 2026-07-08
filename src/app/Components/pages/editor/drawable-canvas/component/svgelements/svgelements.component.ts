@@ -22,7 +22,7 @@ import { Point2D } from '../../interface';
   styleUrl: './svgelements.component.scss',
 })
 export class SVGElementsComponent implements OnInit, OnDestroy {
-  formattedPoints: string = '';
+  formattedPoints = '';
   /**
    * Stroke width for line/lasso previews, expressed in *image* px since
    * the SVG viewBox is in image space. Computed from `editorService.lineWidth`

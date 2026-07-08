@@ -1,6 +1,23 @@
 <p-toolbar>
   <ng-template #start>
     <span class="toolbar"> Didascalie </span>
+    @if (updateService.currentVersion(); as version) {
+      <span
+        class="app-version"
+        [class.app-version--update]="updateService.available()"
+        [pTooltip]="
+          updateService.available()
+            ? 'Update available: v' + updateService.newVersion
+            : 'Current version'
+        "
+        tooltipPosition="bottom"
+      >
+        v{{ version }}
+        @if (updateService.available()) {
+          <i class="pi pi-arrow-circle-up" aria-hidden="true"></i>
+        }
+      </span>
+    }
     @if (isProjectStarted()) {
       <ng-container>
         <p-divider layout="vertical" />

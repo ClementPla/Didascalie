@@ -22,6 +22,20 @@
   <header class="launcher-header">
     <h1>Didascalie</h1>
     <p class="tagline">Open a project or start a new one.</p>
+    <div class="version-row">
+      @if (update.currentVersion(); as version) {
+        <span class="version-label">Version {{ version }}</span>
+      }
+      <p-button
+        size="small"
+        [text]="true"
+        severity="secondary"
+        icon="pi pi-refresh"
+        label="Check for updates"
+        [loading]="update.checking()"
+        (onClick)="checkForUpdates()"
+      ></p-button>
+    </div>
   </header>
 
   @if (update.available()) {

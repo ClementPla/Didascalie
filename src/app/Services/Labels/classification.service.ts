@@ -7,7 +7,7 @@ import { api } from '../../lib/api';
 })
 export class ClassificationService {
   // In-memory cache per frame
-  private multiclassCache = new Map<number, Array<string | null>>();
+  private multiclassCache = new Map<number, (string | null)[]>();
   private multilabelCache = new Map<number, string[]>();
 
   async loadForFrame(frameId: number, taskCount: number): Promise<void> {
@@ -28,7 +28,7 @@ export class ClassificationService {
   }
 
   // Getters
-  getMulticlassChoices(frameId: number): Array<string | null> {
+  getMulticlassChoices(frameId: number): (string | null)[] {
     return this.multiclassCache.get(frameId) ?? [];
   }
 
@@ -44,7 +44,7 @@ export class ClassificationService {
     }
   }
 
-  setMulticlassChoices(frameId: number, choices: Array<string | null>): void {
+  setMulticlassChoices(frameId: number, choices: (string | null)[]): void {
     this.multiclassCache.set(frameId, [...choices]);
   }
 

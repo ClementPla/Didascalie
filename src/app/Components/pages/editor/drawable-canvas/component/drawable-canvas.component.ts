@@ -370,8 +370,8 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     // Label layer. Large images composite the visible region directly into the
     // display canvas (no native-size combined canvas); others draw the full
     // combined canvas under the view transform.
-    this.clearDisplayCanvas(this.ctxLabel);
     if (this.orchestrator.usesViewportComposite) {
+      this.clearDisplayCanvas(this.ctxLabel);
       this.orchestrator.compositeLabelLayer(this.ctxLabel, this.dpr);
       // The combined-canvas path recomputes bboxes; the viewport path doesn't,
       // so drive it here on mask change (debounced — it's an O(image) scan).
@@ -380,7 +380,12 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
         this.scheduleViewportBboxRecompute();
       }
     } else {
+      // Recompute (async, WebGPU) BEFORE clearing, so the previous frame stays
+      // visible until the new one is ready. Clearing first would leave the label
+      // layer blank for the whole await — which made the eraser (a full
+      // recompute every move) flicker the masks away until the stroke ended.
       const combined = await this.orchestrator.getCombinedLabelCanvas();
+      this.clearDisplayCanvas(this.ctxLabel);
       if (combined) {
         this.applyLabelTransform();
         this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
@@ -441,7 +446,10 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     if (frameId == null) return;
 
     const rect = this.orchestrator.getSVGViewBox(); // visible region, image space
-    const tiles = this.tiledImage.tilesFor(rect, frameId);
+    // Bake the image adjustments into the tiles (when active) so zoomed-in
+    // detail matches the adjusted backdrop pyramid.
+    const adj = this.orchestrator.tileAdjustment();
+    const tiles = this.tiledImage.tilesFor(rect, frameId, adj?.lut ?? null, adj?.version ?? 0);
     if (tiles.length === 0) return;
 
     // Smooth when the tile is shown smaller than native, crisp when magnified.

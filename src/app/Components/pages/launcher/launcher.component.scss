@@ -66,6 +66,20 @@
     color: var(--text-color-secondary, #a0a0a0);
     font-size: 0.95rem;
   }
+
+  .version-row {
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .version-label {
+    color: var(--p-text-muted-color, #a0a0a0);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 .primary-actions {

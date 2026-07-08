@@ -32,9 +32,9 @@ export class CurveEditorComponent
   @Input() curve: CurvePoints = IDENTITY_CURVE.map((p) => ({ ...p }));
   @Input() histogram: Uint32Array | null = null;
   /** Color for the curve line + selected node (channel tint). */
-  @Input() color: string = '#e0e0e0';
+  @Input() color = '#e0e0e0';
   /** Show grid lines. */
-  @Input() showGrid: boolean = true;
+  @Input() showGrid = true;
 
   @Output() curveChange = new EventEmitter<CurvePoints>();
 

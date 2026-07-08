@@ -19,6 +19,7 @@ import { NotificationService } from './Services/notification.service';
 import { IOService } from './Services/io.service';
 import { FpsDisplayComponent } from "./Components/Utils/fps-display/fps-display.component";
 import { ProjectService } from './Services/ProjectService/project.service';
+import { UpdateService } from './Services/update.service';
 import { ExperimentalSettingsComponent } from './experimental/experimental-settings/experimental-settings.component';
 @Component({
   selector: 'app-root',
@@ -53,7 +54,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private themeService: ThemeService,
     private messageService: MessageService,
     private ioService: IOService,
-    public projectService: ProjectService
+    public projectService: ProjectService,
+    public updateService: UpdateService
   ) {
     this.themeService.init();
   }

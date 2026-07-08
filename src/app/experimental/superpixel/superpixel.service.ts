@@ -37,8 +37,8 @@ export class SuperpixelService {
   /** Refine the stroke in the buffer canvas: keep only the touched
    *  superpixels that match the dominant color under the stroke. */
   async refineStroke(): Promise<void> {
-    let bufferCtx = this.canvasManagerService.getBufferCtx();
-    let rect = {
+    const bufferCtx = this.canvasManagerService.getBufferCtx();
+    const rect = {
       x: 0,
       y: 0,
       width: this.stateService.width,

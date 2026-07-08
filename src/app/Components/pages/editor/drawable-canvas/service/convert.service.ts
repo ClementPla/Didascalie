@@ -111,8 +111,11 @@ export class ConvertService {
   }
 
   private shapesToRasterize(): VectorShape[] {
-    const selected = this.vectorEditor.selectedShape();
-    if (selected) return [selected];
+    // Rasterize every selected path (across labels — each burns into its own
+    // label's mask). With nothing selected, fall back to the active label's
+    // shapes so the toolbar button still does the expected thing.
+    const selected = this.vectorEditor.selectedShapes();
+    if (selected.length > 0) return selected;
     const activeId = this.labels.activeLabel?.id;
     if (activeId == null) return [];
     return this.vectorEditor.shapes().filter((s) => s.labelId === activeId);

@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { check, Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
@@ -16,9 +17,25 @@ export class UpdateService {
   readonly installing = signal(false);
   /** Download progress 0..100 while installing. */
   readonly progress = signal(0);
+  /** The running app version (e.g. "0.5.3"), or null in a plain browser. */
+  readonly currentVersion = signal<string | null>(null);
+
+  constructor() {
+    void this.loadCurrentVersion();
+  }
 
   private get inTauri(): boolean {
     return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+  }
+
+  /** Read the installed app version from the Tauri runtime (once, on startup). */
+  private async loadCurrentVersion(): Promise<void> {
+    if (!this.inTauri) return;
+    try {
+      this.currentVersion.set(await getVersion());
+    } catch (error) {
+      console.error('Failed to read app version:', error);
+    }
   }
 
   get newVersion(): string | null {

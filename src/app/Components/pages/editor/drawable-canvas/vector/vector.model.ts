@@ -133,6 +133,16 @@ export function pointInShape(shape: VectorShape, p: Pt): boolean {
   return inside;
 }
 
+/** Deep clone one shape (all node fields are primitives). */
+export function cloneShape(shape: VectorShape): VectorShape {
+  return { ...shape, nodes: shape.nodes.map((n) => ({ ...n })) };
+}
+
+/** Deep clone an array of shapes. */
+export function cloneShapes(shapes: VectorShape[]): VectorShape[] {
+  return shapes.map(cloneShape);
+}
+
 /** Translate a whole shape (anchors + both handles) by (dx, dy) in image space. */
 export function translateShape(
   shape: VectorShape,

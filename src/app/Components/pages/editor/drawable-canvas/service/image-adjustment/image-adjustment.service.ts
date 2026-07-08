@@ -35,6 +35,24 @@ export class ImageAdjustmentService implements OnDestroy {
   private renderer = new ImageAdjustmentRenderer();
   private rendering = false;
   private renderQueued = false;
+  private _version = 0;
+
+  /** Increments whenever the adjustment state changes, so downstream caches
+   *  (e.g. the native image tiles) know when to reprocess. */
+  get version(): number {
+    return this._version;
+  }
+
+  /** True when adjustments are active and processing is on (else show raw). */
+  isActive(): boolean {
+    return !isIdentity(this.state) && this.editorService.useProcessing;
+  }
+
+  /** The composed RGB LUT to bake into raw pixels, or null at identity /
+   *  processing off (callers draw the source unchanged). */
+  activeLUT(): RGBLUT | null {
+    return this.isActive() ? composeRGBLUT(this.state) : null;
+  }
 
   constructor(private editorService: EditorService) {
     // Fire and forget; CPU fallback used until ready.
@@ -166,6 +184,7 @@ export class ImageAdjustmentService implements OnDestroy {
   // ==========================================
 
   private scheduleRender(): void {
+    this._version++; // adjustment state changed — invalidate downstream caches
     if (this.rendering) {
       this.renderQueued = true;
       return;

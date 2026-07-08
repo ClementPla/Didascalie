@@ -22,9 +22,9 @@ export function getDefaultColor(n: number) {
 }
 
 export function from_hex_to_rgb(hex: string) {
-    let r = parseInt(hex.slice(1, 3), 16)
-    let g = parseInt(hex.slice(3, 5), 16)
-    let b = parseInt(hex.slice(5, 7), 16)
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
 
     return [r, g, b]
 }
@@ -59,7 +59,7 @@ export function buildLabelPalette(baseColor: string, shades: string[] | null): U
 }
 
 function componentToHex(c: number): string {
-    var hex = c.toString(16);
+    const hex = c.toString(16);
     return hex.length == 1 ? "0" + hex : hex;
 }
 

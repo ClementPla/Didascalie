@@ -36,42 +36,42 @@ export interface ThumbnailSelectionEvent {
 export class GalleryElementComponent implements OnDestroy, AfterViewInit {
   // Frame data
   @Input() frameId!: number;
-  @Input() title: string = '';
+  @Input() title = '';
   @Input() status: 'empty' | 'annotated' | 'reviewed' = 'empty';
-  @Input() frameCount: number = 1;
+  @Input() frameCount = 1;
   /** Whether the sequence contains at least one keypoint pair (registration). */
-  @Input() hasKeypoints: boolean = false;
+  @Input() hasKeypoints = false;
 
   // Display options
   @Input() id!: number; // Sequence ID for selection tracking
-  @Input() imgSize: number = 256;
-  @Input() selected: boolean = false;
+  @Input() imgSize = 256;
+  @Input() selected = false;
   @Input() frameIds: number[] = [];
   /** Render as a full-width list row instead of a card. */
-  @Input() listMode: boolean = false;
+  @Input() listMode = false;
   /** Show the per-row "Reviewed" toggle (list mode only). */
-  @Input() showReviewedToggle: boolean = true;
+  @Input() showReviewedToggle = true;
   /** Tint the row background by status / current selection (list mode only). */
-  @Input() colorByStatus: boolean = false;
+  @Input() colorByStatus = false;
   // Events
   @Output() thumbnailSelected = new EventEmitter<ThumbnailSelectionEvent>();
   @Output() thumbnailClicked = new EventEmitter<void>();
   @Output() reviewedToggled = new EventEmitter<{ id: number; reviewed: boolean }>();
 
   // Internal state
-  public imagePath: string = '';
-  public isLoading: boolean = true;
-  public loadError: boolean = false;
-  public isLooping: boolean = false;
+  public imagePath = '';
+  public isLoading = true;
+  public loadError = false;
+  public isLooping = false;
   // Hover preview state
   private hoverTimer: ReturnType<typeof setTimeout> | null = null;
   public loopInterval: ReturnType<typeof setInterval> | null = null;
-  public currentFrameIndex: number = 0;
-  public isFading: boolean = false;
+  public currentFrameIndex = 0;
+  public isFading = false;
 
    // Lazy loading
   private observer: IntersectionObserver | null = null;
-  private hasLoadedThumbnail: boolean = false;
+  private hasLoadedThumbnail = false;
 
 
    constructor(private elementRef: ElementRef) {}

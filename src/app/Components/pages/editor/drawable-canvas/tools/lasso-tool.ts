@@ -6,7 +6,7 @@ export class LassoTool extends BaseTool {
   protected points: Point2D[] = [];
   private isEraser: boolean;
 
-  constructor(isEraser: boolean = false) {
+  constructor(isEraser = false) {
     super();
     this.isEraser = isEraser;
   }

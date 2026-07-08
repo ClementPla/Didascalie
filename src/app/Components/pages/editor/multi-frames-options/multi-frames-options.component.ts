@@ -23,7 +23,7 @@ import { Sequence } from '../../../../lib/api';
   styleUrl: './multi-frames-options.component.scss',
 })
 export class MultiFramesOptionsComponent {
-  _isLoaded: boolean = false;
+  _isLoaded = false;
 
   @Output() changeOfFrame: EventEmitter<number> = new EventEmitter<number>();
 

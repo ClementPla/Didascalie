@@ -164,13 +164,12 @@ fn flood_same_value_component(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -
 /// degree-2 node each pruned spur leaves behind is then contracted so the trunk
 /// stays continuous. Kept below a typical real branch length.
 const MIN_SPUR_LEN: f64 = 5.0;
-/// 8-connected junctions form a small cluster of high-degree pixels; the tiny
-/// links between them are node-to-node artefacts, not real branches. Drop links
-/// between two junctions shorter than this.
-const MIN_JUNCTION_LINK: f64 = 2.5;
 /// Douglas–Peucker tolerance for skeleton polylines (finer than contour tracing
 /// so curved centerlines stay smooth).
 const SKELETON_EPSILON: f64 = 1.0;
+/// Minimum length (px) of a returned centerline path. Prunes the tiny artefact
+/// branches thinning leaves at curve extrema; the longest path is always kept.
+const MIN_OUTPUT_LEN: f64 = 8.0;
 
 /// Skeletonize the same-value component under `(sx, sy)` and return its centerline
 /// as one or more open polylines (image-pixel coords). The component is thinned
@@ -203,11 +202,31 @@ pub fn component_skeleton_paths(
 
     zhang_suen_thin(&mut grid, pw, ph);
 
-    trace_skeleton(&grid, pw, ph)
+    let simplified: Vec<Vec<[f64; 2]>> = trace_skeleton(&grid, pw, ph)
         .into_iter()
         .map(|poly| douglas_peucker(&poly, SKELETON_EPSILON))
         .filter(|poly| poly.len() >= 2)
+        .collect();
+
+    // Drop leftover clutter (the tiny artefact branches raster thinning leaves at
+    // a thick curved band's high-curvature extrema) while always keeping the
+    // longest path, so an unbranched fibre comes back as a single clean line.
+    let max_len = simplified
+        .iter()
+        .map(|p| polyline_length_pts(p))
+        .fold(0.0, f64::max);
+    let keep_min = MIN_OUTPUT_LEN.min(max_len);
+    simplified
+        .into_iter()
+        .filter(|p| polyline_length_pts(p) >= keep_min)
         .collect()
+}
+
+/// Euclidean length of a polyline given as image-space points.
+fn polyline_length_pts(poly: &[[f64; 2]]) -> f64 {
+    poly.windows(2)
+        .map(|w| ((w[1][0] - w[0][0]).powi(2) + (w[1][1] - w[0][1]).powi(2)).sqrt())
+        .sum()
 }
 
 /// Zhang–Suen thinning. `img`: 1 = foreground, 0 = background; the 1px border is
@@ -358,28 +377,36 @@ fn trace_skeleton(img: &[u8], w: usize, h: usize) -> Vec<Vec<[f64; 2]>> {
     let mut edges: Vec<SkelEdge> = Vec::new();
 
     // Walk a chain from `start` through neighbour `first` until the next node (or
-    // a dead end / already-walked edge). At a pass-through pixel with more than
-    // one forward neighbour (a staircase), prefer the one *not* adjacent to where
-    // we came from, so a diagonal shortcut doesn't spawn a false branch.
+    // a dead end / already-walked edge). Next-pixel priority:
+    //   1. a neighbouring *node* (junction/endpoint) — so a walk terminates AT a
+    //      junction instead of cutting the corner diagonally into an adjacent
+    //      arm (the 8-connected pixels around a junction are pass-throughs);
+    //   2. a neighbour *not* adjacent to where we came from — so a staircase's
+    //      diagonal shortcut doesn't spawn a false branch;
+    //   3. any remaining neighbour.
     let walk = |start: usize, first: usize, visited: &mut std::collections::HashSet<(usize, usize)>| {
         let mut poly = vec![start];
         let (mut prev, mut cur) = (start, first);
         visited.insert(key(prev, cur));
         poly.push(cur);
         while !is_skeleton_node(img, w, cur) {
+            let mut node_choice = None;
             let mut choice = None;
             let mut fallback = None;
             for q in fg_neighbors(img, w, cur) {
                 if q == prev || visited.contains(&key(cur, q)) {
                     continue;
                 }
-                if !are_8_adjacent(q, prev, w) {
-                    choice = Some(q);
+                if is_skeleton_node(img, w, q) {
+                    node_choice = Some(q);
                     break;
+                }
+                if choice.is_none() && !are_8_adjacent(q, prev, w) {
+                    choice = Some(q);
                 }
                 fallback.get_or_insert(q);
             }
-            let Some(q) = choice.or(fallback) else { break };
+            let Some(q) = node_choice.or(choice).or(fallback) else { break };
             visited.insert(key(cur, q));
             poly.push(q);
             prev = cur;
@@ -438,29 +465,42 @@ fn degree_map(edges: &[SkelEdge]) -> std::collections::HashMap<usize, usize> {
     deg
 }
 
-/// Simplify the skeleton graph in place: prune short spurs / junction links, then
-/// contract degree-2 nodes so consecutive branches merge into a single path.
+/// Simplify the skeleton graph in place. Prune short spurs / junction links and
+/// contract degree-2 nodes, **interleaved** to a fixpoint: pruning an artefact
+/// branch drops a junction to degree 2, which contraction then splices into its
+/// neighbour, which can expose the next artefact — so a curved band's messy
+/// extrema collapse into the through-path instead of fragmenting.
 fn simplify_graph(edges: &mut Vec<SkelEdge>, w: usize) {
-    // 1. Iteratively drop tiny leaf spurs and short links between two junctions.
     loop {
-        let deg = degree_map(edges);
-        let mut changed = false;
-        for e in edges.iter_mut().filter(|e| e.alive) {
-            let (da, db) = (deg.get(&e.a).copied().unwrap_or(0), deg.get(&e.b).copied().unwrap_or(0));
-            let len = polyline_len(&e.pts, w);
-            let is_spur = (da == 1 || db == 1) && len < MIN_SPUR_LEN;
-            let is_junction_link = e.a != e.b && da >= 3 && db >= 3 && len < MIN_JUNCTION_LINK;
-            if is_spur || is_junction_link {
-                e.alive = false;
-                changed = true;
-            }
-        }
-        if !changed {
+        let pruned = prune_pass(edges, w);
+        let contracted = contract_pass(edges);
+        if !pruned && !contracted {
             break;
         }
     }
+    edges.retain(|e| e.alive);
+}
 
-    // 2. Contract degree-2 nodes: splice the two branches meeting there into one.
+/// One pass: kill leaf spurs — short branches ending at a free endpoint. (Short
+/// links *between* two junctions are left intact so real multi-way junctions,
+/// which an 8-connected skeleton often spreads over 2 pixels, aren't collapsed.)
+fn prune_pass(edges: &mut [SkelEdge], w: usize) -> bool {
+    let deg = degree_map(edges);
+    let mut changed = false;
+    for e in edges.iter_mut().filter(|e| e.alive) {
+        let (da, db) = (deg.get(&e.a).copied().unwrap_or(0), deg.get(&e.b).copied().unwrap_or(0));
+        let is_spur = (da == 1 || db == 1) && polyline_len(&e.pts, w) < MIN_SPUR_LEN;
+        if is_spur {
+            e.alive = false;
+            changed = true;
+        }
+    }
+    changed
+}
+
+/// Contract every degree-2 node (to a fixpoint): splice its two branches into one.
+fn contract_pass(edges: &mut Vec<SkelEdge>) -> bool {
+    let mut any = false;
     loop {
         let deg = degree_map(edges);
         let Some(v) = deg
@@ -500,9 +540,9 @@ fn simplify_graph(edges: &mut Vec<SkelEdge>, w: usize) {
 
         left.extend(right.into_iter().skip(1)); // drop the duplicated `v`
         edges.push(SkelEdge { a: other1, b: other2, pts: left, alive: true });
+        any = true;
     }
-
-    edges.retain(|e| e.alive);
+    any
 }
 
 /// Total length (px) of a polyline given as padded-grid pixel indices.
@@ -642,17 +682,48 @@ mod tests {
     }
 
     #[test]
-    fn skeleton_of_plus_has_four_arms() {
-        // A plus: 1px vertical + horizontal bars crossing at the centre.
-        let (w, h) = (13u32, 13u32);
+    fn skeleton_of_wavy_thick_fibre_is_one_path() {
+        // A wavy thick "fibre": centerline y = 20 + 9*sin(x/9), ~7px thick. Raster
+        // thinning leaves messy chunks at the curve extrema; the graph cleanup
+        // must still return a single unbranched centerline (not a pile of
+        // fragments, which is what the naive tracer produced).
+        let (w, h) = (60u32, 40u32);
         let mut values = vec![0u8; (w * h) as usize];
-        let c = 6u32;
-        for i in 1..=11 {
+        for xi in 4..=55 {
+            let cx = xi as f64;
+            let cy = 20.0 + 9.0 * (cx / 9.0).sin();
+            let r = 3.5;
+            let r0 = (r + 1.0) as i64;
+            for oy in -r0..=r0 {
+                for ox in -r0..=r0 {
+                    let (px, py) = (cx + ox as f64, cy + oy as f64);
+                    if px < 0.0 || py < 0.0 || px >= w as f64 || py >= h as f64 {
+                        continue;
+                    }
+                    if (ox * ox + oy * oy) as f64 <= r * r {
+                        values[(py as u32 * w + px as u32) as usize] = 1;
+                    }
+                }
+            }
+        }
+        let paths = component_skeleton_paths(&values, w, h, 28, 19);
+        assert_eq!(paths.len(), 1, "a wavy fibre must trace as one path");
+    }
+
+    #[test]
+    fn skeleton_of_plus_has_four_arms() {
+        // A plus: 1px vertical + horizontal bars crossing at the centre. Arms are
+        // long enough to clear the min-output-length filter.
+        let (w, h) = (25u32, 25u32);
+        let mut values = vec![0u8; (w * h) as usize];
+        let c = 12u32;
+        for i in 1..=23 {
             values[(c * w + i) as usize] = 1; // horizontal arm
             values[(i * w + c) as usize] = 1; // vertical arm
         }
         let paths = component_skeleton_paths(&values, w, h, c, c);
-        // Four arms radiate from the junction; tiny centre links are pruned.
+        // Four arms radiate from the junction (the walk terminates at it rather
+        // than cutting the corner into an adjacent arm).
         assert!(paths.len() >= 4, "expected >= 4 arms, got {}", paths.len());
     }
 }

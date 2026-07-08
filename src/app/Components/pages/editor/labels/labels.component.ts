@@ -48,9 +48,9 @@ import { api } from '../../../../lib/api';
   standalone: true,
 })
 export class LabelsComponent implements OnInit, OnDestroy {
-  public classificationChoices: Array<string | null> = [];
+  public classificationChoices: (string | null)[] = [];
   public multilabelChoices: string[] = [];
-  public textContents: Map<string, string> = new Map();
+  public textContents = new Map<string, string>();
 
   private destroy$ = new Subject<void>();
 

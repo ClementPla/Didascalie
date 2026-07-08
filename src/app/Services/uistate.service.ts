@@ -38,7 +38,7 @@ export class UIStateService {
   // Loading State Management
   // ==========================================
 
-  public setLoading(isLoading: boolean, message: string = ''): void {
+  public setLoading(isLoading: boolean, message = ''): void {
     this.loadingSubject.next({ isLoading, message });
   }
 

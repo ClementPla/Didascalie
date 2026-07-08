@@ -258,7 +258,7 @@ export class ZoomPanService {
   // Reset / fit
   // ==========================================
 
-  public resetZoomAndPan(smooth: boolean = true, redraw: boolean = true) {
+  public resetZoomAndPan(smooth = true, redraw = true) {
     if (this.viewportWidth === 0 || this.viewportHeight === 0) return;
     const imgW = this.stateService.width;
     const imgH = this.stateService.height;
@@ -284,7 +284,7 @@ export class ZoomPanService {
     }
   }
 
-  public setTransform(scale: number, offsetX: number, offsetY: number, smooth: boolean = true) {
+  public setTransform(scale: number, offsetX: number, offsetY: number, smooth = true) {
     this.targetScale = Math.min(this.maxScale, Math.max(this.minScale, scale));
     this.targetOffset = { x: offsetX, y: offsetY };
     if (smooth && this.smooth) {

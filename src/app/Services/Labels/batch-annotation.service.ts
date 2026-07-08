@@ -31,7 +31,7 @@ export class BatchAnnotationService {
    */
   public async applyBatchMulticlassToFrames(
     frameIds: number[],
-    choices: Array<string | null>
+    choices: (string | null)[]
   ): Promise<BatchAnnotationResult> {
     const result: BatchAnnotationResult = {
       success: true,
@@ -141,7 +141,7 @@ export class BatchAnnotationService {
    */
   public async markFramesReviewed(
     frameIds: number[],
-    reviewed: boolean = true
+    reviewed = true
   ): Promise<BatchAnnotationResult> {
     const result: BatchAnnotationResult = {
       success: true,

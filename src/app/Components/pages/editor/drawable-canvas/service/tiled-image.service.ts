@@ -2,12 +2,13 @@ import { Injectable } from '@angular/core';
 import { Subject } from 'rxjs';
 
 import { api } from '../../../../../lib/api';
+import { RGBLUT } from './image-adjustment/image-processing.model';
 
 /** A native tile ready to draw, positioned at (x, y) in image space. */
 export interface ReadyTile {
   x: number;
   y: number;
-  bitmap: ImageBitmap;
+  bitmap: CanvasImageSource;
 }
 
 interface Rect {
@@ -43,6 +44,12 @@ export class TiledImageService {
   private readonly order: string[] = []; // LRU key order (oldest first)
   private readonly inflight = new Set<string>();
 
+  // Image-adjustment LUT baked into tiles for display, cached so it isn't
+  // recomputed every frame. Reset whenever the adjustment version changes.
+  private readonly processedCache = new Map<string, OffscreenCanvas>();
+  private readonly processedOrder: string[] = [];
+  private processedVersion = -1;
+
   /** Point at a frame's native pixels. Clears tiles when the frame changes. */
   setFrame(frameId: number, nativeW: number, nativeH: number): void {
     if (this.frameId === frameId && this.nativeW === nativeW && this.nativeH === nativeH) {
@@ -59,14 +66,23 @@ export class TiledImageService {
     this.cache.clear();
     this.order.length = 0;
     this.inflight.clear();
+    this.clearProcessed();
     this.frameId = null;
   }
 
   /**
    * Ready native tiles covering the image-space `rect`, fetching any missing
    * visible ones in the background. Returns [] when too zoomed out to bother.
+   * When `lut` is set (image adjustments active), tiles are returned with the
+   * adjustment baked in (cached per `version`) so they match the pyramid
+   * backdrop; when null they're returned raw.
    */
-  tilesFor(rect: Rect, frameId: number): ReadyTile[] {
+  tilesFor(
+    rect: Rect,
+    frameId: number,
+    lut: RGBLUT | null = null,
+    version = 0,
+  ): ReadyTile[] {
     if (this.frameId !== frameId || this.nativeW === 0) return [];
 
     const TS = TiledImageService.TILE;
@@ -77,6 +93,12 @@ export class TiledImageService {
     if (c1 < c0 || r1 < r0) return [];
     if ((c1 - c0 + 1) * (r1 - r0 + 1) > TiledImageService.MAX_VISIBLE) return [];
 
+    // Drop stale processed tiles when the adjustment changed.
+    if (lut && version !== this.processedVersion) {
+      this.clearProcessed();
+      this.processedVersion = version;
+    }
+
     const ready: ReadyTile[] = [];
     for (let r = r0; r <= r1; r++) {
       for (let c = c0; c <= c1; c++) {
@@ -84,13 +106,58 @@ export class TiledImageService {
         const bm = this.cache.get(key);
         if (bm) {
           this.touch(key);
-          ready.push({ x: c * TS, y: r * TS, bitmap: bm });
+          const bitmap = lut ? this.processedTile(key, bm, lut) : bm;
+          ready.push({ x: c * TS, y: r * TS, bitmap });
         } else {
           this.fetch(c, r, frameId);
         }
       }
     }
     return ready;
+  }
+
+  /** A copy of the raw tile with the adjustment LUT applied, cached per key
+   *  (the cache is cleared when the adjustment version changes). */
+  private processedTile(key: string, raw: ImageBitmap, lut: RGBLUT): OffscreenCanvas {
+    const cached = this.processedCache.get(key);
+    if (cached) {
+      this.touchProcessed(key);
+      return cached;
+    }
+
+    const canvas = new OffscreenCanvas(raw.width, raw.height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    ctx.drawImage(raw, 0, 0);
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = image.data;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] = lut.r[d[i]];
+      d[i + 1] = lut.g[d[i + 1]];
+      d[i + 2] = lut.b[d[i + 2]];
+    }
+    ctx.putImageData(image, 0, 0);
+
+    this.processedCache.set(key, canvas);
+    this.processedOrder.push(key);
+    while (this.processedOrder.length > TiledImageService.MAX_CACHE) {
+      const evict = this.processedOrder.shift();
+      if (evict && evict !== key) this.processedCache.delete(evict);
+    }
+    return canvas;
+  }
+
+  private touchProcessed(key: string): void {
+    const i = this.processedOrder.indexOf(key);
+    if (i >= 0) {
+      this.processedOrder.splice(i, 1);
+      this.processedOrder.push(key);
+    }
+  }
+
+  private clearProcessed(): void {
+    this.processedCache.clear();
+    this.processedOrder.length = 0;
+    this.processedVersion = -1;
   }
 
   private fetch(col: number, row: number, frameId: number): void {
