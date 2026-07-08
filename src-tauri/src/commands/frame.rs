@@ -173,8 +173,9 @@ pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Re
         return Ok(FrameImage { frame: meta.frame, image_base64 });
     }
 
-    let img = image::load_from_memory(&bytes)
-        .map_err(|e| AppError::Generic(format!("Failed to decode image: {}", e)))?;
+    // JPEG uses DCT scale-on-decode (to ≥ max_dim) so a huge source isn't fully
+    // decoded just to shrink it; other formats decode fully.
+    let img = decode_downscaled(&bytes, max_dim)?;
     // Triangle (bilinear) keeps downsampling of a 100+ MP image fast; PNG keeps
     // it lossless so no compression artefacts land on the annotation backdrop.
     let scaled = img.resize(max_dim, max_dim, image::imageops::FilterType::Triangle);
@@ -184,6 +185,46 @@ pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Re
         .map_err(|e| AppError::Generic(format!("Failed to encode overview: {}", e)))?;
     let image_base64 = format!("data:image/png;base64,{}", BASE64.encode(&out));
     Ok(FrameImage { frame: meta.frame, image_base64 })
+}
+
+/// Decode an image, using JPEG DCT scale-on-decode to avoid materializing the
+/// full-resolution bitmap when the caller only needs it near `max_dim` px. The
+/// returned image's longest side is ≥ `max_dim` (for JPEG, the nearest of 1/1,
+/// 1/2, 1/4, 1/8 that is ≥ target); the caller then resizes/thumbnails to the
+/// exact size. So a 100 MP JPEG never becomes a ~400 MB bitmap — sharply cutting
+/// peak memory and decode time. Other formats (PNG, TIFF, …) have no
+/// reduced-resolution decode, so they fall back to a full decode.
+fn decode_downscaled(bytes: &[u8], max_dim: u32) -> Result<image::DynamicImage> {
+  if detect_mime_type(bytes) == "image/jpeg" {
+    if let Some(img) = decode_jpeg_downscaled(bytes, max_dim) {
+      return Ok(img);
+    }
+  }
+  image::load_from_memory(bytes)
+    .map_err(|e| AppError::Generic(format!("Failed to decode image: {}", e)))
+}
+
+/// Decode straight to a thumbnail no larger than `max` px on its longest side.
+fn decode_thumbnail(bytes: &[u8], max: u32) -> Result<image::DynamicImage> {
+  Ok(decode_downscaled(bytes, max)?.thumbnail(max, max))
+}
+
+/// DCT-scaled JPEG decode to roughly `max` px. Returns None on an unsupported
+/// pixel format (CMYK / 16-bit) or any decode error, so the caller falls back to
+/// a full decode.
+fn decode_jpeg_downscaled(bytes: &[u8], max: u32) -> Option<image::DynamicImage> {
+  use jpeg_decoder::{Decoder, PixelFormat};
+
+  let mut dec = Decoder::new(std::io::Cursor::new(bytes));
+  let target = max.clamp(1, u16::MAX as u32) as u16;
+  let (w, h) = dec.scale(target, target).ok()?; // sets the DCT scale factor
+  let pixels = dec.decode().ok()?;
+  let (w, h) = (w as u32, h as u32);
+  match dec.info()?.pixel_format {
+    PixelFormat::L8 => image::GrayImage::from_raw(w, h, pixels).map(image::DynamicImage::ImageLuma8),
+    PixelFormat::RGB24 => image::RgbImage::from_raw(w, h, pixels).map(image::DynamicImage::ImageRgb8),
+    _ => None,
+  }
 }
 
 #[tauri::command]
@@ -202,9 +243,7 @@ pub fn get_frame_thumbnail(
   // straight back (very slow for large images).
   let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
 
-  let img = image::load_from_memory(&bytes)
-    .map_err(|e| AppError::Generic(format!("Failed to decode image: {}", e)))?;
-  let thumbnail = img.thumbnail(max_size, max_size);
+  let thumbnail = decode_thumbnail(&bytes, max_size)?;
 
   let mut jpeg_bytes = Vec::new();
   thumbnail
@@ -369,7 +408,7 @@ fn detect_mime_type(data: &[u8]) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::crop_rgba;
+    use super::{crop_rgba, decode_downscaled, decode_thumbnail};
 
     /// Build a 2x2 RGBA image whose R channel encodes (y*2 + x) so pixels are
     /// distinguishable: (0,0)=0, (1,0)=1, (0,1)=2, (1,1)=3.
@@ -416,5 +455,53 @@ mod tests {
         let raw = img_2x2();
         let tile = crop_rgba(&raw, 2, 2, 5, 5, 2, 2);
         assert_eq!(tile, vec![0u8; 2 * 2 * 4]);
+    }
+
+    fn encode(img: image::DynamicImage, fmt: image::ImageFormat) -> Vec<u8> {
+        let mut out = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut out), fmt).unwrap();
+        out
+    }
+
+    #[test]
+    fn thumbnail_downscales_jpeg_preserving_aspect() {
+        let src = image::RgbImage::from_fn(400, 300, |x, y| {
+            image::Rgb([(x % 256) as u8, (y % 256) as u8, 128])
+        });
+        let jpeg = encode(image::DynamicImage::ImageRgb8(src), image::ImageFormat::Jpeg);
+        let thumb = decode_thumbnail(&jpeg, 64).unwrap();
+        // 400x300 fits in a 64 box as 64x48 (aspect preserved).
+        assert!(thumb.width() <= 64 && thumb.height() <= 64);
+        assert_eq!(thumb.width(), 64);
+        assert!(thumb.height() > 0);
+    }
+
+    #[test]
+    fn thumbnail_downscales_grayscale_jpeg() {
+        let src = image::GrayImage::from_fn(300, 200, |x, _| image::Luma([(x % 256) as u8]));
+        let jpeg = encode(image::DynamicImage::ImageLuma8(src), image::ImageFormat::Jpeg);
+        let thumb = decode_thumbnail(&jpeg, 32).unwrap();
+        assert!(thumb.width() <= 32 && thumb.height() <= 32 && thumb.width() > 0);
+    }
+
+    #[test]
+    fn overview_decode_shrinks_large_jpeg() {
+        // decode_downscaled must DCT-scale a large JPEG below native (so the
+        // overview never fully decodes it) while staying ≥ the requested size.
+        let src = image::RgbImage::from_fn(800, 600, |x, y| {
+            image::Rgb([(x % 256) as u8, (y % 256) as u8, 64])
+        });
+        let jpeg = encode(image::DynamicImage::ImageRgb8(src), image::ImageFormat::Jpeg);
+        let img = decode_downscaled(&jpeg, 100).unwrap();
+        assert!(img.width() < 800, "expected DCT downscale, got {}", img.width());
+        assert!(img.width() >= 100 && img.height() >= 75);
+    }
+
+    #[test]
+    fn thumbnail_falls_back_for_png() {
+        let src = image::RgbImage::from_fn(200, 150, |x, _| image::Rgb([(x % 256) as u8, 0, 0]));
+        let png = encode(image::DynamicImage::ImageRgb8(src), image::ImageFormat::Png);
+        let thumb = decode_thumbnail(&png, 64).unwrap();
+        assert!(thumb.width() <= 64 && thumb.height() <= 64 && thumb.width() > 0);
     }
 }
