@@ -10,19 +10,33 @@ import {
   Pt,
   VectorNode,
   VectorShape,
+  boundsIntersect,
   closestSegment,
   distance,
   distanceToShape,
   isFlatHandle,
   makeNode,
+  pointInShape,
   shapeBounds,
   splitSegment,
+  translateShape,
 } from '../vector/vector.model';
 
 /** Screen-pixel pick radius for nodes/handles/paths and the close-path target. */
 const HIT_PX = 9;
 
+/** Image-px offset applied to pasted/duplicated shapes so the copy is visible. */
+const PASTE_OFFSET = 12;
+
 type HandleSide = 'in' | 'out';
+
+/** Modifier state captured at pointer-down for the Select tool. */
+export interface SelectMods {
+  /** Shift: additive marquee / add-to-selection. */
+  shift: boolean;
+  /** Ctrl/Cmd: toggle a shape's membership. */
+  toggle: boolean;
+}
 
 /** A shape's bounding box for the overlay (label colour resolved at render). */
 export interface VectorBoundingBox {
@@ -57,13 +71,31 @@ export class VectorEditorService {
   private readonly _hover = signal<Pt | null>(null);
   readonly hover = this._hover.asReadonly();
 
-  // ── Node-tool selection ───────────────────────────────────────────────────
-  private readonly _selectedId = signal<string | null>(null);
+  // ── Selection ─────────────────────────────────────────────────────────────
+  // Object-level selection is a set of shape ids (Select tool: one or many).
+  // Node-level editing (Node tool) only applies when exactly one is selected.
+  private readonly _selectedIds = signal<string[]>([]);
+  readonly selectedIds = this._selectedIds.asReadonly();
   private readonly _selectedNode = signal<number | null>(null);
   readonly selectedNodeIndex = this._selectedNode.asReadonly();
-  readonly selectedShape = computed(
-    () => this._shapes().find((s) => s.id === this._selectedId()) ?? null,
-  );
+
+  /** The single selected shape, or null when zero/many are selected. Keeps the
+   *  Node tool and properties panel single-shape (unchanged behavior). */
+  readonly selectedShape = computed(() => {
+    const ids = this._selectedIds();
+    if (ids.length !== 1) return null;
+    return this._shapes().find((s) => s.id === ids[0]) ?? null;
+  });
+
+  /** Every currently selected shape (Select tool group operations). */
+  readonly selectedShapes = computed(() => {
+    const set = new Set(this._selectedIds());
+    return this._shapes().filter((s) => set.has(s.id));
+  });
+
+  // ── Select-tool marquee (rubber-band) rectangle, in image space ───────────
+  private readonly _marquee = signal<Bounds | null>(null);
+  readonly marquee = this._marquee.asReadonly();
 
   /** One bounding box per shape, for the bbox overlay. Recomputes only when the
    *  shapes change; label visibility/colour are resolved at render time. */
@@ -93,6 +125,20 @@ export class VectorEditorService {
   private penHandleNode: number | null = null; // node whose handle a Pen drag sets
   private nodeDrag: { nodeIndex: number } | null = null;
   private handleDrag: { nodeIndex: number; side: HandleSide } | null = null;
+  // Select tool: dragging a selected path's body moves the whole selection.
+  private groupDrag: {
+    last: Pt;
+    moved: boolean;
+    clickedId: string;
+    wasSelected: boolean;
+  } | null = null;
+  // Select tool: rubber-band box drag over empty canvas.
+  private marqueeDrag: { origin: Pt; base: string[]; additive: boolean; moved: boolean } | null =
+    null;
+
+  // Cross-frame copy buffer. Deliberately NOT reset by setShapes()/clear() so a
+  // shape copied on one frame can be pasted onto another frame or sequence.
+  private clipboard: VectorShape[] = [];
 
   constructor() {
     // Leaving Path mode auto-validates the in-progress draft, so switching to
@@ -125,12 +171,16 @@ export class VectorEditorService {
   private resetInteraction(): void {
     this._draft.set(null);
     this._hover.set(null);
-    this._selectedId.set(null);
+    this._selectedIds.set([]);
     this._selectedNode.set(null);
+    this._marquee.set(null);
     this.pointerDown = false;
     this.penHandleNode = null;
     this.nodeDrag = null;
     this.handleDrag = null;
+    this.groupDrag = null;
+    this.marqueeDrag = null;
+    // NB: clipboard is intentionally preserved across frames (cross-frame paste).
   }
 
   shapesByLabel(): Map<number, VectorShape[]> {
@@ -145,20 +195,24 @@ export class VectorEditorService {
 
   // ── Pointer input (image-space coords) ────────────────────────────────────
 
-  onPointerDown(p: Pt): void {
+  onPointerDown(p: Pt, mods: SelectMods = { shift: false, toggle: false }): void {
     this.pointerDown = true;
     if (this.editor.isPathTool()) this.penDown(p);
     else if (this.editor.isNodeTool()) this.nodeDown(p);
+    else if (this.editor.isSelectTool()) this.selectDown(p, mods);
   }
 
   onPointerMove(p: Pt): void {
     if (this.editor.isPathTool()) this.penMove(p);
     else if (this.editor.isNodeTool()) this.nodeMove(p);
+    else if (this.editor.isSelectTool()) this.selectMove(p);
   }
 
   onPointerUp(): void {
     if (this.editor.isNodeTool() && (this.nodeDrag || this.handleDrag)) {
       this.commit(); // commit a node/handle drag once, at the end
+    } else if (this.editor.isSelectTool()) {
+      this.selectUp();
     }
     this.pointerDown = false;
     this.penHandleNode = null;
@@ -167,11 +221,20 @@ export class VectorEditorService {
   }
 
   /**
-   * Node tool double-click: on a node, toggle its smoothness (generating
-   * handles for a corner that has none); on a path, insert a new node at the
-   * click position.
+   * Double-click. With the Select tool, entering a path opens it for node
+   * editing (select it + switch to the Node tool). With the Node tool: on a
+   * node, toggle its smoothness (generating handles for a corner that has
+   * none); on a path, insert a new node at the click position.
    */
   onDoubleClick(p: Pt): void {
+    if (this.editor.isSelectTool()) {
+      const hit = this.pickSelectable(p, this.tol());
+      if (hit) {
+        this.selectOnly(hit.id);
+        this.editor.selectTool(Tools.NODE);
+      }
+      return;
+    }
     if (!this.editor.isNodeTool()) return;
     const tol = this.tol();
     const sel = this.selectedShape();
@@ -198,7 +261,7 @@ export class VectorEditorService {
         s.id === target.id ? splitSegment(s, seg.segIndex, seg.t) : s,
       ),
     );
-    this._selectedId.set(target.id);
+    this.selectOnly(target.id);
     this._selectedNode.set(seg.segIndex + 1);
     this.commit();
   }
@@ -218,13 +281,24 @@ export class VectorEditorService {
       this.penHandleNode = null;
       return;
     }
-    this._selectedId.set(null);
+    this._selectedIds.set([]);
     this._selectedNode.set(null);
+    this._marquee.set(null);
+    this.groupDrag = null;
+    this.marqueeDrag = null;
   }
 
-  /** Delete the selected node, or the selected shape if no node is targeted. */
+  /**
+   * Delete the current selection. With several shapes selected, remove them all;
+   * with one, delete its targeted node (Node tool) or the whole shape.
+   */
   deleteSelection(): void {
     if (this._draft()) return;
+    const ids = this._selectedIds();
+    if (ids.length > 1) {
+      this.deleteShapesByIds([...ids]);
+      return;
+    }
     const shape = this.selectedShape();
     if (!shape) return;
     const ni = this._selectedNode();
@@ -258,7 +332,7 @@ export class VectorEditorService {
     const remove = new Set(ids);
     if (!this._shapes().some((s) => remove.has(s.id))) return;
     this._shapes.update((list) => list.filter((s) => !remove.has(s.id)));
-    this._selectedId.set(null);
+    this._selectedIds.set([]);
     this._selectedNode.set(null);
     this.commit();
   }
@@ -268,8 +342,7 @@ export class VectorEditorService {
   addShapes(shapes: VectorShape[]): void {
     if (shapes.length === 0) return;
     this._shapes.update((list) => [...list, ...shapes]);
-    this._selectedId.set(shapes[0].id);
-    this._selectedNode.set(null);
+    this.selectOnly(shapes[0].id);
     this.commit();
   }
 
@@ -363,8 +436,7 @@ export class VectorEditorService {
 
     // Select the new shape; optionally hand off to the Node tool for tweaking
     // (skipped when finalizing because the user already switched tools).
-    this._selectedId.set(shape.id);
-    this._selectedNode.set(null);
+    this.selectOnly(shape.id);
     if (handoffToNode) this.editor.selectTool(Tools.NODE);
   }
 
@@ -408,8 +480,7 @@ export class VectorEditorService {
 
     // Otherwise pick the closest shape whose outline is within tolerance.
     const hit = this.pickShape(p, tol);
-    this._selectedId.set(hit?.id ?? null);
-    this._selectedNode.set(null);
+    this.selectOnly(hit?.id ?? null);
   }
 
   private nodeMove(p: Pt): void {
@@ -474,6 +545,196 @@ export class VectorEditorService {
     return label?.isVisible ?? true;
   }
 
+  // ── Select tool (object-level pick / marquee / move) ──────────────────────
+
+  private selectDown(p: Pt, mods: SelectMods): void {
+    const hit = this.pickSelectable(p, this.tol());
+
+    if (hit) {
+      if (mods.toggle) {
+        this.toggleInSelection(hit.id);
+        return; // a toggle-click doesn't start a move
+      }
+      const already = this.isSelected(hit.id);
+      if (!already) {
+        if (mods.shift) this.addToSelection(hit.id);
+        else this.selectOnly(hit.id);
+      }
+      // Arm a group move over the current selection.
+      this.groupDrag = { last: p, moved: false, clickedId: hit.id, wasSelected: already };
+      return;
+    }
+
+    // Empty canvas: begin a marquee (clearing first unless additive).
+    const base = mods.shift ? [...this._selectedIds()] : [];
+    if (!mods.shift) this._selectedIds.set([]);
+    this._selectedNode.set(null);
+    this.marqueeDrag = { origin: p, base, additive: mods.shift, moved: false };
+    this._marquee.set({ x: p.x, y: p.y, width: 0, height: 0 });
+  }
+
+  private selectMove(p: Pt): void {
+    if (this.groupDrag) {
+      const dx = p.x - this.groupDrag.last.x;
+      const dy = p.y - this.groupDrag.last.y;
+      if (dx !== 0 || dy !== 0) {
+        this.translateSelection(dx, dy);
+        this.groupDrag.last = p;
+        this.groupDrag.moved = true;
+      }
+    } else if (this.marqueeDrag) {
+      const o = this.marqueeDrag.origin;
+      this.marqueeDrag.moved = true;
+      this._marquee.set({
+        x: Math.min(o.x, p.x),
+        y: Math.min(o.y, p.y),
+        width: Math.abs(p.x - o.x),
+        height: Math.abs(p.y - o.y),
+      });
+    }
+  }
+
+  private selectUp(): void {
+    if (this.groupDrag) {
+      if (this.groupDrag.moved) {
+        this.commit(); // one undoable step for the whole move
+      } else if (this.groupDrag.wasSelected && this._selectedIds().length > 1) {
+        // A plain click on an already-multiselected shape collapses to just it.
+        this.selectOnly(this.groupDrag.clickedId);
+      }
+      this.groupDrag = null;
+    } else if (this.marqueeDrag) {
+      const rect = this._marquee();
+      // Only a real drag box-selects; a click (no move) just deselected above.
+      if (rect && this.marqueeDrag.moved) {
+        this.applyMarquee(rect, this.marqueeDrag.base, this.marqueeDrag.additive);
+      }
+      this._marquee.set(null);
+      this.marqueeDrag = null;
+    }
+  }
+
+  /** Topmost visible shape under p: a closed body hit wins, else nearest outline. */
+  private pickSelectable(p: Pt, tol: number): VectorShape | null {
+    const shapes = this._shapes();
+    let best: VectorShape | null = null;
+    let bestDist = tol;
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const s = shapes[i];
+      if (!this.isLabelVisible(s.labelId)) continue;
+      if (pointInShape(s, p)) return s;
+      const d = distanceToShape(s, p);
+      if (d <= bestDist) {
+        bestDist = d;
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  /** Translate every selected shape by (dx, dy) in image space (live, no commit). */
+  private translateSelection(dx: number, dy: number): void {
+    const ids = new Set(this._selectedIds());
+    if (ids.size === 0) return;
+    this._shapes.update((list) =>
+      list.map((s) => (ids.has(s.id) ? translateShape(s, dx, dy) : s)),
+    );
+  }
+
+  /** Select shapes whose bbox intersects the marquee (union with base if additive). */
+  private applyMarquee(rect: Bounds, base: string[], additive: boolean): void {
+    const ids = new Set<string>(additive ? base : []);
+    for (const s of this._shapes()) {
+      if (!this.isLabelVisible(s.labelId)) continue;
+      const b = shapeBounds(s);
+      if (b && boundsIntersect(b, rect)) ids.add(s.id);
+    }
+    this._selectedIds.set([...ids]);
+    this._selectedNode.set(null);
+  }
+
+  // ── Copy / paste / duplicate (cross-frame) ────────────────────────────────
+
+  /** Copy the current selection into the (frame-independent) clipboard. */
+  copySelection(): void {
+    const sel = this.selectedShapes();
+    if (sel.length === 0) return;
+    this.clipboard = sel.map((s) => this.cloneShape(s));
+  }
+
+  /** Paste the clipboard into the current frame (fresh ids, offset, selected). */
+  pasteClipboard(): void {
+    if (this.clipboard.length === 0) return;
+    this.addCopies(this.clipboard);
+  }
+
+  /** Duplicate the current selection in place (fresh ids, offset, selected). */
+  duplicateSelection(): void {
+    const sel = this.selectedShapes();
+    if (sel.length === 0) return;
+    this.addCopies(sel);
+  }
+
+  /** Select every shape on the current frame (skipping hidden labels). */
+  selectAll(): void {
+    const ids = this._shapes()
+      .filter((s) => this.isLabelVisible(s.labelId))
+      .map((s) => s.id);
+    this._selectedIds.set(ids);
+    this._selectedNode.set(null);
+  }
+
+  /** Materialize copies of `sources` into the frame as one committed action. */
+  private addCopies(sources: VectorShape[]): void {
+    const copies = sources.map((s) => this.materializeCopy(s));
+    if (copies.length === 0) return;
+    this._shapes.update((list) => [...list, ...copies]);
+    this._selectedIds.set(copies.map((s) => s.id));
+    this._selectedNode.set(null);
+    this.commit();
+  }
+
+  /** A fresh-id, offset clone; remaps a missing label to the active one. */
+  private materializeCopy(s: VectorShape): VectorShape {
+    const labelId = this.labels.listSegmentationLabels.some((l) => l.id === s.labelId)
+      ? s.labelId
+      : this.labels.activeLabel?.id ?? s.labelId;
+    const moved = translateShape(this.cloneShape(s), PASTE_OFFSET, PASTE_OFFSET);
+    return { ...moved, id: crypto.randomUUID(), labelId };
+  }
+
+  private cloneShape(s: VectorShape): VectorShape {
+    return { ...s, nodes: s.nodes.map((n) => ({ ...n })) };
+  }
+
+  // ── Selection helpers ─────────────────────────────────────────────────────
+
+  private isSelected(id: string): boolean {
+    return this._selectedIds().includes(id);
+  }
+
+  private selectOnly(id: string | null): void {
+    this._selectedIds.set(id ? [id] : []);
+    this._selectedNode.set(null);
+  }
+
+  private addToSelection(id: string): void {
+    if (!this.isSelected(id)) this._selectedIds.update((l) => [...l, id]);
+  }
+
+  private toggleInSelection(id: string): void {
+    this._selectedIds.update((l) =>
+      l.includes(id) ? l.filter((x) => x !== id) : [...l, id],
+    );
+    this._selectedNode.set(null);
+  }
+
+  /** The single selected id, or null when zero/many are selected. */
+  private primaryId(): string | null {
+    const ids = this._selectedIds();
+    return ids.length === 1 ? ids[0] : null;
+  }
+
   // ── Shape mutations ───────────────────────────────────────────────────────
 
   private deleteNode(shapeId: string, index: number): void {
@@ -498,14 +759,13 @@ export class VectorEditorService {
 
   private deleteShape(shapeId: string): void {
     this._shapes.update((list) => list.filter((s) => s.id !== shapeId));
-    this._selectedId.set(null);
-    this._selectedNode.set(null);
+    this.selectOnly(null);
     this.commit();
   }
 
-  /** Apply a transform to the selected shape and commit (marks dirty). */
+  /** Apply a transform to the single selected shape and commit (marks dirty). */
   private mutateSelected(fn: (s: VectorShape) => VectorShape): void {
-    const id = this._selectedId();
+    const id = this.primaryId();
     if (!id) return;
     this._shapes.update((list) =>
       list.map((s) => (s.id === id ? fn(s) : s)),
@@ -515,7 +775,7 @@ export class VectorEditorService {
 
   /** Like mutateSelected but for live drag updates — does NOT mark dirty. */
   private mutateSelectedLive(fn: (s: VectorShape) => VectorShape): void {
-    const id = this._selectedId();
+    const id = this.primaryId();
     if (!id) return;
     this._shapes.update((list) =>
       list.map((s) => (s.id === id ? fn(s) : s)),
@@ -642,15 +902,13 @@ export class VectorEditorService {
 
   private restore(state: VectorShape[]): void {
     this._shapes.set(this.cloneShapes(state));
-    // Heal selection references that the restored state no longer contains.
+    // Heal selection references that the restored state no longer contains
+    // (drop ids of deleted shapes; keep a multi-selection otherwise).
+    const existing = new Set(this._shapes().map((s) => s.id));
+    this._selectedIds.update((ids) => ids.filter((id) => existing.has(id)));
     const sel = this.selectedShape();
-    if (!sel) {
-      this._selectedId.set(null);
-      this._selectedNode.set(null);
-    } else {
-      const ni = this._selectedNode();
-      if (ni !== null && ni >= sel.nodes.length) this._selectedNode.set(null);
-    }
+    const ni = this._selectedNode();
+    if (!sel || (ni !== null && ni >= sel.nodes.length)) this._selectedNode.set(null);
     this.changed$.next(); // mark dirty, but NOT committed$ (not a new action)
   }
 

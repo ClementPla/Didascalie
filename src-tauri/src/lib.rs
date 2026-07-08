@@ -149,6 +149,7 @@ pub fn run() {
             commands::vector::save_vector_annotations,
             commands::vector::load_vector_annotations,
             commands::vectorize::vectorize_component,
+            commands::skeletonize::skeletonize_component,
             commands::annotation::list_labels,
             commands::annotation::get_labels,
             // Classification commands

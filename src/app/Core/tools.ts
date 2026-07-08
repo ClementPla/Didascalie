@@ -29,10 +29,14 @@ export class Tools {
     'Shift + Ctrl + E'
   );
   // Vector tools: a different class of tool (SVG shapes, not raster masks).
+  // Select: pick / move / duplicate whole paths (object-level, not nodes).
+  public static SELECT = new Tool(9, 'Select', 'pi pi-arrow-up-left', 'S');
   public static PATH = new Tool(5, 'Path', 'pi pi-pen-to-square', 'B');
   public static NODE = new Tool(6, 'Node', 'pi pi-share-alt', 'N');
-  // Convert tool: click a connected region of pixels to trace it into a shape.
+  // Convert tools: click a connected region of pixels to trace it into shapes.
+  // Vectorize traces the closed outer contour; Skeletonize traces the centerline.
   public static VECTORIZE = new Tool(7, 'Vectorize', 'pi pi-bullseye', 'V');
+  public static SKELETONIZE = new Tool(10, 'Skeletonize', 'pi pi-sitemap', 'K');
 }
 export const ALL_TOOLS = [
   Tools.PAN,
@@ -43,8 +47,12 @@ export const ALL_TOOLS = [
   Tools.LASSO_ERASER,
 ];
 
-/** Vector tools, rendered as a separate, visually distinct toolbar group. */
-export const VECTOR_TOOLS = [Tools.PATH, Tools.NODE, Tools.VECTORIZE];
+/** Vector drawing/selection tools, rendered as a distinct toolbar group. */
+export const VECTOR_TOOLS = [Tools.SELECT, Tools.PATH, Tools.NODE];
+
+/** Convert tools (raster ↔ vector): click a pixel region to trace it. Paired in
+ *  the toolbar with the Rasterize action button. */
+export const CONVERT_TOOLS = [Tools.VECTORIZE, Tools.SKELETONIZE];
 
 export enum PostProcessOption {
   MEDSAM = 'MedSAM',

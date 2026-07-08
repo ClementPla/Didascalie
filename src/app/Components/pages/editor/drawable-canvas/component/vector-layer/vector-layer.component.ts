@@ -6,7 +6,7 @@ import { LabelsService } from '../../../../../../Services/Labels/labels.service'
 import { EditorService } from '../../../services/editor.service';
 import { VectorEditorService } from '../../service/vector-editor.service';
 import { ZoomPanService } from '../../service/zoom-pan.service';
-import { VectorNode, buildPathData } from '../../vector/vector.model';
+import { Bounds, VectorNode, buildPathData } from '../../vector/vector.model';
 
 interface RenderShape {
   id: string;
@@ -77,9 +77,48 @@ export class VectorLayerComponent {
   @HostListener('window:keydown.delete', ['$event'])
   @HostListener('window:keydown.backspace', ['$event'])
   onDelete(e: Event): void {
-    if (!this.editorService.isNodeTool() || this.isEditableTarget(e)) return;
+    if (!this.isSelectionContext() || this.isEditableTarget(e)) return;
     this.vectorEditor.deleteSelection();
     e.preventDefault();
+  }
+
+  // ── Object-level clipboard (Select/Node tools) ────────────────────────────
+
+  @HostListener('window:keydown.control.c', ['$event'])
+  @HostListener('window:keydown.meta.c', ['$event'])
+  onCopy(e: Event): void {
+    if (!this.isSelectionContext() || this.isEditableTarget(e)) return;
+    this.vectorEditor.copySelection();
+    e.preventDefault();
+  }
+
+  @HostListener('window:keydown.control.v', ['$event'])
+  @HostListener('window:keydown.meta.v', ['$event'])
+  onPaste(e: Event): void {
+    if (!this.isSelectionContext() || this.isEditableTarget(e)) return;
+    this.vectorEditor.pasteClipboard();
+    e.preventDefault();
+  }
+
+  @HostListener('window:keydown.control.d', ['$event'])
+  @HostListener('window:keydown.meta.d', ['$event'])
+  onDuplicate(e: Event): void {
+    if (!this.isSelectionContext() || this.isEditableTarget(e)) return;
+    this.vectorEditor.duplicateSelection();
+    e.preventDefault();
+  }
+
+  @HostListener('window:keydown.control.a', ['$event'])
+  @HostListener('window:keydown.meta.a', ['$event'])
+  onSelectAll(e: Event): void {
+    if (!this.isSelectionContext() || this.isEditableTarget(e)) return;
+    this.vectorEditor.selectAll();
+    e.preventDefault();
+  }
+
+  /** True while a tool that owns an object selection is active (Select/Node). */
+  private isSelectionContext(): boolean {
+    return this.editorService.isSelectTool() || this.editorService.isNodeTool();
   }
 
   /** Don't hijack keys while the user is typing in a form control. */
@@ -106,7 +145,7 @@ export class VectorLayerComponent {
       colorById.set(l.id, l.color);
       visibleById.set(l.id, l.isVisible);
     });
-    const selectedId = this.vectorEditor.selectedShape()?.id ?? null;
+    const selectedIds = new Set(this.vectorEditor.selectedIds());
 
     return [...this.vectorEditor.shapes()]
       .filter((s) => visibleById.get(s.labelId) !== false)
@@ -121,9 +160,14 @@ export class VectorLayerComponent {
           d: buildPathData(s),
           color,
           fill: s.closed && s.filled ? color + '40' : 'none',
-          selected: s.id === selectedId,
+          selected: selectedIds.has(s.id),
         };
       });
+  }
+
+  /** The Select-tool marquee rectangle (image space), or null when inactive. */
+  get marqueeRect(): Bounds | null {
+    return this.vectorEditor.marquee();
   }
 
   // ── Pen draft + rubber-band preview ───────────────────────────────────────

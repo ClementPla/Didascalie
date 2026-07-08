@@ -14,6 +14,7 @@ pub mod export;
 pub mod formats;
 pub mod dataset_io;
 pub mod registration;
+pub mod skeletonize;
 pub mod vector;
 pub mod vectorize;
 #[cfg(not(target_os = "android"))]

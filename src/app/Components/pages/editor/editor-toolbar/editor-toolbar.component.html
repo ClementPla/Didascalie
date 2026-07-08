@@ -42,6 +42,27 @@
             </span>
           </ng-template>
         </p-selectButton>
+      </div>
+
+      <div class="flex gap-2 items-center vector-tool-group">
+        <span class="opacity-60 vector-tool-group__label">Convert</span>
+        <p-selectButton
+          [options]="convertTools"
+          [(ngModel)]="editorService.selectedTool"
+          optionLabel="name"
+        >
+          <ng-template #item let-item>
+            <span
+              pTooltip="{{ item.shortcut }}"
+              tooltipPosition="bottom"
+              [autoHide]="false"
+              class="flex gap-2 items-center"
+            >
+              <i [class]="item.icon"> </i>
+              <div class="hidden lg:block">{{ item.name }}</div>
+            </span>
+          </ng-template>
+        </p-selectButton>
 
         <p-button
           severity="secondary"

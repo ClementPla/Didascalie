@@ -87,6 +87,21 @@
     </g>
   }
 
+  <!-- Select-tool marquee (rubber-band) -->
+  @if (marqueeRect; as m) {
+    <rect
+      [attr.x]="m.x"
+      [attr.y]="m.y"
+      [attr.width]="m.width"
+      [attr.height]="m.height"
+      fill="#4aa3ff22"
+      stroke="#4aa3ff"
+      stroke-width="1"
+      stroke-dasharray="4 3"
+      vector-effect="non-scaling-stroke"
+    />
+  }
+
   <!-- Node anchors -->
   @for (a of anchors; track $index) {
     <g [attr.transform]="decoTransform(a.x, a.y)">

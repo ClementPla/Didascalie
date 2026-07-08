@@ -117,15 +117,25 @@ export class EditorService {
     return this.selectedTool === Tools.NODE;
   }
 
-  /** Convert tool: click a connected pixel region to trace it into a shape. */
+  /** Select tool: pick / move / duplicate whole paths (object-level). */
+  public isSelectTool(): boolean {
+    return this.selectedTool === Tools.SELECT;
+  }
+
+  /** Convert tool: click a connected pixel region to trace its outer contour. */
   public isVectorizeTool(): boolean {
     return this.selectedTool === Tools.VECTORIZE;
   }
 
-  /** True for the shape-editing vector tools (Path/Node) — routes pointer input
-   *  to the SVG layer. Excludes Vectorize, which acts on the raster masks. */
+  /** Convert tool: click a connected pixel region to trace its centerline. */
+  public isSkeletonizeTool(): boolean {
+    return this.selectedTool === Tools.SKELETONIZE;
+  }
+
+  /** True for the shape-editing vector tools (Select/Path/Node) — routes pointer
+   *  input to the SVG layer. Excludes Vectorize, which acts on the raster masks. */
   public isVectorTool(): boolean {
-    return this.isPathTool() || this.isNodeTool();
+    return this.isPathTool() || this.isNodeTool() || this.isSelectTool();
   }
 
   public isToolWithBrushSize(): boolean {

@@ -99,6 +99,60 @@ export function shapeBounds(shape: VectorShape): Bounds | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
+/** True when two axis-aligned boxes overlap (touching edges count). */
+export function boundsIntersect(a: Bounds, b: Bounds): boolean {
+  return (
+    a.x <= b.x + b.width &&
+    a.x + a.width >= b.x &&
+    a.y <= b.y + b.height &&
+    a.y + a.height >= b.y
+  );
+}
+
+/**
+ * Even-odd point-in-polygon test against the shape's flattened outline. Used to
+ * hit-test the *body* of a closed path (so clicking its interior selects it),
+ * whereas open paths are picked by outline proximity (`distanceToShape`).
+ */
+export function pointInShape(shape: VectorShape, p: Pt): boolean {
+  if (!shape.closed) return false;
+  const poly = flattenShape(shape);
+  if (poly.length < 3) return false;
+
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const yi = poly[i].y;
+    const yj = poly[j].y;
+    const xi = poly[i].x;
+    const xj = poly[j].x;
+    const intersects =
+      yi > p.y !== yj > p.y &&
+      p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+/** Translate a whole shape (anchors + both handles) by (dx, dy) in image space. */
+export function translateShape(
+  shape: VectorShape,
+  dx: number,
+  dy: number,
+): VectorShape {
+  return {
+    ...shape,
+    nodes: shape.nodes.map((n) => ({
+      ...n,
+      x: n.x + dx,
+      y: n.y + dy,
+      inX: n.inX + dx,
+      inY: n.inY + dy,
+      outX: n.outX + dx,
+      outY: n.outY + dy,
+    })),
+  };
+}
+
 /** Squared distance from p to segment ab. */
 function distSqToSegment(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;

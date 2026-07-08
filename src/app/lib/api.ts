@@ -347,6 +347,26 @@ export const api = {
       y,
     }),
 
+  /**
+   * Skeletonize the connected component under (x, y) into open centerline
+   * polylines (image-pixel coords): the component is thinned to a 1px skeleton
+   * and split at endpoints/junctions. Empty when the pixel is background.
+   */
+  skeletonizeComponent: (
+    mask: Uint8Array,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+  ) =>
+    invoke<number[][][]>('skeletonize_component', {
+      mask: mask.slice().buffer,
+      width,
+      height,
+      x,
+      y,
+    }),
+
   saveTaskDefinitions: (definitions: TaskDefinitions) =>
     invoke('save_task_definitions', {
       definitions: definitions,

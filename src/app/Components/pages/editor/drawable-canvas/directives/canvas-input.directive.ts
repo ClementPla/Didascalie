@@ -161,15 +161,26 @@ export class CanvasInputDirective {
       if (event.button === 0) {
         this.vectorEditor.onPointerDown(
           this.zoomPanService.getImageCoordinatesRaw(event),
+          { shift: event.shiftKey, toggle: event.ctrlKey || event.metaKey },
         );
       }
       return;
     }
 
-    // Vectorize: a left-click traces the clicked component into a shape.
+    // Vectorize: a left-click traces the clicked component's outer contour.
     if (this.editorService.isVectorizeTool()) {
       if (event.button === 0) {
         void this.convertService.vectorizeAt(
+          this.zoomPanService.getImageCoordinatesRaw(event),
+        );
+      }
+      return;
+    }
+
+    // Skeletonize: a left-click traces the clicked component's centerline.
+    if (this.editorService.isSkeletonizeTool()) {
+      if (event.button === 0) {
+        void this.convertService.skeletonizeAt(
           this.zoomPanService.getImageCoordinatesRaw(event),
         );
       }

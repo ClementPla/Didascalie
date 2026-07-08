@@ -224,6 +224,60 @@ export class ConvertService {
     };
   }
 
+  // ── Skeletonize (raster → open centerline paths) ────────────────────────────
+
+  /**
+   * Thin the connected component of the active label's mask under `pixel` into
+   * its 1px skeleton, split at endpoints/junctions, and add each branch as an
+   * open path; then clear those pixels. No-op on background.
+   */
+  async skeletonizeAt(pixel: Pt): Promise<void> {
+    const w = this.state.width;
+    const h = this.state.height;
+    const x = Math.floor(pixel.x);
+    const y = Math.floor(pixel.y);
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+
+    const li = this.canvasManager.getActiveIndex();
+    const mask = this.canvasManager.getAllMasks()[li];
+    const label = this.labels.listSegmentationLabels[li];
+    if (!mask || !label || mask[y * w + x] === 0) return;
+
+    let polylines: number[][][];
+    try {
+      polylines = await api.skeletonizeComponent(mask, w, h, x, y);
+    } catch (error) {
+      console.error('skeletonize failed:', error);
+      return;
+    }
+    // The mask may have changed while awaiting; re-check the seed pixel.
+    if (polylines.length === 0 || mask[y * w + x] === 0) return;
+
+    const shapes = polylines
+      .filter((poly) => poly.length >= 2)
+      .map((poly) => this.polylineToShape(poly, label.id));
+    if (shapes.length === 0) return;
+
+    clearValueComponentAt(mask, w, h, x, y);
+
+    this.undoRedo.beginGroup();
+    this.undoRedo.snapshotLayers([li]); // raster snapshot (pixels cleared)
+    this.vectorEditor.addShapes(shapes); // vector commit
+    this.undoRedo.endGroup();
+
+    this.refresh();
+  }
+
+  private polylineToShape(poly: number[][], labelId: number): VectorShape {
+    return {
+      id: crypto.randomUUID(),
+      labelId,
+      closed: false,
+      filled: false,
+      nodes: poly.map(([px, py]) => makeNode(px, py, false)),
+    };
+  }
+
   // ── Shared ──────────────────────────────────────────────────────────────────
 
   /** Recompute the composite, redraw the display, and mark the frame dirty. */
