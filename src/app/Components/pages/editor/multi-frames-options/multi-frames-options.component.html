@@ -12,9 +12,20 @@
           (onChange)="multiFrameChanged()"
         />
       </div>
-      
+
       <div class="frame-info">
         <small>Use ↑/↓ arrow keys to navigate frames</small>
+      </div>
+
+      <div class="frame-actions">
+        <p-button
+          label="Propagate labels…"
+          icon="pi pi-copy"
+          severity="secondary"
+          [text]="true"
+          [fluid]="true"
+          (click)="propagateRequested.emit()"
+        />
       </div>
     }
   </p-panel>

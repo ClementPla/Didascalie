@@ -7,10 +7,12 @@ import {
   effect,
   inject,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { PanelModule } from 'primeng/panel';
 import { PaginatorModule, PaginatorState } from 'primeng/paginator';
 
+import { PropagationService } from '../../../../Services/Labels/propagation.service';
 import { SequenceService } from '../../../../Services/sequence.service';
 import { api } from '../../../../lib/api';
 import { GalleryElementComponent } from '../../gallery/gallery-element/gallery-element.component';
@@ -29,12 +31,18 @@ interface NavSequence {
 @Component({
   selector: 'app-sequence-navigator',
   standalone: true,
-  imports: [CommonModule, PanelModule, PaginatorModule, GalleryElementComponent],
+  imports: [
+    CommonModule,
+    PanelModule,
+    PaginatorModule,
+    GalleryElementComponent,
+  ],
   templateUrl: './sequence-navigator.component.html',
   styleUrl: './sequence-navigator.component.scss',
 })
 export class SequenceNavigatorComponent implements OnInit {
   private readonly sequenceService = inject(SequenceService);
+  private readonly propagation = inject(PropagationService);
   private readonly host = inject(ElementRef<HTMLElement>);
 
   /** Emits the id of the sequence the user wants to jump to. */
@@ -55,6 +63,12 @@ export class SequenceNavigatorComponent implements OnInit {
       this.sequenceService.currentSequence();
       void this.load();
     });
+
+    // Propagation annotates frames that are never displayed, so nothing else
+    // would tell the status dots they are stale.
+    this.propagation.propagated$
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => void this.load());
   }
 
   ngOnInit(): void {

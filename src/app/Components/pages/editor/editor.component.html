@@ -171,6 +171,18 @@
           aria-label="Frame navigation"
           (click)="frameNavPopover.toggle($event)"
         ></button>
+        <button
+          pButton
+          type="button"
+          icon="pi pi-copy"
+          severity="secondary"
+          [raised]="true"
+          [disabled]="propagation.pendingTargetCount() === 0"
+          [pTooltip]="propagateTooltip"
+          tooltipPosition="left"
+          aria-label="Propagate labels"
+          (click)="propagateLabels()"
+        ></button>
       }
       <p-togglebutton
         [ngModel]="isSequenceReviewed"
@@ -183,7 +195,7 @@
         tooltipPosition="left"
         ariaLabel="Mark sequence reviewed"
         severity="primary"
-        fluid 
+        fluid
       ></p-togglebutton>
     </ng-template>
 
@@ -305,8 +317,14 @@
   <p-popover #frameNavPopover>
     <app-multi-frames-options
       (changeOfFrame)="changedOfFrame($event)"
+      (propagateRequested)="
+        propagationVisible.set(true); frameNavPopover.hide()
+      "
     ></app-multi-frames-options>
   </p-popover>
+
+  <!-- Kept outside the popover: the popover is destroyed when it loses focus. -->
+  <app-propagation-dialog [(visible)]="propagationVisible" />
 
   <!-- Right column: on-demand settings panel (opacity, pressure, adjustments, post-process) -->
   @if (showSettingsPanel && !settingsCollapsed) {

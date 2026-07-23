@@ -1,0 +1,61 @@
+<p-dialog
+  [(visible)]="visible"
+  [modal]="true"
+  [closable]="true"
+  header="Propagate labels"
+  [style]="{ width: '440px' }"
+>
+  <div class="propagation-form">
+    <label class="field">
+      <span class="field-label">Copy to</span>
+      <p-selectButton
+        [options]="scopeOptions"
+        [ngModel]="scope()"
+        (ngModelChange)="setScope($event)"
+        optionLabel="label"
+        optionValue="value"
+        [allowEmpty]="false"
+      />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Labels</span>
+      <p-selectButton
+        [options]="labelScopeOptions"
+        [ngModel]="labelScope()"
+        (ngModelChange)="setLabelScope($event)"
+        optionLabel="label"
+        optionValue="value"
+        [allowEmpty]="false"
+      />
+    </label>
+
+    @if (targetCount() === 0) {
+      <p class="summary muted">No other frames to copy to.</p>
+    } @else {
+      <p class="summary">
+        Replaces the labels of
+        <strong>{{ targetCount() }}</strong>
+        frame{{ targetCount() === 1 ? '' : 's' }}, both painted and vector. This
+        cannot be undone.
+      </p>
+    }
+  </div>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      [text]="true"
+      (click)="cancel()"
+    />
+    <p-button
+      label="Propagate"
+      icon="pi pi-copy"
+      severity="danger"
+      [loading]="running()"
+      [disabled]="targetCount() === 0"
+      (click)="confirm()"
+    />
+  </ng-template>
+</p-dialog>

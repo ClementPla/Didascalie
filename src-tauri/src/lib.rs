@@ -148,6 +148,7 @@ pub fn run() {
             commands::annotation::load_annotations,
             commands::vector::save_vector_annotations,
             commands::vector::load_vector_annotations,
+            commands::propagation::propagate_annotations,
             commands::vectorize::vectorize_component,
             commands::skeletonize::skeletonize_component,
             commands::annotation::list_labels,

@@ -1,3 +1,12 @@
+:host {
+  display: block;
+  /* This panel is rendered inside a popover, which sizes itself to its content.
+     Every child below is width:100%, so without a floor the popover collapses
+     to the width of the "use the arrow keys" hint and crops the wider controls
+     (notably the propagate button's label). */
+  min-width: 18rem;
+}
+
 .frame-slider {
   display: flex;
   flex-direction: column;
@@ -19,7 +28,20 @@
   }
 }
 
+/* Aligned with the slider block's horizontal padding. */
 .frame-info {
   margin-top: 0.5rem;
+  padding: 0 0.75rem;
   opacity: 0.7;
+}
+
+.frame-actions {
+  margin-top: 0.75rem;
+  padding: 0 0.75rem;
+
+  /* The label must never be clipped by the button box, whatever the popover
+     ends up sizing to. */
+  ::ng-deep .p-button-label {
+    white-space: nowrap;
+  }
 }

@@ -3,10 +3,27 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   overflow: hidden;
-  // background: white;
+
+  /* Let the webview skip layout/paint for cards scrolled out of view. The
+     intrinsic-size hint keeps the scrollbar stable; `auto` reuses each card's
+     last painted size once it's been seen. Big win on the CPU-composited Linux
+     webview; a harmless no-op where content-visibility isn't supported. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+
+  /* Scope the transition to the two properties that actually change on hover.
+     The previous `transition-all` animated every property and, combined with a
+     hover scale over a large image, caused a repaint storm as the cursor swept
+     across cards while scrolling. */
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:hover {
+    transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    /* Promote to its own layer only while hovered, not permanently for all 64. */
+    will-change: transform;
   }
 }
 
@@ -15,6 +32,9 @@
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
   border: 1px solid var(--p-content-border-color, rgba(0, 0, 0, 0.08));
+
+  content-visibility: auto;
+  contain-intrinsic-size: auto 84px;
 
   &:hover {
     background: var(--p-content-hover-background, rgba(0, 0, 0, 0.04));

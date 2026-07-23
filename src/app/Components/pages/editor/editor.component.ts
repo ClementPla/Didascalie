@@ -5,6 +5,7 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -30,12 +31,14 @@ import { EditorToolbarComponent } from './editor-toolbar/editor-toolbar.componen
 import { LabelsComponent } from './labels/labels.component';
 import { ToolSettingComponent } from './tool-setting/tool-setting.component';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
+import { PropagationDialogComponent } from './multi-frames-options/propagation-dialog/propagation-dialog.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
 import { SequenceNavigatorComponent } from './sequence-navigator/sequence-navigator.component';
 
 // Services
 import { EditorService } from './services/editor.service';
 import { LabelsService } from '../../../Services/Labels/labels.service';
+import { PropagationService } from '../../../Services/Labels/propagation.service';
 import { SequenceService } from '../../../Services/sequence.service';
 import { UIStateService } from '../../../Services/uistate.service';
 import { ProjectService } from '../../../Services/ProjectService/project.service';
@@ -52,8 +55,8 @@ import { OrchestratorService } from './drawable-canvas/service/orchestrator.serv
 
 // Core
 import { Tools } from '../../../Core/tools';
-import { VerticalMenuComponent } from "../../../generics/vertical-menu/vertical-menu.component";
-import {MenuGroupDirective} from "../../../generics/vertical-menu/menu-group.directive";
+import { VerticalMenuComponent } from '../../../generics/vertical-menu/vertical-menu.component';
+import { MenuGroupDirective } from '../../../generics/vertical-menu/menu-group.directive';
 
 @Component({
   selector: 'app-editor',
@@ -76,11 +79,12 @@ import {MenuGroupDirective} from "../../../generics/vertical-menu/menu-group.dir
     LabelsComponent,
     ToolSettingComponent,
     MultiFramesOptionsComponent,
+    PropagationDialogComponent,
     QuickAccessMenuComponent,
     SequenceNavigatorComponent,
     VerticalMenuComponent,
-    MenuGroupDirective
-],
+    MenuGroupDirective,
+  ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
 })
@@ -104,6 +108,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public globalReviewed = 0;
   public globalTotal = 0;
 
+  /** Open state of the propagation dialog (opened from the frame-nav popover). */
+  readonly propagationVisible = signal(false);
+
   constructor(
     public editorService: EditorService,
     private labelService: LabelsService,
@@ -118,7 +125,31 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     private ioService: IOService,
     private orchestratorService: OrchestratorService,
     private ngZone: NgZone,
+    public propagation: PropagationService,
   ) {}
+
+  /** Spells out what the one-click propagate button is about to overwrite. */
+  get propagateTooltip(): string {
+    const count = this.propagation.pendingTargetCount();
+    if (count === 0) return 'No other frames to copy labels to';
+
+    const { scope, labelScope } = this.propagation.settings();
+    const frames = `${count} ${scope === 'following' ? 'following' : 'other'} frame${count === 1 ? '' : 's'}`;
+    const labels =
+      labelScope === 'active'
+        ? `"${this.labelService.activeLabel?.label ?? 'active label'}"`
+        : 'all labels';
+    return `Copy ${labels} to the ${frames}`;
+  }
+
+  /**
+   * One-click propagation using the settings last confirmed in the dialog.
+   * Deliberately has no confirmation step — the tooltip states the exact
+   * effect, and the panel dialog remains the way to change the scope.
+   */
+  public async propagateLabels(): Promise<void> {
+    await this.propagation.propagate();
+  }
 
   async ngOnInit() {
     await this.tauriEvents.initialize();
@@ -131,7 +162,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   async ngAfterViewInit() {
     // All initialization happens here, in order
     if (this.projectService.isOpen()) {
-
       // Now frame should be loaded (loadSequences auto-selects first)
       const frameImage = this.sequenceService.currentFrameImage();
 
@@ -372,9 +402,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.sequenceService.sequences().length === 0) {
       await this.sequenceService.loadSequences();
     }
-    const sequence = this.sequenceService
-      .sequences()
-      .find((s) => s.id === id);
+    const sequence = this.sequenceService.sequences().find((s) => s.id === id);
     if (sequence) {
       await this.selectSequence(sequence);
     }

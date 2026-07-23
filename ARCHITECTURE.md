@@ -90,6 +90,30 @@ verbatim as JSON in `vector_annotations`.
 The last two call Rust (`vectorize_component`, `skeletonize_component` →
 `commands/formats/geometry.rs`); all are single compound undo steps.
 
+### Propagating labels across a sequence
+Copying one frame's labels onto the rest of its sequence runs **entirely in
+SQLite** (`src-tauri/src/commands/propagation.rs`), not through the editor. Both
+stored forms are already cheap to copy — a raster mask is a compressed `rle8`
+BLOB, a vector row is opaque JSON — so propagation is a row copy with no decode
+and no mask crossing IPC. Doing it frame-by-frame in the frontend would mean
+shipping a ~136 MB mask per label per frame.
+
+Three rules keep raster and vector behaving as one thing:
+
+- **Both tables move together, in one transaction.** A frame's segmentation
+  state is (raster rows ∪ vector rows), and the editor converts between them.
+- **Replace deletes what the source lacks.** No source row for a label in scope
+  ⇒ the target's row is removed, or the copy would leak stale labels.
+- **Mismatched frame sizes are skipped**, not written: masks are flat
+  `width*height` arrays and vector nodes are image-pixel coords.
+
+The frontend side (`Services/Labels/propagation.service.ts`) flushes pending
+edits first — the backend copies what's *in the database* — resolves targets from
+`SequenceService`, and emits `propagated$` so views over frames that aren't
+displayed (navigator status dots, gallery) refresh. There is deliberately **no
+undo**: the editor timeline is per-frame and in-memory, so the dialog states the
+affected frame count instead.
+
 ## The editor (the complexity hotspot)
 
 `src/app/Components/pages/editor/drawable-canvas` is where most of the code and

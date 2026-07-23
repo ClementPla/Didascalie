@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { SliderModule } from 'primeng/slider';
 import { PanelModule } from 'primeng/panel';
+import { ButtonModule } from 'primeng/button';
 
 import { SequenceService } from '../../../../Services/sequence.service';
 import { UIStateService } from '../../../../Services/uistate.service';
@@ -17,6 +18,7 @@ import { Sequence } from '../../../../lib/api';
     FormsModule,
     PanelModule,
     SliderModule,
+    ButtonModule,
   ],
   standalone: true,
   templateUrl: './multi-frames-options.component.html',
@@ -27,9 +29,14 @@ export class MultiFramesOptionsComponent {
 
   @Output() changeOfFrame: EventEmitter<number> = new EventEmitter<number>();
 
+  /** Asks the host to open the propagation dialog. The dialog cannot live in
+   *  this component: it is rendered inside a popover, which is destroyed the
+   *  moment it closes — and it closes as soon as the dialog takes focus. */
+  @Output() propagateRequested = new EventEmitter<void>();
+
   constructor(
     public sequenceService: SequenceService,
-    private uiStateService: UIStateService
+    private uiStateService: UIStateService,
   ) {}
 
   // ==========================================

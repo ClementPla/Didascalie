@@ -257,6 +257,17 @@ export interface VectorAnnotationsWire {
   shapes: VectorShape[];
 }
 
+/** How propagated annotations combine with the target's existing ones. */
+export type PropagationMode = 'replace';
+
+export type PropagationSkipReason = 'sizeMismatch' | 'notFound';
+
+export interface PropagationReport {
+  /** Frames actually written. */
+  applied: number[];
+  skipped: { frameId: number; reason: PropagationSkipReason }[];
+}
+
 export const api = {
   getLabels: () => invoke<LabelInfo[]>('get_labels'),
 
@@ -326,6 +337,25 @@ export const api = {
     labelId: number,
     shapes: VectorShape[],
   ) => invoke<void>('save_vector_annotations', { frameId, labelId, shapes }),
+
+  /**
+   * Copy one frame's segmentation annotations (raster *and* vector, in one
+   * transaction) onto other frames. `labelIds` restricts the copy; `null`
+   * means every label. Runs entirely in SQLite — no mask crosses the IPC
+   * boundary — and skips targets whose dimensions differ from the source's.
+   */
+  propagateAnnotations: (
+    sourceFrameId: number,
+    targetFrameIds: number[],
+    labelIds: number[] | null,
+    mode: PropagationMode = 'replace',
+  ) =>
+    invoke<PropagationReport>('propagate_annotations', {
+      sourceFrameId,
+      targetFrameIds,
+      labelIds,
+      mode,
+    }),
 
   /**
    * Trace the connected component of a label mask under pixel (x, y) into
