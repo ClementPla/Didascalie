@@ -1,6 +1,6 @@
 [package]
 name = "didascalie"
-version = "0.8.2"
+version = "0.9.0"
 description = "Didascalie — a fast, private, AI-assisted annotation studio for medical imaging"
 authors = ["Clément Playout"]
 repository = "https://github.com/ClementPla/Didascalie/tree/main"
