@@ -87,6 +87,10 @@
       [style.opacity]="editorService.labelOpacity"
     ></canvas>
 
+    @for (overlay of experimentalOverlays; track overlay) {
+      <ng-container *ngComponentOutlet="overlay" />
+    }
+
     @if (editorService.isToolWithBrushSize() && isCursorInsideImage) {
       <div class="cursor" [ngStyle]="getCursorStyle()"></div>
     }

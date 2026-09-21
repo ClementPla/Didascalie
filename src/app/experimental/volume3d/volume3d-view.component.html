@@ -1,0 +1,209 @@
+<div class="flex gap-1 items-center px-2 py-1">
+  <p-button
+    [icon]="settings().show3d ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+    size="small"
+    [text]="true"
+    severity="secondary"
+    [ariaLabel]="
+      settings().show3d ? 'Collapse the 3D view' : 'Expand the 3D view'
+    "
+    (onClick)="update({ show3d: !settings().show3d })"
+  />
+  <span class="font-semibold mr-auto text-sm">3D view</span>
+  <p-button
+    icon="pi pi-circle-fill"
+    size="small"
+    [text]="!settings().showSurface"
+    [severity]="settings().showSurface ? 'primary' : 'secondary'"
+    pTooltip="Label surfaces"
+    tooltipPosition="bottom"
+    ariaLabel="Label surfaces"
+    (onClick)="toggle('showSurface')"
+  />
+  <p-button
+    icon="pi pi-th-large"
+    size="small"
+    [text]="!settings().showBlocks"
+    [severity]="settings().showBlocks ? 'primary' : 'secondary'"
+    pTooltip="Label voxels"
+    tooltipPosition="bottom"
+    ariaLabel="Label voxels"
+    (onClick)="toggle('showBlocks')"
+  />
+  <p-button
+    icon="pi pi-clone"
+    size="small"
+    [text]="!settings().showPlanes"
+    [severity]="settings().showPlanes ? 'primary' : 'secondary'"
+    pTooltip="Image planes"
+    tooltipPosition="bottom"
+    ariaLabel="Image planes"
+    (onClick)="toggle('showPlanes')"
+  />
+  <p-button
+    icon="pi pi-cloud"
+    size="small"
+    [text]="!settings().showVolume"
+    [severity]="settings().showVolume ? 'primary' : 'secondary'"
+    pTooltip="Volume rendering of the image"
+    tooltipPosition="bottom"
+    ariaLabel="Volume rendering"
+    (onClick)="toggle('showVolume')"
+  />
+  <p-button
+    icon="pi pi-refresh"
+    size="small"
+    [text]="true"
+    severity="secondary"
+    pTooltip="Reset the camera"
+    tooltipPosition="bottom"
+    ariaLabel="Reset the camera"
+    (onClick)="resetCamera()"
+  />
+  <p-button
+    icon="pi pi-cog"
+    size="small"
+    [text]="true"
+    severity="secondary"
+    pTooltip="3D view settings"
+    tooltipPosition="bottom"
+    ariaLabel="3D view settings"
+    (onClick)="settingsPopover.toggle($event)"
+  />
+</div>
+
+<div
+  #viewport
+  class="flex-1 min-h-0 overflow-hidden relative"
+  [class.hidden]="!settings().show3d"
+  (pointerdown)="onPointerDown($event)"
+  (pointerup)="onPointerUp($event)"
+>
+  <canvas #canvas class="absolute block h-full inset-0 w-full"></canvas>
+  @if (statusText(); as text) {
+    <div
+      class="absolute bg-black/60 bottom-2 left-2 pointer-events-none px-2 py-1 rounded text-white text-xs"
+    >
+      {{ text }}
+    </div>
+  }
+</div>
+
+<p-popover #settingsPopover>
+  <div class="flex flex-col gap-3 text-sm w-72">
+    <label class="flex flex-col gap-2">
+      <span>Surface opacity</span>
+      <p-slider
+        [ngModel]="settings().surfaceOpacity"
+        (ngModelChange)="update({ surfaceOpacity: $event })"
+        [min]="0.05"
+        [max]="1"
+        [step]="0.05"
+      />
+    </label>
+    <label class="flex flex-col gap-2">
+      <span>Voxel opacity</span>
+      <p-slider
+        [ngModel]="settings().blocksOpacity"
+        (ngModelChange)="update({ blocksOpacity: $event })"
+        [min]="0.05"
+        [max]="1"
+        [step]="0.05"
+      />
+    </label>
+    <label class="flex flex-col gap-2">
+      <span>Image plane opacity</span>
+      <p-slider
+        [ngModel]="settings().planesOpacity"
+        (ngModelChange)="update({ planesOpacity: $event })"
+        [min]="0.05"
+        [max]="1"
+        [step]="0.05"
+      />
+    </label>
+    <label class="flex flex-col gap-2">
+      <span>Sagittal plane (x)</span>
+      <p-slider
+        [ngModel]="settings().planeX"
+        (ngModelChange)="update({ planeX: $event })"
+        [min]="0"
+        [max]="1"
+        [step]="0.005"
+      />
+    </label>
+    <label class="flex flex-col gap-2">
+      <span>Coronal plane (y)</span>
+      <p-slider
+        [ngModel]="settings().planeY"
+        (ngModelChange)="update({ planeY: $event })"
+        [min]="0"
+        [max]="1"
+        [step]="0.005"
+      />
+    </label>
+    <label class="flex flex-col gap-2">
+      <span>Intensity window</span>
+      <p-slider
+        [ngModel]="[settings().windowLow, settings().windowHigh]"
+        (ngModelChange)="
+          update({ windowLow: $event[0], windowHigh: $event[1] })
+        "
+        [range]="true"
+        [min]="0"
+        [max]="255"
+      />
+    </label>
+    <label class="flex flex-col gap-2">
+      <span>Volume rendering</span>
+      <p-select
+        [options]="modeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="settings().volumeMode"
+        (ngModelChange)="update({ volumeMode: $event })"
+        appendTo="body"
+      />
+    </label>
+    <label class="flex flex-col gap-2">
+      <span>Volume opacity</span>
+      <p-slider
+        [ngModel]="settings().volumeOpacity"
+        (ngModelChange)="update({ volumeOpacity: $event })"
+        [min]="0.05"
+        [max]="1"
+        [step]="0.05"
+      />
+    </label>
+    <label class="flex gap-2 items-center justify-between">
+      <span>Slice spacing</span>
+      <p-inputnumber
+        [ngModel]="settings().zSpacing"
+        (ngModelChange)="$event > 0 && update({ zSpacing: $event })"
+        [min]="0.05"
+        [max]="100"
+        [step]="0.1"
+        [minFractionDigits]="1"
+        [maxFractionDigits]="3"
+        [showButtons]="true"
+        inputStyleClass="w-20"
+        pTooltip="Distance between slices, in pixels"
+      />
+    </label>
+    <label class="flex gap-2 items-center justify-between">
+      <span>Mesh detail</span>
+      <p-select
+        [options]="detailOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="settings().detail"
+        (ngModelChange)="update({ detail: $event })"
+        appendTo="body"
+        pTooltip="Lower detail meshes large volumes faster"
+      />
+    </label>
+    <p class="m-0 opacity-70 text-xs">
+      Drag to orbit, right-drag to pan, scroll to zoom. Click a surface or plane
+      to jump to its slice.
+    </p>
+  </div>
+</p-popover>

@@ -47,6 +47,9 @@ export class CanvasManagerService implements ProjectScoped {
 
   /** One value mask per segmentation label, row-major, `width*height`. */
   labelMasks: Uint8Array[] = [];
+  /** The masks are views borrowed from elsewhere (3D mode: slices of the mask
+   *  volume, see `bindMasks`), not arrays this service allocated. */
+  private masksBorrowed = false;
   /** One 256-entry RGBA lookup table per label (value -> display colour). */
   palettes: Uint8Array[] = [];
 
@@ -433,6 +436,7 @@ export class CanvasManagerService implements ProjectScoped {
       (this.labelMasks[0]?.length ?? 0) !== w * h;
     if (needsRealloc) {
       this.labelMasks = Array.from({ length: nLabels }, () => new Uint8Array(w * h));
+      this.masksBorrowed = false;
     }
     this.rebuildPalettes();
 
@@ -453,6 +457,24 @@ export class CanvasManagerService implements ProjectScoped {
 
   getAllMasks(): Uint8Array[] {
     return this.labelMasks;
+  }
+
+  /**
+   * Use `masks` as the label layers without copying — in 3D mode, views of the
+   * current slice of each label volume, so edits land in the volume. They must
+   * match the current label count and image size.
+   */
+  bindMasks(masks: Uint8Array[]) {
+    this.labelMasks = masks;
+    this.masksBorrowed = true;
+  }
+
+  /** Replace borrowed layers by owned copies of their current contents, so
+   *  later writes (clearing, loading another frame) cannot reach the source. */
+  detachMasks() {
+    if (!this.masksBorrowed) return;
+    this.labelMasks = this.labelMasks.map((m) => m.slice());
+    this.masksBorrowed = false;
   }
 
   /** Replace a label's mask contents from raw uint8 values (e.g. on load). */
@@ -574,6 +596,7 @@ export class CanvasManagerService implements ProjectScoped {
 
   /** @see ProjectScoped */
   resetForProject(): void {
+    this.detachMasks();
     this.clearAllMasks();
     this.resetCombinedCanvas();
   }

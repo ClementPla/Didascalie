@@ -65,6 +65,16 @@ export class UndoRedo<T> {
     this.redoStack.empty();
   }
 
+  /**
+   * Replace the current state without recording an action (the redo stack is
+   * kept). For when the state changed through something outside this history
+   * that is undone on its own.
+   */
+  replaceCurrent(element: T): void {
+    this.undoStack.pop();
+    this.undoStack.push(element);
+  }
+
   canUndo(): boolean {
     return this.undoStack.size() > 1;
   }

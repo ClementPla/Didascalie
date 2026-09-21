@@ -69,9 +69,14 @@
       ></button>
     }
 
-    <app-drawable-canvas
-      class="block flex-1 min-h-0 overflow-hidden w-full"
-    ></app-drawable-canvas>
+    <div class="flex flex-1 min-h-0 min-w-0">
+      <app-drawable-canvas
+        class="block flex-1 min-h-0 min-w-0 overflow-hidden"
+      ></app-drawable-canvas>
+      @for (pane of experimentalPanes; track pane) {
+        <ng-container *ngComponentOutlet="pane" />
+      }
+    </div>
     <!-- Progress indicator - sticky at bottom -->
     <div
       class="backdrop-blur-sm bg-black/70 bottom-0 left-0 p-2 right-0 sticky z-10"
@@ -81,6 +86,17 @@
           {{ currentSequenceName }}
         </span>
         <div class="flex flex-shrink-0 gap-4 items-center">
+          @if (volume.enabled()) {
+            <span
+              class="text-xs"
+              [ngClass]="
+                volume.status() === 'error' ? 'text-red-300' : 'text-white/70'
+              "
+              [pTooltip]="volume.error() ?? ''"
+            >
+              {{ volumeStatusText }}
+            </span>
+          }
           <span class="text-white/70 text-xs">
             Frame {{ currentFrameIndex + 1 }}/{{ totalFrames }}
           </span>
@@ -304,6 +320,20 @@
         tooltipPosition="left"
         ariaLabel="GPU rendering"
       ></p-togglebutton>
+      @if (isMultiframeActive) {
+        <p-togglebutton
+          *experimental="'volume3d'"
+          [ngModel]="volume.enabled()"
+          (onChange)="setVolumeMode(!!$event.checked)"
+          onIcon="pi pi-box"
+          offIcon="pi pi-box"
+          [onLabel]="''"
+          [offLabel]="''"
+          [pTooltip]="volumeTooltip"
+          tooltipPosition="left"
+          ariaLabel="3D volume mode"
+        ></p-togglebutton>
+      }
     </ng-template>
 
     <!-- Touch: touchscreen / stylus pressure -->

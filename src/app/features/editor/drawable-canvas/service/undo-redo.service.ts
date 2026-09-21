@@ -14,6 +14,22 @@ interface LayerUndoRedoState {
 }
 
 /**
+ * An action that undoes and redoes itself, recorded in the editor's timeline
+ * so Ctrl+Z reaches it in order with every other action. For edits made
+ * outside the current frame's layers (e.g. painting in 3D mode's projection
+ * view, which writes many slices at once).
+ *
+ * `undo` / `redo` apply the change and return the indices of the *current
+ * frame's* layers they modified (so their history can follow), or `null`
+ * when the action no longer applies — it is then dropped, like a stale
+ * vector token.
+ */
+export interface ExternalAction {
+  undo(): number[] | null;
+  redo(): number[] | null;
+}
+
+/**
  * One entry in the unified undo timeline. A raster action records exactly which
  * layer(s) it snapshotted, so undo/redo route to those layers' stacks
  * regardless of which layer is active now (or what the current tool mode is).
@@ -24,7 +40,8 @@ type UndoToken =
   | { kind: 'raster'; layers: number[] }
   // A single user action that touched both subsystems (e.g. rasterize /
   // vectorize): undone/redone atomically so one Ctrl+Z reverts the whole thing.
-  | { kind: 'compound'; tokens: UndoToken[] };
+  | { kind: 'compound'; tokens: UndoToken[] }
+  | { kind: 'external'; action: ExternalAction };
 
 @Injectable({
   providedIn: 'root',
@@ -88,6 +105,33 @@ export class UndoRedoService implements ProjectScoped {
     this.redoOrder = [];
   }
 
+  /**
+   * Record an action that was just applied outside this service. `layers`
+   * are the current frame's layers it modified: their history is rebased on
+   * the new contents so later raster undos keep the change.
+   */
+  pushExternal(action: ExternalAction, layers: number[]): void {
+    this.rebaseLayers(layers);
+    this.pushToken({ kind: 'external', action });
+  }
+
+  /** Make each layer's current history state match its mask again. */
+  private rebaseLayers(layers: number[]): void {
+    const masks = this.canvasManagerService.getAllMasks();
+    for (const index of layers) {
+      if (masks[index]) this.getLayerUndoRedo(index).replaceCurrent({ data: new Uint8Array(masks[index]) });
+    }
+  }
+
+  /** Run an external action's undo or redo; false when it is stale. */
+  private runExternal(action: ExternalAction, direction: 'undo' | 'redo'): boolean {
+    const layers = direction === 'undo' ? action.undo() : action.redo();
+    if (layers === null) return false;
+    this.rebaseLayers(layers);
+    this.afterRestore();
+    return true;
+  }
+
   // ==========================================
   // Grouped (compound) actions
   // ==========================================
@@ -130,6 +174,14 @@ export class UndoRedoService implements ProjectScoped {
         this.actionOrder.pop(); // stale token, drop and try the next one
         continue;
       }
+      if (token.kind === 'external') {
+        this.actionOrder.pop();
+        if (this.runExternal(token.action, 'undo')) {
+          this.redoOrder.push(token);
+          return;
+        }
+        continue; // stale: dropped
+      }
       if (token.kind === 'compound') {
         this.actionOrder.pop();
         this.redoOrder.push(token);
@@ -160,6 +212,14 @@ export class UndoRedoService implements ProjectScoped {
           return;
         }
         this.redoOrder.pop();
+        continue;
+      }
+      if (token.kind === 'external') {
+        this.redoOrder.pop();
+        if (this.runExternal(token.action, 'redo')) {
+          this.actionOrder.push(token);
+          return;
+        }
         continue;
       }
       if (token.kind === 'compound') {
@@ -223,12 +283,14 @@ export class UndoRedoService implements ProjectScoped {
   }
 
   /**
-   * Clear all undo/redo history
+   * Clear the current frame's undo/redo history (called when a frame loads).
+   * External actions survive: they carry their own data, span frames, and
+   * drop themselves once they no longer apply.
    */
   empty() {
     this.layerUndoStacks.clear();
-    this.actionOrder = [];
-    this.redoOrder = [];
+    this.actionOrder = this.actionOrder.filter((t) => t.kind === 'external');
+    this.redoOrder = this.redoOrder.filter((t) => t.kind === 'external');
   }
 
   /**
@@ -241,6 +303,8 @@ export class UndoRedoService implements ProjectScoped {
    */
   resetForProject(): void {
     this.empty();
+    this.actionOrder = [];
+    this.redoOrder = [];
     this.grouping = false;
     this.groupBuffer = [];
   }

@@ -2,7 +2,7 @@ import { Injector, Type } from '@angular/core';
 import { PostProcessOption } from '../core/tools';
 
 /** Identifier of an experimental feature. Extend this union when adding one. */
-export type ExperimentalFeature = 'crf' | 'superpixel';
+export type ExperimentalFeature = 'crf' | 'superpixel' | 'volume3d';
 
 /** A post-processing mode contributed by an experimental feature. */
 export interface ExperimentalPostProcess {
@@ -35,6 +35,13 @@ export interface ExperimentalFeatureDescriptor {
   /** Image-native overlay to composite on the canvas overlay layer, or null
    *  when the feature has nothing to show right now. */
   getOverlay?(injector: Injector): CanvasImageSource | null;
+  /** Panes shown beside the editor canvas (via ngComponentOutlet, so core code
+   *  never imports them). Each pane hides itself while it has nothing to show. */
+  editorPanes?: Type<unknown>[];
+  /** Overlays stacked over the editor canvas's viewport, above the label
+   *  layer (via ngComponentOutlet). Each is `pointer-events: none` by default
+   *  and owns which parts of it take input. */
+  canvasOverlays?: Type<unknown>[];
   /** Called when experimental features are switched off: hide any visible
    *  state. (An experimental post-process mode that is still selected is
    *  reset generically by the FeatureFlagsService.) */

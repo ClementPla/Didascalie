@@ -1,0 +1,135 @@
+<svg
+  class="h-full w-full"
+  [attr.viewBox]="viewBox()"
+  preserveAspectRatio="none"
+  [style.pointer-events]="capturing() ? 'all' : 'none'"
+  [style.cursor]="
+    capturing() ? (projection.picking() ? 'copy' : 'crosshair') : null
+  "
+  (click)="onBackgroundClick($event)"
+  (wheel)="onBackgroundWheel($event)"
+  (contextmenu)="onBackgroundContextMenu($event)"
+>
+  @for (r of rulings(); track $index) {
+    <line
+      [attr.x1]="r.x1"
+      [attr.y1]="r.y1"
+      [attr.x2]="r.x2"
+      [attr.y2]="r.y2"
+      stroke="white"
+      stroke-opacity="0.35"
+      stroke-dasharray="4 4"
+      vector-effect="non-scaling-stroke"
+      stroke-width="1"
+    />
+  }
+
+  @if (depthLine(); as points) {
+    <polyline
+      [attr.points]="points"
+      fill="none"
+      stroke="#f9e2af"
+      stroke-width="1.5"
+      stroke-dasharray="6 3"
+      vector-effect="non-scaling-stroke"
+    />
+  }
+
+  @if (hovered(); as h) {
+    <line
+      [attr.x1]="h.x1"
+      [attr.y1]="h.y1"
+      [attr.x2]="h.x2"
+      [attr.y2]="h.y2"
+      stroke="#f9e2af"
+      vector-effect="non-scaling-stroke"
+      stroke-width="2"
+    />
+  }
+
+  @if (hoveredDepth(); as d) {
+    <circle
+      [attr.cx]="d.x"
+      [attr.cy]="d.y"
+      [attr.r]="anchorRadius() * 0.8"
+      fill="#f9e2af"
+      style="pointer-events: none"
+    />
+  }
+
+  @for (id of ['a', 'b']; track id) {
+    @let points = id === 'a' ? projection.curves().a : projection.curves().b;
+    @let color = id === 'a' ? colors.a : colors.b;
+    <path
+      [attr.d]="id === 'a' ? pathA() : pathB()"
+      fill="none"
+      [attr.stroke]="color"
+      [attr.stroke-width]="strokeWidth"
+      vector-effect="non-scaling-stroke"
+    />
+    <!-- Wider invisible stroke: double-click near the curve inserts a point. -->
+    <path
+      [attr.d]="id === 'a' ? pathA() : pathB()"
+      fill="none"
+      stroke="transparent"
+      stroke-width="10"
+      vector-effect="non-scaling-stroke"
+      [style.pointer-events]="capturing() ? 'none' : 'stroke'"
+      (dblclick)="onCurveDoubleClick($event, $any(id))"
+    >
+      <title>Double-click to add a point</title>
+    </path>
+    @for (p of points; track $index; let i = $index; let first = $first) {
+      @let isSelected =
+        projection.selected()?.id === id && projection.selected()?.index === i;
+      <circle
+        data-curve-anchor
+        [attr.cx]="p.x"
+        [attr.cy]="p.y"
+        [attr.r]="anchorRadius() * (isSelected ? 1.5 : 1)"
+        [attr.fill]="isSelected ? 'white' : first ? color : '#1e1e2e'"
+        [attr.stroke]="color"
+        stroke-width="2"
+        vector-effect="non-scaling-stroke"
+        [style.pointer-events]="capturing() ? 'none' : 'all'"
+        style="cursor: move"
+        (pointerdown)="onAnchorDown($event, $any(id), i)"
+        (pointermove)="onAnchorMove($event)"
+        (pointerup)="onAnchorUp($event)"
+        (contextmenu)="$event.preventDefault()"
+      >
+        <title>Drag to move · Delete or right-click to remove</title>
+      </circle>
+      @if (first) {
+        <text
+          [attr.x]="p.x + anchorRadius() * 1.6"
+          [attr.y]="p.y - anchorRadius() * 1.6"
+          [attr.font-size]="unit() * 13"
+          [attr.fill]="color"
+          font-weight="600"
+          style="pointer-events: none"
+        >
+          {{ id === 'a' ? 'A' : 'B' }}
+        </text>
+      }
+    }
+  }
+</svg>
+
+@if (banner(); as text) {
+  <div
+    class="absolute flex gap-3 items-center left-1/2 pointer-events-auto px-3 py-2 rounded-lg shadow-lg text-sm text-white top-3"
+    style="transform: translateX(-50%); background: rgb(17 17 27 / 0.9)"
+    [style.border]="'2px solid ' + bannerColor()"
+  >
+    <span>{{ text }}</span>
+    <button
+      type="button"
+      class="font-semibold px-2 py-0.5 rounded text-black"
+      [style.background]="bannerColor()"
+      (click)="finish()"
+    >
+      {{ projection.placing() ? 'Done' : 'Cancel' }}
+    </button>
+  </div>
+}

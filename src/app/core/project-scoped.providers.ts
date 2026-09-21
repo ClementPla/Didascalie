@@ -4,6 +4,8 @@ import { PROJECT_SCOPED } from './project-scoped';
 
 import { SequenceService } from '../services/sequence.service';
 import { IOService } from '../services/io.service';
+import { MaskVolumeService } from '../services/mask-volume.service';
+import { ProjectionService } from '../experimental/volume3d/projection/projection.service';
 import { PyramidService } from '../services/pyramid.service';
 import { LabelsService } from '../services/labels/labels.service';
 import { ClassificationService } from '../services/labels/classification.service';
@@ -32,6 +34,8 @@ import { TiledImageService } from '../features/editor/drawable-canvas/service/ti
 const PROJECT_SCOPED_SERVICES = [
   SequenceService,
   IOService,
+  MaskVolumeService,
+  ProjectionService,
   PyramidService,
   LabelsService,
   ClassificationService,

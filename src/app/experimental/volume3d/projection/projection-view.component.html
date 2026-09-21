@@ -1,0 +1,247 @@
+<div class="flex gap-1 items-center px-2 py-1">
+  <p-button
+    [icon]="
+      settings().showProjection ? 'pi pi-chevron-down' : 'pi pi-chevron-right'
+    "
+    size="small"
+    [text]="true"
+    severity="secondary"
+    [ariaLabel]="
+      settings().showProjection
+        ? 'Collapse the projection'
+        : 'Expand the projection'
+    "
+    (onClick)="update({ showProjection: !settings().showProjection })"
+  />
+  <span class="font-semibold mr-auto text-sm">Projection</span>
+  @for (id of ['a', 'b']; track id) {
+    @let active = projection.placing() === id || projection.picking() === id;
+    <p-button
+      size="small"
+      [label]="id.toUpperCase()"
+      [icon]="active ? 'pi pi-check' : 'pi pi-angle-down'"
+      iconPos="right"
+      [outlined]="!active"
+      severity="secondary"
+      [style]="{
+        color: id === 'a' ? colors.a : colors.b,
+        'border-color': id === 'a' ? colors.a : colors.b,
+      }"
+      [pTooltip]="active ? 'Done' : 'Curve ' + id.toUpperCase()"
+      tooltipPosition="bottom"
+      (onClick)="onCurveButton($any(id), $event, id === 'a' ? menuA : menuB)"
+    />
+  }
+  <p-menu #menuA [model]="curveMenus.a" [popup]="true" appendTo="body" />
+  <p-menu #menuB [model]="curveMenus.b" [popup]="true" appendTo="body" />
+  <p-button
+    icon="pi pi-pencil"
+    size="small"
+    [text]="!painter.editing()"
+    [severity]="painter.editing() ? 'primary' : 'secondary'"
+    [disabled]="!projection.ready()"
+    [pTooltip]="
+      painter.editing()
+        ? 'Stop painting on the projection'
+        : 'Paint on the projection (written at the chosen depth)'
+    "
+    tooltipPosition="bottom"
+    ariaLabel="Paint on the projection"
+    (onClick)="painter.setEditing(!painter.editing())"
+  />
+  <p-button
+    icon="pi pi-trash"
+    size="small"
+    [text]="true"
+    severity="secondary"
+    pTooltip="Clear both curves"
+    tooltipPosition="bottom"
+    ariaLabel="Clear both curves"
+    (onClick)="projection.clear()"
+  />
+  <p-button
+    icon="pi pi-expand"
+    size="small"
+    [text]="true"
+    severity="secondary"
+    [disabled]="zoom() === 1 && pan().x === 0 && pan().y === 0"
+    pTooltip="Fit the projection (wheel zooms, right- or middle-drag pans)"
+    tooltipPosition="bottom"
+    ariaLabel="Fit the projection"
+    (onClick)="resetView()"
+  />
+  <p-button
+    icon="pi pi-cog"
+    size="small"
+    [text]="true"
+    severity="secondary"
+    pTooltip="Projection settings"
+    tooltipPosition="bottom"
+    ariaLabel="Projection settings"
+    (onClick)="projectionSettings.toggle($event)"
+  />
+</div>
+
+@if (
+  settings().showProjection &&
+  (painter.editing() || settings().projectionMode === 'depth')
+) {
+  <div class="flex gap-2 items-center px-3 text-xs">
+    <span [style.color]="colors.a" class="font-semibold">A</span>
+    <p-slider
+      class="flex-1"
+      [ngModel]="settings().projectionDepth"
+      (ngModelChange)="update({ projectionDepth: $event })"
+      [min]="0"
+      [max]="1"
+      [step]="0.01"
+      ariaLabel="Depth between A and B"
+    />
+    <span [style.color]="colors.b" class="font-semibold">B</span>
+    <span class="opacity-70 text-right w-10">{{
+      settings().projectionDepth.toFixed(2)
+    }}</span>
+  </div>
+}
+
+<div
+  #viewport
+  class="flex flex-1 items-center justify-center min-h-0 overflow-hidden relative select-none"
+  [class.hidden]="!settings().showProjection"
+  [class.cursor-grabbing]="panning()"
+  (wheel)="onWheel($event)"
+  (pointerdown)="onViewportPointerDown($event)"
+  (contextmenu)="$event.preventDefault()"
+>
+  <div
+    #output
+    class="relative shrink-0"
+    style="transform-origin: 0 0"
+    [style.width.px]="display().width"
+    [style.height.px]="display().height"
+    [style.transform]="transform()"
+  >
+    <canvas
+      #canvas
+      class="block h-full touch-none w-full"
+      [class.cursor-crosshair]="!painter.editing()"
+      [class.cursor-none]="painter.editing()"
+      style="image-rendering: pixelated"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerUp()"
+      (pointercancel)="onPointerUp()"
+      (pointerleave)="onPointerLeave()"
+      (click)="onClick($event)"
+    ></canvas>
+    @if (sliceMarker(); as y) {
+      <div
+        class="absolute left-0 pointer-events-none right-0"
+        [style.border-top]="1 / zoom() + 'px solid #f9e2af'"
+        [style.top.px]="y"
+      ></div>
+    }
+    <!-- The stroke in progress, until the volume's labels catch up. -->
+    @if (trail(); as points) {
+      <svg
+        class="absolute h-full inset-0 overflow-visible pointer-events-none w-full"
+      >
+        <polyline
+          [attr.points]="points"
+          fill="none"
+          [attr.stroke]="brushColor()"
+          stroke-opacity="0.55"
+          [attr.stroke-width]="brushDiameter()"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    }
+    @if (painter.editing() && pointer(); as p) {
+      <div
+        class="absolute pointer-events-none rounded-full"
+        [style.width.px]="brushDiameter()"
+        [style.height.px]="brushDiameter()"
+        [style.left.px]="p.x - brushDiameter() / 2"
+        [style.top.px]="p.y - brushDiameter() / 2"
+        [style.border]="
+          2 / zoom() +
+          'px ' +
+          (editor.isEraser() ? 'dashed white' : 'solid ' + brushColor())
+        "
+        [style.background]="editor.isEraser() ? null : brushColor() + '33'"
+        [style.box-shadow]="'0 0 0 ' + 1 / zoom() + 'px rgb(0 0 0 / 0.7)'"
+      ></div>
+    }
+  </div>
+
+  @if (painter.editing() && !hint()) {
+    <div
+      class="absolute bg-black/60 left-2 pointer-events-none px-2 py-1 rounded text-white text-xs top-2"
+    >
+      @if (editor.isEraser()) {
+        Erasing
+      } @else {
+        Painting
+        <b [style.color]="brushColor()">{{ activeLabelName() }}</b>
+      }
+      at depth {{ settings().projectionDepth.toFixed(2) }} · brush
+      {{ editor.lineWidth }} px (Ctrl+wheel)
+      @if (lastStroke(); as n) {
+        · last stroke: {{ n }} slice{{ n === 1 ? '' : 's' }}
+      }
+    </div>
+  }
+  @if (hint(); as text) {
+    <div
+      class="absolute bg-black/60 bottom-2 left-2 pointer-events-none px-2 py-1 right-2 rounded text-white text-xs"
+    >
+      {{ text }}
+    </div>
+  }
+  @if (!hint() && hover(); as h) {
+    <div
+      class="absolute bg-black/60 bottom-2 left-2 pointer-events-none px-2 py-1 rounded text-white text-xs"
+    >
+      Column {{ h.column }} · slice {{ h.z + 1 }}
+    </div>
+  }
+</div>
+
+<p-popover #projectionSettings>
+  <div class="flex flex-col gap-3 text-sm w-64">
+    <label class="flex flex-col gap-2">
+      <span>Projection</span>
+      <p-select
+        [options]="modeOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="settings().projectionMode"
+        (ngModelChange)="update({ projectionMode: $event })"
+        appendTo="body"
+      />
+    </label>
+    <label class="flex gap-2 items-center justify-between">
+      <span>Show labels</span>
+      <p-toggleswitch
+        [ngModel]="settings().projectionLabels"
+        (ngModelChange)="update({ projectionLabels: $event })"
+      />
+    </label>
+    <label class="flex flex-col gap-2">
+      <span>Label opacity</span>
+      <p-slider
+        [ngModel]="settings().projectionLabelOpacity"
+        (ngModelChange)="update({ projectionLabelOpacity: $event })"
+        [min]="0.05"
+        [max]="1"
+        [step]="0.05"
+      />
+    </label>
+    <p class="m-0 opacity-70 text-xs">
+      On the slice: drag a point to move it; click it and press Delete (or
+      right-click it) to remove it; double-click a curve to add a point. The
+      intensity window is shared with the 3D view.
+    </p>
+  </div>
+</p-popover>

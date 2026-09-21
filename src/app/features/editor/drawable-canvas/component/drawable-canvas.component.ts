@@ -26,9 +26,13 @@ import { MenuItem } from 'primeng/api';
 
 import { Point2D, Viewbox } from '../interface';
 import { FeatureFlagsService } from '../../../../experimental/feature-flags.service';
-import { collectExperimentalOverlays } from '../../../../experimental/registry';
+import {
+  collectExperimentalOverlays,
+  experimentalCanvasOverlays,
+} from '../../../../experimental/registry';
 import { RenderStatsService } from '../../../../shared/fps-display/render-stats.service';
 import { PyramidService } from '../../../../services/pyramid.service';
+import { MaskVolumeService } from '../../../../services/mask-volume.service';
 import { TiledImageService } from '../service/tiled-image.service';
 
 @Component({
@@ -54,6 +58,10 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   private renderStats = inject(RenderStatsService);
   private pyramidService = inject(PyramidService);
   private tiledImage = inject(TiledImageService);
+  private volume = inject(MaskVolumeService);
+
+  /** Interactive overlays contributed by experimental features. */
+  readonly experimentalOverlays = experimentalCanvasOverlays();
 
   // UI state
   public cursor: Point2D = { x: 0, y: 0 };          // viewport CSS px
@@ -301,6 +309,14 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     if (event.ctrlKey) {
       this.handleBrushSizeWheel(event);
+      return;
+    }
+
+    // 3D mode: Shift+wheel scrolls through slices. Some platforms turn a
+    // shifted wheel into horizontal scrolling, so read either axis.
+    if (event.shiftKey && this.volume.status() === 'ready') {
+      const delta = event.deltaY || event.deltaX;
+      if (delta !== 0) this.volume.sliceStepRequested$.next(Math.sign(delta));
       return;
     }
 

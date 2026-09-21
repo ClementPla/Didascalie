@@ -1,4 +1,4 @@
-import { Injector } from '@angular/core';
+import { Injector, Type } from '@angular/core';
 import { PostProcessOption } from '../core/tools';
 import {
   ExperimentalFeatureDescriptor,
@@ -6,11 +6,13 @@ import {
 } from './descriptor';
 import { CRF_FEATURE } from './crf/crf.feature';
 import { SUPERPIXEL_FEATURE } from './superpixel/superpixel.feature';
+import { VOLUME3D_FEATURE } from './volume3d/volume3d.feature';
 
 /** All experimental features. Register a new feature by adding it here. */
 export const EXPERIMENTAL_FEATURES: ExperimentalFeatureDescriptor[] = [
   CRF_FEATURE,
   SUPERPIXEL_FEATURE,
+  VOLUME3D_FEATURE,
 ];
 
 /** Post-process options contributed by experimental features (registry order). */
@@ -32,6 +34,16 @@ export function findExperimentalPostProcess(
     if (match) return match;
   }
   return null;
+}
+
+/** Panes experimental features add beside the editor canvas (registry order). */
+export function experimentalEditorPanes(): Type<unknown>[] {
+  return EXPERIMENTAL_FEATURES.flatMap((f) => f.editorPanes ?? []);
+}
+
+/** Overlays experimental features stack over the editor canvas. */
+export function experimentalCanvasOverlays(): Type<unknown>[] {
+  return EXPERIMENTAL_FEATURES.flatMap((f) => f.canvasOverlays ?? []);
 }
 
 /** Notify features that a new image was loaded (invalidate cached maps, etc.). */

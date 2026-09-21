@@ -174,6 +174,8 @@ pub fn run() {
             commands::annotation::save_annotation,
             commands::annotation::load_annotations,
             commands::annotation::clear_sequence_annotations,
+            commands::volume::load_sequence_image_volume,
+            commands::volume::load_label_volume,
             commands::vector::save_vector_annotations,
             commands::vector::load_vector_annotations,
             commands::propagation::propagate_annotations,

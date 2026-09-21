@@ -153,6 +153,48 @@ CPU compositing** of the masks, native **tiles** fetched on zoom
 (`tiled-image.service` ↔ `get_frame_tile`), and a **bounded stroke buffer**.
 Normal-sized images keep the simpler full-resolution path unchanged.
 
+### 3D mode: the sequence as a volume (experimental)
+With 3D mode on, `services/mask-volume.service.ts` keeps the open sequence
+resident as one `W×H×D` `Uint8Array` per label (Z = frame index, slowest axis),
+filled by two bulk commands (`commands/volume.rs`: `load_label_volume`,
+`load_sequence_image_volume`). The 2D editor does not copy slices in and out:
+`io.service.load()` *binds* the canvas manager's label layers to `subarray`
+views of the current slice (`CanvasManagerService.bindMasks`), so tools,
+compositor and undo write straight into the volume and changing frame skips the
+annotation IPC. Saving is untouched — the frame is still saved before every
+navigation, and its masks are the slice views.
+
+The invariant that keeps this safe: **a borrowed slice is never cleared or
+loaded into.** Anything about to overwrite the layers with another frame's data
+calls `detachMasks()` first (owned copies). Writes that bypass the editor
+(propagation, clearing the sequence) call `MaskVolumeService.reload()`.
+
+The views live in `experimental/volume3d/` and plug into the editor through two
+descriptor hooks (`editorPanes`, `canvasOverlays`), so core code never imports
+them. Both follow edits through `MaskVolumeService.edited$`:
+
+- **3D view** (three.js, WebGL2). Label surfaces are meshed in a worker
+  (`mesher/`) in 32³ bricks: surface nets over a lightly blurred occupancy for
+  the smooth surface, greedy-meshed faces for the exact voxels. An edit sends
+  only the changed slices; the worker diffs them to find what changed and
+  remeshes just the bricks around it (tens of ms). Image planes and the
+  ray-marched volume rendering sample the image volume as a 3D texture.
+- **Projection view.** Two curves drawn on the slice (splines through the
+  clicked points) are resampled by normalised arc length; a fragment shader
+  reduces the image (max/mean/min) along the segment joining corresponding
+  points, one output row per slice. Labels are bit-packed into an integer 2D
+  array texture so an edit re-uploads only its slice.
+
+  Painting on the projection writes back at a chosen depth `t` along each
+  segment (`projection-painter.service.ts`): one brush dab is a ball around
+  that point, possibly spanning many slices. Slices other than the open one
+  are marked dirty in the volume and persisted by `io.save()` (via
+  `MaskVolumeService.saveDirty()`). A stroke joins the editor's undo timeline
+  as an **external action** (`UndoRedoService.pushExternal`): it undoes itself
+  from a sparse before/after diff, survives frame changes (the per-frame
+  history is otherwise reset on load), and rebases the open frame's layer
+  history so a later 2D undo doesn't silently drop it.
+
 ## Import / export (pluggable formats)
 
 Anything that isn't `.dida` goes through a canonical intermediate representation

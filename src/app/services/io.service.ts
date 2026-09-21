@@ -11,6 +11,7 @@ import { VectorEditorService } from '../features/editor/drawable-canvas/service/
 
 import { api } from '../lib/api';
 import { NotificationService } from './notification.service';
+import { MaskVolumeService } from './mask-volume.service';
 import { ProjectScoped } from '../core/project-scoped';
 
 /**
@@ -41,6 +42,7 @@ export class IOService implements OnDestroy, ProjectScoped {
   private stateManagerService = inject(StateManagerService);
   private vectorEditor = inject(VectorEditorService);
   private notifications = inject(NotificationService);
+  private volume = inject(MaskVolumeService);
 
   public requestedReload = new Subject<boolean>();
   /** Emits after a frame's masks have been loaded into the canvas manager, so
@@ -50,6 +52,8 @@ export class IOService implements OnDestroy, ProjectScoped {
   private dirty = false;
   /** Label-layer indices changed since the last save (see markLabelDirty). */
   private readonly dirtyLabels = new Set<number>();
+  /** Frame whose masks the canvas manager currently holds (set by `load`). */
+  private loadedFrameId: number | null = null;
 
   /** Debounced autosave: persist this many ms after the last edit. */
   private readonly autosaveDelayMs = 5000;
@@ -58,6 +62,12 @@ export class IOService implements OnDestroy, ProjectScoped {
   constructor() {
     // Vector edits flow back here so the same dirty flag / autosave covers them.
     this.vectorEditor.changed$.subscribe(() => this.markDirty());
+
+    // 3D mode. The volume is about to drop its buffers: keep the open frame's
+    // masks as owned copies. It just became resident: move the open frame's
+    // masks (unsaved edits included) into their slice and edit it in place.
+    this.volume.released$.subscribe(() => this.canvasManagerService.detachMasks());
+    this.volume.ready$.subscribe(() => this.adoptVolumeSlice());
   }
 
   ngOnDestroy(): void {
@@ -86,6 +96,8 @@ export class IOService implements OnDestroy, ProjectScoped {
    */
   public markLabelDirty(index: number): void {
     if (index >= 0) this.dirtyLabels.add(index);
+    const frameId = this.sequenceService.currentFrame()?.id;
+    if (frameId != null && index >= 0) this.volume.markEdited(frameId, index);
     this.markDirty();
   }
 
@@ -151,19 +163,40 @@ export class IOService implements OnDestroy, ProjectScoped {
     }
 
     try {
+      // Until this load completes the canvas holds no frame's masks as such,
+      // so a volume becoming ready meanwhile must not adopt them.
+      this.loadedFrameId = null;
+
       // Vector shapes are independent of the raster masks, so load them even
       // when a frame has no raster annotations.
       await this.loadVectors(frame.id);
 
-      const annotations = await api.loadAnnotations(frame.id);
-      const labels = this.labelService.listSegmentationLabels;
+      // 3D mode: the masks are already resident as slices of the volume.
+      const slices = this.volume.slicesFor(frame.id);
+      if (slices) {
+        this.canvasManagerService.bindMasks(slices);
+      } else {
+        // Never clear or overwrite a borrowed slice with another frame's data.
+        // Clear before the IPC so a failed load never leaves the previous
+        // frame's masks showing on this one.
+        this.canvasManagerService.detachMasks();
+        this.canvasManagerService.clearAllMasks();
+        const annotations = await api.loadAnnotations(frame.id);
+        const labels = this.labelService.listSegmentationLabels;
 
-      this.canvasManagerService.clearAllMasks();
-      for (const annotation of annotations) {
-        const index = labels.findIndex((l) => l.id === annotation.labelId);
-        if (index < 0) continue;
-        this.canvasManagerService.setMask(index, base64ToUint8(annotation.maskBase64));
+        for (const annotation of annotations) {
+          const index = labels.findIndex((l) => l.id === annotation.labelId);
+          if (index < 0) continue;
+          this.canvasManagerService.setMask(index, base64ToUint8(annotation.maskBase64));
+        }
+        // The label list changed since the volume was built: rebuild it.
+        if (this.volume.status() === 'ready' && !this.volume.matchesLabels()) {
+          this.volume.reload();
+        }
       }
+      this.loadedFrameId = frame.id;
+      // The volume may have become ready while this frame was loading.
+      if (!slices) this.adoptVolumeSlice();
       this.stateManagerService.recomputeCanvasSum = true;
 
       this.dirty = false;
@@ -173,6 +206,22 @@ export class IOService implements OnDestroy, ProjectScoped {
       console.error('Failed to load annotations:', error);
       throw error;
     }
+  }
+
+  /**
+   * The mask volume just became resident. If the canvas still shows the frame
+   * it last loaded, copy its masks into that slice and bind the layers to it.
+   * Mid-navigation (another frame is loading) there is nothing to adopt: the
+   * next `load()` binds the new frame's slice.
+   */
+  private adoptVolumeSlice(): void {
+    const frameId = this.sequenceService.currentFrame()?.id;
+    if (frameId == null || frameId !== this.loadedFrameId) return;
+    const slices = this.volume.slicesFor(frameId);
+    const current = this.canvasManagerService.labelMasks;
+    if (!slices || slices.some((s, i) => s.length !== current[i]?.length)) return;
+    slices.forEach((s, i) => s.set(current[i]));
+    this.canvasManagerService.bindMasks(slices);
   }
 
   /** Load this frame's vector shapes into the editor (best-effort). */
@@ -221,9 +270,12 @@ export class IOService implements OnDestroy, ProjectScoped {
         const mask = this.canvasManagerService.labelMasks[i];
         if (!mask || !labels[i]) continue;
         await api.saveAnnotation(frame.id, labels[i].id, mask);
+        this.volume.syncSaved(frame.id, labels[i].id, mask);
       }
 
       await this.saveVectors(frame.id);
+      // 3D mode: other slices written through the volume (projection view).
+      await this.volume.saveDirty();
 
       this.dirty = false;
       this.cancelAutosave();

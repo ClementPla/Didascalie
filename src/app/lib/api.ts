@@ -405,6 +405,15 @@ export const api = {
   clearSequenceAnnotations: (sequenceId: number) =>
     invoke<number>('clear_sequence_annotations', { sequenceId }),
 
+  /** Every frame's pixels as 8-bit luminance, stacked in `frameIds` order
+   *  (`W*H*D` bytes). Backs the 3D views; all frames must share one size. */
+  loadSequenceImageVolume: (frameIds: number[]) =>
+    invoke<ArrayBuffer>('load_sequence_image_volume', { frameIds }),
+  /** One label's uint8 masks for every frame, stacked in `frameIds` order
+   *  (`W*H*D` bytes); an unannotated frame is a zero slice. */
+  loadLabelVolume: (frameIds: number[], labelId: number) =>
+    invoke<ArrayBuffer>('load_label_volume', { frameIds, labelId }),
+
   getFrameThumbnail: (frameId: number, maxSize: number) =>
     invoke<FrameImage>('get_frame_thumbnail', { frameId, maxSize }),
 

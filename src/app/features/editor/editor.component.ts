@@ -1,5 +1,5 @@
 import { AfterViewInit, Component, NgZone, OnDestroy, OnInit, signal, inject, viewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -43,6 +43,7 @@ import {
   TauriEventService,
 } from '../../services/tauri-event';
 import { IOService } from '../../services/io.service';
+import { MaskVolumeService } from '../../services/mask-volume.service';
 import { NotificationService } from '../../services/notification.service';
 import { api } from '../../lib/api';
 import { OrchestratorService } from './drawable-canvas/service/orchestrator.service';
@@ -51,6 +52,8 @@ import { OrchestratorService } from './drawable-canvas/service/orchestrator.serv
 import { Tools } from '../../core/tools';
 import { VerticalMenuComponent } from '../../shared/generics/vertical-menu/vertical-menu.component';
 import { MenuGroupDirective } from '../../shared/generics/vertical-menu/menu-group.directive';
+import { ExperimentalDirective } from '../../experimental/experimental.directive';
+import { experimentalEditorPanes } from '../../experimental/registry';
 
 @Component({
   selector: 'app-editor',
@@ -78,6 +81,8 @@ import { MenuGroupDirective } from '../../shared/generics/vertical-menu/menu-gro
     SequenceNavigatorComponent,
     VerticalMenuComponent,
     MenuGroupDirective,
+    ExperimentalDirective,
+    NgComponentOutlet,
   ],
   templateUrl: './editor.component.html',
   styleUrl: './editor.component.scss',
@@ -98,6 +103,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private ngZone = inject(NgZone);
   propagation = inject(PropagationService);
   private notifications = inject(NotificationService);
+  volume = inject(MaskVolumeService);
 
   readonly canvas = viewChild(DrawableCanvasComponent);
   readonly multiFramesOptions = viewChild(MultiFramesOptionsComponent);
@@ -116,6 +122,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private navInFlight = false;
   public globalReviewed = 0;
   public globalTotal = 0;
+
+  /** Panes experimental features show beside the canvas (e.g. the 3D view). */
+  readonly experimentalPanes = experimentalEditorPanes();
 
   /** Open state of the propagation dialog (opened from the frame-nav popover). */
   readonly propagationVisible = signal(false);
@@ -138,6 +147,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       // edit, so a pending write landing afterwards would restore the frame.
       this.ioService.discardPendingSave();
       const frames = await api.clearSequenceAnnotations(sequence.id);
+      // Before reloading the canvas, so it reads the cleared frame from the
+      // project rather than its stale slice.
+      this.volume.reload();
       await this.loadCanvas();
       this.clearSequenceVisible.set(false);
       this.notifications.notify({
@@ -199,6 +211,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+    // A volume is large; don't hold it while the editor is closed.
+    this.volume.disable();
     window.removeEventListener(
       'mousemove',
       this.updateMousePosition.bind(this),
@@ -215,6 +229,24 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe((shouldReload) => {
         if (shouldReload) {
           this.loadCanvas();
+        }
+      });
+
+    // Propagation writes other frames straight to the project, behind the
+    // volume's back.
+    this.propagation.propagated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.volume.reload());
+
+    this.volume.sliceStepRequested$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((step) => this.stepSlice(step));
+
+    this.volume.sliceSelectRequested$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((z) => {
+        if (z !== this.sequenceService.currentFrameIndex()) {
+          void this.changedOfFrame(z);
         }
       });
 
@@ -409,6 +441,20 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.changedOfFrame((((from + step) % total) + total) % total);
   }
 
+  /** Move `step` slices in 3D mode, stopping at the ends (scrolling through a
+   *  volume should not wrap around to the other side). */
+  private stepSlice(step: number): void {
+    const target = this.sequenceService.currentFrameIndex() + step;
+    if (target < 0 || target >= this.sequenceService.frameCount()) return;
+    void this.changedOfFrame(target);
+  }
+
+  /** Turn 3D mode on or off (the View menu toggle). */
+  public setVolumeMode(on: boolean): void {
+    if (on) this.volume.enable();
+    else this.volume.disable();
+  }
+
   public async changedOfFrame(newFrameIndex: number): Promise<void> {
     if (this.navInFlight) return;
     this.navInFlight = true;
@@ -465,8 +511,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       // Update canvas dimensions
       await this.canvasManagerService.updateCanvasesDimensions();
 
-      // Clear and reload
-      this.canvasManagerService.clearAllMasks();
+      // Reload. `load()` clears the masks itself — except in 3D mode, where
+      // they are slices of the volume and must not be cleared.
       await this.ioService.load();
       // Reset undo/redo and capture initial state
       this.orchestratorService.resetHistory();
@@ -549,6 +595,33 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   // ==========================================
   // Getters for Template
   // ==========================================
+
+  get volumeTooltip(): string {
+    if (this.volume.enabled()) {
+      return 'Leave 3D mode';
+    }
+    const reason = this.volume.ineligibility(
+      this.sequenceService.frames(),
+      this.labelService.listSegmentationLabels.length,
+    );
+    return reason
+      ? `3D mode unavailable: ${reason}`
+      : '3D mode: annotate the sequence as a volume (Shift+wheel scrolls slices)';
+  }
+
+  /** Short 3D-mode state for the status bar. */
+  get volumeStatusText(): string {
+    switch (this.volume.status()) {
+      case 'loading':
+        return `3D · loading ${Math.round(this.volume.progress() * 100)}%`;
+      case 'ready':
+        return this.volume.imageReady() ? '3D' : '3D · loading image';
+      case 'error':
+        return '3D · unavailable';
+      default:
+        return '3D';
+    }
+  }
 
   get isMultiframeActive(): boolean {
     return this.sequenceService.frameCount() > 1;
