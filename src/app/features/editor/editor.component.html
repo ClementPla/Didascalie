@@ -201,6 +201,27 @@
         ></button>
       }
       <p-togglebutton
+        [ngModel]="isFrameReviewed"
+        (onChange)="toggleFrameReviewed(!!$event.checked)"
+        onIcon="pi pi-check-circle"
+        offIcon="pi pi-circle"
+        [onLabel]="''"
+        [offLabel]="''"
+        [pTooltip]="
+          isFrameReviewed
+            ? 'This frame is reviewed — click to unmark it'
+            : 'Mark this frame reviewed (saving marks it too)'
+        "
+        tooltipPosition="left"
+        [ariaLabel]="
+          isFrameReviewed
+            ? 'Mark this frame as not reviewed'
+            : 'Mark this frame reviewed'
+        "
+        severity="primary"
+        fluid
+      ></p-togglebutton>
+      <p-togglebutton
         [ngModel]="isSequenceReviewed"
         (onChange)="toggleSequenceReviewed(!!$event.checked)"
         onIcon="pi pi-verified"

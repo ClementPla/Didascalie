@@ -13,6 +13,8 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "create": false,
         "title": "Didascalie",
         "width": 1600,
         "height": 1000,

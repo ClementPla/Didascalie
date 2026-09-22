@@ -130,6 +130,7 @@ pub fn run() {
         .manage(commands::ml::predict::MlState::default())
         .setup(|app| {
             connection::coms::setup_zmq_receiver(app.handle().clone())?;
+            create_main_window(app.handle())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -176,6 +177,7 @@ pub fn run() {
             commands::annotation::clear_sequence_annotations,
             commands::volume::load_sequence_image_volume,
             commands::volume::load_label_volume,
+            commands::window::close_detached_window,
             commands::vector::save_vector_annotations,
             commands::vector::load_vector_annotations,
             commands::propagation::propagate_annotations,
@@ -247,4 +249,59 @@ pub fn run() {
         }
         _ => {}
     });
+}
+
+/// Build the main window from its `tauri.conf.json` entry (marked
+/// `create: false` there so this handler can be attached).
+///
+/// The frontend detaches editor views (3D mode's 3D and projection views) into
+/// their own OS windows with `window.open("about:blank")` and moves their DOM
+/// into it, so the view keeps running in the main window's JavaScript context
+/// — its volume buffers, WebGL state and workers are not copied. That needs
+/// the popup to be a real opener-linked webview, which is what answering
+/// `on_new_window` with a window built from its `features` provides. Anything
+/// but a blank page is refused: nothing navigates a popup elsewhere.
+fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tauri::webview::NewWindowResponse;
+
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "main")
+        .cloned()
+        .ok_or_else(|| tauri::Error::WindowNotFound)?;
+
+    let handle = app.clone();
+    let opened = Arc::new(AtomicUsize::new(0));
+    tauri::WebviewWindowBuilder::from_config(app, &config)?
+        .on_new_window(move |url, features| {
+            if url.as_str() != "about:blank" {
+                return NewWindowResponse::Deny;
+            }
+            let label = format!("detached-{}", opened.fetch_add(1, Ordering::Relaxed) + 1);
+            let built = tauri::WebviewWindowBuilder::new(
+                &handle,
+                label,
+                tauri::WebviewUrl::External(url),
+            )
+            .window_features(features)
+            .title("Didascalie")
+            // The opener names the window through `document.title`.
+            .on_document_title_changed(|window, title| {
+                let _ = window.set_title(&title);
+            })
+            .build();
+            match built {
+                Ok(window) => NewWindowResponse::Create { window },
+                Err(error) => {
+                    log::error!("Could not open a detached window: {error}");
+                    NewWindowResponse::Deny
+                }
+            }
+        })
+        .build()?;
+    Ok(())
 }

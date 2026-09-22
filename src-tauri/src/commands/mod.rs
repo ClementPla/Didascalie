@@ -22,5 +22,6 @@ pub mod ml;
 pub mod vector;
 pub mod vectorize;
 pub mod volume;
+pub mod window;
 #[cfg(not(target_os = "android"))]
 pub mod dl;

@@ -21,12 +21,15 @@ import { SliderModule } from 'primeng/slider';
 import { TooltipModule } from 'primeng/tooltip';
 
 import { MaskVolumeService } from '../../services/mask-volume.service';
+import { ZoomPanService } from '../../features/editor/drawable-canvas/service/zoom-pan.service';
 import { LabelsService } from '../../services/labels/labels.service';
 import { SequenceService } from '../../services/sequence.service';
 import { EditorService } from '../../features/editor/services/editor.service';
 import { MesherRequest, MesherResponse } from './mesher/mesher.protocol';
 import { MeshDetail, Volume3dSettings, Volume3dSettingsService } from './volume3d-settings.service';
 import { VolumeScene } from './volume-scene';
+import { VolumeLayoutService } from './volume-layout.service';
+import { frameScheduler, observeSize } from '../../shared/detached-window/detached-window';
 
 /** Brick edge in grid voxels: small enough that an edit remeshes little,
  *  large enough that the brick count (draw calls) stays modest. */
@@ -60,10 +63,15 @@ export class Volume3dViewComponent implements OnDestroy {
   private readonly labels = inject(LabelsService);
   private readonly sequences = inject(SequenceService);
   private readonly editor = inject(EditorService);
+  private readonly zoomPan = inject(ZoomPanService);
   private readonly settingsService = inject(Volume3dSettingsService);
   private readonly zone = inject(NgZone);
 
   readonly settings = this.settingsService.settings;
+  readonly layout = inject(VolumeLayoutService);
+  readonly mode = computed(() => this.layout.modes()['3d']);
+  /** Out of the panel a view is always shown whole. */
+  readonly expanded = computed(() => this.settings().show3d || this.mode() !== 'docked');
   /** Only a detail change remeshes; other settings are display-only. */
   private readonly detail = computed(() => this.settings().detail);
 
@@ -72,7 +80,10 @@ export class Volume3dViewComponent implements OnDestroy {
 
   private scene: VolumeScene | null = null;
   private worker: Worker | null = null;
-  private resizeObserver: ResizeObserver | null = null;
+  private stopObserving: (() => void) | null = null;
+  /** Shown in a detached window: overlays attach to the view itself. */
+  readonly detached = signal(false);
+  private readonly nextFrame = frameScheduler(() => this.canvasRef()?.nativeElement);
   /** Tags worker traffic with the volume it belongs to. */
   private gen = 0;
   private lod = 1;
@@ -135,9 +146,35 @@ export class Volume3dViewComponent implements OnDestroy {
       untracked(() => this.applySettings(settings));
     });
 
+    // Mirror the 2D brush: where it is on the slice, and how big it is.
+    effect(() => {
+      const cursor = this.zoomPan.cursorImage();
+      const radius = this.editor.lineWidth / 2;
+      const brush = this.editor.isToolWithBrushSize();
+      untracked(() => {
+        this.scene?.setBrushCursor(
+          cursor
+            ? {
+                x: cursor.x,
+                y: cursor.y,
+                // Tools without a brush (fill, picker…) still get a small
+                // marker: the point is knowing where the cursor is.
+                radius: brush ? radius : 2,
+                color: this.editor.isEraser()
+                  ? '#ffffff'
+                  : (this.labels.activeLabel?.color ?? '#ffffff'),
+              }
+            : null,
+        );
+      });
+    });
+
     effect(() => {
       const z = this.sequences.currentFrameIndex();
-      untracked(() => this.scene?.setSlice(z));
+      // While the outline is dragged it leads; the editor catches up.
+      untracked(() => {
+        if (!this.scene?.draggingSlice) this.scene?.setSlice(z);
+      });
     });
 
     this.volume.edited$
@@ -151,7 +188,7 @@ export class Volume3dViewComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.resizeObserver?.disconnect();
+    this.stopObserving?.();
     this.worker?.terminate();
     this.scene?.dispose();
   }
@@ -200,17 +237,29 @@ export class Volume3dViewComponent implements OnDestroy {
     // Rendering and orbiting never need change detection.
     this.zone.runOutsideAngular(() => {
       this.scene = new VolumeScene(this.canvasRef().nativeElement);
-      this.resizeObserver = new ResizeObserver(([entry]) => {
-        const { width, height } = entry.contentRect;
-        this.scene?.resize(width, height);
-      });
-      this.resizeObserver.observe(this.viewportRef().nativeElement);
+      this.scene.onSliceDrag = (z) => this.zone.run(() => this.volume.sliceSelectRequested$.next(z));
     });
+    this.observeViewport();
     this.applySettings(this.settings());
     this.syncLabels();
     this.scene!.setSlice(this.sequences.currentFrameIndex());
     if (this.volume.status() === 'ready') this.startMeshing();
     if (this.volume.imageReady()) this.scene!.setImage(this.volume.image);
+  }
+
+  /** The view moved to another window (detached / re-docked). */
+  relocated(detached: boolean): void {
+    this.detached.set(detached);
+    this.observeViewport();
+    this.scene?.requestRender();
+  }
+
+  /** Follow the viewport's size, with the observer of its current window. */
+  private observeViewport(): void {
+    this.stopObserving?.();
+    this.zone.runOutsideAngular(() => {
+      this.stopObserving = observeSize(this.viewportRef().nativeElement, (w, h) => this.scene?.resize(w, h));
+    });
   }
 
   private applySettings(settings: Volume3dSettings): void {
@@ -309,7 +358,7 @@ export class Volume3dViewComponent implements OnDestroy {
     this.pendingEdits.add(`${label}:${z}`);
     if (this.flushScheduled) return;
     this.flushScheduled = true;
-    requestAnimationFrame(() => {
+    this.nextFrame(() => {
       this.flushScheduled = false;
       this.flushEdits();
     });

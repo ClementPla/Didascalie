@@ -175,7 +175,8 @@ export class CurveOverlayComponent {
   // ==========================================
 
   onBackgroundClick(event: MouseEvent): void {
-    if (event.button !== 0) return;
+    // A left drag with the pan tool pans; it does not place a point.
+    if (event.button !== 0 || this.editor.canPan()) return;
     if (this.projection.picking()) {
       void this.projection.pickAt(this.imagePoint(event), HIT * this.unit());
       return;
@@ -199,9 +200,40 @@ export class CurveOverlayComponent {
 
   /** Keep zooming and panning the canvas while placing. */
   onBackgroundWheel(event: WheelEvent): void {
-    const canvas = this.host.nativeElement.parentElement?.querySelector('canvas[appCanvasInput]');
-    canvas?.dispatchEvent(new WheelEvent('wheel', event));
+    this.canvas()?.dispatchEvent(new WheelEvent('wheel', event));
     event.preventDefault();
+  }
+
+  /** Whether a mouse press belongs to the canvas rather than to the curve:
+   *  the middle button (pan), or any button while the pan tool is active. */
+  private panning = false;
+
+  onBackgroundMouseDown(event: MouseEvent): void {
+    if (event.button === 1 || (event.button === 0 && this.editor.canPan())) {
+      this.panning = true;
+      event.preventDefault(); // no autoscroll on middle click
+      this.forward(event);
+    }
+  }
+
+  /** The canvas also tracks the cursor (rulers, brush), not only drags. */
+  onBackgroundMouseMove(event: MouseEvent): void {
+    this.forward(event);
+  }
+
+  onBackgroundMouseUp(event: MouseEvent): void {
+    if (!this.panning) return;
+    this.panning = false;
+    this.forward(event);
+  }
+
+  private forward(event: MouseEvent): void {
+    this.canvas()?.dispatchEvent(new MouseEvent(event.type, event));
+  }
+
+  /** The editor canvas under the overlay. */
+  private canvas(): Element | null | undefined {
+    return this.host.nativeElement.parentElement?.querySelector('canvas[appCanvasInput]');
   }
 
   @HostListener('window:keydown.escape')

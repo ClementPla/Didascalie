@@ -244,11 +244,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.volume.sliceSelectRequested$
       .pipe(takeUntil(this.destroy$))
-      .subscribe((z) => {
-        if (z !== this.sequenceService.currentFrameIndex()) {
-          void this.changedOfFrame(z);
-        }
-      });
+      .subscribe((z) => this.goToSlice(z));
 
     this.tauriEvents.downloadProgress$
       .pipe(takeUntil(this.destroy$))
@@ -449,6 +445,26 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.changedOfFrame(target);
   }
 
+  /** Latest slice asked for while a navigation was running (see goToSlice). */
+  private pendingSlice: number | null = null;
+
+  /**
+   * Show slice `z` (3D mode: picked or dragged in the 3D / projection views).
+   * Dragging asks for slices faster than they load; rather than dropping the
+   * requests that arrive mid-load, keep the latest and go there next, so the
+   * editor always ends on the slice the drag ended on.
+   */
+  private async goToSlice(z: number): Promise<void> {
+    if (this.navInFlight) {
+      this.pendingSlice = z;
+      return;
+    }
+    this.pendingSlice = null;
+    if (z !== this.sequenceService.currentFrameIndex()) {
+      await this.changedOfFrame(z); // picks up a pending slice when done
+    }
+  }
+
   /** Turn 3D mode on or off (the View menu toggle). */
   public setVolumeMode(on: boolean): void {
     if (on) this.volume.enable();
@@ -466,6 +482,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       console.error('Error changing frame:', error);
     } finally {
       this.navInFlight = false;
+      // A slice asked for meanwhile (dragging in the 3D mode views).
+      if (this.pendingSlice !== null) void this.goToSlice(this.pendingSlice);
     }
   }
 
@@ -542,6 +560,24 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.sequenceService.markCurrentReviewed(true);
     }
     return success;
+  }
+
+  /**
+   * Mark/unmark the open frame as reviewed. Saving marks it too; this is how
+   * you unmark one, or mark it without touching its annotations — which is
+   * what picking a subset of a sequence (e.g. slices to train on) needs.
+   */
+  public async toggleFrameReviewed(reviewed: boolean): Promise<void> {
+    try {
+      await this.sequenceService.markCurrentReviewed(reviewed);
+      await this.updateProgressDisplay();
+    } catch (error) {
+      console.error('Error updating frame reviewed status:', error);
+    }
+  }
+
+  get isFrameReviewed(): boolean {
+    return this.sequenceService.isCurrentFrameReviewed();
   }
 
   /**

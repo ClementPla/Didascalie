@@ -292,6 +292,8 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.isCursorInsideImage =
       raw.x >= 0 && raw.x < this.orchestrator.width &&
       raw.y >= 0 && raw.y < this.orchestrator.height;
+    // Followed by the 3D view's shadow cursor.
+    this.zoomPanService.cursorImage.set(this.isCursorInsideImage ? raw : null);
 
     if (this.editorService.canPan()) {
       this.orchestrator.pan(data.event);
@@ -302,6 +304,12 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     } else {
       this.drawService.draw(data.event);
     }
+  }
+
+  /** The cursor left the canvas: drop the brush cursor everywhere. */
+  public onCursorLeave(): void {
+    this.isCursorInsideImage = false;
+    this.zoomPanService.cursorImage.set(null);
   }
 
   public wheel(event: WheelEvent): void {

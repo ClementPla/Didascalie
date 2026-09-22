@@ -1,12 +1,23 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+import { ownerWindow } from '../../shared/detached-window/detached-window';
 import { MeshKind, MeshUpdate } from './mesher/mesher.protocol';
 import { Volume3dSettings } from './volume3d-settings.service';
 
 export interface SceneLabel {
   color: string;
   visible: boolean;
+}
+
+/** The 2D editor's brush, mirrored in the 3D view. */
+export interface BrushCursor {
+  /** Image coordinates on the current slice. */
+  x: number;
+  y: number;
+  /** Radius in image pixels. */
+  radius: number;
+  color: string;
 }
 
 export interface VoxelPoint {
@@ -55,9 +66,22 @@ export class VolumeScene {
   private readonly volumeMaterial: THREE.ShaderMaterial;
   private readonly bounds: THREE.LineSegments;
   private readonly sliceOutline: THREE.LineLoop;
+  /** Where the 2D editor's brush is: a ring on the slice, plus a line through
+   *  the depth so it stays visible when the slice is edge-on. */
+  private readonly brushRing: THREE.Mesh;
+  private readonly brushAxis: THREE.Line;
 
   private renderPending = false;
   private readonly raycaster = new THREE.Raycaster();
+
+  /**
+   * Dragging the slice outline changes slices: called with each new slice
+   * under the pointer. Set by the view.
+   */
+  onSliceDrag: ((z: number) => void) | null = null;
+  /** The drag in progress: the grabbed point (voxel space) and its slice. */
+  private sliceDrag: { pointerId: number; anchor: THREE.Vector3; z: number } | null = null;
+  private outlineHovered = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -71,6 +95,13 @@ export class VolumeScene {
     const headlight = new THREE.DirectionalLight(0xffffff, 1.6);
     headlight.position.set(0.3, -0.4, 1);
     this.camera.add(headlight);
+
+    // Registered before the orbit controls, in the capture phase, so a press
+    // on the slice outline can claim the pointer before orbiting starts.
+    canvas.addEventListener('pointerdown', (e) => this.onPointerDown(e), { capture: true });
+    canvas.addEventListener('pointermove', (e) => this.onPointerMove(e));
+    canvas.addEventListener('pointerup', (e) => this.onPointerUp(e));
+    canvas.addEventListener('pointercancel', (e) => this.onPointerUp(e));
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.addEventListener('change', () => this.requestRender());
@@ -133,11 +164,38 @@ export class VolumeScene {
     outline.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3));
     this.sliceOutline = new THREE.LineLoop(
       outline,
-      new THREE.LineBasicMaterial({ color: 0xf9e2af, depthTest: false }),
+      new THREE.LineBasicMaterial({ color: SLICE_COLOR, depthTest: false }),
     );
     this.sliceOutline.renderOrder = 4;
     this.sliceOutline.frustumCulled = false;
     this.root.add(this.sliceOutline);
+
+    // Drawn over everything (depthTest off): it says where the brush is, and
+    // being hidden inside a label surface is exactly when that matters.
+    this.brushRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.88, 1, 48),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        transparent: true,
+      }),
+    );
+    this.brushRing.renderOrder = 5;
+    this.brushRing.frustumCulled = false;
+    this.brushRing.visible = false;
+    this.root.add(this.brushRing);
+
+    const axis = new THREE.BufferGeometry();
+    axis.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+    this.brushAxis = new THREE.Line(
+      axis,
+      new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.35 }),
+    );
+    this.brushAxis.renderOrder = 5;
+    this.brushAxis.frustumCulled = false;
+    this.brushAxis.visible = false;
+    this.root.add(this.brushAxis);
   }
 
   // ==========================================
@@ -274,9 +332,28 @@ export class VolumeScene {
     this.requestRender();
   }
 
+  /** Mirror the 2D editor's brush, or null when the cursor is off the image. */
+  setBrushCursor(cursor: BrushCursor | null): void {
+    this.brushRing.visible = !!cursor;
+    this.brushAxis.visible = !!cursor;
+    if (cursor) {
+      const { x, y, radius, color } = cursor;
+      // The ring is drawn in the slice plane, a hair in front of it.
+      this.brushRing.position.set(x, y, this.slice + 0.01);
+      this.brushRing.scale.setScalar(Math.max(radius, 0.5));
+      (this.brushRing.material as THREE.MeshBasicMaterial).color.set(color);
+      (this.brushAxis.material as THREE.LineBasicMaterial).color.set(color);
+      const line = this.brushAxis.geometry.getAttribute('position') as THREE.BufferAttribute;
+      (line.array as Float32Array).set([x, y, -0.5, x, y, this.dims.d - 0.5]);
+      line.needsUpdate = true;
+    }
+    this.requestRender();
+  }
+
   /** The slice being edited in 2D. */
   setSlice(z: number): void {
     this.slice = z;
+    this.brushRing.position.setZ(z + 0.01);
     this.layout();
     this.requestRender();
   }
@@ -326,7 +403,8 @@ export class VolumeScene {
   requestRender(): void {
     if (this.renderPending) return;
     this.renderPending = true;
-    requestAnimationFrame(() => {
+    // The frame clock of the window showing the view (it may be detached).
+    ownerWindow(this.renderer.domElement).requestAnimationFrame(() => {
       this.renderPending = false;
       this.render();
     });
@@ -343,7 +421,107 @@ export class VolumeScene {
     this.volumeBox.geometry.dispose();
     this.bounds.geometry.dispose();
     this.sliceOutline.geometry.dispose();
+    this.brushRing.geometry.dispose();
+    (this.brushRing.material as THREE.Material).dispose();
+    this.brushAxis.geometry.dispose();
+    (this.brushAxis.material as THREE.Material).dispose();
     this.renderer.dispose();
+  }
+
+  // ==========================================
+  // Dragging the slice outline
+  // ==========================================
+
+  private onPointerDown(event: PointerEvent): void {
+    if (event.button !== 0 || !this.onSliceDrag || !this.outlineUnder(event)) return;
+    // Ours, not the orbit controls' (nor a pick).
+    event.stopImmediatePropagation();
+    event.preventDefault();
+    const anchor = this.voxelUnder(event);
+    if (!anchor) return;
+    this.renderer.domElement.setPointerCapture(event.pointerId);
+    this.sliceDrag = { pointerId: event.pointerId, anchor, z: this.slice };
+  }
+
+  private onPointerMove(event: PointerEvent): void {
+    const drag = this.sliceDrag;
+    if (drag && drag.pointerId === event.pointerId) {
+      const z = this.sliceAlongZ(event, drag.anchor);
+      if (z !== null && z !== drag.z) {
+        drag.z = z;
+        this.setSlice(z); // move the outline now; the editor follows
+        this.onSliceDrag?.(z);
+      }
+      return;
+    }
+    if (event.buttons !== 0) return; // orbiting / panning
+    const hovered = !!this.onSliceDrag && this.outlineUnder(event);
+    if (hovered !== this.outlineHovered) {
+      this.outlineHovered = hovered;
+      (this.sliceOutline.material as THREE.LineBasicMaterial).color.set(hovered ? 0xffffff : SLICE_COLOR);
+      this.renderer.domElement.style.cursor = hovered ? 'row-resize' : '';
+      this.requestRender();
+    }
+  }
+
+  /** A slice drag is in progress (the outline leads the editor). */
+  get draggingSlice(): boolean {
+    return this.sliceDrag !== null;
+  }
+
+  private onPointerUp(event: PointerEvent): void {
+    if (this.sliceDrag?.pointerId === event.pointerId) this.sliceDrag = null;
+  }
+
+  private rayAt(event: PointerEvent): void {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(ndc, this.camera);
+  }
+
+  /** The pointer is within a few pixels of the slice outline. */
+  private outlineUnder(event: PointerEvent): boolean {
+    this.rayAt(event);
+    // Tolerance: ~6 screen px, in world units at the volume's distance.
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const distance = this.camera.position.length();
+    const worldPerPixel =
+      (2 * distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2))) / Math.max(1, rect.height);
+    this.raycaster.params.Line = { threshold: 6 * worldPerPixel };
+    this.scene.updateMatrixWorld();
+    return this.raycaster.intersectObject(this.sliceOutline).length > 0;
+  }
+
+  /** Where the pointer ray crosses the current slice's plane (voxel space). */
+  private voxelUnder(event: PointerEvent): THREE.Vector3 | null {
+    this.rayAt(event);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -this.slice).applyMatrix4(this.root.matrixWorld);
+    const hit = this.raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+    return hit ? this.root.worldToLocal(hit) : null;
+  }
+
+  /**
+   * The slice along the Z line through `anchor` closest to the pointer ray:
+   * the grabbed point follows the pointer as well as it can along Z.
+   */
+  private sliceAlongZ(event: PointerEvent, anchor: THREE.Vector3): number | null {
+    this.rayAt(event);
+    const toLocal = this.root.matrixWorld.clone().invert();
+    const origin = this.raycaster.ray.origin.clone().applyMatrix4(toLocal);
+    const through = this.raycaster.ray.origin.clone().add(this.raycaster.ray.direction).applyMatrix4(toLocal);
+    const d = through.sub(origin); // ray direction, voxel space
+    // Closest points between the ray (origin + s·d) and the line anchor + t·ẑ.
+    const w = origin.clone().sub(anchor);
+    const a = d.dot(d);
+    const b = d.z;
+    const denom = a - b * b; // |ẑ|² = 1
+    if (Math.abs(denom) < 1e-9) return null; // looking straight down Z
+    const t = (a * w.z - b * d.dot(w)) / denom;
+    const z = Math.round(anchor.z + t);
+    return Math.min(this.dims.d - 1, Math.max(0, z));
   }
 
   // ==========================================
@@ -428,6 +606,9 @@ export class VolumeScene {
     return texture;
   }
 }
+
+/** The current slice's outline. */
+const SLICE_COLOR = 0xf9e2af;
 
 // ==========================================
 // Shaders

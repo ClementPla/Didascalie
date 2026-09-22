@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Subject } from 'rxjs';
 import { Point2D, Rect, Viewbox } from '../interface';
 import { StateManagerService } from './state-manager.service';
@@ -31,6 +31,9 @@ export class ZoomPanService {
 
   /** Last image-space cursor, kept for the rulers. */
   public currentPixel: Point2D = { x: 0, y: 0 };
+  /** Cursor in image coordinates, or null when it is off the image. Signal
+   *  form of `currentPixel`, for views that follow the cursor (3D mode). */
+  public readonly cursorImage = signal<Point2D | null>(null);
 
   /** Last cursor position in viewport CSS px, or null when the cursor is not
    *  over the canvas. Used as the pivot for keyboard (+/-) zoom. */

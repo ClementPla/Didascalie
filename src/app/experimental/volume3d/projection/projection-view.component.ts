@@ -26,11 +26,13 @@ import { MaskVolumeService } from '../../../services/mask-volume.service';
 import { LabelsService } from '../../../services/labels/labels.service';
 import { SequenceService } from '../../../services/sequence.service';
 import { EditorService } from '../../../features/editor/services/editor.service';
+import { VolumeLayoutService } from '../volume-layout.service';
 import { Volume3dSettings, Volume3dSettingsService } from '../volume3d-settings.service';
 import { CURVE_COLORS } from './curve-overlay.component';
 import { MAX_PROJECTED_LABELS, ProjectionRenderer } from './projection-renderer';
 import { ProjectionPainterService } from './projection-painter.service';
 import { CurveId, ProjectionService } from './projection.service';
+import { frameScheduler, observeSize } from '../../../shared/detached-window/detached-window';
 
 /**
  * The projection between the two curves: arc length across, slices down.
@@ -55,6 +57,10 @@ export class ProjectionViewComponent implements OnDestroy {
   private readonly zone = inject(NgZone);
 
   readonly settings = this.settingsService.settings;
+  readonly panelLayout = inject(VolumeLayoutService);
+  readonly mode = computed(() => this.panelLayout.modes()['projection']);
+  /** Out of the panel a view is always shown whole. */
+  readonly expanded = computed(() => this.settings().showProjection || this.mode() !== 'docked');
   readonly colors = CURVE_COLORS;
   /** Per-curve actions, opened from the A / B buttons. */
   readonly curveMenus: Record<CurveId, MenuItem[]> = {
@@ -72,7 +78,10 @@ export class ProjectionViewComponent implements OnDestroy {
   private readonly viewportRef = viewChild<ElementRef<HTMLDivElement>>('viewport');
 
   private renderer: ProjectionRenderer | null = null;
-  private resizeObserver: ResizeObserver | null = null;
+  private stopObserving: (() => void) | null = null;
+  /** Shown in a detached window: overlays attach to the view itself. */
+  readonly detached = signal(false);
+  private readonly nextFrame = frameScheduler(() => this.canvasRef()?.nativeElement);
   /** Bit `l` set where label `l` is present; mirrors the mask volume. */
   private labelBits: Uint8Array | null = null;
   private readonly dirtySlices = new Set<number>();
@@ -114,13 +123,22 @@ export class ProjectionViewComponent implements OnDestroy {
     return (this.editor.lineWidth * width) / out.count;
   });
 
+  /** Slice under the marker while it is being dragged (ahead of the editor,
+   *  which follows as fast as slices load). */
+  readonly dragSlice = signal<number | null>(null);
+  private draggingMarker = false;
+
   /** Vertical position of the current slice's marker, in CSS px. */
   readonly sliceMarker = computed(() => {
     const depth = this.volume.depth;
     const height = this.display().height;
     if (!depth || !height) return null;
-    return ((this.sequences.currentFrameIndex() + 0.5) / depth) * height;
+    const z = this.dragSlice() ?? this.sequences.currentFrameIndex();
+    return ((z + 0.5) / depth) * height;
   });
+
+  /** Height of the marker's grab band, in the output's unzoomed px. */
+  readonly markerGrab = computed(() => 10 / this.zoom());
 
   readonly hint = computed(() => {
     const picking = this.projection.picking();
@@ -170,13 +188,21 @@ export class ProjectionViewComponent implements OnDestroy {
       untracked(() => this.layout());
     });
 
+    // A dropped marker hands over once the editor shows its slice.
+    effect(() => {
+      const z = this.sequences.currentFrameIndex();
+      untracked(() => {
+        if (!this.draggingMarker && this.dragSlice() === z) this.dragSlice.set(null);
+      });
+    });
+
     this.volume.edited$.pipe(takeUntilDestroyed()).subscribe(({ z }) => this.queueSlice(z));
     this.editor.canvasRedraw.pipe(takeUntilDestroyed()).subscribe(() => this.syncLabels());
   }
 
   ngOnDestroy(): void {
     this.painter.setEditing(false);
-    this.resizeObserver?.disconnect();
+    this.stopObserving?.();
     this.renderer?.dispose();
     this.projection.hoverColumn.set(null);
   }
@@ -259,7 +285,7 @@ export class ProjectionViewComponent implements OnDestroy {
   onPointerUp(): void {
     this.painter.end();
     // Keep the trail one more frame, until the labels it wrote are drawn.
-    requestAnimationFrame(() => requestAnimationFrame(() => this.trailPoints.set([])));
+    this.nextFrame(() => this.nextFrame(() => this.trailPoints.set([])));
   }
 
   /**
@@ -304,18 +330,54 @@ export class ProjectionViewComponent implements OnDestroy {
       this.pan.set({ x: from.x + dx, y: from.y + dy });
     };
     const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+      win.removeEventListener('pointermove', move);
+      win.removeEventListener('pointerup', up);
       this.panning.set(false);
       this.suppressClick = moved;
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+    // The window the pointer is in: the view may be detached.
+    const win = event.view ?? window;
+    win.addEventListener('pointermove', move);
+    win.addEventListener('pointerup', up);
   }
 
   resetView(): void {
     this.zoom.set(1);
     this.pan.set({ x: 0, y: 0 });
+  }
+
+  // ==========================================
+  // Dragging the current-slice marker
+  // ==========================================
+
+  startSliceDrag(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation(); // neither a pan nor a stroke
+    (event.target as Element).setPointerCapture(event.pointerId);
+    this.draggingMarker = true;
+    this.dragSliceTo(event);
+  }
+
+  onSliceDrag(event: PointerEvent): void {
+    if (!this.draggingMarker) return;
+    this.dragSliceTo(event);
+  }
+
+  /** The marker stays where it was dropped until the editor gets there. */
+  endSliceDrag(): void {
+    this.draggingMarker = false;
+    if (this.dragSlice() === this.sequences.currentFrameIndex()) this.dragSlice.set(null);
+  }
+
+  private dragSliceTo(event: PointerEvent): void {
+    const depth = this.volume.depth;
+    const height = this.display().height;
+    if (!depth || !height) return;
+    const z = Math.min(depth - 1, Math.max(0, Math.floor((this.localPoint(event).y / height) * depth)));
+    if (z === this.dragSlice()) return;
+    this.dragSlice.set(z);
+    this.volume.sliceSelectRequested$.next(z);
   }
 
   /** Pointer position in the output's unzoomed CSS px. */
@@ -353,17 +415,32 @@ export class ProjectionViewComponent implements OnDestroy {
     if (!canvas || !viewport) return;
     this.zone.runOutsideAngular(() => {
       this.renderer = new ProjectionRenderer(canvas);
-      this.resizeObserver = new ResizeObserver(([entry]) => {
-        const { width, height } = entry.contentRect;
-        this.zone.run(() => this.viewport.set({ width, height }));
-      });
-      this.resizeObserver.observe(viewport);
     });
+    this.observeViewport();
     this.applySettings(this.settings());
     this.syncLabels();
     const columns = this.projection.columns();
     this.renderer!.setColumns(columns?.ends ?? null, columns?.count ?? 0);
     if (this.volume.status() === 'ready' && this.volume.imageReady()) this.loadVolume();
+  }
+
+  /** The view moved to another window (detached / re-docked). */
+  relocated(detached: boolean): void {
+    this.detached.set(detached);
+    this.observeViewport();
+    this.renderer?.requestRender();
+  }
+
+  /** Follow the viewport's size, with the observer of its current window. */
+  private observeViewport(): void {
+    const viewport = this.viewportRef()?.nativeElement;
+    if (!viewport) return;
+    this.stopObserving?.();
+    this.zone.runOutsideAngular(() => {
+      this.stopObserving = observeSize(viewport, (width, height) =>
+        this.zone.run(() => this.viewport.set({ width, height })),
+      );
+    });
   }
 
   private loadVolume(): void {
@@ -398,7 +475,7 @@ export class ProjectionViewComponent implements OnDestroy {
     this.dirtySlices.add(z);
     if (this.flushScheduled) return;
     this.flushScheduled = true;
-    requestAnimationFrame(() => {
+    this.nextFrame(() => {
       this.flushScheduled = false;
       const bits = this.labelBits;
       if (!bits) return;

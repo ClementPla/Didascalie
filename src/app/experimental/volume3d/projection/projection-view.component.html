@@ -1,18 +1,20 @@
 <div class="flex gap-1 items-center px-2 py-1">
-  <p-button
-    [icon]="
-      settings().showProjection ? 'pi pi-chevron-down' : 'pi pi-chevron-right'
-    "
-    size="small"
-    [text]="true"
-    severity="secondary"
-    [ariaLabel]="
-      settings().showProjection
-        ? 'Collapse the projection'
-        : 'Expand the projection'
-    "
-    (onClick)="update({ showProjection: !settings().showProjection })"
-  />
+  @if (mode() === 'docked') {
+    <p-button
+      [icon]="
+        settings().showProjection ? 'pi pi-chevron-down' : 'pi pi-chevron-right'
+      "
+      size="small"
+      [text]="true"
+      severity="secondary"
+      [ariaLabel]="
+        settings().showProjection
+          ? 'Collapse the projection'
+          : 'Expand the projection'
+      "
+      (onClick)="update({ showProjection: !settings().showProjection })"
+    />
+  }
   <span class="font-semibold mr-auto text-sm">Projection</span>
   @for (id of ['a', 'b']; track id) {
     @let active = projection.placing() === id || projection.picking() === id;
@@ -27,19 +29,31 @@
         color: id === 'a' ? colors.a : colors.b,
         'border-color': id === 'a' ? colors.a : colors.b,
       }"
+      [tooltipDisabled]="detached()"
       [pTooltip]="active ? 'Done' : 'Curve ' + id.toUpperCase()"
       tooltipPosition="bottom"
       (onClick)="onCurveButton($any(id), $event, id === 'a' ? menuA : menuB)"
     />
   }
-  <p-menu #menuA [model]="curveMenus.a" [popup]="true" appendTo="body" />
-  <p-menu #menuB [model]="curveMenus.b" [popup]="true" appendTo="body" />
+  <p-menu
+    #menuA
+    [model]="curveMenus.a"
+    [popup]="true"
+    [appendTo]="detached() ? 'self' : 'body'"
+  />
+  <p-menu
+    #menuB
+    [model]="curveMenus.b"
+    [popup]="true"
+    [appendTo]="detached() ? 'self' : 'body'"
+  />
   <p-button
     icon="pi pi-pencil"
     size="small"
     [text]="!painter.editing()"
     [severity]="painter.editing() ? 'primary' : 'secondary'"
     [disabled]="!projection.ready()"
+    [tooltipDisabled]="detached()"
     [pTooltip]="
       painter.editing()
         ? 'Stop painting on the projection'
@@ -54,6 +68,7 @@
     size="small"
     [text]="true"
     severity="secondary"
+    [tooltipDisabled]="detached()"
     pTooltip="Clear both curves"
     tooltipPosition="bottom"
     ariaLabel="Clear both curves"
@@ -65,16 +80,60 @@
     [text]="true"
     severity="secondary"
     [disabled]="zoom() === 1 && pan().x === 0 && pan().y === 0"
+    [tooltipDisabled]="detached()"
     pTooltip="Fit the projection (wheel zooms, right- or middle-drag pans)"
     tooltipPosition="bottom"
     ariaLabel="Fit the projection"
     (onClick)="resetView()"
+  />
+  @if (mode() !== 'detached') {
+    <p-button
+      [icon]="
+        mode() === 'maximized'
+          ? 'pi pi-window-minimize'
+          : 'pi pi-window-maximize'
+      "
+      size="small"
+      [text]="true"
+      severity="secondary"
+      [tooltipDisabled]="detached()"
+      [pTooltip]="
+        mode() === 'maximized'
+          ? 'Back to the panel (Esc)'
+          : 'Fill the editor area'
+      "
+      tooltipPosition="bottom"
+      [ariaLabel]="
+        mode() === 'maximized' ? 'Back to the panel' : 'Fill the editor area'
+      "
+      (onClick)="panelLayout.toggleMaximized('projection')"
+    />
+  }
+  <p-button
+    [icon]="mode() === 'detached' ? 'pi pi-sign-in' : 'pi pi-external-link'"
+    size="small"
+    [text]="true"
+    severity="secondary"
+    [tooltipDisabled]="detached()"
+    [pTooltip]="
+      mode() === 'detached'
+        ? 'Put back in the editor'
+        : 'Open in its own window'
+    "
+    tooltipPosition="bottom"
+    [ariaLabel]="
+      mode() === 'detached'
+        ? 'Put back in the editor'
+        : 'Open in its own window'
+    "
+    (onClick)="panelLayout.toggleDetached('projection')"
   />
   <p-button
     icon="pi pi-cog"
     size="small"
     [text]="true"
     severity="secondary"
+    [tooltipDisabled]="detached()"
     pTooltip="Projection settings"
     tooltipPosition="bottom"
     ariaLabel="Projection settings"
@@ -83,8 +142,7 @@
 </div>
 
 @if (
-  settings().showProjection &&
-  (painter.editing() || settings().projectionMode === 'depth')
+  expanded() && (painter.editing() || settings().projectionMode === 'depth')
 ) {
   <div class="flex gap-2 items-center px-3 text-xs">
     <span [style.color]="colors.a" class="font-semibold">A</span>
@@ -107,7 +165,7 @@
 <div
   #viewport
   class="flex flex-1 items-center justify-center min-h-0 overflow-hidden relative select-none"
-  [class.hidden]="!settings().showProjection"
+  [class.hidden]="!expanded()"
   [class.cursor-grabbing]="panning()"
   (wheel)="onWheel($event)"
   (pointerdown)="onViewportPointerDown($event)"
@@ -135,11 +193,25 @@
       (click)="onClick($event)"
     ></canvas>
     @if (sliceMarker(); as y) {
+      <!-- The current slice: drag it to change slices. -->
       <div
-        class="absolute left-0 pointer-events-none right-0"
-        [style.border-top]="1 / zoom() + 'px solid #f9e2af'"
-        [style.top.px]="y"
-      ></div>
+        class="absolute cursor-row-resize left-0 right-0 touch-none"
+        [style.top.px]="y - markerGrab() / 2"
+        [style.height.px]="markerGrab()"
+        title="Drag to change the slice"
+        (pointerdown)="startSliceDrag($event)"
+        (pointermove)="onSliceDrag($event)"
+        (pointerup)="endSliceDrag()"
+        (pointercancel)="endSliceDrag()"
+      >
+        <div
+          class="absolute left-0 pointer-events-none right-0"
+          [style.top.px]="markerGrab() / 2"
+          [style.border-top]="
+            (dragSlice() === null ? 1 : 2) / zoom() + 'px solid #f9e2af'
+          "
+        ></div>
+      </div>
     }
     <!-- The stroke in progress, until the volume's labels catch up. -->
     @if (trail(); as points) {
@@ -208,7 +280,7 @@
   }
 </div>
 
-<p-popover #projectionSettings>
+<p-popover #projectionSettings [appendTo]="detached() ? 'self' : 'body'">
   <div class="flex flex-col gap-3 text-sm w-64">
     <label class="flex flex-col gap-2">
       <span>Projection</span>
@@ -218,7 +290,7 @@
         optionValue="value"
         [ngModel]="settings().projectionMode"
         (ngModelChange)="update({ projectionMode: $event })"
-        appendTo="body"
+        [appendTo]="detached() ? 'self' : 'body'"
       />
     </label>
     <label class="flex gap-2 items-center justify-between">

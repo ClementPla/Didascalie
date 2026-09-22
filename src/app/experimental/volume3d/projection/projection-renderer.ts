@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+import { ownerWindow } from '../../../shared/detached-window/detached-window';
+
 export type ProjectionMode = 'max' | 'mean' | 'min' | 'depth';
 
 /** Labels beyond this many are not drawn in the projection (bit-packed). */
@@ -32,6 +34,11 @@ export interface ProjectionStyle {
  *
  * The image and the label bits are 2D array textures, one layer per slice,
  * so an edit re-uploads only the slice it touched.
+ *
+ * WebGL draws into an off-screen canvas and each frame is copied onto the
+ * visible 2D canvas. Shown directly, the WebGL canvas was not repainted by
+ * WebKitGTK inside the zoomed/panned (CSS-transformed) container until it was
+ * resized; a 2D canvas repaints reliably, and the output is small.
  */
 export class ProjectionRenderer {
   private readonly renderer: THREE.WebGLRenderer;
@@ -45,9 +52,16 @@ export class ProjectionRenderer {
   private columns = 0;
   private depth = 0;
   private renderPending = false;
+  private readonly display: CanvasRenderingContext2D;
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+  constructor(private readonly canvas: HTMLCanvasElement) {
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('No 2D context for the projection canvas');
+    this.display = context;
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: canvas.ownerDocument.createElement('canvas'),
+      antialias: false,
+    });
     this.renderer.setPixelRatio(1);
     this.material = new THREE.ShaderMaterial({
       uniforms: {
@@ -184,10 +198,13 @@ export class ProjectionRenderer {
   requestRender(): void {
     if (this.renderPending) return;
     this.renderPending = true;
-    requestAnimationFrame(() => {
+    // The frame clock of the window showing the view (it may be detached).
+    ownerWindow(this.canvas).requestAnimationFrame(() => {
       this.renderPending = false;
       if (this.columns > 0 && this.depth > 0 && this.image) {
         this.renderer.render(this.scene, this.camera);
+        // Same task as the render: the WebGL buffer is still intact.
+        this.display.drawImage(this.renderer.domElement, 0, 0);
       }
     });
   }
@@ -202,6 +219,8 @@ export class ProjectionRenderer {
   private resizeOutput(): void {
     if (this.columns > 0 && this.depth > 0) {
       this.renderer.setSize(this.columns, this.depth, false);
+      this.canvas.width = this.columns;
+      this.canvas.height = this.depth;
     }
   }
 }

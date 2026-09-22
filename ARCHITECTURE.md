@@ -195,6 +195,17 @@ them. Both follow edits through `MaskVolumeService.edited$`:
   history is otherwise reset on load), and rebases the open frame's layer
   history so a later 2D undo doesn't silently drop it.
 
+The two views live in a resizable panel beside the canvas and can each be
+**maximized** over the editor area or **detached** into their own OS window
+(`volume-layout.service.ts`, `volume-panel.component.ts`). Detaching does not
+start a second app: `shared/detached-window` opens a blank popup and moves the
+view's DOM into it, so it keeps running in the main window's JavaScript
+context (volume, WebGL, workers untouched). This is why the main window is
+created in Rust (`create_main_window` in `lib.rs`, `create: false` in
+`tauri.conf.json`): its `on_new_window` handler answers `window.open` with an
+opener-linked webview. Code in a detachable view must use its own window's
+frame clock and ResizeObserver (`ownerWindow`), not the globals.
+
 ## Import / export (pluggable formats)
 
 Anything that isn't `.dida` goes through a canonical intermediate representation

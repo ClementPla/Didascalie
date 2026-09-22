@@ -414,6 +414,11 @@ export const api = {
   loadLabelVolume: (frameIds: number[], labelId: number) =>
     invoke<ArrayBuffer>('load_label_volume', { frameIds, labelId }),
 
+  /** Close the detached view window titled `title` (`window.close()` from
+   *  the opener leaves these native windows open). */
+  closeDetachedWindow: (title: string) =>
+    invoke<void>('close_detached_window', { title }),
+
   getFrameThumbnail: (frameId: number, maxSize: number) =>
     invoke<FrameImage>('get_frame_thumbnail', { frameId, maxSize }),
 

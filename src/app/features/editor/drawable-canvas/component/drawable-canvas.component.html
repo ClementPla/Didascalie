@@ -69,7 +69,7 @@
       }"
       (canvasMove)="onMouseMove($any($event))"
       (contextMenu)="openLabelPicker($any($event))"
-      (mouseleave)="isCursorInsideImage = false"
+      (mouseleave)="onCursorLeave()"
       (wheel)="wheel($event)"
     ></canvas>
 

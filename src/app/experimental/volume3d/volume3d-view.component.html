@@ -1,20 +1,23 @@
 <div class="flex gap-1 items-center px-2 py-1">
-  <p-button
-    [icon]="settings().show3d ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
-    size="small"
-    [text]="true"
-    severity="secondary"
-    [ariaLabel]="
-      settings().show3d ? 'Collapse the 3D view' : 'Expand the 3D view'
-    "
-    (onClick)="update({ show3d: !settings().show3d })"
-  />
+  @if (mode() === 'docked') {
+    <p-button
+      [icon]="settings().show3d ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+      size="small"
+      [text]="true"
+      severity="secondary"
+      [ariaLabel]="
+        settings().show3d ? 'Collapse the 3D view' : 'Expand the 3D view'
+      "
+      (onClick)="update({ show3d: !settings().show3d })"
+    />
+  }
   <span class="font-semibold mr-auto text-sm">3D view</span>
   <p-button
     icon="pi pi-circle-fill"
     size="small"
     [text]="!settings().showSurface"
     [severity]="settings().showSurface ? 'primary' : 'secondary'"
+    [tooltipDisabled]="detached()"
     pTooltip="Label surfaces"
     tooltipPosition="bottom"
     ariaLabel="Label surfaces"
@@ -25,6 +28,7 @@
     size="small"
     [text]="!settings().showBlocks"
     [severity]="settings().showBlocks ? 'primary' : 'secondary'"
+    [tooltipDisabled]="detached()"
     pTooltip="Label voxels"
     tooltipPosition="bottom"
     ariaLabel="Label voxels"
@@ -35,6 +39,7 @@
     size="small"
     [text]="!settings().showPlanes"
     [severity]="settings().showPlanes ? 'primary' : 'secondary'"
+    [tooltipDisabled]="detached()"
     pTooltip="Image planes"
     tooltipPosition="bottom"
     ariaLabel="Image planes"
@@ -45,6 +50,7 @@
     size="small"
     [text]="!settings().showVolume"
     [severity]="settings().showVolume ? 'primary' : 'secondary'"
+    [tooltipDisabled]="detached()"
     pTooltip="Volume rendering of the image"
     tooltipPosition="bottom"
     ariaLabel="Volume rendering"
@@ -55,16 +61,60 @@
     size="small"
     [text]="true"
     severity="secondary"
+    [tooltipDisabled]="detached()"
     pTooltip="Reset the camera"
     tooltipPosition="bottom"
     ariaLabel="Reset the camera"
     (onClick)="resetCamera()"
+  />
+  @if (mode() !== 'detached') {
+    <p-button
+      [icon]="
+        mode() === 'maximized'
+          ? 'pi pi-window-minimize'
+          : 'pi pi-window-maximize'
+      "
+      size="small"
+      [text]="true"
+      severity="secondary"
+      [tooltipDisabled]="detached()"
+      [pTooltip]="
+        mode() === 'maximized'
+          ? 'Back to the panel (Esc)'
+          : 'Fill the editor area'
+      "
+      tooltipPosition="bottom"
+      [ariaLabel]="
+        mode() === 'maximized' ? 'Back to the panel' : 'Fill the editor area'
+      "
+      (onClick)="layout.toggleMaximized('3d')"
+    />
+  }
+  <p-button
+    [icon]="mode() === 'detached' ? 'pi pi-sign-in' : 'pi pi-external-link'"
+    size="small"
+    [text]="true"
+    severity="secondary"
+    [tooltipDisabled]="detached()"
+    [pTooltip]="
+      mode() === 'detached'
+        ? 'Put back in the editor'
+        : 'Open in its own window'
+    "
+    tooltipPosition="bottom"
+    [ariaLabel]="
+      mode() === 'detached'
+        ? 'Put back in the editor'
+        : 'Open in its own window'
+    "
+    (onClick)="layout.toggleDetached('3d')"
   />
   <p-button
     icon="pi pi-cog"
     size="small"
     [text]="true"
     severity="secondary"
+    [tooltipDisabled]="detached()"
     pTooltip="3D view settings"
     tooltipPosition="bottom"
     ariaLabel="3D view settings"
@@ -75,7 +125,7 @@
 <div
   #viewport
   class="flex-1 min-h-0 overflow-hidden relative"
-  [class.hidden]="!settings().show3d"
+  [class.hidden]="!expanded()"
   (pointerdown)="onPointerDown($event)"
   (pointerup)="onPointerUp($event)"
 >
@@ -89,7 +139,7 @@
   }
 </div>
 
-<p-popover #settingsPopover>
+<p-popover #settingsPopover [appendTo]="detached() ? 'self' : 'body'">
   <div class="flex flex-col gap-3 text-sm w-72">
     <label class="flex flex-col gap-2">
       <span>Surface opacity</span>
@@ -161,7 +211,7 @@
         optionValue="value"
         [ngModel]="settings().volumeMode"
         (ngModelChange)="update({ volumeMode: $event })"
-        appendTo="body"
+        [appendTo]="detached() ? 'self' : 'body'"
       />
     </label>
     <label class="flex flex-col gap-2">
@@ -186,6 +236,7 @@
         [maxFractionDigits]="3"
         [showButtons]="true"
         inputStyleClass="w-20"
+        [tooltipDisabled]="detached()"
         pTooltip="Distance between slices, in pixels"
       />
     </label>
@@ -197,7 +248,8 @@
         optionValue="value"
         [ngModel]="settings().detail"
         (ngModelChange)="update({ detail: $event })"
-        appendTo="body"
+        [appendTo]="detached() ? 'self' : 'body'"
+        [tooltipDisabled]="detached()"
         pTooltip="Lower detail meshes large volumes faster"
       />
     </label>

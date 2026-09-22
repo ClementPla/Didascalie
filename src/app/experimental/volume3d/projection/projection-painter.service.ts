@@ -202,14 +202,24 @@ export class ProjectionPainterService {
   // Propagating changes
   // ==========================================
 
+  /**
+   * Flush once per burst of pointer events. Scheduled as a task, not an
+   * animation frame: the main window's frames stop while it is hidden, and
+   * the projection may be painted from a detached window.
+   */
   private scheduleFlush(): void {
     if (this.flushScheduled) return;
     this.flushScheduled = true;
-    requestAnimationFrame(() => {
+    this.flushChannel.port2.postMessage(null);
+  }
+  private readonly flushChannel = (() => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
       this.flushScheduled = false;
       this.flush();
-    });
-  }
+    };
+    return channel;
+  })();
 
   /**
    * Tell everyone which slices changed: the open frame goes through the

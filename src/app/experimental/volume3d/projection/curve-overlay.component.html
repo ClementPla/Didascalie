@@ -7,6 +7,9 @@
     capturing() ? (projection.picking() ? 'copy' : 'crosshair') : null
   "
   (click)="onBackgroundClick($event)"
+  (mousedown)="onBackgroundMouseDown($event)"
+  (mousemove)="onBackgroundMouseMove($event)"
+  (mouseup)="onBackgroundMouseUp($event)"
   (wheel)="onBackgroundWheel($event)"
   (contextmenu)="onBackgroundContextMenu($event)"
 >
