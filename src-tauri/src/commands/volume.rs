@@ -42,6 +42,19 @@ fn volume_dimensions(db: &DbState, frame_ids: &[i64]) -> Result<(u32, u32), Stri
     .map_err(|e| e.to_string())
 }
 
+/// Copy one decoded mask into its slice of the volume.
+///
+/// Both length mismatches are tolerated rather than fatal, because a volume is
+/// assembled from per-frame annotations that were written independently: a mask
+/// shorter than the slice leaves the remainder zero (the buffer starts zeroed),
+/// and a longer one is truncated. Silently, in both directions — a ragged
+/// annotation should not fail a whole sequence load, and the frame dimensions
+/// were already checked by `volume_dimensions`.
+fn write_slice(out: &mut [u8], mask: &[u8]) {
+    let n = mask.len().min(out.len());
+    out[..n].copy_from_slice(&mask[..n]);
+}
+
 /// Every frame's pixels as 8-bit luminance, concatenated in `frame_ids` order
 /// (`W*H*D` bytes). Colour frames are converted to luma; 16-bit ones are
 /// rescaled to 8 bits.
@@ -125,11 +138,86 @@ pub async fn load_label_volume(
         .zip(encoded.par_iter())
         .for_each(|(out, row)| {
             if let Some((encoding, data)) = row {
-                let mask = decode_to_uint8(data, encoding, w, h);
-                let n = mask.len().min(out.len());
-                out[..n].copy_from_slice(&mask[..n]);
+                write_slice(out, &decode_to_uint8(data, encoding, w, h));
             }
         });
 
     Ok(Response::new(volume))
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    /// Just the `frames` columns `get_frame_dimensions` reads — the migration
+    /// helpers are private to `storage::queries`, and a volume's dimension rule
+    /// does not depend on the rest of the schema.
+    fn db_with_frames(frames: &[(i64, u32, u32)]) -> DbState {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE frames (id INTEGER PRIMARY KEY, width INTEGER, height INTEGER);",
+        )
+        .unwrap();
+        for (id, w, h) in frames {
+            conn.execute(
+                "INSERT INTO frames (id, width, height) VALUES (?1, ?2, ?3)",
+                params![id, w, h],
+            )
+            .unwrap();
+        }
+        let db = DbState::new();
+        db.set(conn);
+        db
+    }
+
+    #[test]
+    fn uniform_frames_share_one_size() {
+        let db = db_with_frames(&[(1, 8, 4), (2, 8, 4), (3, 8, 4)]);
+        assert_eq!(volume_dimensions(&db, &[1, 2, 3]).unwrap(), (8, 4));
+    }
+
+    #[test]
+    fn a_ragged_frame_is_rejected_and_named() {
+        // The whole point of the check: stacking a differently sized slice would
+        // silently shear every voxel after it.
+        let db = db_with_frames(&[(1, 8, 4), (2, 8, 5)]);
+        let err = volume_dimensions(&db, &[1, 2]).unwrap_err();
+        assert!(err.contains('2'), "error should name the offending frame: {err}");
+        assert!(err.contains("8×4"), "error should state the expected size: {err}");
+    }
+
+    #[test]
+    fn an_empty_volume_is_rejected() {
+        let db = db_with_frames(&[]);
+        assert!(volume_dimensions(&db, &[]).is_err());
+    }
+
+    #[test]
+    fn a_short_mask_leaves_the_rest_of_the_slice_zero() {
+        let mut out = vec![0u8; 6];
+        write_slice(&mut out, &[1, 2, 3]);
+        assert_eq!(out, vec![1, 2, 3, 0, 0, 0]);
+    }
+
+    #[test]
+    fn a_long_mask_is_truncated_to_the_slice() {
+        let mut out = vec![0u8; 3];
+        write_slice(&mut out, &[1, 2, 3, 4, 5]);
+        assert_eq!(out, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn writing_a_slice_does_not_touch_its_neighbours() {
+        // par_chunks_mut hands each slice a disjoint window; prove the helper
+        // stays inside the one it was given.
+        let mut volume = vec![0u8; 9];
+        {
+            let (_, rest) = volume.split_at_mut(3);
+            let (middle, _) = rest.split_at_mut(3);
+            write_slice(middle, &[7, 7, 7]);
+        }
+        assert_eq!(volume, vec![0, 0, 0, 7, 7, 7, 0, 0, 0]);
+    }
 }
