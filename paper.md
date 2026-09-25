@@ -20,120 +20,116 @@ bibliography: paper.bib
 
 # Summary
 
-Didascalie is a desktop application for annotating biomedical images, built for
-settings where the images cannot be uploaded anywhere. It installs as a single
-binary on Windows, macOS and Linux and needs no server and no Python environment on
-the annotator's machine.
+Didascalie is a desktop application for annotating biomedical images. It is
+intended for work where the images cannot be uploaded to a remote service. The
+application installs as a single binary on Windows, macOS and Linux and requires no
+server and no Python environment on the annotator's machine.
 
 - **Annotation types.** Raster masks, vector polygons and lines, keypoints,
-  multiclass and multilabel classification, and per-frame text notes — raster and
-  vector on one image, under a single undo history.
-- **One file per project.** A `.dida` project is an ordinary SQLite database of
-  images (embedded or referenced), annotations, labels and metadata; masks are
-  run-length encoded per label.
-- **Dataset-level workflow.** A filterable gallery tracks annotation and review
-  progress, and applies classification labels to a whole selection at once.
+  multiclass and multilabel classification, and per-frame text notes. Raster and
+  vector annotations share one image and one undo history.
+- **Project files.** A `.dida` project is a SQLite database containing images
+  (embedded or referenced), annotations, labels and metadata. Masks are run-length
+  encoded per label.
+- **Dataset-level workflow.** A filterable gallery reports annotation and review
+  progress, and applies classification labels to a selection of images in one
+  action.
 - **Stroke-bounded operators.** Dynamic Otsu thresholding, flood fill with a
-  tolerance, superpixel selection, connected-component erasure and CRF edge
-  cleanup, with optional morphological opening and a connectivity constraint.
-- **Adjustments that feed the algorithms.** Brightness, contrast, gamma, tone
-  curves and inversion apply to what the operators see, not only the display.
-- **On-device model assistance.** A small convolutional head trained from
-  scribbles over cached frozen-encoder features, stored in the project file.
-- **Very large images.** A resolution pyramid with native-resolution tiles fetched
-  on demand, making gigapixel-scale microscopy annotatable.
-- **Registration.** Keypoint correspondences with a live homography estimate, and
-  overlay and checkerboard views for checking alignment.
-- **Volume mode (experimental).** A sequence as a voxel volume, with a 3D view and
-  a paintable curved projection.
-- **Python interoperability.** A companion library reads and writes the format and
-  converts to and from COCO and YOLO; two socket channels connect a running Python
-  process.
+  tolerance, superpixel selection and connected-component erasure, with optional
+  morphological opening and a connectivity constraint.
+- **Display adjustments.** Brightness, contrast, gamma, tone curves and inversion.
+  These can be applied to the pixels the operators read, not only to the rendered
+  view.
+- **Model assistance.** A small convolutional head is trained from scribbles over
+  cached features from a frozen encoder, and saved in the project file.
+- **Large images.** A resolution pyramid with native-resolution tiles fetched on
+  demand. Gigapixel microscopy images can be annotated at full resolution.
+- **Registration.** Keypoint correspondences between two frames, a homography
+  estimated as points are placed, and overlay and checkerboard views for checking
+  alignment.
+- **Volume mode (experimental).** A sequence is treated as a voxel volume, with a
+  3D view and a paintable curved projection.
+- **Python interoperability.** A companion library reads and writes the project
+  format and converts to and from COCO and YOLO. Two socket channels connect a
+  running Python process to the application.
 
 # Statement of need
 
-Much biomedical image annotation cannot use the most convenient tooling. Web
-platforms such as CVAT and Label Studio are capable and well maintained, but they
-require a server and the transfer of images to it, which is often impossible for
-clinical data under institutional governance or ethics constraints. Tools that
-avoid the network make a different trade: ilastik [@berg2019ilastik] and LABKIT
-[@arzt2022labkit] offer excellent interactive pixel classification but are
-organised around their own pipelines; napari [@napari] expects the annotator to
-maintain a Python environment; QuPath [@bankhead2017qupath] is specialised for
-digital pathology; and 3D Slicer [@fedorov2012slicer] targets clinical image
-computing rather than dataset labelling.
+Many biomedical annotation tasks cannot use web-hosted tools. CVAT and Label Studio
+are capable and actively maintained, but both require a server and the transfer of
+images to it, which institutional data-governance and ethics constraints often
+prohibit. Tools that avoid that transfer carry other constraints. ilastik
+[@berg2019ilastik] and LABKIT [@arzt2022labkit] provide interactive pixel
+classification within their own analysis pipelines. napari [@napari] requires the
+annotator to maintain a Python environment. QuPath [@bankhead2017qupath] is
+specialised for digital pathology. 3D Slicer [@fedorov2012slicer] addresses
+clinical image computing, and dataset labelling is not its focus.
 
-Didascalie's gap is a single-binary application in which raster and vector
-annotation live together, a project is one portable file, and model assistance —
-training included — runs on the annotator's own hardware. That makes the privacy
-property auditable rather than promised: there is no upload path to trust, because
-there is no server component at all. Encoders are the only network dependency, they
-are optional and fetched inbound once, and no image, annotation or usage
-information is ever transmitted.
+Didascalie occupies a different position: a single installed binary in which raster
+and vector annotation share one document, a project is one portable file, and model
+training runs on the annotator's own hardware. The application has no server
+component, so there is no upload path to audit. Encoders are its only network
+dependency; they are optional, fetched once, and no image, annotation or usage data
+is transmitted.
 
-Assistance is layered so that setup cost is proportional to the help obtained, and
-the first layer costs nothing: a rough brush stroke *is* the prompt, and each
-operator above is confined to the region that stroke covers. Routing the display
-adjustments into those operators matters more than it sounds — on a low-contrast
-image the annotator tunes until a structure is visible, and the algorithm then sees
-the same pixels they do.
+Assistance is organised in layers. The first requires no setup: a brush stroke acts
+as the prompt, and each operator listed above is confined to the region that stroke
+covers. Display adjustments can be routed into these operators, so an annotator can
+raise contrast on a faint structure until it is visible and the operator then reads
+the same pixels.
 
-The second layer is the substantive design choice. Prompted segmentation models
-such as SAM [@kirillov2023sam] have made interactive pre-labelling widely
-available, and frameworks such as MONAI Label [@diazpinto2024monailabel] integrate
-them into clinical workflows; both generally assume a GPU server or a substantial
-local inference stack. Didascalie instead exploits the observation that features
-from a frozen self-supervised transformer are already strong dense descriptors
-[@amir2021deepvit; @oquab2024dinov2; @simeoni2025dinov3]: the expensive encoder
-runs once per image and is cached, and only a small head is trained. That head fits
-in seconds to minutes on a laptop, from scribbles rather than complete masks, and
-adapts to the structures and modality of the project at hand rather than relying on
-a general-purpose model's notion of objects. It is the interactive machine-learning
-idea established by ilastik, with foundation-model features in place of a classical
-filter bank.
+The second layer trains a model. Prompted segmentation models such as SAM
+[@kirillov2023sam] have made interactive pre-labelling widely available, and MONAI
+Label [@diazpinto2024monailabel] integrates such models into clinical workflows.
+Both assume a GPU server or a substantial local inference stack. Didascalie instead
+uses the finding that features from a frozen self-supervised transformer already act
+as strong dense descriptors [@amir2021deepvit; @oquab2024dinov2;
+@simeoni2025dinov3]. The encoder runs once per image and its output is cached; only
+a small head is trained. Training takes seconds to minutes on a laptop and consumes
+scribbles, so the head adapts to the structures and modality of the project at hand.
+The approach follows ilastik's interactive machine learning, substituting
+foundation-model features for a classical filter bank.
 
 # Implementation
 
-Image decoding, mask encoding, database access and model training run in Rust
-behind a web frontend, which is what keeps the interface responsive where a browser
-or interpreted layer would stall. Masks are composited with WebGPU, falling back to
-the CPU; encoder inference uses ONNX Runtime and head training the `burn` framework,
-each selecting a GPU backend at runtime where one is usable. Correctness-critical
-logic — mask encoding, geometry, skeletonisation, volume and dataset assembly — is
-covered by tests run in continuous integration.
+Image decoding, mask encoding, database access and model training are implemented in
+Rust behind a web frontend, which keeps the interface responsive on images where a
+browser or interpreted layer stalls. Masks are composited with WebGPU and fall back
+to the CPU. Encoder inference uses ONNX Runtime and head training uses the `burn`
+framework; each selects a GPU backend at runtime when one is usable. Mask encoding,
+geometry, skeletonisation, volume assembly and dataset assembly are covered by tests
+run in continuous integration.
 
-The resolution pyramid is the load-bearing piece for scale. Levels halve to a
-coarsest longest side of 4096 px, the view draws the finest level that oversamples
-the viewport, and native-resolution tiles are composited over that overview for the
-region under inspection. Images far past what a browser can decode as one bitmap
-therefore stay annotatable at full resolution, with no tiling exposed to the user.
+Scale is handled by a resolution pyramid. Levels halve until the coarsest has a
+longest side of 4096 px. The view draws the finest level that oversamples the
+viewport and composites native-resolution tiles over it for the region under
+inspection. Images too large for a browser to decode as a single bitmap therefore
+remain editable at full resolution, and the annotator never handles tiles or crops.
 
-An annotation tool that cannot round-trip with the ecosystem consuming its output
-is a dead end. Because the format is plain SQLite, `pydidascalie` reads and writes
-projects without going through the application, so a researcher's own model can
-write predictions in for annotators to correct rather than start from blank. Of the
-two ZeroMQ channels, one lets an external process create a project, load images and
-step through frames, so an experiment can script the application; the other is
-called *by* the application during annotation, after a Python process advertises
-named capabilities and a protocol version on connection — currently to propose
-keypoint correspondences. That direction is deliberate: embedding a model normally
-means exporting it to ONNX, a step that frequently does not survive contact with a
-research architecture, whereas a socket boundary leaves the model in the
-environment it was trained in and asks only that it answer a request.
+Annotation output has to reach the tools that consume it. The project format is
+plain SQLite, so `pydidascalie` reads and writes projects without the application
+running, and a model's predictions can be written into a project for annotators to
+correct. Two ZeroMQ channels handle the interactive case. One allows an external
+process to create a project, load images and step through frames, so an experiment
+can drive the application. The other is called by the application during annotation:
+a Python process advertises named capabilities and a protocol version when it
+connects, and currently supplies keypoint correspondences. This second direction
+avoids exporting models to ONNX, which often fails on research architectures. The
+model stays in the environment it was trained in and only answers requests.
 
 # Availability and use
 
-Didascalie is BSD-3-Clause licensed, with source and installers at
-<https://github.com/ClementPla/Didascalie>. Annotations made with it have been used
-in published research [@TODO_dnai_study], and its workflow has been shaped by
-continuous feedback from clinicians and researchers annotating real data across
-several specialties.
+Didascalie is released under the BSD-3-Clause licence. Source and installers are
+available at <https://github.com/ClementPla/Didascalie>. Annotations produced with
+it have been used in published research [@TODO_dnai_study], and its workflow
+reflects continuing feedback from clinicians and researchers working with real data
+in several specialties.
 
 # Acknowledgements
 
-The author thanks the clinicians and researchers whose sustained feedback shaped
-the annotation workflow. <!-- TODO: name collaborators / funding sources. -->
-Portions of the implementation were written with AI coding assistance; the design,
+The author thanks the clinicians and researchers whose sustained feedback shaped the
+annotation workflow. <!-- TODO: name collaborators / funding sources. -->
+Portions of the implementation were written with AI coding assistance. The design,
 domain requirements and evaluation are the author's own.
 
 # References
