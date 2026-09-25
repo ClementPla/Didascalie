@@ -29,7 +29,8 @@ import { EditorService } from '../../../features/editor/services/editor.service'
 import { VolumeLayoutService } from '../volume-layout.service';
 import { Volume3dSettings, Volume3dSettingsService } from '../volume3d-settings.service';
 import { CURVE_COLORS } from './curve-overlay.component';
-import { MAX_PROJECTED_LABELS, ProjectionRenderer } from './projection-renderer';
+import { MAX_PROJECTED_LABELS } from './projection.constants';
+import type { ProjectionRenderer } from './projection-renderer';
 import { ProjectionPainterService } from './projection-painter.service';
 import { CurveId, ProjectionService } from './projection.service';
 import { frameScheduler, observeSize } from '../../../shared/detached-window/detached-window';
@@ -78,6 +79,9 @@ export class ProjectionViewComponent implements OnDestroy {
   private readonly viewportRef = viewChild<ElementRef<HTMLDivElement>>('viewport');
 
   private renderer: ProjectionRenderer | null = null;
+  /** Set in ngOnDestroy so a renderer is not built after teardown — the
+   *  three.js chunk is fetched asynchronously and can land too late. */
+  private destroyed = false;
   private stopObserving: (() => void) | null = null;
   /** Shown in a detached window: overlays attach to the view itself. */
   readonly detached = signal(false);
@@ -201,6 +205,7 @@ export class ProjectionViewComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.painter.setEditing(false);
     this.stopObserving?.();
     this.renderer?.dispose();
@@ -416,10 +421,19 @@ export class ProjectionViewComponent implements OnDestroy {
   // Internals
   // ==========================================
 
-  private createRenderer(): void {
+  /**
+   * Builds the WebGL renderer, fetching three.js on first use.
+   *
+   * The import is dynamic so three.js sits in its own chunk instead of the
+   * initial bundle: this view is behind an experimental flag, and most sessions
+   * never open it.
+   */
+  private async createRenderer(): Promise<void> {
     const canvas = this.canvasRef()?.nativeElement;
     const viewport = this.viewportRef()?.nativeElement;
     if (!canvas || !viewport) return;
+    const { ProjectionRenderer } = await import('./projection-renderer');
+    if (this.destroyed) return;
     this.zone.runOutsideAngular(() => {
       this.renderer = new ProjectionRenderer(canvas);
     });

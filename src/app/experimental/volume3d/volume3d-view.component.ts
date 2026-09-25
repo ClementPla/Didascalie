@@ -27,7 +27,7 @@ import { SequenceService } from '../../services/sequence.service';
 import { EditorService } from '../../features/editor/services/editor.service';
 import { MesherRequest, MesherResponse } from './mesher/mesher.protocol';
 import { MeshDetail, Volume3dSettings, Volume3dSettingsService } from './volume3d-settings.service';
-import { VolumeScene } from './volume-scene';
+import type { VolumeScene } from './volume-scene';
 import { VolumeLayoutService } from './volume-layout.service';
 import { frameScheduler, observeSize } from '../../shared/detached-window/detached-window';
 
@@ -79,6 +79,9 @@ export class Volume3dViewComponent implements OnDestroy {
   private readonly viewportRef = viewChild.required<ElementRef<HTMLDivElement>>('viewport');
 
   private scene: VolumeScene | null = null;
+  /** Set in ngOnDestroy so a scene is not built after teardown — the three.js
+   *  chunk is fetched asynchronously and can land too late. */
+  private destroyed = false;
   private worker: Worker | null = null;
   private stopObserving: (() => void) | null = null;
   /** Shown in a detached window: overlays attach to the view itself. */
@@ -188,6 +191,7 @@ export class Volume3dViewComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.stopObserving?.();
     this.worker?.terminate();
     this.scene?.dispose();
@@ -233,7 +237,16 @@ export class Volume3dViewComponent implements OnDestroy {
   // Scene
   // ==========================================
 
-  private createScene(): void {
+  /**
+   * Builds the 3D scene, fetching three.js on first use.
+   *
+   * The import is dynamic so three.js and OrbitControls sit in their own chunk
+   * rather than the initial bundle: this view is behind an experimental flag,
+   * and most sessions never open it.
+   */
+  private async createScene(): Promise<void> {
+    const { VolumeScene } = await import('./volume-scene');
+    if (this.destroyed) return;
     // Rendering and orbiting never need change detection.
     this.zone.runOutsideAngular(() => {
       this.scene = new VolumeScene(this.canvasRef().nativeElement);

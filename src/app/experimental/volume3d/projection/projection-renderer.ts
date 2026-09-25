@@ -1,11 +1,11 @@
 import * as THREE from 'three';
+import { MAX_PROJECTED_LABELS } from './projection.constants';
 
 import { ownerWindow } from '../../../shared/detached-window/detached-window';
 
 export type ProjectionMode = 'max' | 'mean' | 'min' | 'depth';
 
 /** Labels beyond this many are not drawn in the projection (bit-packed). */
-export const MAX_PROJECTED_LABELS = 8;
 
 export interface ProjectionLabel {
   color: string;
