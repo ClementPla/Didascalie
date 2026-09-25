@@ -20,17 +20,27 @@ bibliography: paper.bib
 
 # Summary
 
-Didascalie is a desktop application for annotating biomedical images. It supports
-pixel-level segmentation masks, vector shapes, keypoints, multiclass and
-multilabel classification, and short per-frame text notes, with raster and vector
-annotation coexisting on the same image rather than being split across separate
-tools. A project is a single file — a SQLite database with the `.dida` extension
-— holding images (embedded or referenced), annotations, labels and metadata, so
-handing a task to a collaborator or archiving a finished dataset is a one-file
-operation.
+Didascalie is a desktop application for annotating biomedical images. Segmentation
+masks, vector shapes, keypoints, multiclass and multilabel classification and
+per-frame text notes are all supported, with raster and vector annotation
+coexisting on one image instead of being split across tools. A project is a single
+SQLite file (`.dida`) holding images, annotations, labels and metadata, so handing
+a task to a collaborator or archiving a dataset is a one-file operation.
 
-Beyond manual drawing, Didascalie can fit a segmentation model *on the
-annotator's own machine* from a handful of scribbles. Dense patch features are
+Assistance is layered, so that the cost of setup is proportional to the help
+obtained. The first layer needs none: a rough brush stroke *is* the prompt, and
+the operation is confined to the region it covers. Dynamic Otsu thresholding,
+flood fill with a tolerance, superpixel selection, connected-component erasure and
+CRF edge cleanup each refine the mask inside the stroke, with optional
+morphological opening and a connectivity constraint. Crucially the on-the-fly
+image adjustments — brightness, contrast, gamma, tone curves, inversion — can be
+made to feed these operators rather than only the display, so on a low-contrast
+image the annotator tunes until a structure is visible and the algorithm then
+sees the same pixels they do. This tier is deterministic, immediate, and requires
+no model, download or GPU.
+
+The second layer fits a segmentation model *on the annotator's own machine* from a
+handful of scribbles. Dense patch features are
 extracted once per image with a frozen self-supervised vision encoder
 [@oquab2024dinov2; @simeoni2025dinov3], cached, and used to train a small
 convolutional head, which is then stored inside the project file and applied to
@@ -96,15 +106,12 @@ volume and dataset assembly — is covered by tests run in continuous integratio
 
 # Interoperability with Python
 
-An annotation tool that cannot round-trip with the ecosystem that consumes its
-output is a dead end, so Didascalie exposes three paths into and out of a project.
-
-Because a `.dida` file is an ordinary SQLite database, `pydidascalie` reads and
-writes it without going through the application. Predictions from a researcher's
-own model can be written into a project so that annotators open a draft and
-correct it rather than starting from a blank image; finished annotations can be
-iterated directly for training or analysis; and datasets can be converted to and
-from COCO and YOLO layouts for other tooling.
+An annotation tool that cannot round-trip with the ecosystem consuming its output
+is a dead end. Because a `.dida` file is an ordinary SQLite database, the
+companion library `pydidascalie` reads and writes it without going through the
+application: predictions from a researcher's own model can be written in so that
+annotators correct a draft rather than start from blank, finished annotations
+iterated directly for training, and datasets converted to and from COCO and YOLO.
 
 Two ZeroMQ channels cover the interactive case. A control channel lets an
 external process create a project, load images and step through frames, so
@@ -114,21 +121,18 @@ of named capabilities and a protocol version on connection, and the application
 calls out to it during annotation — currently to propose keypoint
 correspondences for registration.
 
-That second channel is the consequential design choice. The usual way to put a
-model inside an annotation tool is to export it to ONNX and embed it, which taxes
-every model with an export step that frequently does not survive contact with a
-research architecture. A socket boundary instead leaves the model where it was
-trained, in the researcher's own environment and dependencies, and asks only that
-it answer a request.
+That second channel is the consequential choice. Embedding a model normally means
+exporting it to ONNX — a step that frequently does not survive contact with a
+research architecture. A socket boundary leaves the model where it was trained, in
+its own environment and dependencies, and asks only that it answer a request.
 
 # Availability and use
 
-Didascalie is released under the BSD-3-Clause licence, with source and installers
-for Windows, macOS and Linux at
-<https://github.com/ClementPla/Didascalie>. Annotations produced with it have
-been used in published research [@TODO_dnai_study]. Its workflow has been shaped
-by continuous feedback from clinicians and researchers annotating real data
-across several medical specialties.
+Didascalie is BSD-3-Clause licensed, with source and installers for Windows,
+macOS and Linux at <https://github.com/ClementPla/Didascalie>. Annotations made
+with it have been used in published research [@TODO_dnai_study], and its workflow
+has been shaped by continuous feedback from clinicians and researchers annotating
+real data across several specialties.
 
 # Acknowledgements
 
