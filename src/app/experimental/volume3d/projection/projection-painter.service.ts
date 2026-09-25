@@ -1,5 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 
+import { ProjectScoped } from '../../../core/project-scoped';
+
 import { IOService } from '../../../services/io.service';
 import { LabelsService } from '../../../services/labels/labels.service';
 import { MaskVolumeService } from '../../../services/mask-volume.service';
@@ -50,7 +52,7 @@ interface Stroke {
  * A stroke is one entry of the editor's undo timeline.
  */
 @Injectable({ providedIn: 'root' })
-export class ProjectionPainterService {
+export class ProjectionPainterService implements ProjectScoped {
   private readonly volume = inject(MaskVolumeService);
   private readonly projection = inject(ProjectionService);
   private readonly settingsService = inject(Volume3dSettingsService);
@@ -88,6 +90,23 @@ export class ProjectionPainterService {
       if (this.modeBefore && mode === 'depth') this.settingsService.update({ projectionMode: this.modeBefore });
       this.modeBefore = null;
     }
+  }
+
+  /**
+   * @see ProjectScoped
+   *
+   * Painting mode is sticky: `setEditing(true)` forces the projection to depth
+   * mode and remembers what to restore. Nothing reset it on a project switch,
+   * so closing a project mid-stroke left `editing` latched true, `modeBefore`
+   * pointing at the old project's display mode, and a half-written stroke
+   * queued for flush against a database that had moved on.
+   */
+  resetForProject(): void {
+    this.setEditing(false);
+    this.stroke = null;
+    this.pending.clear();
+    this.flushScheduled = false;
+    this.lastStrokeSlices.set(null);
   }
 
   get painting(): boolean {

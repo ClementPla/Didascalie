@@ -31,7 +31,7 @@
     <polyline
       [attr.points]="points"
       fill="none"
-      stroke="#f9e2af"
+      class="curve-accent-stroke"
       stroke-width="1.5"
       stroke-dasharray="6 3"
       vector-effect="non-scaling-stroke"
@@ -44,7 +44,7 @@
       [attr.y1]="h.y1"
       [attr.x2]="h.x2"
       [attr.y2]="h.y2"
-      stroke="#f9e2af"
+      class="curve-accent-stroke"
       vector-effect="non-scaling-stroke"
       stroke-width="2"
     />
@@ -55,7 +55,7 @@
       [attr.cx]="d.x"
       [attr.cy]="d.y"
       [attr.r]="anchorRadius() * 0.8"
-      fill="#f9e2af"
+      class="curve-accent-fill"
       style="pointer-events: none"
     />
   }
@@ -90,7 +90,7 @@
         [attr.cx]="p.x"
         [attr.cy]="p.y"
         [attr.r]="anchorRadius() * (isSelected ? 1.5 : 1)"
-        [attr.fill]="isSelected ? 'white' : first ? color : '#1e1e2e'"
+        [style.fill]="isSelected ? 'var(--p-surface-0, #fff)' : first ? color : 'var(--p-content-background, #1e1e2e)'"
         [attr.stroke]="color"
         stroke-width="2"
         vector-effect="non-scaling-stroke"

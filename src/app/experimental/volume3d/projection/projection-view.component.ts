@@ -9,8 +9,7 @@ import {
   inject,
   signal,
   untracked,
-  viewChild,
-} from '@angular/core';
+  viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MenuItem } from 'primeng/api';
@@ -46,6 +45,7 @@ import { frameScheduler, observeSize } from '../../../shared/detached-window/det
   imports: [FormsModule, ButtonModule, MenuModule, PopoverModule, SelectModule, SliderModule, ToggleSwitchModule, TooltipModule],
   templateUrl: './projection-view.component.html',
   host: { class: 'flex flex-col min-h-0 min-w-0' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ProjectionViewComponent implements OnDestroy {
   readonly volume = inject(MaskVolumeService);

@@ -6,8 +6,7 @@ import {
   computed,
   effect,
   inject,
-  signal,
-} from '@angular/core';
+  signal, ChangeDetectionStrategy } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { MaskVolumeService } from '../../../services/mask-volume.service';
@@ -45,10 +44,17 @@ export const CURVE_COLORS: Record<CurveId, string> = { a: '#f5c2e7', b: '#94e2d5
   selector: 'app-curve-overlay',
   standalone: true,
   templateUrl: './curve-overlay.component.html',
+  // Theme tokens rather than literals: SVG presentation attributes cannot carry
+  // `var()`, so the accent colour lives in a class instead of on the element.
+  styles: `
+    .curve-accent-stroke { stroke: var(--p-amber-300, #f9e2af); }
+    .curve-accent-fill { fill: var(--p-amber-300, #f9e2af); }
+  `,
   host: {
     class: 'absolute inset-0 pointer-events-none z-[35]',
     '[class.hidden]': '!visible()',
   },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CurveOverlayComponent {
   readonly projection = inject(ProjectionService);

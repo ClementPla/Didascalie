@@ -6,6 +6,7 @@ import { SequenceService } from '../services/sequence.service';
 import { IOService } from '../services/io.service';
 import { MaskVolumeService } from '../services/mask-volume.service';
 import { ProjectionService } from '../experimental/volume3d/projection/projection.service';
+import { ProjectionPainterService } from '../experimental/volume3d/projection/projection-painter.service';
 import { PyramidService } from '../services/pyramid.service';
 import { LabelsService } from '../services/labels/labels.service';
 import { ClassificationService } from '../services/labels/classification.service';
@@ -36,6 +37,7 @@ const PROJECT_SCOPED_SERVICES = [
   IOService,
   MaskVolumeService,
   ProjectionService,
+  ProjectionPainterService,
   PyramidService,
   LabelsService,
   ClassificationService,

@@ -8,8 +8,7 @@ import {
   inject,
   signal,
   untracked,
-  viewChild,
-} from '@angular/core';
+  viewChild, ChangeDetectionStrategy } from '@angular/core';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 
@@ -128,6 +127,7 @@ const TITLES: Record<VolumeViewId, string> = {
     '[class.hidden]': '!volume.enabled()',
     '[style.width.px]': 'hostWidth()',
   },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class VolumePanelComponent implements OnDestroy {
   readonly volume = inject(MaskVolumeService);
