@@ -28,39 +28,47 @@ The name: a *didascalie* is a stage direction — one of the little notes in a p
 
 ## What it does
 
-- **Runs locally.** Annotation and image processing happen on your machine; nothing is uploaded. This is the main reason the tool exists.
-- **Segmentation masks**, drawn with brush, polygon, line, point, and flood-fill tools. A few classical helpers (thresholding, flood fill, CRF edge cleanup) are there to make manual masking a bit less tedious.
-- **Classification labels**, both multiclass and multilabel, with several tasks per project.
-- **Keypoints** and **vector shapes** (polygons/lines) as annotation types, plus short **text notes** per frame (tied to a configurable text task, not to a specific drawn region).
-- **Multi-frame projects.** Images can be grouped into sequences and navigated frame by frame (this is just navigation — there is no automatic propagation of annotations between frames).
-- **Frame registration.** Pick a reference and a moving frame from a sequence, place corresponding keypoints between them, and see the estimated homography update in real time, with fairly advanced visualization options for checking the alignment.
-- **One file per project.** A project is a single `.dida` file (SQLite underneath) holding the images (embedded or referenced), masks, labels, and metadata. Easy to copy, back up, or hand to someone else.
-- **Image adjustments for readability.** Brightness/contrast, gamma correction, and color inversion, applied on the fly while you look at an image — these only change what you see, not the underlying data.
-- **A filterable gallery to track progress.** Filter by review status, by whether keypoints are present, or by name, and sequences show how much of their content has been annotated/reviewed — useful for keeping track of where you are in a larger dataset.
-- **Batch classification from the gallery.** Select several images at once and apply multiclass/multilabel classification choices to all of them in one action, instead of opening each one individually.
+- **Runs locally.** Annotation, image processing and model training all happen on your machine. Nothing is uploaded. This is why the tool exists.
+- **Segmentation masks**, drawn with brush, polygon, line, point and flood-fill tools.
+- **Vector shapes** (polygons, lines, keypoints) on the same image as the masks, with one undo history covering both. Masks can be traced into editable shapes and shapes rasterised back into masks, including tracing a region's centreline instead of its outline.
+- **Classification labels**, multiclass and multilabel, with several tasks per project.
+- **Text notes** per frame, tied to a configurable text task rather than to a drawn region.
+- **Very large images.** A resolution pyramid with native-resolution tiles loaded on demand, so gigapixel microscopy can be annotated at full zoom without the browser trying to decode the whole thing at once.
+- **Multi-frame projects.** Images can be grouped into sequences and navigated frame by frame.
+- **Frame registration.** Pick a reference and a moving frame from a sequence, place corresponding keypoints, and watch the estimated homography update as you go, with overlay and checkerboard views for checking the result.
+- **One file per project.** A project is a single `.dida` file (SQLite underneath) holding the images (embedded or referenced), masks, labels, trained models and metadata. Easy to copy, back up, or hand to someone else.
+- **Image adjustments for readability.** Brightness, contrast, gamma, tone curves and colour inversion, applied while you look at an image. They change what you see, and optionally what the assistance tools read, but never the stored pixels.
+- **A filterable gallery to track progress.** Filter by review status, keypoint presence or name. Sequences show how much of their content is annotated and reviewed, and individual frames can be marked reviewed too.
+- **Batch classification from the gallery.** Select several images and apply multiclass/multilabel choices to all of them at once.
+
+## Assistance while annotating
+
+Two kinds, with different setup costs.
+
+**Nothing to set up.** Rough in a region with the brush and refine it inside that stroke: dynamic Otsu thresholding, flood fill with a tolerance, superpixel selection, connected-component erasure, with optional morphological opening and a connectivity constraint. These are deterministic and instant, and the image adjustments above can be routed into them, so you can raise contrast on a faint structure until it's visible and have the algorithm read the same pixels you do.
+
+**Train a model on your own data.** Scribble on a few frames and Didascalie fits a small segmentation head, then applies it to the rest. Dense features come from a frozen self-supervised encoder (DINOv3 by default), computed once per image and cached; only the head is trained, which takes seconds to minutes on a laptop rather than needing a GPU server. The fitted head is saved inside the project file and restored when you reopen it. The encoder is downloaded once, on request; nothing is sent anywhere.
 
 ## Why you might use it
 
-There are several good open-source annotation tools already, so here are a few honest reasons this one might suit you:
+There are several good open-source annotation tools already. Reasons this one might suit you:
 
-- **A responsive UI, even on large medical images.** The heavy work — mask encoding, image decoding, file I/O — runs in a compiled Rust backend rather than in a browser tab or a Python layer, so the canvas stays responsive instead of freezing on big files. Masks are RLE-encoded, and the gallery lazy-loads thumbnails as they scroll into view, so it holds up on datasets with a lot of images.
-- **Both vector and raster annotation, in the same tool.** Pixel-level segmentation masks (brush/polygon/flood-fill) and vector shapes (polygons, lines, keypoints) live side by side on the same image, instead of forcing you into one paradigm or a separate tool for each.
-- **Genuinely multiplatform.** Ships as a native installer for Windows, macOS (Intel and Apple Silicon), and Linux, built from the same codebase.
-- **Projects are one shareable file.** Since a whole project is a single `.dida` file, handing an annotation task to a collaborator — or getting the results back — is just sending one file, not a folder of images plus a separate database or a running server.
-- **It's been used for real work.** Annotations produced with it have gone into published research (for example, the DNAi study<!-- TODO: add citation / DOI / link -->), not just demos.
-- **Shaped by people who actually annotate.** It has been developed with continuous feedback from clinicians and researchers across several medical fields who use it on real data, so the workflow reflects how experts actually work rather than my own assumptions.
-- **Open to suggestions.** It's a young, solo project without a fixed roadmap set in stone — if there's a feature or workflow you need, it's genuinely easy to influence what gets built next. See [Contributing](#contributing).
+- **A responsive UI on large medical images.** Mask encoding, image decoding and file I/O run in a compiled Rust backend instead of a browser tab or a Python layer, so the canvas stays responsive on big files. Masks are run-length encoded and the gallery lazy-loads thumbnails as they scroll into view.
+- **Vector and raster annotation in one tool.** Pixel-level masks and vector shapes coexist on the same image, and convert between each other, so you aren't forced into one paradigm or a second tool for the other.
+- **Multiplatform.** Native installers for Windows, macOS (Intel and Apple Silicon) and Linux, from the same codebase.
+- **Projects are one shareable file.** Sending an annotation task to a collaborator, or getting the results back, means sending one file rather than a folder of images plus a database or a running server.
+- **Model assistance without a server.** Training and inference happen on the machine doing the annotating, which matters when the images can't leave it.
+- **It's been used for real work.** Annotations made with it have gone into published research (the DNAi study<!-- TODO: add citation / DOI / link -->).
+- **Built with feedback from people who annotate.** Clinicians and researchers across several medical fields have used it on real data throughout development, and the workflow reflects that.
+- **Open to suggestions.** A young solo project with no fixed roadmap, so it's easy to influence what gets built next. See [Contributing](#contributing).
 
 ## Experimental / work in progress
 
-These exist in the codebase but are not finished or well tested — use with low expectations:
+These exist but are unfinished and lightly tested — use with low expectations:
 
-- **SAM-based mask refinement.** There is an ONNX-based model path for turning a coarse mask into a cleaner one, but it is not polished, benchmarked, or reliable yet.
-- **Keypoint suggestion for registration.** An optional bridge to a Python process (over ZeroMQ) can suggest keypoint correspondences for the registration mode above, instead of placing them all by hand. Rough and narrow in scope for now.
-
-Planned, not started yet:
-
-- **Converting between raster and vector shapes.** Vector shapes can already be rasterized into a mask internally, but going the other way — turning a painted mask into an editable vector shape — doesn't exist yet. The goal is to make that conversion work both ways.
+- **SAM-based mask refinement.** An ONNX model path for cleaning up a coarse mask. Not polished, benchmarked or reliable yet.
+- **Keypoint suggestion for registration.** An optional bridge to a Python process (over ZeroMQ) can propose keypoint correspondences instead of placing them all by hand. Rough and narrow in scope.
+- **3D volume mode.** Treats a sequence as a voxel volume, with a 3D view and a curved projection you can paint directly. Usable enough to be interesting, not enough to rely on.
 
 ## The `.dida` format and the Python library
 
@@ -85,11 +93,13 @@ with DidascalieProject.create("dataset.dida", name="My Dataset") as project:
     project.import_folder("/path/to/images")
 ```
 
-Requires `numpy` and `Pillow` (and `pyzmq` if you use the optional Python bridge described below).
+Requires `numpy` and `Pillow` (and `pyzmq` if you use the optional Python bridge described above).
 
 ## Installing
 
 Prebuilt installers for **Windows, macOS (Intel and Apple Silicon), and Linux** are built automatically by GitHub Actions and attached to each release — download the one for your platform from the [Releases page](https://github.com/ClementPla/Didascalie/releases).
+
+GPU training is optional. Without a GPU the head trains on the CPU, which is slower but works. To use an NVIDIA GPU you need the **CUDA Toolkit** installed, not just a driver: the training backend compiles its kernels at runtime with NVRTC, which ships with the toolkit. The app reports which device it selected, and falls back to the CPU if the GPU path isn't usable.
 
 ### Building from source
 
@@ -105,9 +115,11 @@ npm run tauri dev      # run in development
 npm run tauri build    # build binaries (in src-tauri/target/release/)
 ```
 
+Building with GPU support needs the CUDA Toolkit; `cargo build --no-default-features` skips it.
+
 ## Built with
 
-Angular 20 (UI) · Tauri v2 / Rust (desktop shell and native processing) · OpenCV compiled to WASM (image operations) · ONNX Runtime (the experimental model path) · ZeroMQ (the experimental Python bridge).
+Angular 20 and PrimeNG (UI) · Tauri v2 / Rust (desktop shell and native processing) · SQLite via rusqlite (project files) · WebGPU (mask compositing, with a CPU fallback) · ONNX Runtime (encoder inference) · burn (training the segmentation head) · three.js (the experimental 3D view) · ZeroMQ (the experimental Python bridge).
 
 ## Contributing
 
