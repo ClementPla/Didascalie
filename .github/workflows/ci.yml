@@ -32,11 +32,12 @@ jobs:
       - name: Lint
         run: npx ng lint
 
-      # Informational for now: the existing specs are mostly CLI-generated
-      # stubs. Promote to a hard gate as real tests are added.
+      # A hard gate since 1e70d2b. It was informational while the only specs
+      # were CLI-generated stubs — which meant two of them failed from the day
+      # they were generated and CI stayed green, so nobody noticed for the life
+      # of the project. Do not restore continue-on-error.
       - name: Unit tests
         run: npx ng test --watch=false --browsers=ChromeHeadless
-        continue-on-error: true
 
   backend:
     name: Backend (Rust)
