@@ -25,7 +25,10 @@ masks, vector shapes, keypoints, multiclass and multilabel classification and
 per-frame text notes are all supported, with raster and vector annotation
 coexisting on one image instead of being split across tools. A project is a single
 SQLite file (`.dida`) holding images, annotations, labels and metadata, so handing
-a task to a collaborator or archiving a dataset is a one-file operation.
+a task to a collaborator or archiving a dataset is a one-file operation. A
+filterable gallery tracks annotation and review progress across a dataset and
+applies classification labels to many selected images at once, rather than one
+opened image at a time.
 
 Assistance is layered, so that the cost of setup is proportional to the help
 obtained. The first layer needs none: a rough brush stroke *is* the prompt, and
@@ -99,7 +102,15 @@ mode that treats a sequence as a voxel volume with a paintable curved projection
 Image decoding, mask encoding, database access and model training run in Rust,
 keeping the interface responsive on large images where a browser or interpreted
 layer would stall. Masks are run-length encoded per label and composited with
-WebGPU, falling back to the CPU. Encoder inference uses ONNX Runtime and head
+WebGPU, falling back to the CPU.
+
+Very large images are served through a resolution pyramid, which is what makes
+annotating gigapixel-scale microscopy possible in a windowed viewer: levels halve
+to a coarsest longest side of 4096 px, the view draws the finest level that
+oversamples the viewport, and native-resolution tiles are fetched from Rust on
+demand and composited over that overview for the region under inspection. Images
+far beyond what a browser can decode as a single bitmap therefore remain
+annotatable at full resolution, without the annotator managing tiles or crops. Encoder inference uses ONNX Runtime and head
 training the `burn` framework, each selecting a GPU backend at runtime where one
 is usable. Correctness-critical logic — mask encoding, geometry, skeletonisation,
 volume and dataset assembly — is covered by tests run in continuous integration.
