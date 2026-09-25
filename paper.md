@@ -39,9 +39,11 @@ dependency, they are optional and downloaded inbound once, and no image,
 annotation or usage information is ever transmitted.
 
 The application is built as a Rust backend behind a web frontend
-(Tauri), ships as a native installer for Windows, macOS and Linux, and is
-accompanied by a Python library, `pydidascalie`, that reads and writes the same
-project format for scripted import, export and model-assisted pre-population.
+(Tauri) and ships as a native installer for Windows, macOS and Linux. It is
+designed to sit inside an existing machine-learning workflow rather than at the
+end of one: the companion Python library `pydidascalie` reads and writes the
+project format directly, and a socket protocol lets a running Python process both
+drive the application and serve interactive predictions to it.
 
 # Statement of need
 
@@ -49,12 +51,11 @@ Much biomedical image annotation cannot use the most convenient tooling. Web
 platforms such as CVAT and Label Studio are capable and well maintained, but they
 require a server and the transfer of images to it, which is often impossible for
 clinical data under institutional governance or ethics constraints. Tools that
-avoid the network typically make a different trade: ilastik [@berg2019ilastik] and
-LABKIT [@arzt2022labkit] offer excellent interactive pixel classification but are
-organised around their own analysis pipelines; napari [@napari] is a
-Python-first viewer that expects the annotator to maintain a Python environment;
-QuPath [@bankhead2017qupath] is specialised for digital pathology; 3D Slicer
-[@fedorov2012slicer] is a large volumetric platform aimed at clinical image
+avoid the network make a different trade: ilastik [@berg2019ilastik] and LABKIT
+[@arzt2022labkit] offer excellent interactive pixel classification but are
+organised around their own pipelines; napari [@napari] expects the annotator to
+maintain a Python environment; QuPath [@bankhead2017qupath] is specialised for
+digital pathology; and 3D Slicer [@fedorov2012slicer] targets clinical image
 computing rather than dataset labelling.
 
 The gap Didascalie addresses is a single-binary desktop application that needs no
@@ -78,22 +79,47 @@ modality of the project at hand instead of relying on a general-purpose model's
 notion of objects. It is the interactive-machine-learning idea established by
 ilastik, with foundation-model features in place of a classical filter bank.
 
-Didascalie further includes an interactive frame-registration mode, in which
-corresponding keypoints are placed between a reference and a moving frame and the
-estimated homography updates live, with overlay and checkerboard views for
-verifying alignment; and an experimental volume mode that treats a sequence as a
-voxel volume with a 3D view and a curved projection that can be painted directly.
+Didascalie also provides an interactive registration mode, where keypoints placed
+between a reference and a moving frame update an estimated homography live, with
+overlay and checkerboard views for checking alignment; and an experimental volume
+mode that treats a sequence as a voxel volume with a paintable curved projection.
 
 # Implementation
 
 Image decoding, mask encoding, database access and model training run in Rust,
 keeping the interface responsive on large images where a browser or interpreted
-layer would stall. Masks are stored run-length encoded per label. Mask
-compositing uses WebGPU with a CPU fallback. Encoder inference uses ONNX Runtime;
-head training uses the `burn` framework, with a CUDA backend selected at runtime
-and a CPU fallback. Correctness-critical logic — mask encoding, geometry,
-skeletonisation, volume assembly, dataset assembly — is covered by an automated
-test suite run in continuous integration on every change.
+layer would stall. Masks are run-length encoded per label and composited with
+WebGPU, falling back to the CPU. Encoder inference uses ONNX Runtime and head
+training the `burn` framework, each selecting a GPU backend at runtime where one
+is usable. Correctness-critical logic — mask encoding, geometry, skeletonisation,
+volume and dataset assembly — is covered by tests run in continuous integration.
+
+# Interoperability with Python
+
+An annotation tool that cannot round-trip with the ecosystem that consumes its
+output is a dead end, so Didascalie exposes three paths into and out of a project.
+
+Because a `.dida` file is an ordinary SQLite database, `pydidascalie` reads and
+writes it without going through the application. Predictions from a researcher's
+own model can be written into a project so that annotators open a draft and
+correct it rather than starting from a blank image; finished annotations can be
+iterated directly for training or analysis; and datasets can be converted to and
+from COCO and YOLO layouts for other tooling.
+
+Two ZeroMQ channels cover the interactive case. A control channel lets an
+external process create a project, load images and step through frames, so
+experiments can script the application rather than be clicked through. An
+inference channel works in the other direction: a Python process advertises a set
+of named capabilities and a protocol version on connection, and the application
+calls out to it during annotation — currently to propose keypoint
+correspondences for registration.
+
+That second channel is the consequential design choice. The usual way to put a
+model inside an annotation tool is to export it to ONNX and embed it, which taxes
+every model with an export step that frequently does not survive contact with a
+research architecture. A socket boundary instead leaves the model where it was
+trained, in the researcher's own environment and dependencies, and asks only that
+it answer a request.
 
 # Availability and use
 
