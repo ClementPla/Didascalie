@@ -2,7 +2,7 @@ import { Injector, Type } from '@angular/core';
 import { PostProcessOption } from '../core/tools';
 
 /** Identifier of an experimental feature. Extend this union when adding one. */
-export type ExperimentalFeature = 'crf' | 'superpixel' | 'volume3d';
+export type ExperimentalFeature = 'superpixel' | 'volume3d';
 
 /** A post-processing mode contributed by an experimental feature. */
 export interface ExperimentalPostProcess {

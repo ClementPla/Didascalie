@@ -160,7 +160,7 @@ pub fn simulate(
 pub fn distance_to_seeds(seeds: &[bool], w: usize, h: usize) -> Vec<f32> {
     // Weights approximating Euclidean steps.
     const ORTHO: f32 = 1.0;
-    const DIAG: f32 = 1.414_213_6;
+    const DIAG: f32 = std::f32::consts::SQRT_2;
     let far = (w + h) as f32 * 2.0;
     let mut d: Vec<f32> = seeds.iter().map(|&s| if s { 0.0 } else { far }).collect();
 

@@ -57,12 +57,11 @@ export const CONVERT_TOOLS = [Tools.VECTORIZE, Tools.SKELETONIZE];
 export enum PostProcessOption {
   MEDSAM = 'MedSAM',
   OTSU = 'Otsu',
-  CRF = 'CRF',
   FLOODFILL = 'Flood Fill',
   SUPERPIXEL = 'Superpixel',
 }
 
-/** Stable post-processing modes. Experimental ones (CRF, Superpixel, …) are
+/** Stable post-processing modes. Experimental ones (Superpixel, …) are
  *  contributed by `src/app/experimental/registry.ts` and shown only while the
  *  experimental-features switch is on (see FeatureFlagsService). */
 export const postProcessingOptions = [

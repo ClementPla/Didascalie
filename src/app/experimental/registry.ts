@@ -4,13 +4,11 @@ import {
   ExperimentalFeatureDescriptor,
   ExperimentalPostProcess,
 } from './descriptor';
-import { CRF_FEATURE } from './crf/crf.feature';
 import { SUPERPIXEL_FEATURE } from './superpixel/superpixel.feature';
 import { VOLUME3D_FEATURE } from './volume3d/volume3d.feature';
 
 /** All experimental features. Register a new feature by adding it here. */
 export const EXPERIMENTAL_FEATURES: ExperimentalFeatureDescriptor[] = [
-  CRF_FEATURE,
   SUPERPIXEL_FEATURE,
   VOLUME3D_FEATURE,
 ];

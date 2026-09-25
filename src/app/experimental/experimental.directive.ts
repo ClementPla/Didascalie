@@ -15,7 +15,7 @@ import { FeatureFlagsService } from './feature-flags.service';
  * experimental feature and it disappears when the switch is off.
  *
  * ```html
- * <div *experimental="'crf'">…CRF-only UI…</div>
+ * <div *experimental="'superpixel'">…superpixel-only UI…</div>
  * ```
  */
 @Directive({ selector: '[experimental]', standalone: true })

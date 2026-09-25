@@ -1,4 +1,3 @@
-pub mod crf;
 pub mod flood_fill;
 pub mod superpixel;
 pub mod images;

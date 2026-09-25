@@ -176,7 +176,7 @@ export class PostProcessService {
       case PostProcessOption.FLOODFILL:
         return this.flood_fill_post_process();
       default: {
-        // Experimental modes (CRF, superpixel, …) are resolved through the
+        // Experimental modes (superpixel, …) are resolved through the
         // registry so this service never imports experimental feature code.
         const experimental = findExperimentalPostProcess(
           this.editorService.postProcessOption

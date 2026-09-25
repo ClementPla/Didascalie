@@ -140,7 +140,6 @@ pub fn run() {
             commands::images::process_image_blob,
             commands::segmentation::otsu_segmentation,
             connection::connection::event_processed,
-            commands::crf::crf_refine,
             commands::flood_fill::flood_fill_mask,
             commands::superpixel::superpixel_refine,
             commands::superpixel::superpixel_overlay,

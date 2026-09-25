@@ -68,11 +68,13 @@ jobs:
         working-directory: src-tauri
         run: cargo test --lib
 
-      # Informational for now (existing warnings); tighten to a hard gate later.
+      # A hard gate. This does not pass -D warnings, so the ~68 existing
+      # style warnings stay advisory; what it catches is clippy's deny-level
+      # lints, which are correctness bugs. One had been sitting in
+      # ml/scribble.rs unnoticed precisely because this step could not fail.
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets
-        continue-on-error: true
 
       - name: Format check
         working-directory: src-tauri
