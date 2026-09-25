@@ -34,7 +34,11 @@ annotator's own machine* from a handful of scribbles. Dense patch features are
 extracted once per image with a frozen self-supervised vision encoder
 [@oquab2024dinov2; @simeoni2025dinov3], cached, and used to train a small
 convolutional head, which is then stored inside the project file and applied to
-unseen frames. The application is built as a Rust backend behind a web frontend
+unseen frames. No data leaves the machine: encoders are the only network
+dependency, they are optional and downloaded inbound once, and no image,
+annotation or usage information is ever transmitted.
+
+The application is built as a Rust backend behind a web frontend
 (Tauri), ships as a native installer for Windows, macOS and Linux, and is
 accompanied by a Python library, `pydidascalie`, that reads and writes the same
 project format for scripted import, export and model-assisted pre-population.
@@ -55,8 +59,10 @@ computing rather than dataset labelling.
 
 The gap Didascalie addresses is a single-binary desktop application that needs no
 server and no Python environment on the annotator's machine, in which raster and
-vector annotation live together, a project is one portable file, and
-model assistance runs locally.
+vector annotation live together, a project is one portable file, and model
+assistance — training included — runs entirely on the annotator's own hardware.
+This makes the privacy property auditable rather than promised: there is no
+upload path to trust, because there is no server component at all.
 
 The assistance mechanism is the substantive design choice. Prompted
 segmentation models such as SAM [@kirillov2023sam] have made interactive
