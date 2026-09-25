@@ -414,17 +414,7 @@ pub struct TrainProgress {
     pub features: usize,
 }
 
-/// Fit a head on `train` and score it on `val`.
-pub fn train_head(
-    train: &Samples,
-    val: &Samples,
-    n_classes: usize,
-    cfg: &TrainConfig,
-) -> Result<(Head, EvalMetrics), String> {
-    train_head_with(train, val, n_classes, cfg, &|| false, &mut |_| {})
-}
-
-/// As [`train_head`], reporting each epoch to `on`.
+/// Fit a head on `train` and score it on `val`, reporting each epoch to `on`.
 ///
 /// Backend choice happens here, once, after the cheap rejections — spinning up
 /// a CUDA context only to discover the request was degenerate would add a
@@ -720,7 +710,7 @@ mod tests {
             lr: 1e-1,
             ..Default::default()
         };
-        let (_, m) = train_head(&train, &val, 2, &cfg).unwrap();
+        let (_, m) = train_head_with(&train, &val, 2, &cfg, &|| false, &mut |_| {}).unwrap();
         assert!(
             m.accuracy > 0.9,
             "head failed to learn a separable problem: acc={} dice={}",
@@ -735,9 +725,9 @@ mod tests {
         // even on a machine where initialising CUDA is slow.
         let empty = Samples::new(4);
         let val = synth(2, 4, 3);
-        assert!(train_head(&empty, &val, 2, &tiny()).is_err());
+        assert!(train_head_with(&empty, &val, 2, &tiny(), &|| false, &mut |_| {}).is_err());
         let train = synth(2, 4, 4);
-        assert!(train_head(&train, &val, 1, &tiny()).is_err());
+        assert!(train_head_with(&train, &val, 1, &tiny(), &|| false, &mut |_| {}).is_err());
     }
 
     #[test]
@@ -746,7 +736,7 @@ mod tests {
         // return a usable head and report where it ran.
         let train = synth(4, 3, 7);
         let val = synth(2, 3, 8);
-        let (head, _) = train_head(&train, &val, 2, &tiny()).unwrap();
+        let (head, _) = train_head_with(&train, &val, 2, &tiny(), &|| false, &mut |_| {}).unwrap();
         assert!(!head.device().is_empty());
 
         // The fitted head must be usable for dense inference on its own

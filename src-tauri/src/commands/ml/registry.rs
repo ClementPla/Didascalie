@@ -132,11 +132,6 @@ impl EncoderSpec {
         self
     }
 
-    /// The download descriptor understood by `dl::model_manager`.
-    pub fn to_model_config(&self) -> ModelConfig {
-        self.config_for(&self.filename)
-    }
-
     /// Descriptors for every file this encoder needs, graph first.
     ///
     /// Callers must fetch all of them: a cached graph whose sidecar is missing
@@ -398,7 +393,9 @@ mod tests {
     #[test]
     fn model_config_round_trips_repo_and_file() {
         let spec = find("dinov2-small").unwrap();
-        let cfg = spec.to_model_config();
+        // all_model_configs is the production entry point and lists the graph
+        // first, so this asserts the catalog through the path callers use.
+        let cfg = &spec.all_model_configs()[0];
         assert_eq!(cfg.repo_id, "onnx-community/dinov2-small-ONNX");
         // Nested path within the repo — the downloader must create parent dirs.
         assert!(cfg.filename.contains('/'));

@@ -283,9 +283,6 @@ impl EncoderSession {
         &self.spec.id
     }
 
-    pub fn spec(&self) -> &EncoderSpec {
-        &self.spec
-    }
 }
 
 /// Reshape a raw encoder output into `[D, grid_h, grid_w]`.

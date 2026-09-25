@@ -1,4 +1,11 @@
-// src/storage/rle.rs
+/// Writer for the legacy binary-mask RLE, kept only to exercise [`decode`].
+///
+/// Nothing in the application writes this format any more — `encode8` replaced
+/// it when masks became uint8 — but `decode` still has to read it, because
+/// projects created before that change are still out there. Gating the writer to
+/// tests keeps the round-trip coverage without shipping a second encoder that
+/// could silently drift from the one in use.
+#[cfg(test)]
 pub fn encode(mask: &[u8], width: usize, height: usize) -> Vec<u8> {
     let mut rle: Vec<u32> = Vec::new();
     let mut count = 0u32;

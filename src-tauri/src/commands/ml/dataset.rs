@@ -82,7 +82,6 @@ pub struct DatasetConfig {
     /// broken cache), but it stays `false` here: a `DatasetConfig` built
     /// directly, as tests do, should not write to the user's disk unasked.
     pub cache_writes: bool,
-    pub seed: u64,
 }
 
 impl Default for DatasetConfig {
@@ -96,7 +95,6 @@ impl Default for DatasetConfig {
             stroke_len: 40,
             scribble_dropout: 0.5,
             cache_writes: false,
-            seed: 0,
         }
     }
 }

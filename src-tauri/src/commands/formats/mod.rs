@@ -25,7 +25,6 @@ use crate::utils::error::Result;
 pub enum OptionSpec {
     Bool { key: String, label: String, default: bool },
     Enum { key: String, label: String, choices: Vec<Choice>, default: String },
-    Int { key: String, label: String, default: i64, min: i64, max: i64 },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -55,9 +54,6 @@ pub fn get_bool(v: &OptionValues, key: &str, default: bool) -> bool {
 }
 pub fn get_str(v: &OptionValues, key: &str, default: &str) -> String {
     v.get(key).and_then(|x| x.as_str()).unwrap_or(default).to_string()
-}
-pub fn get_int(v: &OptionValues, key: &str, default: i64) -> i64 {
-    v.get(key).and_then(|x| x.as_i64()).unwrap_or(default)
 }
 
 /// A stable default label colour by index, for imports that carry no colours.

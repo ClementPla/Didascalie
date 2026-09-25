@@ -71,9 +71,6 @@ impl Scribbles {
         }
     }
 
-    pub fn any(&self) -> bool {
-        self.positive.iter().any(|v| *v) || self.negative.iter().any(|v| *v)
-    }
 }
 
 /// Trace one random walk of `len` steps constrained to `region`.
@@ -285,7 +282,8 @@ mod tests {
         let mut rng = Rng::new(123);
         let s = simulate(&mask, w, h, 4, 30, &mut rng);
 
-        assert!(s.any(), "expected some strokes");
+        assert!(s.positive.iter().any(|v| *v), "expected positive strokes");
+        assert!(s.negative.iter().any(|v| *v), "expected negative strokes");
         for i in 0..w * h {
             if s.positive[i] {
                 assert!(mask[i] > 0, "positive stroke leaked into background at {i}");

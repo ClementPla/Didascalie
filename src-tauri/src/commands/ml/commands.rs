@@ -356,7 +356,6 @@ fn build_split(
         patches_per_frame: requested_patches,
         cache_writes: options.cache_features.unwrap_or(true),
         repeats: options.augment_repeats.unwrap_or(3).max(1),
-        seed,
         ..Default::default()
     };
 
@@ -462,7 +461,6 @@ fn train_config(options: &TrainOptions) -> TrainConfig {
         hidden: options.hidden.unwrap_or(TrainConfig::default().hidden),
         depth: options.depth.unwrap_or(TrainConfig::default().depth),
         epochs: options.epochs.unwrap_or(40),
-        seed: options.seed.unwrap_or(0),
         ..Default::default()
     }
 }
@@ -787,7 +785,3 @@ pub fn ml_predict_frame(
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-}
