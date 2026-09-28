@@ -5,7 +5,26 @@
     contributor guide — architecture, the storage schema, how to add a format or an
     encoder — is planned but not written.
 
-## Building
+## Working on these docs
+
+One-time setup, then a live-reloading server:
+
+```bash
+pip install -r docs/requirements.txt
+npm run docs:serve      # or: mkdocs serve
+```
+
+It serves on <http://127.0.0.1:8000/>, watches `docs/` and `mkdocs.yml`, rebuilds on
+save and reloads the browser. Changing `mkdocs.yml` itself also triggers a rebuild.
+
+```bash
+npm run docs:build      # mkdocs build --strict, as Read the Docs runs it
+```
+
+`--strict` turns warnings into errors, which is what catches a broken internal link
+or a page missing from the navigation before it reaches the published site.
+
+## Building the application
 
 See [Building from source](../install.md#building-from-source).
 

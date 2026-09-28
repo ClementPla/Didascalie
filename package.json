@@ -13,7 +13,9 @@
     "compodoc:serve": "compodoc -s",
     "lint": "ng lint",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "docs:serve": "mkdocs serve",
+    "docs:build": "mkdocs build --strict"
   },
   "private": true,
   "dependencies": {
