@@ -1,0 +1,5 @@
+# Documentation build (Read the Docs). Pinned to minor versions so a docs build
+# never breaks on an upstream release the site was not written against.
+mkdocs~=1.6
+mkdocs-material~=9.5
+pymdown-extensions~=10.7

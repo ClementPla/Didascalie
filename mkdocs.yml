@@ -1,0 +1,83 @@
+site_name: Didascalie
+site_description: Annotate medical images on your own machine.
+site_url: https://didascalie.readthedocs.io/
+repo_url: https://github.com/ClementPla/Didascalie
+repo_name: ClementPla/Didascalie
+edit_uri: edit/release/docs/
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+  palette:
+    # Follows the reader's system setting, with a manual override.
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Follow system theme
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.keys
+
+nav:
+  - Home: index.md
+  - Installing: install.md
+  - Quickstart: quickstart.md
+  - User guide:
+      - Projects and files: guide/projects.md
+      - Annotating: guide/annotating.md
+      - Assisted labelling: guide/assistance.md
+      - Very large images: guide/large-images.md
+      - The gallery and review: guide/gallery.md
+      - Frame registration: guide/registration.md
+      - Import and export: guide/import-export.md
+      - Keyboard shortcuts: guide/shortcuts.md
+  - Experimental features: experimental.md
+  - Python library: python.md
+  - Troubleshooting: troubleshooting.md
+  - Development notes:
+      - Overview: development/index.md
+      - Auto-update: development/auto-update.md
+
+# The literature review is a long research note kept for reference; it is served
+# as a file but left out of the nav so it does not compete with the user guide.
+not_in_nav: |
+  development/literature-review-fewshot-scribble.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ClementPla/Didascalie
