@@ -11,15 +11,26 @@
   <img alt="Core" src="https://img.shields.io/badge/core-Rust-000000">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey">
   <img alt="Status" src="https://img.shields.io/badge/status-in%20development-orange">
+  <a href="https://didascalie.readthedocs.io/"><img alt="Documentation" src="https://img.shields.io/readthedocs/didascalie?label=docs"></a>
+</p>
+
+<p align="center">
+  <b><a href="https://didascalie.readthedocs.io/">Documentation</a></b>
+  ·
+  <a href="https://didascalie.readthedocs.io/install/">Installing</a>
+  ·
+  <a href="https://didascalie.readthedocs.io/quickstart/">Quickstart</a>
+  ·
+  <a href="https://github.com/ClementPla/Didascalie/releases">Releases</a>
 </p>
 
 ---
 
 Segmentation masks, classification labels, keypoints, and a few other annotation types — with nothing leaving your machine.
 
-It's a solo research project, built mostly for my own work in medical image analysis, where the data often can't be uploaded to a cloud service. It is under active development, and the name recently changed from *LabelMed*. Expect rough edges, breaking changes, and features in varying states of completeness.
+Didascalie is usable for day-to-day annotation and has been used in published research. It remains under active development, and some features are still experimental. 
 
-The name: a *didascalie* is a stage direction — one of the little notes in a play script. It seemed like a reasonable word for annotations, which are really just notes added to data. (Pronounced *di-da-ska-LEE*.)
+The name: a *didascalie* is the french word for a stage direction — one of the little notes in a play script. It seemed like a reasonable word for annotations, which are really just notes added to data. (Pronounced *di-da-ska-LEE*.)
 
 > **Status:** early and evolving. The core annotation workflow is usable day-to-day; the parts marked *experimental* below are not.
 
@@ -40,6 +51,7 @@ The name: a *didascalie* is a stage direction — one of the little notes in a p
 - **Image adjustments for readability.** Brightness, contrast, gamma, tone curves and colour inversion, applied while you look at an image. They change what you see, and optionally what the assistance tools read, but never the stored pixels.
 - **A filterable gallery to track progress.** Filter by review status, keypoint presence or name. Sequences show how much of their content is annotated and reviewed, and individual frames can be marked reviewed too.
 - **Batch classification from the gallery.** Select several images and apply multiclass/multilabel choices to all of them at once.
+- **3D volume mode** (experimental). Treat a sequence as a voxel volume, with a 3D view and a curved projection you can paint directly. The 3D annotation workflow will likely see more development in the future, but it's usable enough to be interesting now. 
 
 ## Assistance while annotating
 
@@ -121,9 +133,16 @@ Building with GPU support needs the CUDA Toolkit; `cargo build --no-default-feat
 
 Angular 20 and PrimeNG (UI) · Tauri v2 / Rust (desktop shell and native processing) · SQLite via rusqlite (project files) · WebGPU (mask compositing, with a CPU fallback) · ONNX Runtime (encoder inference) · burn (training the segmentation head) · three.js (the experimental 3D view) · ZeroMQ (the experimental Python bridge).
 
+## Personal stance on AI-assisted coding
+
+Didascalie started as a personal project, grown out of frustration with existing tools. Many researchers and clinicians still use Paint or PowerPoint to annotate images, and the ones that are designed for the task often have workflows that don't match their technical expertise or clinical needs. It may sound trivial to ask for a clinician to just ```pip install``` a Python package and run a script, but in practice, this is far from true.
+Over the years, I have appreciated the ability to annotate without sending data to a server, the easy sharing of a single project file, all that was very convenient. 
+But it appears that I was not the only interested in such a tool (I hope it's useful to you too!). Integrating the new features, the tests, the debugs, and the documentation started to feel like a fulltime job for a single person; and for that reason, recently I've been using the assistance of AI coding tools (Claude Code) to integrate new requested features. 
+I found it to be often a more efficient coder than I am as long as it remained monitored closely. In a practical sense though, I believe that this stance remains only valid for a single developer and I would not accept contributions that do not come with a clear and well-documented rationale, which means a human intent. I hope that this project will remain a useful tool for the community, and I will continue to maintain it as best as I can.
+
 ## Contributing
 
-It's a one-person project, so responses may be slow, but bug reports and suggestions are welcome — please open an issue. If you work with medical images and something is missing or awkward, I'd like to hear about it.
+Currently, it's a one-person project, but bug reports and suggestions are welcome — please open an issue. If you work with medical images and something is missing or awkward, I'd like to hear about it.
 
 ## License
 

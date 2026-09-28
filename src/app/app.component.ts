@@ -1,5 +1,6 @@
 // app.component.ts
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { ToolbarModule } from 'primeng/toolbar';
 import { LoadingComponent } from './features/loading/loading.component';
 import { RouterOutlet, RouterModule } from '@angular/router';
@@ -52,6 +53,19 @@ export class AppComponent implements OnInit, OnDestroy {
   updateService = inject(UpdateService);
 
   title = 'Didascalie';
+
+  /** Published user documentation. Kept here rather than in a template literal
+   *  so the one place to change it is obvious. */
+  private static readonly DOCS_URL = 'https://didascalie.readthedocs.io/';
+
+  /** Open the documentation in the user's browser, not in a webview. */
+  async openDocumentation(): Promise<void> {
+    try {
+      await openUrl(AppComponent.DOCS_URL);
+    } catch (error) {
+      console.error('[app] could not open the documentation', error);
+    }
+  }
 
   private readonly destroy$ = new Subject<void>();
   private unlistenClose: (() => void) | null = null;

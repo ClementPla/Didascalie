@@ -2,7 +2,10 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": ["main", "composite-view"],
+  "windows": [
+    "main",
+    "composite-view"
+  ],
   "permissions": [
     "core:default",
     "dialog:default",
@@ -12,6 +15,14 @@
     "core:window:allow-set-always-on-top",
     "core:window:allow-destroy",
     "updater:default",
-    "process:default"
+    "process:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://didascalie.readthedocs.io/*"
+        }
+      ]
+    }
   ]
 }

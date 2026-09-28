@@ -120,7 +120,8 @@ model stays in the environment it was trained in and only answers requests.
 # Availability and use
 
 Didascalie is released under the BSD-3-Clause licence. Source and installers are
-available at <https://github.com/ClementPla/Didascalie>. Annotations produced with
+available at <https://github.com/ClementPla/Didascalie>, with user documentation at
+<https://didascalie.readthedocs.io>. Annotations produced with
 it have been used in published research [@TODO_dnai_study], and its workflow
 reflects continuing feedback from clinicians and researchers working with real data
 in several specialties.

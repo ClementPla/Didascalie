@@ -115,7 +115,8 @@ pub fn run() {
     #[cfg(desktop)]
     let app = app
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init());
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init());
 
     #[cfg(not(target_os = "android"))]
     let app = app

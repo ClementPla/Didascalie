@@ -99,6 +99,16 @@
       ariaLabel="Toggle performance overlay"
       (onClick)="uiStateService.showFpsCounter.set(!uiStateService.showFpsCounter())"
     ></p-button>
+    <p-button
+      icon="pi pi-book"
+      [rounded]="true"
+      [text]="true"
+      [raised]="true"
+      pTooltip="Open the documentation in your browser"
+      tooltipPosition="bottom"
+      ariaLabel="Open documentation"
+      (onClick)="openDocumentation()"
+    ></p-button>
     <app-experimental-settings></app-experimental-settings>
   </ng-template>
 </p-toolbar>
