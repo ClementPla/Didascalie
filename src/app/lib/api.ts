@@ -581,13 +581,20 @@ export const api = {
   mlPredictFrame: (frameId: number, scribbles?: ScribbleInput) =>
     invoke<PredictedFrame>('ml_predict_frame', { frameId, scribbles }),
 
+  /**
+   * Keys are camelCase because `ScanOptions` is an IPC-only type and carries
+   * `#[serde(rename_all = "camelCase")]`. This declaration is the only thing
+   * holding the two sides together — nothing checks that it still matches the
+   * Rust struct, and when it did not, project creation failed at run time with
+   * `missing field \`folderPath\``.
+   */
   scanAndImportFolder: (options: {
-    folder_path: string;
-    embed_images: boolean;
-    embed_threshold_kb: number;
-    input_regex: string;
+    folderPath: string;
+    embedImages: boolean;
+    embedThresholdKb: number;
+    inputRegex: string;
     recursive: boolean;
-    folders_as_sequences: boolean;
+    foldersAsSequences: boolean;
   }) => invoke<ScanResult>('scan_and_import_folder', { options: options }),
 
   setFrameReviewed: (frameId: number, reviewed: boolean) =>

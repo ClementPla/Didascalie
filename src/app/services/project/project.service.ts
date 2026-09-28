@@ -191,12 +191,12 @@ export class ProjectService {
     }
 
     const result = await api.scanAndImportFolder({
-      folder_path: config.input_folder,
-      embed_images: config.images_embedded,
-      embed_threshold_kb: config.embed_threshold_kb,
-      input_regex: config.input_regex,
+      folderPath: config.input_folder,
+      embedImages: config.images_embedded,
+      embedThresholdKb: config.embed_threshold_kb,
+      inputRegex: config.input_regex,
       recursive: config.recursive,
-      folders_as_sequences: config.folders_as_sequences,
+      foldersAsSequences: config.folders_as_sequences,
     });
 
     // Update counts after scan
