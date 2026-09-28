@@ -8,6 +8,12 @@ const prettier = require("eslint-config-prettier");
 
 module.exports = defineConfig([
   {
+    // ts-rs writes these from the Rust structs. Style rules do not apply to
+    // output nobody edits, and linting it would mean either patching the
+    // generator or committing changes that the next regeneration reverts.
+    ignores: ["src/app/lib/generated/**"],
+  },
+  {
     files: ["**/*.ts"],
     extends: [
       eslint.configs.recommended,

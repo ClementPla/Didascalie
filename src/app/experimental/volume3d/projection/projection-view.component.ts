@@ -187,8 +187,7 @@ export class ProjectionViewComponent implements OnDestroy {
 
     // Keep the output fitted as the pane or the slice spacing changes.
     effect(() => {
-      this.viewport();
-      this.settings().zSpacing;
+      const _track = [this.viewport(), this.settings().zSpacing];
       untracked(() => this.layout());
     });
 
