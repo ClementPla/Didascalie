@@ -70,6 +70,7 @@ serde_bytes = "0.11.19"
 # Available-RAM probe for sizing the training sample table (see
 # `commands::ml::commands::patch_budget`). Only the memory API is needed.
 sysinfo = { version = "0.38", default-features = false, features = ["system"] }
+ts-rs = "12.0.1"
 # DirectML is DirectX 12, so it exists only on Windows. Enabling its `ort`
 # feature everywhere made `DirectMLExecutionProvider::register` reference
 # `OrtSessionOptionsAppendExecutionProvider_DML`, which the Linux ONNX Runtime

@@ -1,4 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
+
+// Generated from the Rust structs by ts-rs; see src-tauri/src/commands/io.rs.
+// Do not hand-write mirrors of an IPC type — that is what broke project creation.
+import type { ScanOptions } from './generated/ScanOptions';
+import type { ScanResult } from './generated/ScanResult';
+
+export type { ScanOptions, ScanResult };
 export interface Sequence {
   id: number;
   name: string;
@@ -69,13 +76,6 @@ export interface ProjectConfig {
   classification_tasks?: MulticlassConfig[];
   multilabel_task?: MultilabelConfig;
   text_fields?: string[];
-}
-
-export interface ScanResult {
-  sequencesCreated: number;
-  framesImported: number;
-  framesEmbedded: number;
-  errors: string[];
 }
 
 export interface ClassificationData {
@@ -581,21 +581,8 @@ export const api = {
   mlPredictFrame: (frameId: number, scribbles?: ScribbleInput) =>
     invoke<PredictedFrame>('ml_predict_frame', { frameId, scribbles }),
 
-  /**
-   * Keys are camelCase because `ScanOptions` is an IPC-only type and carries
-   * `#[serde(rename_all = "camelCase")]`. This declaration is the only thing
-   * holding the two sides together — nothing checks that it still matches the
-   * Rust struct, and when it did not, project creation failed at run time with
-   * `missing field \`folderPath\``.
-   */
-  scanAndImportFolder: (options: {
-    folderPath: string;
-    embedImages: boolean;
-    embedThresholdKb: number;
-    inputRegex: string;
-    recursive: boolean;
-    foldersAsSequences: boolean;
-  }) => invoke<ScanResult>('scan_and_import_folder', { options: options }),
+  scanAndImportFolder: (options: ScanOptions) =>
+    invoke<ScanResult>('scan_and_import_folder', { options }),
 
   setFrameReviewed: (frameId: number, reviewed: boolean) =>
     invoke('set_frame_reviewed', {
