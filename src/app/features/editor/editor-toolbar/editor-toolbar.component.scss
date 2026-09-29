@@ -1,17 +1,108 @@
-:host ::ng-deep .p-toolbar{
-    padding: 0px;
-
+:host ::ng-deep .p-toolbar {
+  padding: 0;
 }
 
-// Set the vector tools apart from the raster tools with a divider + label.
-.vector-tool-group {
-    padding-left: 0.75rem;
-    border-left: 1px solid var(--p-content-border-color, rgba(255, 255, 255, 0.15));
+// `start` holds the whole row now, so it has to be allowed to take the width.
+:host ::ng-deep .p-toolbar-start {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
-    &__label {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        font-weight: 600;
-    }
+:host ::ng-deep .p-toolbar-end {
+  flex: 0 0 auto;
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  min-width: 0;
+  // Scroll rather than wrap: a second line changes the toolbar's height and
+  // pushes the canvas down, which is the jump this layout is avoiding.
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+
+  // Divider before every group but the first (navigation).
+  & + & {
+    padding-left: 0.75rem;
+    border-left: 1px solid
+      var(--p-content-border-color, rgba(255, 255, 255, 0.15));
+  }
+
+  &__label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    opacity: 0.6;
+    white-space: nowrap;
+  }
+}
+
+// Material Symbols default to 24px, well above the PrimeIcons sitting beside
+// them in the same buttons.
+.ms-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  &__label {
+    white-space: nowrap;
+  }
+
+  // Tools that are a combination of two others (lasso eraser) badge the second
+  // icon over the bottom-right of the first.
+  &__icon {
+    position: relative;
+    display: inline-flex;
+  }
+
+  &__badge {
+    position: absolute;
+    right: -0.45em;
+    bottom: -0.35em;
+    font-size: 0.62em;
+    line-height: 1;
+  }
+}
+
+.brush-size {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 8.5rem;
+  flex: 0 0 auto;
+
+  // Reserved even when the current tool has no brush, so nothing to its right
+  // moves when the tool changes.
+  &--idle {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  &__slider {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__value {
+    width: 3.25rem;
+    text-align: right;
+    font-size: 0.8rem;
+    padding: 0.2rem 0.35rem !important;
+    font-variant-numeric: tabular-nums;
+  }
 }

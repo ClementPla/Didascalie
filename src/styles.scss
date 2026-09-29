@@ -1,5 +1,9 @@
 @use "assets/css/variables" as *;
 @import "primeicons/primeicons.css";
+// Self-hosted, not the Google Fonts CDN: the app must work offline and
+// must not reach out to a third party at startup. Outlined only — the
+// rounded and sharp styles ship in the same package and are not used.
+@import "@material-symbols/font-400/outlined.css";
 
 @layer tailwind-base, primeng, tailwind-utilities;
 

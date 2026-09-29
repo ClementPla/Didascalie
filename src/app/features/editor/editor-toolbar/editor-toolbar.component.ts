@@ -1,8 +1,13 @@
-import { AfterViewInit, ChangeDetectorRef, Component, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { ToolbarModule } from 'primeng/toolbar';
 import { ButtonModule } from 'primeng/button';
 import { SelectButtonModule } from 'primeng/selectbutton';
-import { ALL_TOOLS, CONVERT_TOOLS, VECTOR_TOOLS } from '../../../core/tools';
+import {
+  CONVERT_TOOLS,
+  RASTER_TOOLS,
+  Tool,
+  VECTOR_TOOLS,
+} from '../../../core/tools';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EditorService } from '../services/editor.service';
@@ -13,7 +18,7 @@ import { SliderModule } from 'primeng/slider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { BlockUIModule } from 'primeng/blockui';
 import { PanelModule } from 'primeng/panel';
-import { LabelledSwitchComponent } from '../../../shared/generics/labelled-switch/labelled-switch.component';
+import { ToggleButtonModule } from 'primeng/togglebutton';
 import { TooltipModule } from 'primeng/tooltip';
 import { SplitButtonModule } from 'primeng/splitbutton';
 import { MenuItem } from 'primeng/api';
@@ -41,7 +46,7 @@ const OUTPUTS: { id: PredictOutput; label: string; icon: string }[] = [
         FormsModule,
         SliderModule,
         ToggleSwitchModule,
-        LabelledSwitchComponent,
+        ToggleButtonModule,
         TooltipModule,
         SplitButtonModule,
     ],
@@ -54,9 +59,21 @@ export class EditorToolbarComponent {
   prediction = inject(PredictionService);
   private convertService = inject(ConvertService);
 
-  tools = ALL_TOOLS;
+  rasterTools = RASTER_TOOLS;
   vectorTools = VECTOR_TOOLS;
   convertTools = CONVERT_TOOLS;
+
+  /** Drives the name shown beside a tool's icon: only the current tool's. */
+  isSelected(tool: Tool): boolean {
+    return this.editorService.selectedTool === tool;
+  }
+
+  /** Name, shortcut and what the tool does — the buttons are icon-only
+   *  unless selected, so this is where they explain themselves. */
+  toolTooltip(tool: Tool): string {
+    const head = tool.shortcut ? `${tool.name} · ${tool.shortcut}` : tool.name;
+    return tool.description ? `${head} — ${tool.description}` : head;
+  }
 
   // Brush-size slider bounds. The slider is logarithmic so small, commonly-used
   // sizes get most of the track; the number input still edits lineWidth directly.

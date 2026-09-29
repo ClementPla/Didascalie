@@ -1,96 +1,89 @@
-<svg #wheel [attr.viewBox]="getViewbox()" [style.width.px]="radius() * 2">
-  @for (segment of segments; track i; let i = $index) {
-    <g
-      class="cursor-pointer"
-      (mouseenter)="hoverSegment(i)"
-      (click)="callCommand(items()[i])"
-    >
-      <path
-        class="primary-color"
-        [attr.d]="segment.path"
-        [attr.stroke]="'black'"
-        [ngClass]="{ 'is-active': selectedIndex === i }"
-      />
-      <text
-        class="pointer-events-none select-none text-color text-lg"
-        [attr.x]="segment.barycenter.x"
-        [attr.y]="segment.barycenter.y - 8"
-        text-anchor="middle"
-        dominant-baseline="central"
-      >
-        {{ items()[i].label }}
-      </text>
-      <!-- PrimeNG Icon -->
-      <foreignObject
-        [attr.x]="segment.barycenter.x - 8"
-        [attr.y]="segment.barycenter.y + 5"
-        width="20"
-        height="20"
-      >
-        <div
-          xmlns="http://www.w3.org/1999/xhtml"
-          style="display: flex; justify-content: center; align-items: center"
+<svg
+  #wheel
+  class="wheel"
+  role="menu"
+  tabindex="0"
+  aria-label="Quick access tools"
+  [attr.viewBox]="viewBox()"
+  [style.width.px]="boxSize()"
+  [style.height.px]="boxSize()"
+  (click)="onClick()"
+  (keydown.enter)="onClick()"
+  (keydown.space)="onClick()"
+  (keydown.escape)="closeMenu.emit()"
+>
+  @for (segment of segments(); track $index; let i = $index) {
+    <!-- Options for the aimed entry, drawn under it so the wedge's own edge
+         stays crisp. -->
+    @if (aimed() === i) {
+      @for (child of segment.children; track $index; let j = $index) {
+        @let childItem = items()[i].children![j];
+        <g
+          class="child"
+          [class.child--aimed]="aimedChild() === j"
+          [class.child--on]="
+            childItem.type === segmentType.toggle && isChecked(childItem)
+          "
         >
-          <i
-            [ngClass]="items()[i].icon"
-            style="font-size: 14px; color: var(--text-color)"
-          ></i>
+          <path class="child__wedge" [attr.d]="child.path" />
+          <foreignObject
+            [attr.x]="child.cx - 44"
+            [attr.y]="child.cy - 18"
+            width="88"
+            height="36"
+          >
+            <div xmlns="http://www.w3.org/1999/xhtml" class="child__body">
+              @if (childItem.materialIcon) {
+                <span class="material-symbols-outlined child__icon">{{
+                  childItem.materialIcon
+                }}</span>
+              } @else {
+                <i [ngClass]="childItem.icon" class="child__icon"></i>
+              }
+              <span class="child__label">{{ childItem.label }}</span>
+            </div>
+          </foreignObject>
+        </g>
+      }
+    }
+
+    @let item = items()[i];
+    <g class="slice" [class.slice--aimed]="aimed() === i">
+      <path
+        class="slice__wedge"
+        [class.slice__wedge--current]="isActive(item)"
+        [attr.d]="segment.path"
+      />
+      <foreignObject
+        [attr.x]="segment.cx - 22"
+        [attr.y]="segment.cy - 22"
+        width="44"
+        height="44"
+      >
+        <div xmlns="http://www.w3.org/1999/xhtml" class="slice__body">
+          @if (item.materialIcon) {
+            <span class="material-symbols-outlined slice__icon">{{
+              item.materialIcon
+            }}</span>
+          } @else {
+            <i [ngClass]="item.icon" class="slice__icon"></i>
+          }
         </div>
       </foreignObject>
-
-      @if (segment.children && segment.children!.length > 0) {
-        @for (child of segment.children; track j; let j = $index) {
-          <g
-            class="cursor-pointer"
-            [ngClass]="{ hidden: selectedIndex !== i }"
-            (click)="callCommand(items()[i].children![j])"
-          >
-            @switch (items()[i].children && items()[i].children![j].type) {
-              @case (segmentType.toggle) {
-                <path
-                  [attr.d]="child.path"
-                  class="cursor-pointer toggle"
-                  [attr.stroke]="'black'"
-                />
-              }
-              @default {
-                <path
-                  [attr.d]="child.path"
-                  class="cursor-pointer primary-color segment"
-                  [attr.stroke]="'black'"
-                />
-              }
-            }
-
-            <text
-              class="pointer-events-none select-none text-color"
-              [attr.x]="child.barycenter.x"
-              [attr.y]="child.barycenter.y - 6"
-              text-anchor="middle"
-              dominant-baseline="central"
-            >
-              {{ items()[i].children![j].label }}
-            </text>
-
-            <foreignObject
-              [attr.x]="child.barycenter.x - 8"
-              [attr.y]="child.barycenter.y + 5"
-              width="20"
-              height="20"
-            >
-              <div
-                xmlns="http://www.w3.org/1999/xhtml"
-                style="display: flex; justify-content: center; align-items: center"
-              >
-                <i
-                  [ngClass]="items()[i].children![j].icon"
-                  style="font-size: 14px; color: var(--text-color)"
-                ></i>
-              </div>
-            </foreignObject>
-          </g>
-        }
-      }
     </g>
   }
+
+  <!-- Hub: dead zone, and where the aimed entry's name is printed. One place
+       for the text instead of a label crammed into every wedge. -->
+  <circle class="hub" [attr.r]="hubRadius" cx="0" cy="0" />
+  <foreignObject
+    [attr.x]="-hubRadius"
+    [attr.y]="-hubRadius"
+    [attr.width]="hubRadius * 2"
+    [attr.height]="hubRadius * 2"
+  >
+    <div xmlns="http://www.w3.org/1999/xhtml" class="hub__body">
+      <span class="hub__label">{{ aimedItem()?.label ?? '' }}</span>
+    </div>
+  </foreignObject>
 </svg>

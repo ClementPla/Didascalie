@@ -174,7 +174,14 @@ pub fn sync_labels_from_config(conn: &Connection, config: &ProjectConfig) -> Res
 
     // Upsert each label
     for (i, label) in labels.iter().enumerate() {
-        let is_instance = label.shades.is_some();
+        // Derived from the project flag, not from the presence of `shades`.
+        // Shades are deterministic and regenerated from the label colour on
+        // load, so the launcher writes labels with none — which made this come
+        // out false for every project created through the UI. The palette then
+        // mapped every instance id to the label's base colour and instances
+        // were indistinguishable once committed. `shades` is still honoured so
+        // older project files keep their flag.
+        let is_instance = config.instance_segmentation_enabled || label.shades.is_some();
         conn.execute(
             "INSERT INTO labels (name, color, is_instance, sort_order)
              VALUES (?1, ?2, ?3, ?4)
@@ -480,5 +487,51 @@ mod tests {
         conn.execute_batch(&format!("PRAGMA user_version = {};", SCHEMA_VERSION + 1))
             .unwrap();
         assert!(run_migrations(&conn).is_err());
+    }
+    /// Config with one segmentation label and no shades — what the launcher
+    /// produces, since shades are regenerated from the colour on load.
+    fn config_with_label(instance: bool) -> ProjectConfig {
+        ProjectConfig {
+            instance_segmentation_enabled: instance,
+            segmentation_labels: Some(vec![crate::types::project::LabelConfig {
+                name: "cell".into(),
+                color: "#ff0000".into(),
+                shades: None,
+            }]),
+            ..Default::default()
+        }
+    }
+
+    fn synced_is_instance(config: &ProjectConfig) -> bool {
+        let conn = Connection::open_in_memory().unwrap();
+        configure_connection(&conn).unwrap();
+        run_migrations(&conn).unwrap();
+        sync_labels_from_config(&conn, config).unwrap();
+        conn.query_row("SELECT is_instance FROM labels WHERE name = 'cell'", [], |r| {
+            r.get(0)
+        })
+        .unwrap()
+    }
+
+    /// The bug this pins: `is_instance` was inferred from `shades.is_some()`, so
+    /// a project created through the launcher — which writes no shades — got
+    /// `false`, and every instance rendered in the label's base colour.
+    #[test]
+    fn instance_project_marks_its_labels_as_instances_without_shades() {
+        assert!(synced_is_instance(&config_with_label(true)));
+    }
+
+    #[test]
+    fn semantic_project_leaves_labels_as_semantic() {
+        assert!(!synced_is_instance(&config_with_label(false)));
+    }
+
+    /// Older project files carry explicit shades and no reliable project flag.
+    #[test]
+    fn stored_shades_still_mark_a_label_as_an_instance() {
+        let mut config = config_with_label(false);
+        config.segmentation_labels.as_mut().unwrap()[0].shades =
+            Some(vec!["#111111".into(), "#222222".into()]);
+        assert!(synced_is_instance(&config));
     }
 }

@@ -271,13 +271,21 @@ export class LabelsService implements ProjectScoped {
     console.log('API returned labels:', dbLabels);
     console.log('Loaded labels from DB:', dbLabels);
 
+    // The project flag is checked alongside the per-label one so the palette is
+    // right even against a database whose `is_instance` column was written by a
+    // build that derived it from the presence of `shades`.
+    const instanceProject = config.instance_segmentation_enabled === true;
+
     for (const label of dbLabels) {
       this.addSegLabel({
         id: label.id,
         label: label.name,
         color: label.color,
         isVisible: true,
-        shades: label.isInstance ? this.generateShades(label.color) : null,
+        shades:
+          label.isInstance || instanceProject
+            ? this.generateShades(label.color)
+            : null,
       });
     }
 

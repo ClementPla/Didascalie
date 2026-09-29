@@ -153,7 +153,6 @@ export class ProjectService {
 
     const config = { ...DEFAULT_PROJECT_CONFIG, ...draft };
     this._config.set(config);
-    await this.labelService.setDefinitions(config);
 
     try {
       await api.createProject(config.name, path, config);
@@ -161,6 +160,12 @@ export class ProjectService {
       console.error('Failed to create project:', error);
       throw error;
     }
+
+    // After the project exists, never before: `setDefinitions` reads the labels
+    // back with `api.getLabels()`, and the close above left no database for it
+    // to read — so the label list came back empty and the instance flags with
+    // it.
+    await this.labelService.setDefinitions(config);
 
     this._projectPath.set(path);
     this._isOpen.set(true);

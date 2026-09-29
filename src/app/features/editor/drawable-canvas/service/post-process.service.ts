@@ -135,6 +135,12 @@ export class PostProcessService {
       startX: clickX,
       startY: clickY,
       tolerance: this.editorService.floodFillTolerance,
+      // Same refinement controls as the Otsu mode — both are stroke-bounded
+      // selection operators and the panel presents them as one set.
+      inverse: this.editorService.useInverse,
+      opening: this.editorService.autoPostProcessOpening,
+      kernelSize: this.editorService.morphoSize,
+      connectedness: this.editorService.enforceConnectivity,
     });
 
     const mask = this.canvasManagerService.getActiveMask();

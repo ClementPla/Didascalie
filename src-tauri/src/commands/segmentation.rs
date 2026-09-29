@@ -198,7 +198,11 @@ fn erosion(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
     result
 }
 
-fn morpho_mask(
+/// Clean up a binary selection: optional morphological closing ("smooth")
+/// and an optional largest-connected-component filter. Shared by the
+/// stroke-bounded operators (Otsu, flood fill) so they expose the same
+/// refinement controls.
+pub(crate) fn morpho_mask(
     mask: &Array2<bool>,
     opening: bool,
     enforce_connectedness: bool,

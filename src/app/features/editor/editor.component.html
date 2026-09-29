@@ -142,6 +142,17 @@
       ></button>
     </ng-template>
     <ng-template [appMenuGroup]="'Navigate'">
+      <p-togglebutton
+        [ngModel]="editorService.canPan()"
+        (onChange)="setPanTool(!!$event.checked)"
+        onIcon="pi pi-arrows-alt"
+        offIcon="pi pi-arrows-alt"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Pan the image · G, or hold Space with any tool"
+        tooltipPosition="left"
+        ariaLabel="Pan tool"
+      ></p-togglebutton>
       <button
         pButton
         type="button"

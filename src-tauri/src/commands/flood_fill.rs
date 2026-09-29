@@ -1,7 +1,16 @@
+use crate::commands::segmentation::morpho_mask;
 use crate::utils::color::{ciede2000, rgb_to_lab};
+use ndarray::Array2;
 use std::collections::VecDeque;
 use tauri::ipc::Response;
 
+/// Flood fill from the last clicked pixel, bounded by the stroke's bounding box.
+///
+/// `inverse`, `opening`, `kernel_size` and `connectedness` mirror
+/// `otsu_segmentation`: both are stroke-bounded selection operators, so they
+/// share one set of refinement controls in the tool settings panel. `inverse`
+/// takes the complement of the fill within the region, which is how you click
+/// a uniform background to select the object sitting on it.
 #[tauri::command]
 pub fn flood_fill_mask(
     image: Vec<u8>,
@@ -10,6 +19,10 @@ pub fn flood_fill_mask(
     start_x: usize,
     start_y: usize,
     tolerance: f32,
+    inverse: bool,
+    opening: bool,
+    kernel_size: u8,
+    connectedness: bool,
 ) -> Result<Response, String> {
     if start_x >= width || start_y >= height {
         return Err("Start point is outside image bounds".to_string());
@@ -25,9 +38,14 @@ pub fn flood_fill_mask(
     let seed_b = image[seed_idx + 2];
     let seed_lab = rgb_to_lab(seed_r, seed_g, seed_b);
 
-    println!(
+    log::debug!(
         "Flood fill (CIEDE2000) from ({}, {}) tolerance {}, seed RGB({},{},{})",
-        start_x, start_y, tolerance, seed_r, seed_g, seed_b
+        start_x,
+        start_y,
+        tolerance,
+        seed_r,
+        seed_g,
+        seed_b
     );
 
     let start_time = std::time::Instant::now();
@@ -90,17 +108,26 @@ pub fn flood_fill_mask(
     }
 
     let elapsed = start_time.elapsed();
-    println!(
+    log::debug!(
         "Flood fill complete: {} pixels in {:.2}ms",
         filled_pixels,
         elapsed.as_secs_f64() * 1000.0
     );
 
-    // Single-channel presence mask (255 = filled). The frontend writes the
-    // active label / instance value wherever this is nonzero.
-    let output_data: Vec<u8> = output_mask
+    // Refine exactly as the Otsu mode does, so the two share their controls.
+    let mut selection = Array2::from_shape_fn((height, width), |(y, x)| {
+        let filled = output_mask[y * width + x];
+        if inverse { !filled } else { filled }
+    });
+    if opening || connectedness {
+        selection = morpho_mask(&selection, opening, connectedness, kernel_size);
+    }
+
+    // Single-channel presence mask (255 = selected), row-major. The frontend
+    // writes the active label / instance value wherever this is nonzero.
+    let output_data: Vec<u8> = selection
         .iter()
-        .map(|&filled| if filled { 255u8 } else { 0 })
+        .map(|&on| if on { 255u8 } else { 0 })
         .collect();
 
     Ok(Response::new(output_data))

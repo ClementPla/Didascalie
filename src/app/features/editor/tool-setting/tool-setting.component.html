@@ -1,160 +1,222 @@
-<p-panel header="Settings" class="w-full">
-  <div>
-    <p-accordion [value]="['1', '2', '3', '4']" [multiple]="true">
-      @if (editorService.useProcessing) {
-        <p-accordion-panel value="3">
-          <p-accordion-header>Image Adjustments</p-accordion-header>
-          <p-accordion-content>
-            <app-image-adjustments></app-image-adjustments>
-          </p-accordion-content>
-        </p-accordion-panel>
-      }
-      @if (editorService.penPostProcess || editorService.eraserPostProcess) {
-        <p-accordion-panel value="4">
-          <p-accordion-header>Post-processing</p-accordion-header>
-          <p-accordion-content>
-            <div class="flex flex-wrap gap-2 justify-center">
-              @if (editorService.isDrawingTool()) {
-                <p-selectButton
-                  [options]="flags.visiblePostProcessOptions()"
-                  [(ngModel)]="editorService.postProcessOption"
-                ></p-selectButton>
-                @switch (editorService.postProcessOption) {
-                  @case (ppOption.OTSU) {
-                    <small
-                      >Automatically snap to the extrema by thresholding the
-                      area covered by the brush stroke
-                    </small>
-                    <app-labelled-switch [(checked)]="editorService.useInverse"
-                      >Use inverse image</app-labelled-switch
-                    >
-                    <app-labelled-switch
-                      [(checked)]="editorService.autoPostProcessOpening"
-                      >Smooth</app-labelled-switch
-                    >
-                    @if (editorService.autoPostProcessOpening) {
-                      <p>
-                        <input
-                          type="number"
-                          pInputText
-                          [(ngModel)]="editorService.morphoSize"
-                          class="mb-3 w-full"
-                        />
+<p-panel header="Settings">
+  <p-accordion [value]="['1', '2', '3', '4']" [multiple]="true">
+    @if (editorService.useProcessing) {
+      <p-accordion-panel value="3">
+        <p-accordion-header>Image adjustments</p-accordion-header>
+        <p-accordion-content>
+          <app-image-adjustments></app-image-adjustments>
+        </p-accordion-content>
+      </p-accordion-panel>
+    }
 
-                        <p-slider
-                          [(ngModel)]="editorService.morphoSize"
-                          [min]="1"
-                          [max]="15"
-                          [step]="2"
-                        />
-                      </p>
-                    }
-                    <app-labelled-switch
-                      [(checked)]="editorService.enforceConnectivity"
-                      >Force connectivity</app-labelled-switch
+    @if (editorService.penPostProcess || editorService.eraserPostProcess) {
+      <p-accordion-panel value="4">
+        <p-accordion-header>Post-processing</p-accordion-header>
+        <p-accordion-content>
+          <div class="settings-section">
+            @if (editorService.isDrawingTool()) {
+              <!-- The modes are mutually exclusive: exactly one runs when a
+                   stroke ends. A single-select segmented control is the point
+                   here — do not turn this into a set of checkboxes. -->
+              <p-selectButton
+                class="mode-select"
+                [options]="flags.visiblePostProcessOptions()"
+                [(ngModel)]="editorService.postProcessOption"
+                [allowEmpty]="false"
+                aria-label="Post-processing mode"
+              ></p-selectButton>
+
+              @switch (editorService.postProcessOption) {
+                @case (ppOption.FLOODFILL) {
+                  <div
+                    class="setting-row"
+                    pTooltip="Largest colour difference from the pixel you clicked that still gets filled (CIEDE2000 ΔE)."
+                  >
+                    <label class="setting-row__label" for="flood-tolerance"
+                      >Tolerance</label
                     >
-                  }
-                  @case (ppOption.MEDSAM) {
-                    <small>
-                      Use MED-Sam has a post-processing step to auto-segment
-                      based on the current stroke indication.
-                    </small>
-                    <div>
-                      <input
-                        type="number"
-                        pInputText
-                        [(ngModel)]="editorService.samThreshold"
-                        class="mb-3 w-full"
-                      />
-                      <p-slider
-                        [(ngModel)]="editorService.samThreshold"
-                        [min]="0"
-                        [max]="1"
-                        [step]="0.01"
-                      />
-                    </div>
-                  }
-                  @case (ppOption.FLOODFILL) {
-                    <small>
-                      Automatically fill on the last point clicked.
-                    </small>
-                    <div>
-                      <input
-                        type="number"
-                        pInputText
-                        [(ngModel)]="editorService.floodFillTolerance"
-                        class="mb-3 w-full"
-                      />
-                      <p-slider
-                        [(ngModel)]="editorService.floodFillTolerance"
-                        [min]="0.5"
-                        [max]="10.0"
-                        [step]="0.01"
-                      />
-                    </div>
-                  }
-                  @default {
-                    <!-- Experimental modes (superpixel, …): description
-                         and settings come from the experimental registry. -->
-                    @if (experimentalPostProcess; as pp) {
-                      <small>{{ pp.description }}</small>
-                      @if (pp.settingsComponent) {
-                        <ng-container
-                          *ngComponentOutlet="pp.settingsComponent"
-                        ></ng-container>
-                      }
-                    }
+                    <p-slider
+                      [(ngModel)]="editorService.floodFillTolerance"
+                      [min]="0.5"
+                      [max]="10.0"
+                      [step]="0.01"
+                    ></p-slider>
+                    <input
+                      id="flood-tolerance"
+                      type="number"
+                      pInputText
+                      class="setting-row__value"
+                      [(ngModel)]="editorService.floodFillTolerance"
+                      min="0.5"
+                      max="10"
+                      step="0.01"
+                    />
+                  </div>
+                }
+                @case (ppOption.MEDSAM) {
+                  <div
+                    class="setting-row"
+                    pTooltip="Confidence a pixel needs before the model keeps it."
+                  >
+                    <label class="setting-row__label" for="sam-threshold"
+                      >Threshold</label
+                    >
+                    <p-slider
+                      [(ngModel)]="editorService.samThreshold"
+                      [min]="0"
+                      [max]="1"
+                      [step]="0.01"
+                    ></p-slider>
+                    <input
+                      id="sam-threshold"
+                      type="number"
+                      pInputText
+                      class="setting-row__value"
+                      [(ngModel)]="editorService.samThreshold"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                    />
+                  </div>
+                }
+                @default {
+                  <!-- Experimental modes (superpixel, …): settings come from
+                       the experimental registry. -->
+                  @if (experimentalPostProcess?.settingsComponent; as settings) {
+                    <ng-container
+                      *ngComponentOutlet="settings"
+                    ></ng-container>
                   }
                 }
               }
-              @if (editorService.isEraser()) {
-                <div class="flex">
-                  <small>
-                    Automatically remove all connected pixels that were covered
-                    by the brush stroke</small
+
+              <!-- Shared by every stroke-bounded operator (Otsu, flood fill):
+                   same controls, same Rust refinement path. -->
+              @if (isRefinable()) {
+                <div class="setting-block">
+                  <div
+                    class="switch-row"
+                    pTooltip="Take the other side: the darker structure for Otsu, everything but the filled region for flood fill."
                   >
+                    <label class="switch-row__label" for="pp-inverse"
+                      >Use inverse image</label
+                    >
+                    <p-toggleswitch
+                      inputId="pp-inverse"
+                      [(ngModel)]="editorService.useInverse"
+                    ></p-toggleswitch>
+                  </div>
+
+                  <div
+                    class="switch-row"
+                    pTooltip="Close small gaps and round ragged edges."
+                  >
+                    <label class="switch-row__label" for="pp-smooth"
+                      >Smooth</label
+                    >
+                    <p-toggleswitch
+                      inputId="pp-smooth"
+                      [(ngModel)]="editorService.autoPostProcessOpening"
+                    ></p-toggleswitch>
+                  </div>
+                  @if (editorService.autoPostProcessOpening) {
+                    <div class="setting-row">
+                      <label class="setting-row__label" for="morpho-size"
+                        >Radius</label
+                      >
+                      <p-slider
+                        [(ngModel)]="editorService.morphoSize"
+                        [min]="1"
+                        [max]="15"
+                        [step]="2"
+                      ></p-slider>
+                      <input
+                        id="morpho-size"
+                        type="number"
+                        pInputText
+                        class="setting-row__value"
+                        [(ngModel)]="editorService.morphoSize"
+                        min="1"
+                        max="15"
+                        step="2"
+                      />
+                    </div>
+                  }
+
+                  <div
+                    class="switch-row"
+                    pTooltip="Discard everything but the largest connected region."
+                  >
+                    <label class="switch-row__label" for="pp-connectivity"
+                      >Force connectivity</label
+                    >
+                    <p-toggleswitch
+                      inputId="pp-connectivity"
+                      [(ngModel)]="editorService.enforceConnectivity"
+                    ></p-toggleswitch>
+                  </div>
                 </div>
               }
-            </div>
-          </p-accordion-content>
-        </p-accordion-panel>
-      }
-      @if (editorService.showBoundingBox) {
-        <p-accordion-panel value="1">
-          <p-accordion-header>Bounding boxes</p-accordion-header>
-          <p-accordion-content>
-            <div class="flex flex-col gap-2 p-2">
-              <label class="text-sm">Box opacity</label>
+            }
+          </div>
+        </p-accordion-content>
+      </p-accordion-panel>
+    }
+
+    @if (editorService.showBoundingBox) {
+      <p-accordion-panel value="1">
+        <p-accordion-header>Bounding boxes</p-accordion-header>
+        <p-accordion-content>
+          <div class="settings-section">
+            <div class="setting-row">
+              <label class="setting-row__label" for="bbx-opacity"
+                >Box opacity</label
+              >
               <p-slider
                 [(ngModel)]="editorService.bbxOpacity"
                 [min]="0"
                 [max]="1"
                 [step]="0.01"
               ></p-slider>
+              <input
+                id="bbx-opacity"
+                type="number"
+                pInputText
+                class="setting-row__value"
+                [(ngModel)]="editorService.bbxOpacity"
+                min="0"
+                max="1"
+                step="0.01"
+              />
             </div>
-          </p-accordion-content>
-        </p-accordion-panel>
-      }
-      @if (editorService.pressureSensitivity) {
-        <p-accordion-panel value="2">
-          <p-accordion-header>Pen input</p-accordion-header>
-          <p-accordion-content>
-            <div class="flex flex-col gap-2 p-2">
-              <label class="text-sm"
-                >Max size at full pressure: ×{{
-                  editorService.pressureGain | number: '1.1-1'
-                }}</label
-              >
+          </div>
+        </p-accordion-content>
+      </p-accordion-panel>
+    }
+
+    @if (editorService.pressureSensitivity) {
+      <p-accordion-panel value="2">
+        <p-accordion-header>Pen input</p-accordion-header>
+        <p-accordion-content>
+          <div class="settings-section">
+            <div
+              class="setting-row"
+              pTooltip="How much wider the brush gets at full pen pressure."
+            >
+              <span class="setting-row__label">Max size</span>
               <p-slider
                 [(ngModel)]="editorService.pressureGain"
                 [min]="1"
                 [max]="10"
                 [step]="0.5"
               ></p-slider>
+              <span class="setting-row__value setting-row__value--readonly"
+                >&times;{{ editorService.pressureGain | number: '1.1-1' }}</span
+              >
             </div>
-          </p-accordion-content>
-        </p-accordion-panel>
-      }
-    </p-accordion>
-  </div>
+          </div>
+        </p-accordion-content>
+      </p-accordion-panel>
+    }
+  </p-accordion>
 </p-panel>

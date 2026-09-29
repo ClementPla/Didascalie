@@ -1,47 +1,143 @@
-.segment {
-  stroke: var(--p-surface-900);
-  color: white;
+// Colours come from PrimeNG's semantic tokens, which are redefined under the
+// dark-mode selector and by each preset. The wheel previously used the
+// surface.700–950 palette steps directly: those are fixed values, not
+// scheme-aware, so it stayed dark grey over a light UI and ignored the theme
+// picker entirely.
+//
+// Aiming is resolved from the pointer's angle and distance in the component,
+// so nothing in the SVG takes pointer events; the <svg> itself handles the
+// click. Per-path hit testing would cap targeting at the wheel's own bounds.
+.wheel {
+  display: block;
+  overflow: visible;
+  pointer-events: auto;
+  user-select: none;
+  filter: drop-shadow(0 8px 20px rgb(0 0 0 / 28%));
 }
 
-.primary-color:hover {
-  stroke: var(--p-surface-900);
-  fill: var(--p-primary-color);
-}
-.is-not-active {
-  fill: var(--p-surface-800);
+.wheel * {
+  pointer-events: none;
 }
 
-.is-active {
-  fill: var(--p-primary-color);
-}
-
-.text-color {
-  fill: var(--p-text-color);
-}
-
-.toggle {
-  fill: var(--p-surface-700);
-  padding: 15px 30px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transform-style: preserve-3d; /* Enables 3D transformations for children */
-  perspective: 1000px; /* Adds depth to the 3D scene */
-  transition: transform 0.3s ease;
-
-}
-
-@keyframes rotateToggle {
-  0% {
-    transform: rotateZ(-0.5deg);
+.slice {
+  &__wedge {
+    fill: var(--p-content-background);
+    stroke: var(--p-content-border-color);
+    stroke-width: 1.5;
+    transition:
+      fill 90ms linear,
+      stroke 90ms linear;
   }
-  100% {
-    transform: rotateZ(0.5deg);
+
+  // The tool already in effect, so the wheel opens showing where you are.
+  &__wedge--current {
+    stroke: var(--p-primary-color);
+    stroke-width: 2.5;
+  }
+
+  &__body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+  }
+
+  &__icon {
+    font-size: 22px;
+    line-height: 1;
+    color: var(--p-text-color);
+    transition: color 90ms linear;
+  }
+
+  &--aimed &__wedge {
+    fill: var(--p-primary-color);
+    stroke: var(--p-primary-color);
+  }
+
+  &--aimed &__icon {
+    color: var(--p-primary-contrast-color);
   }
 }
-.toggle:hover {
-  fill: var(--p-surface-400);
-  animation: rotateToggle 0.8s ease-in-out;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
+
+.child {
+  &__wedge {
+    fill: var(--p-content-hover-background);
+    stroke: var(--p-content-border-color);
+    stroke-width: 1.5;
+    transition: fill 90ms linear;
+  }
+
+  // A set toggle is outlined rather than filled. `--p-highlight-background`
+  // would be the natural token, but in the dark scheme it is a semi-transparent
+  // color-mix — as an SVG fill that lets the image under the wheel show
+  // through, so the state would read differently over every picture.
+  &--on &__wedge {
+    stroke: var(--p-primary-color);
+    stroke-width: 2.5;
+  }
+
+  &--on &__icon {
+    color: var(--p-primary-color);
+  }
+
+  &--on &__label {
+    color: var(--p-text-color);
+  }
+
+  &--aimed &__wedge {
+    fill: var(--p-primary-color);
+    stroke: var(--p-primary-color);
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 88px;
+    height: 36px;
+    text-align: center;
+  }
+
+  &__icon {
+    font-size: 15px;
+    line-height: 1;
+    color: var(--p-text-color);
+  }
+
+  &__label {
+    font-size: 10px;
+    line-height: 1.1;
+    color: var(--p-text-muted-color);
+  }
+
+  &--aimed &__icon,
+  &--aimed &__label {
+    color: var(--p-primary-contrast-color);
+  }
+}
+
+.hub {
+  fill: var(--p-content-hover-background);
+  stroke: var(--p-content-border-color);
+  stroke-width: 1.5;
+}
+
+.hub__body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0 8px;
+  text-align: center;
+}
+
+.hub__label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--p-text-color);
 }

@@ -1,0 +1,107 @@
+// The settings column is narrow and dense, so every section uses the same
+// three-column grid as the image-adjustments panel (label | control | value).
+//
+// The panel's own boxes disagreed on horizontal padding: PrimeNG gives
+// .p-panel-header 1.125rem, the global override in styles.scss gives
+// .p-panel-content 0.5rem, and the accordion adds a third value again — so the
+// title, the section headers and the controls each sat on a different left
+// edge. They are pinned to one value here.
+
+$gutter: 0.75rem;
+
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+:host ::ng-deep {
+  .p-panel-header {
+    padding: $gutter;
+  }
+
+  .p-panel-content {
+    padding: 0 $gutter $gutter;
+  }
+
+  .p-accordionheader,
+  .p-accordioncontent-content {
+    padding-inline: 0;
+  }
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-bottom: 0.25rem;
+}
+
+/* Mutually exclusive post-process modes: one full-width segmented control,
+   each segment sharing the width equally so it reads as a single choice. */
+.mode-select {
+  display: block;
+  width: 100%;
+
+  ::ng-deep .p-selectbutton {
+    display: flex;
+    width: 100%;
+  }
+
+  ::ng-deep .p-togglebutton {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  ::ng-deep .p-togglebutton-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Same geometry as .slider-row in the image-adjustments panel. */
+.setting-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 3.5rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.setting-row__label {
+  font-size: 0.85rem;
+  color: var(--text-color-secondary, #a0a0a0);
+}
+
+.setting-row__value {
+  width: 100%;
+  text-align: right;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.4rem !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.setting-row__value--readonly {
+  color: var(--text-color-secondary, #a0a0a0);
+}
+
+/* Refinement options shared by the stroke-bounded operators. */
+.setting-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--surface-border, rgba(255, 255, 255, 0.08));
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.switch-row__label {
+  font-size: 0.85rem;
+}

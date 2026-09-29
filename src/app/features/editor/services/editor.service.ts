@@ -205,9 +205,28 @@ export class EditorService {
     return this._selectedTool();
   }
   set selectedTool(tool: Tool) {
-    if (this._selectedTool() === tool) return;
+    const previous = this._selectedTool();
+    if (previous === tool) return;
+    // Pan is transient navigation (hold Space, or the Navigate toggle), so it
+    // never becomes the tool Alt swaps back to — otherwise a stray Space press
+    // would hijack the two-tool toggle.
+    if (previous !== Tools.PAN && tool !== Tools.PAN) {
+      this._previousTool.set(previous);
+    }
     this._selectedTool.set(tool);
     this.toolChanged$.next(tool);
+  }
+
+  /** The tool used before the current one, ignoring pan. */
+  private readonly _previousTool = signal<Tool>(Tools.ERASER);
+  get previousTool(): Tool {
+    return this._previousTool();
+  }
+
+  /** Flip between the current tool and the one before it — what tapping Alt
+   *  without aiming at anything in the quick-access wheel does. */
+  public swapToPreviousTool(): void {
+    this.selectedTool = this._previousTool();
   }
 
   public activatePanMode() {

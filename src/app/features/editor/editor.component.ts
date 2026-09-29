@@ -312,15 +312,20 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       'panMode:start': () => this.editorService.activatePanMode(),
       'panMode:end': () => this.editorService.restoreLastTool(),
+      // Alt is held, not toggled. Aim at an entry and it is already selected
+      // by the time the key comes back up; tap Alt without aiming and it
+      // flips to the previous tool instead, which is the fast way to bounce
+      // between two tools.
       'quickMenu:start': () => {
         // Guarded rather than `.required`: the shortcut is bound at the window,
         // so it can fire before this view has initialised.
-        const quickAccessMenu = this.quickAccessMenu();
-        if (!quickAccessMenu) return;
-        quickAccessMenu.position = this.mousePosition;
-        quickAccessMenu.toggleOpen();
+        this.quickAccessMenu()?.open(this.mousePosition);
       },
-      'quickMenu:end': () => {},
+      'quickMenu:end': () => {
+        const menu = this.quickAccessMenu();
+        if (!menu) return;
+        if (!menu.close()) this.editorService.swapToPreviousTool();
+      },
     };
 
     const handler = actionHandlers[action];
@@ -746,4 +751,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.globalReviewed = progress.reviewed;
     this.globalTotal = progress.total;
   }
+
+  /** Navigate group's pan toggle: on selects pan, off returns the
+   *  previous tool, matching what hold-Space does. */
+  setPanTool(on: boolean): void {
+    if (on) this.editorService.activatePanMode();
+    else this.editorService.restoreLastTool();
+  }
+
 }

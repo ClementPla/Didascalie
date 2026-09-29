@@ -1,144 +1,191 @@
-<p-toolbar class="py-0">
-  <ng-template pTemplate="start"> </ng-template>
-  <ng-template pTemplate="center">
-    <div
-      class="align-items-center flex flex-wrap gap-2 items-center justify-center lg:gap-6"
-    >
-      <p-selectButton
-        [options]="tools"
-        [(ngModel)]="editorService.selectedTool"
-        optionLabel="name"
-      >
-        <ng-template #item let-item>
-          <span
-            pTooltip="{{ item.shortcut }}"
-            tooltipPosition="bottom"
-            [autoHide]="false"
-            class="flex gap-2 items-center"
-          >
-            <i [class]="item.icon"> </i>
-            <div class="hidden lg:block">{{ item.name }}</div>
-          </span>
-        </ng-template>
-      </p-selectButton>
+<!-- One tool button: icon always, name only while that tool is selected. The
+     name is what made the row wrap onto a second line, so the tooltip carries
+     it — along with what the tool actually does, which is the only explanation
+     the vector tools get. -->
+<ng-template #toolItem let-item>
+  <span
+    class="tool-item"
+    [pTooltip]="toolTooltip(item)"
+    tooltipPosition="bottom"
+  >
+    <span class="tool-item__icon">
+      @if (item.materialIcon) {
+        <span class="material-symbols-outlined ms-icon">{{
+          item.materialIcon
+        }}</span>
+      } @else {
+        <i [class]="item.icon"></i>
+      }
+      @if (item.overlayIcon) {
+        <i [class]="item.overlayIcon" class="tool-item__badge"></i>
+      }
+    </span>
+    @if (isSelected(item)) {
+      <span class="tool-item__label">{{ item.name }}</span>
+    }
+  </span>
+</ng-template>
 
-      <!-- Vector tools: a distinct class of tool (SVG shapes, not raster). -->
-      <div class="flex gap-2 items-center vector-tool-group">
-        <span class="opacity-60 vector-tool-group__label">Vector</span>
+<p-toolbar class="py-0">
+  <!-- The drawing tools sit in `start`: `center` re-centred the whole row
+       whenever a contextual option appeared, so a change at one end moved the
+       buttons at the other. Left-aligned, only what follows a change moves. -->
+  <ng-template pTemplate="start">
+    <div class="toolbar-row">
+      <div class="tool-group">
+        <span class="tool-group__label">Raster</span>
+        <p-selectButton
+          [options]="rasterTools"
+          [(ngModel)]="editorService.selectedTool"
+          optionLabel="name"
+        >
+          <ng-template #item let-item>
+            <ng-container
+              *ngTemplateOutlet="toolItem; context: { $implicit: item }"
+            ></ng-container>
+          </ng-template>
+        </p-selectButton>
+
+        <!-- Kept in the DOM and merely hidden for tools with no brush, so the
+             groups after it do not shift every time the tool changes. -->
+        <div
+          class="brush-size"
+          [class.brush-size--idle]="!editorService.isToolWithBrushSize()"
+          pTooltip="Brush size · Ctrl+Wheel"
+          tooltipPosition="bottom"
+        >
+          <p-slider
+            [(ngModel)]="brushSizeSlider"
+            class="brush-size__slider"
+            [min]="0"
+            [max]="1000"
+          />
+          <input
+            type="number"
+            pInputText
+            class="brush-size__value"
+            [(ngModel)]="editorService.lineWidth"
+            min="1"
+            max="1024"
+            aria-label="Brush size"
+          />
+        </div>
+      </div>
+
+      <!-- These only affect the raster tools, so they sit with them rather
+           than at the end of the row. -->
+      @if (editorService.isDrawingTool() || editorService.isEraser()) {
+        <div class="tool-group">
+          <span class="tool-group__label">Options</span>
+
+          @if (editorService.isDrawingTool()) {
+            <p-togglebutton
+              [(ngModel)]="editorService.swapMarkers"
+              onIcon="pi pi-arrow-right-arrow-left"
+              offIcon="pi pi-arrow-right-arrow-left"
+              onLabel="Swap labels"
+              offLabel="Swap labels"
+              pTooltip="Overwrite labels already drawn under the stroke"
+              tooltipPosition="bottom"
+            ></p-togglebutton>
+          }
+
+          @if (editorService.isEraser()) {
+            <p-togglebutton
+              [(ngModel)]="editorService.eraseAll"
+              onIcon="pi pi-clone"
+              offIcon="pi pi-clone"
+              onLabel="All labels"
+              offLabel="All labels"
+              pTooltip="Erase every label, not only the active one"
+              tooltipPosition="bottom"
+            ></p-togglebutton>
+
+            <p-togglebutton
+              [(ngModel)]="editorService.eraserPostProcess"
+              onIcon="pi pi-circle-fill"
+              offIcon="pi pi-circle-fill"
+              onLabel="Connected regions"
+              offLabel="Connected regions"
+              pTooltip="Erase whole connected regions the stroke touches, not only the pixels it covered"
+              tooltipPosition="bottom"
+            ></p-togglebutton>
+          }
+        </div>
+      }
+
+      <div class="tool-group">
+        <span class="tool-group__label">Vector</span>
         <p-selectButton
           [options]="vectorTools"
           [(ngModel)]="editorService.selectedTool"
           optionLabel="name"
         >
           <ng-template #item let-item>
-            <span
-              pTooltip="{{ item.shortcut }}"
-              tooltipPosition="bottom"
-              [autoHide]="false"
-              class="flex gap-2 items-center"
-            >
-              <i [class]="item.icon"> </i>
-              <div class="hidden lg:block">{{ item.name }}</div>
-            </span>
+            <ng-container
+              *ngTemplateOutlet="toolItem; context: { $implicit: item }"
+            ></ng-container>
           </ng-template>
         </p-selectButton>
       </div>
 
-      <div class="flex gap-2 items-center vector-tool-group">
-        <span class="opacity-60 vector-tool-group__label">Convert</span>
+      <div class="tool-group">
+        <span class="tool-group__label">Convert</span>
         <p-selectButton
           [options]="convertTools"
           [(ngModel)]="editorService.selectedTool"
           optionLabel="name"
         >
           <ng-template #item let-item>
-            <span
-              pTooltip="{{ item.shortcut }}"
-              tooltipPosition="bottom"
-              [autoHide]="false"
-              class="flex gap-2 items-center"
-            >
-              <i [class]="item.icon"> </i>
-              <div class="hidden lg:block">{{ item.name }}</div>
-            </span>
+            <ng-container
+              *ngTemplateOutlet="toolItem; context: { $implicit: item }"
+            ></ng-container>
           </ng-template>
         </p-selectButton>
 
         <p-button
           severity="secondary"
           [outlined]="true"
-          pTooltip="Rasterize shapes into the label mask"
+          pTooltip="Paint every shape back into the label mask"
           tooltipPosition="bottom"
           [disabled]="!vectorEditor.hasShapes()"
           (onClick)="rasterize()"
+          ariaLabel="Rasterize shapes into the mask"
         >
-          <span class="flex gap-2 items-center">
-            <i class="pi pi-th-large"></i>
-            <div class="hidden lg:block">Rasterize</div>
-          </span>
+          <span class="material-symbols-outlined ms-icon">imagesearch_roller</span>
         </p-button>
       </div>
 
-      <div class="flex gap-2 items-center vector-tool-group">
-        <span class="opacity-60 vector-tool-group__label">Model</span>
-        <p-splitButton
-          [label]="predictLabel"
-          [icon]="prediction.running() ? 'pi pi-spin pi-spinner' : 'pi pi-bolt'"
-          severity="secondary"
-          [outlined]="true"
-          [model]="outputMenu"
-          [disabled]="prediction.running()"
-          (onClick)="predict()"
-          pTooltip="Predict this frame with the trained head. The arrow picks what you get back: painted pixels, editable region outlines, or centerlines. Ctrl+Z reverts."
-          tooltipPosition="bottom"
-        />
-
-        <label
-          class="flex gap-2 items-center"
-          pTooltip="Use what you have already drawn as hints. Turn it off to see what the model does unaided."
-          tooltipPosition="bottom"
-        >
-          <p-toggleswitch [(ngModel)]="useScribbles" />
-          <span class="hidden lg:block opacity-70">Use strokes</span>
-        </label>
-      </div>
-
-      @if (editorService.isToolWithBrushSize()) {
-        <div class="flex flex-col" style="min-width: 9rem">
-          <input
-            type="text"
-            pInputText
-            [(ngModel)]="editorService.lineWidth"
-            class="mb-3 w-full"
-          />
-          <p-slider
-            [(ngModel)]="brushSizeSlider"
-            class="w-full"
-            pTooltip="Ctrl+Wheel"
-            [min]="0"
-            [max]="1000"
-          />
-        </div>
-      }
-
-      @if (editorService.isDrawingTool()) {
-        <app-labelled-switch [(checked)]="editorService.swapMarkers">
-          Swap existing labels</app-labelled-switch
-        >
-      }
-
-      @if (editorService.isEraser()) {
-        <app-labelled-switch [(checked)]="editorService.eraseAll">
-          Erase all labels</app-labelled-switch
-        >
-      }
-
-      @if (editorService.isEraser()) {
-        <app-labelled-switch [(checked)]="editorService.eraserPostProcess">
-          Post-process erasing</app-labelled-switch
-        >
-      }
     </div>
   </ng-template>
-  <ng-template pTemplate="end"> </ng-template>
+
+  <!-- The model is not a drawing tool: it runs over the whole frame and can
+       replace what is there. Kept hard right, away from the brushes. -->
+  <ng-template pTemplate="end">
+    <div class="tool-group tool-group--model">
+      <span class="tool-group__label">Model</span>
+      <p-splitButton
+        [label]="predictLabel"
+        [icon]="prediction.running() ? 'pi pi-spin pi-spinner' : 'pi pi-bolt'"
+        severity="secondary"
+        [outlined]="true"
+        [model]="outputMenu"
+        [disabled]="prediction.running()"
+        (onClick)="predict()"
+        pTooltip="Predict this frame with the trained head. The arrow picks what you get back: painted pixels, editable region outlines, or centerlines."
+        tooltipPosition="bottom"
+      />
+
+      <p-togglebutton
+        [(ngModel)]="useScribbles"
+        onIcon="pi pi-pencil"
+        offIcon="pi pi-pencil"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Use what you have already drawn as hints. Turn it off to see what the model does unaided."
+        tooltipPosition="bottom"
+        ariaLabel="Use strokes as hints"
+      ></p-togglebutton>
+    </div>
+  </ng-template>
 </p-toolbar>

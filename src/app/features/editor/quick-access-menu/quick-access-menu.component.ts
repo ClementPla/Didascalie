@@ -1,192 +1,165 @@
-import { ChangeDetectorRef, Component, ElementRef, NgZone, inject, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import {
   WheelMenuComponent,
   MenuItem,
   SegmentType,
 } from '../../../shared/generics/wheel-menu/wheel-menu.component';
-import { ALL_TOOLS, Tools } from '../../../core/tools';
-import { NgClass } from '@angular/common';
+import { Tool, Tools } from '../../../core/tools';
 import { EditorService } from '../services/editor.service';
 import { VectorEditorService } from '../drawable-canvas/service/vector-editor.service';
 import { ConvertService } from '../drawable-canvas/service/convert.service';
 
 @Component({
-    selector: 'app-quick-access-menu',
-    imports: [WheelMenuComponent, NgClass],
-    templateUrl: './quick-access-menu.component.html',
-    styleUrl: './quick-access-menu.component.scss'
+  selector: 'app-quick-access-menu',
+  imports: [WheelMenuComponent],
+  templateUrl: './quick-access-menu.component.html',
+  styleUrl: './quick-access-menu.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class QuickAccessMenuComponent {
-  private cdr = inject(ChangeDetectorRef);
   private editorService = inject(EditorService);
   private vectorEditor = inject(VectorEditorService);
   private convertService = inject(ConvertService);
 
-  readonly quickAccessMenu = viewChild.required<WheelMenuComponent>('quickAccessMenu');
+  readonly radius = 150;
 
-  public radius = 200;
+  readonly isOpen = signal(false);
+  readonly position = signal<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  public isOpen = false;
+  private readonly wheel = viewChild<WheelMenuComponent>('wheel');
 
-  public position: { x: number; y: number } = { x: 0, y: 0 };
+  /** Whether the last visit applied an entry. A click closes the wheel before
+   *  the key comes back up, so the answer has to outlive the wheel itself. */
+  private committed = false;
 
-  getMenuItems(): MenuItem[] {
+  /**
+   * Built once. The previous version called this from the template, so every
+   * change-detection pass handed the wheel a brand-new array and it rebuilt
+   * itself continuously. State that has to stay live is read through the
+   * `active` / `checked` callbacks instead.
+   */
+  readonly menuItems: MenuItem[] = this.buildItems();
+
+  private toolItem(tool: Tool, children?: MenuItem[]): MenuItem {
+    return {
+      label: tool.name,
+      icon: tool.icon,
+      materialIcon: tool.materialIcon ?? undefined,
+      command: () => this.editorService.selectTool(tool),
+      active: () => this.editorService.selectedTool === tool,
+      children,
+    };
+  }
+
+  private get eraserOptions(): MenuItem[] {
     return [
       {
-        label: Tools.PAN.name,
-        icon: Tools.PAN.icon,
-        command: () => this.editorService.selectTool(Tools.PAN),
+        label: 'All labels',
+        icon: 'pi pi-clone',
+        type: SegmentType.toggle,
+        checked: () => this.editorService.eraseAll,
+        command: () =>
+          (this.editorService.eraseAll = !this.editorService.eraseAll),
       },
       {
-        label: Tools.LASSO_ERASER.name,
-        icon: Tools.LASSO_ERASER.icon,
-        command: () => this.editorService.selectTool(Tools.LASSO_ERASER),
-        children: [
-          {
-            label: 'Erase all labels',
-            icon: Tools.LASSO_ERASER.icon,
-            command: () =>
-              (this.editorService.eraseAll = !this.editorService.eraseAll),
-            type: SegmentType.toggle,
-          },
-          {
-            label: 'Erase connected',
-            icon: Tools.LASSO_ERASER.icon,
-            command: () =>
-              (this.editorService.eraserPostProcess =
-                !this.editorService.eraserPostProcess),
-            type: SegmentType.toggle,
-          },
-        ],
-      },
-      {
-        label: Tools.ERASER.name,
-        icon: Tools.ERASER.icon,
-        command: () => this.editorService.selectTool(Tools.ERASER),
-        children: [
-          {
-            label: 'Erase all labels',
-            icon: Tools.LASSO_ERASER.icon,
-            command: () =>
-              (this.editorService.eraseAll = !this.editorService.eraseAll),
-            type: SegmentType.toggle,
-          },
-          {
-            label: 'Erase connected',
-            icon: Tools.LASSO_ERASER.icon,
-            command: () =>
-              (this.editorService.eraserPostProcess =
-                !this.editorService.eraserPostProcess),
-            type: SegmentType.toggle,
-          },
-        ],
-      },
-
-      {
-        label: Tools.PEN.name,
-        icon: Tools.PEN.icon,
-        command: () => this.editorService.selectTool(Tools.PEN),
-        children: [
-          {
-            label: 'Swap labels',
-            icon: Tools.PEN.icon,
-            command: () =>
-              (this.editorService.swapMarkers =
-                !this.editorService.swapMarkers),
-            type: SegmentType.toggle,
-          },
-        ],
-      },
-      {
-        label: Tools.LASSO.name,
-        icon: Tools.LASSO.icon,
-        command: () => this.editorService.selectTool(Tools.LASSO),
-        children: [
-          {
-            label: 'Swap labels',
-            icon: Tools.LASSO.icon,
-            command: () =>
-              (this.editorService.swapMarkers =
-                !this.editorService.swapMarkers),
-            type: SegmentType.toggle,
-          },
-        ],
-      },
-      {
-        label: Tools.LINE.name,
-        icon: Tools.LINE.icon,
-        command: () => this.editorService.selectTool(Tools.LINE),
-        children: [
-          {
-            label: 'Swap labels',
-            icon: Tools.LINE.icon,
-            command: () =>
-              (this.editorService.swapMarkers =
-                !this.editorService.swapMarkers),
-            type: SegmentType.toggle,
-          },
-        ],
-      },
-      {
-        label: Tools.PATH.name,
-        icon: Tools.PATH.icon,
-        command: () => this.editorService.selectTool(Tools.PATH),
-      },
-      {
-        label: Tools.NODE.name,
-        icon: Tools.NODE.icon,
-        command: () => this.editorService.selectTool(Tools.NODE),
-        children: [
-          {
-            label: 'Delete shape',
-            icon: 'pi pi-trash',
-            command: () => this.vectorEditor.deleteSelectedShape(),
-            type: SegmentType.button,
-          },
-          {
-            label: 'Toggle fill',
-            icon: 'pi pi-stop',
-            command: () => this.vectorEditor.toggleFilled(),
-            type: SegmentType.toggle,
-          },
-          {
-            label: 'Open / close',
-            icon: 'pi pi-circle',
-            command: () => this.vectorEditor.toggleClosed(),
-            type: SegmentType.toggle,
-          },
-          {
-            label: 'Rasterize',
-            icon: 'pi pi-th-large',
-            command: () => this.convertService.rasterize(),
-            type: SegmentType.button,
-          },
-        ],
-      },
-      {
-        label: Tools.VECTORIZE.name,
-        icon: Tools.VECTORIZE.icon,
-        command: () => this.editorService.selectTool(Tools.VECTORIZE),
+        label: 'Connected',
+        icon: 'pi pi-circle-fill',
+        type: SegmentType.toggle,
+        checked: () => this.editorService.eraserPostProcess,
+        command: () =>
+          (this.editorService.eraserPostProcess =
+            !this.editorService.eraserPostProcess),
       },
     ];
   }
 
-  open() {
-    this.isOpen = true;
-    // Wait until Angular finishes DOM updates
-    this.cdr.detectChanges(); // flush the change so the element is visible
-    this.quickAccessMenu().focus();
+  private get drawOptions(): MenuItem[] {
+    return [
+      {
+        label: 'Swap labels',
+        icon: 'pi pi-arrow-right-arrow-left',
+        type: SegmentType.toggle,
+        checked: () => this.editorService.swapMarkers,
+        command: () =>
+          (this.editorService.swapMarkers = !this.editorService.swapMarkers),
+      },
+      {
+        label: 'Auto-segment',
+        icon: 'pi pi-sparkles',
+        type: SegmentType.toggle,
+        checked: () => this.editorService.penPostProcess,
+        command: () =>
+          (this.editorService.penPostProcess =
+            !this.editorService.penPostProcess),
+      },
+    ];
   }
 
-  close() {
-    this.isOpen = false;
+  /** Ordered so the two most-used tools sit opposite each other: aiming is a
+   *  direction, and opposite directions are the easiest pair to alternate. */
+  private buildItems(): MenuItem[] {
+    return [
+      this.toolItem(Tools.PEN, this.drawOptions),
+      this.toolItem(Tools.LINE, this.drawOptions),
+      this.toolItem(Tools.LASSO, this.drawOptions),
+      this.toolItem(Tools.PATH),
+      this.toolItem(Tools.ERASER, this.eraserOptions),
+      this.toolItem(Tools.LASSO_ERASER, this.eraserOptions),
+      this.toolItem(Tools.SELECT),
+      this.toolItem(Tools.NODE, [
+        {
+          label: 'Delete',
+          icon: 'pi pi-trash',
+          type: SegmentType.button,
+          command: () => this.vectorEditor.deleteSelectedShape(),
+        },
+        {
+          label: 'Fill',
+          icon: 'pi pi-stop',
+          type: SegmentType.toggle,
+          command: () => this.vectorEditor.toggleFilled(),
+        },
+        {
+          label: 'Close',
+          icon: 'pi pi-circle',
+          type: SegmentType.toggle,
+          command: () => this.vectorEditor.toggleClosed(),
+        },
+        {
+          label: 'Rasterize',
+          icon: 'pi pi-th-large',
+          materialIcon: 'imagesearch_roller',
+          type: SegmentType.button,
+          command: () => this.convertService.rasterize(),
+        },
+      ]),
+      this.toolItem(Tools.VECTORIZE),
+      this.toolItem(Tools.SKELETONIZE),
+    ];
   }
 
-  toggleOpen() {
-    if (this.isOpen) {
-      this.close();
-    } else {
-      this.open();
+  open(at: { x: number; y: number }): void {
+    this.committed = false;
+    this.position.set(at);
+    this.isOpen.set(true);
+  }
+
+  /**
+   * Applies whatever is aimed at and closes. Returns false when the visit
+   * aimed at nothing — opened and released on the spot — which the caller
+   * turns into a swap back to the previous tool.
+   */
+  close(): boolean {
+    if (this.isOpen()) {
+      this.committed = this.wheel()?.commitAimed() ?? false;
+      this.isOpen.set(false);
     }
+    return this.committed;
   }
 }

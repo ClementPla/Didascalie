@@ -1,203 +1,317 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ChangeDetectionStrategy, inject, input, output, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ButtonModule } from 'primeng/button';
-import { FormsModule } from '@angular/forms';
-import { SliderModule } from 'primeng/slider';
 
 export enum SegmentType {
   toggle = 'toggle',
-  slider = 'slider',
   button = 'button',
 }
 
 export interface MenuItem {
   label: string;
+  /** PrimeIcons class, used when `materialIcon` is absent. */
   icon: string;
+  /** Material Symbols ligature name. Preferred over `icon` when set. */
+  materialIcon?: string;
+  /** Options for this entry, drawn as an outer ring while it is aimed at. */
   children?: MenuItem[];
   command?: () => void;
+  /** On/off state for `toggle` children, read every render. */
+  checked?: () => boolean;
+  /** Whether this is the entry currently in effect (the active tool). */
+  active?: () => boolean;
+  type?: SegmentType;
   disabled?: boolean;
-  visible?: boolean;
-  styleClass?: string;
-  path?: string; // Optional path for navigation
-  isActive?: boolean; // Optional property to track active state
-  type?: SegmentType; // Optional property to define the type of segment
-  value?: any; // Optional property to hold the value of the segment
 }
 
 interface Segment {
   path: string;
-  barycenter: { x: number; y: number };
+  /** Where the icon and any state dot go. */
+  cx: number;
+  cy: number;
   startAngle: number;
   endAngle: number;
-  children?: Segment[];
+  children: Segment[];
+  /** Where this entry's options ring starts, and how wide each one is. The
+   *  ring is allowed to fan out past the entry's own wedge — only one entry's
+   *  options are ever drawn, so there is nothing for them to collide with. */
+  childStart: number;
+  childStep: number;
 }
 
+const DEG = Math.PI / 180;
+
+/**
+ * A pie (radial) menu.
+ *
+ * Targeting is done from the pointer's angle and distance rather than from
+ * per-path `mouseenter`, which is what makes it fast: a segment stays aimed at
+ * however far out the pointer travels, so the gesture is a flick in a
+ * direction rather than a move onto a small wedge. The middle is a dead zone,
+ * so opening and closing without moving aims at nothing — the caller uses that
+ * to mean "no choice made".
+ *
+ * Whatever is aimed at when the menu closes is applied — no click needed.
+ * Committing on close rather than on every aim change is deliberate: sweeping
+ * across the wheel would otherwise run every entry it passed over, and a tool
+ * change has side effects (leaving the path tool finalizes an open draft).
+ * Children are options belonging to the aimed entry and take a click.
+ */
 @Component({
   selector: 'app-wheel-menu',
-  imports: [ButtonModule, SliderModule, FormsModule, CommonModule],
+  imports: [CommonModule],
   templateUrl: './wheel-menu.component.html',
   styleUrl: './wheel-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class WheelMenuComponent implements AfterViewInit {
-  private cdr = inject(ChangeDetectorRef);
+export class WheelMenuComponent {
+  private readonly host = inject(ElementRef<HTMLElement>);
 
-  readonly radius = input(256);
   readonly items = input<MenuItem[]>([]);
-  readonly closeMenu = output<boolean>();
-  readonly wheel = viewChild.required<HTMLElement>('wheel');
+  /** Outer edge of the ring of entries, in px. */
+  readonly radius = input(150);
+  /** Whether the menu is open; pointer tracking runs only while it is. */
+  readonly active = input(false);
 
-  public segmentType = SegmentType;
+  readonly closeMenu = output<void>();
 
-  public selectedIndex: number | null = null;
-  public segments: Segment[] = [];
+  readonly svg = viewChild<ElementRef<SVGSVGElement>>('wheel');
 
-  innerRadius = 32;
-  outerRadius: number = this.radius() + this.innerRadius * 3;
+  readonly segmentType = SegmentType;
 
-  ngAfterViewInit(): void {
-    this.outerRadius = this.radius() + this.innerRadius * 3;
-    this.segments = this.buildMultiSegmentPaths();
-    this.cdr.detectChanges();
-  }
-  buildMultiSegmentPaths(): Segment[] {
-    const n = this.items().length;
+  /** Dead zone, and the disc the aimed entry's name is printed on. */
+  readonly hubRadius = 52;
+  /** Where the ring of entries starts. */
+  readonly ringInner = 62;
+  /** How far past `radius` the children ring extends. */
+  readonly childBand = 54;
 
-    // This function generates a path for an SVG element that represents a circular segment.
-    // The path starts at the top of the circle and goes around to create a segment.
+  private readonly _aimed = signal<number | null>(null);
+  private readonly _aimedChild = signal<number | null>(null);
+  readonly aimed = this._aimed.asReadonly();
+  readonly aimedChild = this._aimedChild.asReadonly();
 
-    const segments: Segment[] = [];
-    const angleStep = 360 / n;
-    const innerRadius = this.radius() / 3;
-    const radius = this.radius();
-    for (let i = 0; i < n; i++) {
-      const startAngle = i * angleStep;
-      const endAngle = (i + 1) * angleStep;
+  readonly outerRadius = computed(() => this.radius() + this.childBand);
 
-      const path = `
-        M ${innerRadius * Math.cos((startAngle * Math.PI) / 180)} ${
-        innerRadius * Math.sin((startAngle * Math.PI) / 180)
-      }
-        A ${innerRadius} ${innerRadius} 0 0 1 ${
-        innerRadius * Math.cos((endAngle * Math.PI) / 180)
-      } ${innerRadius * Math.sin((endAngle * Math.PI) / 180)}
+  /** Square viewBox centred on the hub, big enough for the children ring. */
+  readonly viewBox = computed(() => {
+    const dim = this.outerRadius() * 2;
+    return `${-dim / 2} ${-dim / 2} ${dim} ${dim}`;
+  });
 
-        L ${radius * Math.cos((endAngle * Math.PI) / 180)} ${
-        radius * Math.sin((endAngle * Math.PI) / 180)
-      }
-        A ${radius} ${radius} 0 0 0 ${
-        radius * Math.cos((startAngle * Math.PI) / 180)
-      } ${radius * Math.sin((startAngle * Math.PI) / 180)}
-        Z
-      `;
-      const midAngle = (startAngle + endAngle) / 2;
-      // Create a barycenter for the segment
-      const barycenter = {
-        x:
-          (innerRadius * Math.cos((midAngle * Math.PI) / 180) +
-            radius * Math.cos((midAngle * Math.PI) / 180)) /
-          2,
-        y:
-          (innerRadius * Math.sin((midAngle * Math.PI) / 180) +
-            radius * Math.sin((midAngle * Math.PI) / 180)) /
-          2,
+  readonly boxSize = computed(() => this.outerRadius() * 2);
+
+  /** The entry currently aimed at, for the label printed in the hub. */
+  readonly aimedItem = computed(() => {
+    const i = this._aimed();
+    return i === null ? null : (this.items()[i] ?? null);
+  });
+
+  /**
+   * Geometry for every entry. Derived from `items()` and `radius()` rather
+   * than built once on init, so the wheel cannot go stale against its input —
+   * the previous version computed paths in `ngAfterViewInit` only, and drew
+   * the wrong number of wedges whenever the item list changed afterwards.
+   */
+  readonly segments = computed<Segment[]>(() => {
+    const items = this.items();
+    const n = items.length;
+    if (n === 0) return [];
+
+    const step = 360 / n;
+    // A hair of angular padding draws the wedges as separate keys rather than
+    // one continuous disc, which is most of what made the old one unreadable.
+    const pad = Math.min(1.5, step * 0.04);
+    const inner = this.ringInner;
+    const outer = this.radius();
+
+    return items.map((item, i) => {
+      // Entry 0 sits at the top and they run clockwise from there.
+      const start = -90 - step / 2 + i * step;
+      const end = start + step;
+
+      const kids = item.children ?? [];
+      // Enough arc per option to fit its label, fanning wider than the entry's
+      // own wedge when it has several. Four options inside a 36° wedge left
+      // each of them about 28px of arc, which is why the old ring was unreadable.
+      const span =
+        kids.length > 0
+          ? Math.max(step, Math.min(170, kids.length * 46))
+          : step;
+      const childStep = kids.length > 0 ? span / kids.length : step;
+      const childStart = (start + end) / 2 - span / 2;
+
+      const seg: Segment = {
+        path: this.ringPath(inner, outer, start + pad, end - pad),
+        ...this.midpoint(inner, outer, start, end),
+        startAngle: start,
+        endAngle: end,
+        children: [],
+        childStart,
+        childStep,
       };
-      let children;
-      // Create a segment object
-      const segment: Segment = {
-        path,
-        barycenter,
-        startAngle,
-        endAngle,
-      };
-      const items = this.items();
-      if (items[i].children && items[i].children!.length > 0) {
-        children = items[i].children!.map((child, index) => {
-          return this.getChildSegmentPath(segment, i, index);
+
+      if (kids.length > 0) {
+        const kPad = Math.min(1, childStep * 0.06);
+        const r0 = outer + 6;
+        const r1 = this.outerRadius();
+        seg.children = kids.map((_, j) => {
+          const kStart = childStart + j * childStep;
+          const kEnd = kStart + childStep;
+          return {
+            path: this.ringPath(r0, r1, kStart + kPad, kEnd - kPad),
+            ...this.midpoint(r0, r1, kStart, kEnd),
+            startAngle: kStart,
+            endAngle: kEnd,
+            children: [],
+            childStart: kStart,
+            childStep,
+          };
         });
       }
+      return seg;
+    });
+  });
 
-      segment.children = children || [];
-
-      // Add the segment to the array
-      segments.push(segment);
-    }
-
-    return segments;
+  constructor() {
+    effect((onCleanup) => {
+      if (!this.active()) {
+        this._aimed.set(null);
+        this._aimedChild.set(null);
+        return;
+      }
+      // Coalesced to one resolution per frame; pointermove fires far more
+      // often than the wheel can usefully change.
+      let pending: { x: number; y: number } | null = null;
+      let frame = 0;
+      const move = (ev: PointerEvent) => {
+        pending = { x: ev.clientX, y: ev.clientY };
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          if (pending) this.aimAt(pending.x, pending.y);
+        });
+      };
+      // Bound to the window: aiming has to keep working past the wheel's own
+      // bounds, which is the whole point of a pie menu.
+      window.addEventListener('pointermove', move, { passive: true });
+      onCleanup(() => {
+        window.removeEventListener('pointermove', move);
+        if (frame) cancelAnimationFrame(frame);
+      });
+    });
   }
 
-  getViewbox(): string {
-    const areTheyAnyChildren = this.items().some(
-      (item) => item.children && item.children.length > 0
-    );
-    let dim = this.radius() * 2;
-    if (areTheyAnyChildren) {
-      dim = this.outerRadius * 2;
-    }
-    const viewbox = `${-dim / 2} ${-dim / 2} ${dim} ${dim}`;
-    return viewbox;
-  }
+  /** Resolve a screen position to an aimed entry, and possibly one of its options. */
+  private aimAt(clientX: number, clientY: number): void {
+    const el = this.svg()?.nativeElement ?? this.host.nativeElement;
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0) return;
 
-  hoverSegment(index: number): void {
-    this.selectedIndex = index;
-  }
-  focus() {}
-  getChildSegmentPath(
-    parentSegment: Segment,
-    segmentIndex: number,
-    childIndex: number
-  ): Segment {
-    const currentSegment = parentSegment;
-    const nChildren = this.items()[segmentIndex].children!.length;
-    const startAngle = currentSegment.startAngle;
-    const endAngle = currentSegment.endAngle;
-    const angleDiff = endAngle - startAngle;
-    // Value of current child
-    const childStartAngle = startAngle + (angleDiff * childIndex) / nChildren;
-    const childEndAngle =
-      startAngle + (angleDiff * (childIndex + 1)) / nChildren;
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top + rect.height / 2);
+    const dist = Math.hypot(dx, dy);
 
-    const startRadius = this.radius();
-    const endRadius = this.outerRadius;
-    const path = `
-      M ${startRadius * Math.cos((childStartAngle * Math.PI) / 180)} ${
-      startRadius * Math.sin((childStartAngle * Math.PI) / 180)
-    }
-      A ${startRadius} ${startRadius} 0 0 1 ${
-      startRadius * Math.cos((childEndAngle * Math.PI) / 180)
-    } ${startRadius * Math.sin((childEndAngle * Math.PI) / 180)}
+    const items = this.items();
+    const n = items.length;
+    if (n === 0) return;
 
-      L ${endRadius * Math.cos((childEndAngle * Math.PI) / 180)} ${
-      endRadius * Math.sin((childEndAngle * Math.PI) / 180)
-    }
-      A ${endRadius} ${endRadius} 0 0 0 ${
-      endRadius * Math.cos((childStartAngle * Math.PI) / 180)
-    } ${endRadius * Math.sin((childStartAngle * Math.PI) / 180)}
-      Z
-    `;
-    const midAngle = (childStartAngle + childEndAngle) / 2;
-    return {
-      path,
-      barycenter: {
-        x:
-          (startRadius * Math.cos((midAngle * Math.PI) / 180) +
-            endRadius * Math.cos((midAngle * Math.PI) / 180)) /
-          2,
-        y:
-          (startRadius * Math.sin((midAngle * Math.PI) / 180) +
-            endRadius * Math.sin((midAngle * Math.PI) / 180)) /
-          2,
-      },
-      startAngle: childStartAngle,
-      endAngle: childEndAngle,
-    };
-  }
-
-  callCommand(item: MenuItem): void {
-    if (!item.command) {
+    if (dist < this.hubRadius) {
+      this.setAimed(null);
+      this._aimedChild.set(null);
       return;
     }
-    item.command();
-    this.closeMenu.emit(true);
+
+    // Screen y grows downwards, which matches the clockwise sweep the paths
+    // are drawn with, so no sign correction is needed here.
+    const deg = Math.atan2(dy, dx) / DEG;
+
+    // Inside the options band, the entry stays locked: its ring fans wider
+    // than its own wedge, so resolving the entry by angle out here would hand
+    // the pointer to a neighbour halfway through picking an option.
+    const current = this._aimed();
+    const currentKids =
+      current === null ? [] : (items[current].children ?? []);
+    const inBand = dist > this.radius() && dist <= this.outerRadius();
+    if (inBand && currentKids.length > 0) {
+      const seg = this.segments()[current!];
+      const rel = (((deg - seg.childStart) % 360) + 360) % 360;
+      const j = Math.floor(rel / seg.childStep);
+      this._aimedChild.set(j >= 0 && j < currentKids.length ? j : null);
+      return;
+    }
+
+    const step = 360 / n;
+    const first = -90 - step / 2;
+    const rel = (((deg - first) % 360) + 360) % 360;
+    this.setAimed(Math.min(n - 1, Math.floor(rel / step)));
+    this._aimedChild.set(null);
+  }
+
+  private setAimed(index: number | null): void {
+    this._aimed.set(index);
+  }
+
+  /**
+   * Run whatever entry is aimed at. Returns false when nothing is — the caller
+   * reads that as "opened and dismissed without choosing".
+   */
+  commitAimed(): boolean {
+    const index = this._aimed();
+    if (index === null) return false;
+    const item = this.items()[index];
+    if (!item || item.disabled) return false;
+    item.command?.();
+    return true;
+  }
+
+  /** Click: toggle the aimed option if there is one, otherwise commit and close. */
+  onClick(): void {
+    const parent = this._aimed();
+    const child = this._aimedChild();
+    if (parent !== null && child !== null) {
+      const item = this.items()[parent]?.children?.[child];
+      if (item && !item.disabled) item.command?.();
+      return; // options stay open so several can be set in one visit
+    }
+    this.closeMenu.emit();
+  }
+
+  isChecked(item: MenuItem): boolean {
+    return item.checked?.() ?? false;
+  }
+
+  isActive(item: MenuItem): boolean {
+    return item.active?.() ?? false;
+  }
+
+  /** An annulus wedge between two radii and two angles. */
+  private ringPath(r0: number, r1: number, a0: number, a1: number): string {
+    const p = (r: number, a: number) =>
+      `${(r * Math.cos(a * DEG)).toFixed(2)} ${(r * Math.sin(a * DEG)).toFixed(2)}`;
+    const large = a1 - a0 > 180 ? 1 : 0;
+    return [
+      `M ${p(r0, a0)}`,
+      `A ${r0} ${r0} 0 ${large} 1 ${p(r0, a1)}`,
+      `L ${p(r1, a1)}`,
+      `A ${r1} ${r1} 0 ${large} 0 ${p(r1, a0)}`,
+      'Z',
+    ].join(' ');
+  }
+
+  private midpoint(r0: number, r1: number, a0: number, a1: number) {
+    const a = ((a0 + a1) / 2) * DEG;
+    const r = (r0 + r1) / 2;
+    return { cx: r * Math.cos(a), cy: r * Math.sin(a) };
   }
 }
