@@ -159,7 +159,12 @@ export class ProjectService {
   async open(path: string): Promise<void> {
     await this.close();
     const config = await api.openProject(path);
-    this._config.set(config);
+    // Merged over the defaults rather than assigned. A project file written by
+    // an older version can lack a field the current one expects, and a plain
+    // assignment turns that into `undefined` rather than a default — which is
+    // how `embed_threshold_kb` went missing and broke the folder scan that
+    // follows project creation.
+    this._config.set({ ...DEFAULT_PROJECT_CONFIG, ...config });
     await this.labelService.setDefinitions(config); // Now async
     this._projectPath.set(path);
     this._isOpen.set(true);

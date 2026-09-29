@@ -42,6 +42,14 @@ pub struct ProjectConfig {
     pub name: String,
     pub input_folder: Option<String>,      // None if images embedded
     pub images_embedded: bool,
+    /// Files smaller than this are embedded even when `images_embedded` is off.
+    ///
+    /// `serde(default)` because project files written before this field existed
+    /// do not carry it, and they must still open. The TypeScript side declared
+    /// it long before the Rust side did, which made it `undefined` after every
+    /// project open and broke the next folder scan.
+    #[serde(default = "default_embed_threshold_kb")]
+    pub embed_threshold_kb: u32,
     
     // Task types
     pub segmentation_enabled: bool,
@@ -60,12 +68,18 @@ pub struct ProjectConfig {
     pub folders_as_sequences: bool,
 }
 
+/// Matches DEFAULT_PROJECT_CONFIG on the TypeScript side.
+fn default_embed_threshold_kb() -> u32 {
+    100
+}
+
 impl Default for ProjectConfig {
     fn default() -> Self {
         Self {
             name: String::new(),
             input_folder: None,
             images_embedded: false,
+            embed_threshold_kb: default_embed_threshold_kb(),
             segmentation_enabled: true,
             classification_enabled: false,
             instance_segmentation_enabled: false,
