@@ -65,7 +65,7 @@ struct ImageFile {
 #[tauri::command]
 pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Result<ScanResult> {
   let folder_path = PathBuf::from(&options.folder_path);
-  dbg!("Scanning folder:", &folder_path);
+  log::info!("[import] scanning {}", folder_path.display());
   if !folder_path.exists() {
     return Err(
       AppError::Io(
@@ -84,12 +84,16 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
 
   // Scan for image files
   let image_files = scan_for_images(&folder_path, &folder_path, &regex, options.recursive)?;
-  // Debug the options and number of images found
-  dbg!("Scan options:", &options);
-  dbg!("Number of images found:", image_files.len());
+  log::info!(
+    "[import] {} file(s) matched /{}/ (recursive: {}, foldersAsSequences: {})",
+    image_files.len(),
+    options.input_regex,
+    options.recursive,
+    options.folders_as_sequences
+  );
   // Group into sequences based on configuration
   let sequences = group_into_sequences(image_files, options.folders_as_sequences);
-  dbg!("Found sequences:", sequences.keys().collect::<Vec<_>>());
+  log::info!("[import] grouped into {} sequence(s)", sequences.len());
   // Import into database
   let result = import_sequences(&db, sequences, options.embed_images, options.embed_threshold_kb)?;
 
@@ -297,4 +301,78 @@ fn get_image_dimensions(data: &[u8]) -> Result<(i32, i32)> {
     .map_err(|e| AppError::Generic(format!("Failed to decode image: {}", e)))?;
 
   Ok((img.width() as i32, img.height() as i32))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A throwaway directory holding `names`, removed when the test ends.
+    fn dir_with(label: &str, names: &[&str]) -> PathBuf {
+        // Labelled per test: naming these by file count made two tests share a
+        // directory and clobber each other under the parallel test runner.
+        let root = std::env::temp_dir().join(format!("dida-scan-{}-{}", std::process::id(), label));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        for n in names {
+            let p = root.join(n);
+            if let Some(parent) = p.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(&p, b"x").unwrap();
+        }
+        root
+    }
+
+    /// Exactly the pattern DEFAULT_PROJECT_CONFIG ships on the TypeScript side.
+    const DEFAULT_REGEX: &str = r"\.(png|jpe?g|bmp|tiff?)$";
+
+    #[test]
+    fn the_default_pattern_matches_a_flat_folder_of_pngs() {
+        let root = dir_with("flat_pngs", &["a.png", "b.png", "c.png"]);
+        let re = Regex::new(DEFAULT_REGEX).unwrap();
+        let found = scan_for_images(&root, &root, &re, true).unwrap();
+        assert_eq!(found.len(), 3, "found: {:?}", found.iter().map(|i| &i.relative_path).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn the_default_pattern_ignores_non_images() {
+        let root = dir_with("non_images", &["a.png", "notes.txt", "data.csv"]);
+        let re = Regex::new(DEFAULT_REGEX).unwrap();
+        assert_eq!(scan_for_images(&root, &root, &re, true).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn the_default_pattern_is_case_sensitive() {
+        // Worth pinning: a folder of .PNG files silently imports nothing, which
+        // looks identical to "the scan is broken".
+        let root = dir_with("case", &["a.PNG", "b.JPG"]);
+        let re = Regex::new(DEFAULT_REGEX).unwrap();
+        assert_eq!(scan_for_images(&root, &root, &re, true).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn flat_mode_gives_each_image_its_own_sequence() {
+        let root = dir_with("flat_mode", &["a.png", "b.png"]);
+        let re = Regex::new(DEFAULT_REGEX).unwrap();
+        let found = scan_for_images(&root, &root, &re, true).unwrap();
+        assert_eq!(group_into_sequences(found, false).len(), 2);
+    }
+
+    #[test]
+    fn folder_mode_groups_by_subfolder() {
+        let root = dir_with("folder_mode", &["s1/a.png", "s1/b.png", "s2/c.png"]);
+        let re = Regex::new(DEFAULT_REGEX).unwrap();
+        let found = scan_for_images(&root, &root, &re, true).unwrap();
+        let seqs = group_into_sequences(found, true);
+        assert_eq!(seqs.len(), 2);
+        assert_eq!(seqs.values().map(|v| v.len()).sum::<usize>(), 3);
+    }
+
+    #[test]
+    fn non_recursive_ignores_subfolders() {
+        let root = dir_with("non_recursive", &["top.png", "sub/deep.png"]);
+        let re = Regex::new(DEFAULT_REGEX).unwrap();
+        assert_eq!(scan_for_images(&root, &root, &re, false).unwrap().len(), 1);
+    }
 }

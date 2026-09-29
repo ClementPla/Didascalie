@@ -131,8 +131,30 @@ export class ProjectService {
   // Project Lifecycle
   // ==========================================
 
+  /**
+   * Create a project, replacing whatever was open.
+   *
+   * The close is not optional, for the same reason it is not optional in
+   * {@link open}. Creating used to skip it, so a project created while another
+   * was open inherited that project's config — its scan pattern, its embed
+   * settings, its labels — and every project-scoped service kept the old
+   * project's caches. The visible symptoms were a scan that imported nothing
+   * and, before that, a missing `embedThresholdKb`.
+   *
+   * The draft is captured first because `close()` resets project-scoped state,
+   * and that includes the labels this form just defined. It is then merged over
+   * the defaults, so a field the previous project's file did not carry comes
+   * back as a default rather than `undefined`.
+   */
   async create(path: string): Promise<void> {
-    const config = { ...this._config(), ...this.labelService.getDefinitions() };
+    const draft = { ...this._config(), ...this.labelService.getDefinitions() };
+
+    await this.close();
+
+    const config = { ...DEFAULT_PROJECT_CONFIG, ...draft };
+    this._config.set(config);
+    await this.labelService.setDefinitions(config);
+
     try {
       await api.createProject(config.name, path, config);
     } catch (error) {

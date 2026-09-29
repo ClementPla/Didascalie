@@ -11,7 +11,7 @@ pub fn create_project(
     path: String,
     config: ProjectConfig,
 ) -> Result<()> {
-    dbg!("Creating project at path: {}", &path);
+    log::info!("[project] creating at {}", path);
     
     let conn = queries::create_database(Path::new(&path))?;
     queries::insert_project(&conn, &config)?;
@@ -30,7 +30,7 @@ pub fn open_project(
     path: String,
 ) -> Result<ProjectConfig> {
     if db.is_open() {
-        dbg!("Closing existing project before opening a new one.");
+        log::info!("[project] closing the open project first");
         db.close();
         *ml.model.lock() = None;
     }
