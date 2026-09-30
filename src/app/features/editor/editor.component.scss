@@ -6,6 +6,20 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+
+  /* The editor is a workspace, not a document: a drag paints, pans or moves a
+     handle, and must never leave the toolbar, the labels or a curve overlay
+     highlighted in blue. Fields below stay selectable. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:host input,
+:host textarea,
+:host [contenteditable='true'],
+:host .selectable {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Floating tabs that collapse/expand the side panels.

@@ -100,7 +100,7 @@ function mirrorDocumentShell(doc: Document): void {
   }
   doc.body.className = document.body.className;
   doc.body.style.cssText =
-    'margin:0;height:100vh;display:flex;overflow:hidden;background:var(--p-content-background)';
+    'margin:0;height:100vh;display:flex;overflow:hidden;user-select:none;-webkit-user-select:none;background:var(--p-content-background)';
 }
 
 /**

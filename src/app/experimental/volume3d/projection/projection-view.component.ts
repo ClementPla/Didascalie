@@ -294,13 +294,14 @@ export class ProjectionViewComponent implements OnDestroy {
 
   /**
    * Wheel zooms around the pointer; Ctrl+wheel resizes the brush (as on the
-   * slice) and Alt+wheel moves the depth strokes are written at.
+   * slice) and Shift+wheel moves the depth strokes are written at. Not Alt:
+   * holding it opens the editor's quick-access menu.
    */
   onWheel(event: WheelEvent): void {
     event.preventDefault();
-    if (event.altKey) {
-      // Finer with Shift, for a thin structure between close curves.
-      const step = event.shiftKey ? 0.002 : 0.01;
+    if (event.shiftKey) {
+      // Finer with Ctrl, for a thin structure between close curves.
+      const step = event.ctrlKey ? 0.002 : 0.01;
       const depth = this.settings().projectionDepth + (event.deltaY > 0 ? -step : step);
       this.update({ projectionDepth: Math.min(1, Math.max(0, Number(depth.toFixed(3)))) });
       return;
