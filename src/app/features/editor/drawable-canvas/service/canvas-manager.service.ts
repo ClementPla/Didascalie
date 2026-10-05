@@ -205,6 +205,12 @@ export class CanvasManagerService implements ProjectScoped {
     const img = this.combinedCtx.createImageData(w, h);
     const data = img.data;
 
+    const edges = this.editorService.edgesOnly;
+    // Target ~2px on screen -> need ceil(2/scale) px in image space.
+    const radius = edges
+      ? Math.min(Math.max(1, Math.ceil(2 / this.zoomPan.getScale())), 10)
+      : 0;
+
     // Draw labels in order; later labels paint over earlier ones (masks are
     // disjoint in practice, so this is just a value -> colour write).
     for (let li = 0; li < this.labelMasks.length; li++) {
@@ -212,6 +218,11 @@ export class CanvasManagerService implements ProjectScoped {
       const mask = this.labelMasks[li];
       const pal = this.palettes[li];
       if (!mask || !pal) continue;
+
+      if (edges) {
+        this.paintLayerEdges(data, mask, pal, w, h, radius);
+        continue;
+      }
 
       for (let i = 0; i < mask.length; i++) {
         const v = mask[i];
@@ -226,9 +237,59 @@ export class CanvasManagerService implements ProjectScoped {
     }
 
     this.combinedCtx.putImageData(img, 0, 0);
+  }
 
-    if (this.editorService.edgesOnly) {
-      this.extractEdges(this.combinedCtx, this.zoomPan.getScale());
+  /**
+   * Edge-only paint of a single label mask into `data`. Edges are found on the
+   * mask itself, before layers are flattened, so a label stacked under another
+   * keeps its own outline in its own colour. A pixel is an edge when a tap
+   * holds a different value (background, another instance) or falls outside
+   * the image. Taps are the 4 direct neighbours plus 8 at distance `radius`:
+   * constant cost per pixel whatever the outline thickness, at the price of a
+   * hole smaller than `radius` only getting a 1px outline.
+   */
+  private paintLayerEdges(
+    data: Uint8ClampedArray,
+    mask: Uint8Array,
+    pal: Uint8Array,
+    w: number,
+    h: number,
+    radius: number
+  ): void {
+    const r = radius;
+    const rw = r * w;
+
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      const yNear = y >= 1 && y < h - 1;
+      const yFar = y >= r && y < h - r;
+      for (let x = 0; x < w; x++) {
+        const i = row + x;
+        const v = mask[i];
+        if (v === 0) continue;
+
+        let edge =
+          !yNear || x < 1 || x >= w - 1 ||
+          mask[i - 1] !== v || mask[i + 1] !== v ||
+          mask[i - w] !== v || mask[i + w] !== v;
+
+        if (!edge && r > 1) {
+          edge =
+            !yFar || x < r || x >= w - r ||
+            mask[i - r] !== v || mask[i + r] !== v ||
+            mask[i - rw] !== v || mask[i + rw] !== v ||
+            mask[i - rw - r] !== v || mask[i - rw + r] !== v ||
+            mask[i + rw - r] !== v || mask[i + rw + r] !== v;
+        }
+        if (!edge) continue;
+
+        const o = i * 4;
+        const p = v * 4;
+        data[o] = pal[p];
+        data[o + 1] = pal[p + 1];
+        data[o + 2] = pal[p + 2];
+        data[o + 3] = 255;
+      }
     }
   }
 
@@ -260,124 +321,62 @@ export class CanvasManagerService implements ProjectScoped {
     const out = ctx.createImageData(dispW, dispH);
     const data = out.data;
     const edges = this.editorService.edgesOnly;
-    // Per-device-pixel source id (label*256 + value; 0 = background) — only kept
-    // for the edge pass.
-    const ids = edges ? new Int32Array(dispW * dispH) : null;
+
+    // Source column per device column, padded by one on each side so the edge
+    // test can look at the neighbouring device pixels.
+    const xs = new Int32Array(dispW + 2);
+    for (let dx = -1; dx <= dispW; dx++) {
+      xs[dx + 1] = Math.floor((dx + 0.5 - offX) * invScale);
+    }
 
     for (let dy = 0; dy < dispH; dy++) {
       const iy = Math.floor((dy + 0.5 - offY) * invScale);
       if (iy < 0 || iy >= h) continue;
+      const iyU = Math.floor((dy - 0.5 - offY) * invScale);
+      const iyD = Math.floor((dy + 1.5 - offY) * invScale);
+      const yInside = iyU >= 0 && iyD < h;
       const maskRow = iy * w;
+      const rowU = iyU * w;
+      const rowD = iyD * w;
       const outRow = dy * dispW;
       for (let dx = 0; dx < dispW; dx++) {
-        const ix = Math.floor((dx + 0.5 - offX) * invScale);
+        const ix = xs[dx + 1];
         if (ix < 0 || ix >= w) continue;
+        const ixL = xs[dx];
+        const ixR = xs[dx + 2];
         const mi = maskRow + ix;
 
         // Later labels paint over earlier ones (masks are disjoint in practice).
         for (let li = 0; li < masks.length; li++) {
           if (!labels[li]?.isVisible) continue;
-          const v = masks[li][mi];
+          const mask = masks[li];
+          const v = mask[mi];
           if (v === 0) continue;
           const pal = this.palettes[li];
           if (!pal) continue;
+          // Edge mode: tested per label in screen space (~1 device px outline),
+          // so a label stacked under another keeps its own outline. Interior
+          // pixels (all 4 neighbouring device pixels sample the same value) are
+          // skipped; leaving the image counts as a boundary.
+          if (
+            edges &&
+            yInside && ixL >= 0 && ixR < w &&
+            mask[maskRow + ixL] === v && mask[maskRow + ixR] === v &&
+            mask[rowU + ix] === v && mask[rowD + ix] === v
+          ) {
+            continue;
+          }
           const o = (outRow + dx) * 4;
           const p = v * 4;
           data[o] = pal[p];
           data[o + 1] = pal[p + 1];
           data[o + 2] = pal[p + 2];
           data[o + 3] = pal[p + 3];
-          if (ids) ids[outRow + dx] = (li + 1) * 256 + v;
         }
       }
     }
 
-    if (ids) this.keepEdgesOnly(data, ids, dispW, dispH);
     ctx.putImageData(out, 0, 0);
-  }
-
-  /**
-   * Screen-space edge pass for the viewport composite: keep a foreground pixel
-   * only when a 4-neighbour has a different source id (label/instance/background
-   * boundary). Clears the interior, leaving ~1px outlines at display resolution.
-   */
-  private keepEdgesOnly(
-    data: Uint8ClampedArray,
-    ids: Int32Array,
-    w: number,
-    h: number
-  ): void {
-    // Snapshot foreground so we can zero interiors without affecting neighbours.
-    const keep = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = y * w + x;
-        const id = ids[i];
-        if (id === 0) continue;
-        const edge =
-          x === 0 || y === 0 || x === w - 1 || y === h - 1 ||
-          ids[i - 1] !== id || ids[i + 1] !== id ||
-          ids[i - w] !== id || ids[i + w] !== id;
-        if (edge) keep[i] = 1;
-      }
-    }
-    for (let i = 0; i < keep.length; i++) {
-      if (!keep[i]) data[i * 4 + 3] = 0; // clear non-edge foreground
-    }
-  }
-
-  private extractEdges(
-    ctx: OffscreenCanvasRenderingContext2D,
-    scale: number
-  ): void {
-    const w = this.stateService.width;
-    const h = this.stateService.height;
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const src = imgData.data;
-    const src32 = new Uint32Array(src.buffer);
-    const out = new Uint8ClampedArray(src.length);
-    const stride = w * 4;
-
-    // Target ~2px on screen -> need ceil(2/scale) px in image space.
-    const radius = Math.min(Math.max(1, Math.ceil(2 / scale)), 10);
-
-    // A labelled pixel is an edge when a neighbour has a *different colour* —
-    // which covers label↔background AND label↔label / instance↔instance
-    // boundaries, so an object enclosed by another still gets its own outline.
-    // Background pixels are skipped, so the outline never bleeds onto them.
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = y * stride + x * 4;
-        if (src[i + 3] === 0) continue;
-        const center = src32[y * w + x];
-
-        let isEdge = false;
-        for (let dy = -radius; dy <= radius && !isEdge; dy++) {
-          const ny = y + dy;
-          if (ny < 0 || ny >= h) {
-            isEdge = true;
-            break;
-          }
-          for (let dx = -radius; dx <= radius && !isEdge; dx++) {
-            const nx = x + dx;
-            if (nx < 0 || nx >= w) {
-              isEdge = true;
-              break;
-            }
-            if (src32[ny * w + nx] !== center) isEdge = true;
-          }
-        }
-
-        if (isEdge) {
-          out[i] = src[i];
-          out[i + 1] = src[i + 1];
-          out[i + 2] = src[i + 2];
-          out[i + 3] = 255;
-        }
-      }
-    }
-
-    ctx.putImageData(new ImageData(out, w, h), 0, 0);
   }
 
   // ==========================================

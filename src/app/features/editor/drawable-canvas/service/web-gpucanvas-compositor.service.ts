@@ -4,22 +4,20 @@ import { Injectable } from '@angular/core';
  * GPU compositor for the uint8-per-label model. Each label mask is uploaded as
  * a layer of an `r8uint` texture array; a per-layer 256-entry palette buffer
  * maps values to colours. The composite shader writes the top-most nonzero
- * layer's colour per pixel, matching the CPU path.
+ * layer's colour per pixel, matching the CPU path. In edge mode it only keeps
+ * the pixels on each layer's own outline, so stacked labels all stay visible.
  */
 @Injectable({ providedIn: 'root' })
 export class WebGPUCanvasCompositorService {
   private device: GPUDevice | null = null;
 
   private compositePipeline: GPUComputePipeline | null = null;
-  private edgePipeline: GPUComputePipeline | null = null;
   private initialized = false;
 
   // Persistent resources (sized by prepareResources)
   private outputTexture: GPUTexture | null = null;
-  private edgeOutputTexture: GPUTexture | null = null;
   private maskTextureArray: GPUTexture | null = null;
   private uniformBuffer: GPUBuffer | null = null;
-  private edgeUniformBuffer: GPUBuffer | null = null;
   private stagingBuffer: GPUBuffer | null = null;
   private visibilityBuffer: GPUBuffer | null = null;
   private paletteBuffer: GPUBuffer | null = null;
@@ -44,7 +42,6 @@ export class WebGPUCanvasCompositorService {
       this.device = await adapter.requestDevice();
 
       await this.createCompositePipeline();
-      await this.createEdgePipeline();
 
       // Only advertise WebGPU if it produces provably-correct output — this
       // guards the auto-enabled GPU path against a driver/shader mismatch that
@@ -65,6 +62,8 @@ export class WebGPUCanvasCompositorService {
   /**
    * Composite a tiny known pattern and check the exact result: value→colour
    * mapping via the palette, top-most-layer-wins ordering, and transparency.
+   * Then the edge mode on stacked layers: the lower layer's outline must show
+   * through the upper layer's interior.
    * rgba8unorm stores 0/255 exactly, so the comparison is exact.
    */
   private async selfTest(): Promise<boolean> {
@@ -96,11 +95,41 @@ export class WebGPUCanvasCompositorService {
       ];
       const eq = (a: number[], b: number[]) => a.every((v, i) => v === b[i]);
 
-      return (
+      const compositeOk =
         eq(px(0), [255, 0, 0, 255]) && // layer 0 only -> red
         eq(px(1), [0, 0, 255, 255]) && // both set -> top layer (blue) wins
         eq(px(2), [0, 0, 0, 0]) && //     neither -> transparent
-        eq(px(3), [0, 0, 255, 255]) //   layer 1 only -> blue
+        eq(px(3), [0, 0, 255, 255]); //   layer 1 only -> blue
+      if (!compositeOk) return false;
+
+      // Edge mode, 5x5: a red 3x3 square (layer 0) under a blue layer covering
+      // the whole image (layer 1).
+      const n = 5;
+      await this.prepareResources(n, n, 2);
+      const square = new Uint8Array(n * n);
+      for (let y = 1; y <= 3; y++) {
+        for (let x = 1; x <= 3; x++) square[y * n + x] = 1;
+      }
+      const full = new Uint8Array(n * n).fill(2);
+
+      const edges = await this.compositeMasks(
+        [square, full],
+        [pal0, pal1],
+        [true, true],
+        n,
+        n,
+        true
+      );
+      const epx = (x: number, y: number) => {
+        const i = (y * n + x) * 4;
+        return [edges.data[i], edges.data[i + 1], edges.data[i + 2], edges.data[i + 3]];
+      };
+
+      return (
+        eq(epx(0, 0), [0, 0, 255, 255]) && // image border -> top layer outline
+        eq(epx(1, 1), [255, 0, 0, 255]) && // lower layer outline shows through
+        eq(epx(3, 2), [255, 0, 0, 255]) &&
+        eq(epx(2, 2), [0, 0, 0, 0]) //        interior of both -> transparent
       );
     } catch (error) {
       console.error('WebGPU self-test error:', error);
@@ -110,22 +139,18 @@ export class WebGPUCanvasCompositorService {
 
   destroy(): void {
     this.outputTexture?.destroy();
-    this.edgeOutputTexture?.destroy();
     this.maskTextureArray?.destroy();
     this.stagingBuffer?.destroy();
     this.visibilityBuffer?.destroy();
     this.paletteBuffer?.destroy();
     this.uniformBuffer?.destroy();
-    this.edgeUniformBuffer?.destroy();
 
     this.outputTexture = null;
-    this.edgeOutputTexture = null;
     this.maskTextureArray = null;
     this.stagingBuffer = null;
     this.visibilityBuffer = null;
     this.paletteBuffer = null;
     this.uniformBuffer = null;
-    this.edgeUniformBuffer = null;
 
     this.cachedWidth = 0;
     this.cachedHeight = 0;
@@ -158,13 +183,11 @@ export class WebGPUCanvasCompositorService {
     await this.waitForCompletion();
 
     this.outputTexture?.destroy();
-    this.edgeOutputTexture?.destroy();
     this.maskTextureArray?.destroy();
     this.stagingBuffer?.destroy();
     this.visibilityBuffer?.destroy();
     this.paletteBuffer?.destroy();
     this.uniformBuffer?.destroy();
-    this.edgeUniformBuffer?.destroy();
 
     const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
     const arrayLayers = Math.max(1, layerCount);
@@ -178,12 +201,6 @@ export class WebGPUCanvasCompositorService {
         GPUTextureUsage.COPY_SRC,
     });
 
-    this.edgeOutputTexture = this.device.createTexture({
-      size: [width, height],
-      format: 'rgba8unorm',
-      usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC,
-    });
-
     // One 8-bit unsigned integer per pixel per label.
     this.maskTextureArray = this.device.createTexture({
       size: { width, height, depthOrArrayLayers: arrayLayers },
@@ -192,11 +209,6 @@ export class WebGPUCanvasCompositorService {
     });
 
     this.uniformBuffer = this.device.createBuffer({
-      size: 16,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    this.edgeUniformBuffer = this.device.createBuffer({
       size: 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
@@ -242,7 +254,7 @@ export class WebGPUCanvasCompositorService {
         width: u32,
         height: u32,
         layerCount: u32,
-        _pad: u32,
+        edgesOnly: u32,
       }
 
       @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -271,8 +283,27 @@ export class WebGPUCanvasCompositorService {
           if (visibilityFlags[i] == 0u) { continue; }
           let v = textureLoad(masks, vec2<i32>(i32(x), i32(y)), i32(i), 0).r;
           if (v == 0u) { continue; }
+          let color = unpack(palette[i * 256u + v]);
+          if (uniforms.edgesOnly != 0u) {
+            // Edges are found per layer, before flattening, so a label stacked
+            // under another keeps its own outline. A pixel is an edge when a
+            // 4-neighbour of the same layer holds a different value (background
+            // or another instance) or lies outside the image.
+            let onBorder = x == 0u || y == 0u ||
+              x + 1u >= uniforms.width || y + 1u >= uniforms.height;
+            if (!onBorder) {
+              let c = vec2<i32>(i32(x), i32(y));
+              let l = textureLoad(masks, c + vec2<i32>(-1, 0), i32(i), 0).r;
+              let r = textureLoad(masks, c + vec2<i32>(1, 0), i32(i), 0).r;
+              let u = textureLoad(masks, c + vec2<i32>(0, -1), i32(i), 0).r;
+              let d = textureLoad(masks, c + vec2<i32>(0, 1), i32(i), 0).r;
+              if (l == v && r == v && u == v && d == v) { continue; }
+            }
+            finalColor = vec4<f32>(color.rgb, 1.0);
+            continue;
+          }
           // Later (higher-index) layers paint over earlier ones.
-          finalColor = unpack(palette[i * 256u + v]);
+          finalColor = color;
         }
         textureStore(outputTexture, vec2<i32>(i32(x), i32(y)), finalColor);
       }
@@ -280,62 +311,6 @@ export class WebGPUCanvasCompositorService {
 
     const module = this.device!.createShaderModule({ code: shaderCode });
     this.compositePipeline = this.device!.createComputePipeline({
-      layout: 'auto',
-      compute: { module, entryPoint: 'main' },
-    });
-  }
-
-  private async createEdgePipeline(): Promise<void> {
-    const shaderCode = `
-      struct Uniforms {
-        width: u32,
-        height: u32,
-        threshold: f32,
-        edgeWidth: f32,
-      }
-
-      @group(0) @binding(0) var<uniform> uniforms: Uniforms;
-      @group(0) @binding(1) var inputTexture: texture_2d<f32>;
-      @group(0) @binding(2) var outputTexture: texture_storage_2d<rgba8unorm, write>;
-
-      @compute @workgroup_size(8, 8)
-      fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-        let x = i32(global_id.x);
-        let y = i32(global_id.y);
-        if (u32(x) >= uniforms.width || u32(y) >= uniforms.height) { return; }
-
-        let center = textureLoad(inputTexture, vec2<i32>(x, y), 0);
-
-        // Background never becomes an edge — that's what previously turned the
-        // transparent side of a boundary into a black outline.
-        if (center.a == 0.0) {
-          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(0.0));
-          return;
-        }
-
-        if (x < 1 || y < 1 || u32(x) >= uniforms.width - 1u || u32(y) >= uniforms.height - 1u) {
-          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(center.rgb, 1.0));
-          return;
-        }
-
-        // A pixel is an edge when a 4-neighbour has a different colour — this
-        // catches label↔label / instance boundaries, not just label↔background.
-        let l = textureLoad(inputTexture, vec2<i32>(x - 1, y), 0);
-        let r = textureLoad(inputTexture, vec2<i32>(x + 1, y), 0);
-        let u = textureLoad(inputTexture, vec2<i32>(x, y - 1), 0);
-        let d = textureLoad(inputTexture, vec2<i32>(x, y + 1), 0);
-        let isEdge = any(center != l) || any(center != r) || any(center != u) || any(center != d);
-
-        if (isEdge) {
-          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(center.rgb, 1.0));
-        } else {
-          textureStore(outputTexture, vec2<i32>(x, y), vec4<f32>(0.0));
-        }
-      }
-    `;
-
-    const module = this.device!.createShaderModule({ code: shaderCode });
-    this.edgePipeline = this.device!.createComputePipeline({
       layout: 'auto',
       compute: { module, entryPoint: 'main' },
     });
@@ -351,8 +326,7 @@ export class WebGPUCanvasCompositorService {
     visibilityFlags: boolean[],
     width: number,
     height: number,
-    edgesOnly = false,
-    edgeThreshold = 0.1
+    edgesOnly = false
   ): Promise<ImageData> {
     if (this.isProcessing) {
       await this.waitForCompletion();
@@ -364,7 +338,6 @@ export class WebGPUCanvasCompositorService {
       !this.stagingBuffer ||
       !this.visibilityBuffer ||
       !this.paletteBuffer ||
-      !this.edgeOutputTexture ||
       !this.maskTextureArray
     ) {
       throw new Error('GPU resources not prepared');
@@ -415,8 +388,12 @@ export class WebGPUCanvasCompositorService {
 
       const encoder = this.device.createCommandEncoder();
 
-      // Pass 1: composite
-      const compositeUniforms = new Uint32Array([width, height, masks.length, 0]);
+      const compositeUniforms = new Uint32Array([
+        width,
+        height,
+        masks.length,
+        edgesOnly ? 1 : 0,
+      ]);
       this.device.queue.writeBuffer(this.uniformBuffer!, 0, compositeUniforms);
 
       const compositeBindGroup = this.device.createBindGroup({
@@ -436,36 +413,9 @@ export class WebGPUCanvasCompositorService {
       compositePass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
       compositePass.end();
 
-      let finalTexture: GPUTexture = this.outputTexture;
-
-      // Pass 2: edge detection
-      if (edgesOnly) {
-        const edgeUniforms = new ArrayBuffer(16);
-        new Uint32Array(edgeUniforms, 0, 2).set([width, height]);
-        new Float32Array(edgeUniforms, 8, 2).set([edgeThreshold, 1.0]);
-        this.device.queue.writeBuffer(this.edgeUniformBuffer!, 0, edgeUniforms);
-
-        const edgeBindGroup = this.device.createBindGroup({
-          layout: this.edgePipeline!.getBindGroupLayout(0),
-          entries: [
-            { binding: 0, resource: { buffer: this.edgeUniformBuffer! } },
-            { binding: 1, resource: this.outputTexture.createView() },
-            { binding: 2, resource: this.edgeOutputTexture.createView() },
-          ],
-        });
-
-        const edgePass = encoder.beginComputePass();
-        edgePass.setPipeline(this.edgePipeline!);
-        edgePass.setBindGroup(0, edgeBindGroup);
-        edgePass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
-        edgePass.end();
-
-        finalTexture = this.edgeOutputTexture;
-      }
-
       const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
       encoder.copyTextureToBuffer(
-        { texture: finalTexture },
+        { texture: this.outputTexture },
         { buffer: this.stagingBuffer, bytesPerRow },
         { width, height }
       );
