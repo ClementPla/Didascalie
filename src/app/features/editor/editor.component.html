@@ -210,6 +210,17 @@
           aria-label="Propagate labels"
           (click)="propagateLabels()"
         ></button>
+        <button
+          pButton
+          type="button"
+          icon="pi pi-video"
+          severity="secondary"
+          [raised]="true"
+          pTooltip="Inspect sequence: play it back with its labels"
+          tooltipPosition="left"
+          aria-label="Inspect sequence"
+          (click)="inspectSequence()"
+        ></button>
       }
       <p-togglebutton
         [ngModel]="isFrameReviewed"

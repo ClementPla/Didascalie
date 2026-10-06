@@ -1,0 +1,79 @@
+:host {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+}
+
+.inspect-pane {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--p-content-border-radius);
+  // Focus is shown by the border, so reserve it on every pane: gaining focus
+  // must not shift the image by a pixel.
+  border: 2px solid transparent;
+  background: color-mix(in srgb, var(--p-content-background) 90%, #000);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &.is-focused {
+    border-color: var(--p-primary-color);
+  }
+}
+
+.pane-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.pane-header {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.125rem 0.25rem 0.125rem 0.625rem;
+  color: #fff;
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  cursor: default;
+}
+
+.pane-title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pane-frame {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.pane-spinner {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+}
+
+.pane-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--p-text-muted-color);
+  pointer-events: none;
+}

@@ -1,0 +1,248 @@
+<div class="inspect">
+  @if (ready() && sequenceIds().length === 0) {
+    <div class="inspect-empty">
+      <i class="pi pi-video"></i>
+      <p>No sequence to inspect in this project yet.</p>
+    </div>
+  } @else if (ready()) {
+    <div class="pane-grid" [style.--columns]="columns()">
+      @for (id of sequenceIds(); track $index; let i = $index) {
+        <app-inspect-pane
+          [sequenceId]="id"
+          [frameIndex]="frame()"
+          [opacity]="inspection.labelOpacity()"
+          [labels]="overlayLabels()"
+          [edgesOnly]="inspection.edgesOnly()"
+          [budget]="paneBudget()"
+          [loop]="inspection.loop()"
+          [focused]="multiple() && i === inspection.focused()"
+          [closable]="multiple()"
+          (focusRequested)="focusPane(i)"
+          (closeRequested)="closePane(i)"
+          (editRequested)="openInEditor(i, $event)"
+          (viewChanged)="onViewChanged(i, $event)"
+        ></app-inspect-pane>
+      }
+    </div>
+
+    <footer class="player">
+      <!-- Timeline -->
+      <div class="player-row">
+        <p-slider
+          class="timeline"
+          [ngModel]="frame()"
+          (ngModelChange)="seek($event)"
+          [min]="0"
+          [max]="length() - 1"
+          [step]="1"
+          [disabled]="length() < 2"
+          ariaLabel="Timeline"
+        />
+        <span class="frame-counter">{{ frame() + 1 }} / {{ length() }}</span>
+      </div>
+
+      <!-- Controls -->
+      <div class="player-row">
+        <div class="control-group">
+          <p-button
+            icon="pi pi-chevron-left"
+            severity="secondary"
+            [text]="true"
+            [rounded]="true"
+            [disabled]="!canStepSequence(-1)"
+            [pTooltip]="
+              multiple() ? 'Previous sequence in the focused pane (←)' : 'Previous sequence (←)'
+            "
+            tooltipPosition="top"
+            ariaLabel="Previous sequence"
+            (onClick)="stepSequence(-1)"
+          ></p-button>
+          <p-button
+            icon="pi pi-chevron-right"
+            severity="secondary"
+            [text]="true"
+            [rounded]="true"
+            [disabled]="!canStepSequence(1)"
+            [pTooltip]="
+              multiple() ? 'Next sequence in the focused pane (→)' : 'Next sequence (→)'
+            "
+            tooltipPosition="top"
+            ariaLabel="Next sequence"
+            (onClick)="stepSequence(1)"
+          ></p-button>
+        </div>
+
+        <div class="control-group">
+          <p-button
+            icon="pi pi-step-backward"
+            severity="secondary"
+            [text]="true"
+            [rounded]="true"
+            [disabled]="length() < 2"
+            pTooltip="Previous frame (↓)"
+            tooltipPosition="top"
+            ariaLabel="Previous frame"
+            (onClick)="step(-1)"
+          ></p-button>
+          <p-button
+            [icon]="playing() ? 'pi pi-pause' : 'pi pi-play'"
+            [rounded]="true"
+            [disabled]="length() < 2"
+            [pTooltip]="playing() ? 'Pause (Space)' : 'Play (Space)'"
+            tooltipPosition="top"
+            [ariaLabel]="playing() ? 'Pause' : 'Play'"
+            (onClick)="togglePlay()"
+          ></p-button>
+          <p-button
+            icon="pi pi-step-forward"
+            severity="secondary"
+            [text]="true"
+            [rounded]="true"
+            [disabled]="length() < 2"
+            pTooltip="Next frame (↑)"
+            tooltipPosition="top"
+            ariaLabel="Next frame"
+            (onClick)="step(1)"
+          ></p-button>
+        </div>
+
+        <div class="control-group">
+          <p-select
+            [options]="fpsOptions"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="inspection.fps()"
+            (ngModelChange)="inspection.fps.set($event)"
+            size="small"
+            appendTo="body"
+            ariaLabel="Playback speed"
+          />
+          <p-togglebutton
+            [ngModel]="inspection.loop()"
+            (ngModelChange)="inspection.loop.set($event)"
+            onIcon="pi pi-replay"
+            offIcon="pi pi-replay"
+            [onLabel]="''"
+            [offLabel]="''"
+            size="small"
+            pTooltip="Loop"
+            tooltipPosition="top"
+            ariaLabel="Loop"
+          ></p-togglebutton>
+          @if (buffering() || isSlow()) {
+            <span
+              class="rate-hint"
+              pTooltip="Frames are not loading fast enough for this speed. Playback slows down instead of skipping frames."
+              tooltipPosition="top"
+            >
+              <i class="pi pi-spin pi-spinner"></i>
+              @if (achievedFps(); as achieved) {
+                {{ achieved.toFixed(1) }} fps
+              }
+            </span>
+          }
+        </div>
+
+        @if (legend().length > 0) {
+          <div class="control-group opacity-control">
+            <i
+              class="pi pi-palette"
+              pTooltip="Label opacity"
+              tooltipPosition="top"
+            ></i>
+            <p-slider
+              class="opacity-slider"
+              [ngModel]="inspection.labelOpacity()"
+              (ngModelChange)="inspection.labelOpacity.set($event)"
+              [min]="0"
+              [max]="1"
+              [step]="0.01"
+              ariaLabel="Label opacity"
+            />
+            <span class="opacity-value"
+              >{{ (inspection.labelOpacity() * 100).toFixed(0) }}%</span
+            >
+            <p-togglebutton
+              [ngModel]="inspection.edgesOnly()"
+              (ngModelChange)="inspection.edgesOnly.set($event)"
+              onIcon="pi pi-stop-circle"
+              offIcon="pi pi-stop-circle"
+              [onLabel]="''"
+              [offLabel]="''"
+              size="small"
+              pTooltip="Show only edges (Ctrl+E)"
+              tooltipPosition="top"
+              ariaLabel="Show only edges"
+            ></p-togglebutton>
+          </div>
+
+          <div class="control-group legend">
+            @for (label of legend(); track label.id) {
+              <button
+                type="button"
+                class="legend-chip"
+                [class.is-hidden]="isLabelHidden(label.id)"
+                [attr.aria-pressed]="!isLabelHidden(label.id)"
+                [pTooltip]="
+                  (isLabelHidden(label.id) ? 'Show ' : 'Hide ') + label.name
+                "
+                tooltipPosition="top"
+                (click)="toggleLabel(label.id)"
+              >
+                <span class="legend-swatch" [style.background]="label.color"></span>
+                <span class="legend-name">{{ label.name }}</span>
+              </button>
+            }
+          </div>
+        }
+
+        <span class="flex-1"></span>
+
+        <div class="control-group">
+          @if (multiple()) {
+            <p-togglebutton
+              [ngModel]="inspection.syncViews()"
+              (ngModelChange)="inspection.syncViews.set($event)"
+              onIcon="pi pi-link"
+              offIcon="pi pi-link"
+              [onLabel]="''"
+              [offLabel]="''"
+              size="small"
+              pTooltip="Zoom and pan every pane together"
+              tooltipPosition="top"
+              ariaLabel="Zoom and pan every pane together"
+            ></p-togglebutton>
+          }
+          <p-button
+            icon="pi pi-expand"
+            severity="secondary"
+            [text]="true"
+            [rounded]="true"
+            [pTooltip]="multiple() ? 'Fit every pane' : 'Fit to view'"
+            tooltipPosition="top"
+            ariaLabel="Fit to view"
+            (onClick)="fitAll()"
+          ></p-button>
+          @if (canAddPane() && addableSequences().length > 0) {
+            <p-select
+              class="add-sequence"
+              [options]="addableSequences()"
+              optionLabel="name"
+              optionValue="id"
+              [ngModel]="sequenceToAdd()"
+              (ngModelChange)="addPane($event)"
+              [filter]="true"
+              filterBy="name"
+              [virtualScroll]="true"
+              [virtualScrollItemSize]="38"
+              placeholder="Compare with…"
+              size="small"
+              appendTo="body"
+              ariaLabel="Add a sequence to compare side by side"
+            />
+          }
+        </div>
+      </div>
+    </footer>
+  }
+</div>

@@ -33,6 +33,10 @@ import {
 } from './gallery-element/gallery-element.component';
 import { LabelledSwitchComponent } from '../../shared/generics/labelled-switch/labelled-switch.component';
 import { NavigationEnd, Router } from '@angular/router';
+import {
+  InspectionService,
+  MAX_INSPECT_PANES,
+} from '../inspect/inspection.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 
@@ -88,6 +92,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   private uiState = inject(UIStateService);
   private notifications = inject(NotificationService);
   private router = inject(Router);
+  private inspection = inject(InspectionService);
   private cdr = inject(ChangeDetectorRef);
   private zone = inject(NgZone);
 
@@ -103,6 +108,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   galleryItems: GalleryItem[] = [];
   filteredItems: GalleryItem[] = [];
   selectedItems: number[] = [];
+  /** Most sequences the inspector compares at once. */
+  readonly maxInspected = MAX_INSPECT_PANES;
 
   // Filter state
 
@@ -417,6 +424,34 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       console.error(`Failed to find sequence with ID ${item.sequenceId}`);
     }
     this.uiState.navigateToEditor();
+  }
+
+  /** Play a sequence back in the inspector. */
+  inspectItem(item: GalleryItem): void {
+    void this.inspection.open([item.sequenceId]);
+  }
+
+  /**
+   * Compare the selected sequences side by side in the inspector, in the
+   * order they are listed (not the order they were ticked).
+   */
+  inspectSelected(): void {
+    const selected = new Set(this.selectedItems);
+    const ids = this.filteredItems
+      .map((item) => item.sequenceId)
+      .filter((id) => selected.has(id));
+    // A selection made before the filters changed may no longer be listed.
+    void this.inspection.open(ids.length > 0 ? ids : this.selectedItems);
+  }
+
+  /** Open a sequence directly in the keypoint pairing panel. */
+  async pairItem(item: GalleryItem): Promise<void> {
+    // The pairing panel works on the app's current sequence.
+    if (await this.inspection.shareSequence(item.sequenceId)) {
+      await this.router.navigate(['/registration']);
+    } else {
+      console.error(`Failed to find sequence with ID ${item.sequenceId}`);
+    }
   }
 
   // ==========================================

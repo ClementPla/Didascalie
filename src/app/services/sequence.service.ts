@@ -77,16 +77,19 @@ export class SequenceService implements ProjectScoped {
   }
 
   /**
-   * Select a sequence and load its frames.
+   * Select a sequence and load its frames, opening it on `frameIndex` (clamped
+   * to the sequence; the first frame by default).
    */
-  async selectSequence(sequence: Sequence): Promise<void> {
+  async selectSequence(sequence: Sequence, frameIndex = 0): Promise<void> {
     this._currentSequence.set(sequence);
     
     const frames = await api.getSequenceFrames(sequence.id);
     this._frames.set(frames);
-    this._currentFrameIndex.set(0);
+    this._currentFrameIndex.set(
+      Math.max(0, Math.min(frameIndex, frames.length - 1)),
+    );
 
-    // Load first frame image
+    // Load the opening frame's image
     if (frames.length > 0) {
       await this.loadCurrentFrameImage();
     }

@@ -83,6 +83,26 @@
       </app-labelled-switch>
     }
     <p-button
+      icon="pi pi-video"
+      [rounded]="true"
+      [text]="true"
+      pTooltip="Inspect sequence"
+      [ariaLabel]="'Inspect ' + displayTitle"
+      (click)="$event.stopPropagation(); inspectClicked.emit()"
+      (dblclick)="$event.stopPropagation()"
+    ></p-button>
+    @if (canPair) {
+      <p-button
+        icon="pi pi-map"
+        [rounded]="true"
+        [text]="true"
+        pTooltip="Pair keypoints"
+        [ariaLabel]="'Pair keypoints in ' + displayTitle"
+        (click)="$event.stopPropagation(); pairingClicked.emit()"
+        (dblclick)="$event.stopPropagation()"
+      ></p-button>
+    }
+    <p-button
       icon="pi pi-pencil"
       [rounded]="true"
       [text]="true"
@@ -226,11 +246,46 @@
       }
     </div>
 
-    <!-- Title -->
-    <div class="p-2 rounded-b-lg">
-      <p class="font-medium text-sm truncate" [title]="displayTitle">
+    <!-- Title + actions -->
+    <div class="flex items-center pl-2 pr-1 py-1 rounded-b-lg">
+      <p class="flex-1 font-medium m-0 min-w-0 text-sm truncate" [title]="displayTitle">
         {{ displayTitle }}
       </p>
+      <p-button
+        icon="pi pi-video"
+        size="small"
+        [rounded]="true"
+        [text]="true"
+        pTooltip="Inspect sequence"
+        tooltipPosition="bottom"
+        [ariaLabel]="'Inspect ' + displayTitle"
+        (click)="$event.stopPropagation(); inspectClicked.emit()"
+        (dblclick)="$event.stopPropagation()"
+      ></p-button>
+      @if (canPair) {
+        <p-button
+          icon="pi pi-map"
+          size="small"
+          [rounded]="true"
+          [text]="true"
+          pTooltip="Pair keypoints"
+          tooltipPosition="bottom"
+          [ariaLabel]="'Pair keypoints in ' + displayTitle"
+          (click)="$event.stopPropagation(); pairingClicked.emit()"
+          (dblclick)="$event.stopPropagation()"
+        ></p-button>
+      }
+      <p-button
+        icon="pi pi-pencil"
+        size="small"
+        [rounded]="true"
+        [text]="true"
+        pTooltip="Open in editor"
+        tooltipPosition="bottom"
+        [ariaLabel]="'Open ' + displayTitle + ' in editor'"
+        (click)="$event.stopPropagation(); openEditor()"
+        (dblclick)="$event.stopPropagation()"
+      ></p-button>
     </div>
   </div>
 }

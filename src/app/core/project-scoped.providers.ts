@@ -12,6 +12,7 @@ import { LabelsService } from '../services/labels/labels.service';
 import { ClassificationService } from '../services/labels/classification.service';
 import { GalleryService } from '../features/gallery/gallery.service';
 import { RegistrationStateService } from '../features/registration/registration-state.service';
+import { InspectionService } from '../features/inspect/inspection.service';
 import { CanvasManagerService } from '../features/editor/drawable-canvas/service/canvas-manager.service';
 import { StateManagerService } from '../features/editor/drawable-canvas/service/state-manager.service';
 import { VectorEditorService } from '../features/editor/drawable-canvas/service/vector-editor.service';
@@ -43,6 +44,7 @@ const PROJECT_SCOPED_SERVICES = [
   ClassificationService,
   GalleryService,
   RegistrationStateService,
+  InspectionService,
   CanvasManagerService,
   StateManagerService,
   VectorEditorService,

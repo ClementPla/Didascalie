@@ -1,0 +1,54 @@
+<div #host class="inspect-pane" [class.is-focused]="focused()">
+  <canvas #canvas class="pane-canvas"></canvas>
+
+  <header class="pane-header">
+    <span class="pane-title" [title]="name()">{{ name() }}</span>
+    @if (frameCount() > 0) {
+      <span class="pane-frame">{{ localIndex() + 1 }} / {{ frameCount() }}</span>
+    }
+    @if (waiting() || status() === 'loading') {
+      <i class="pi pi-spin pi-spinner pane-spinner" aria-label="Loading"></i>
+    }
+    <span class="flex-1"></span>
+    <p-button
+      icon="pi pi-expand"
+      size="small"
+      [rounded]="true"
+      [text]="true"
+      pTooltip="Fit to pane (double-click)"
+      tooltipPosition="bottom"
+      ariaLabel="Fit to pane"
+      (onClick)="fit(true)"
+    ></p-button>
+    <p-button
+      icon="pi pi-pencil"
+      size="small"
+      [rounded]="true"
+      [text]="true"
+      pTooltip="Open this frame in the editor"
+      tooltipPosition="bottom"
+      [ariaLabel]="'Open ' + name() + ' in the editor'"
+      [disabled]="status() !== 'ready'"
+      (onClick)="editRequested.emit(localIndex())"
+    ></p-button>
+    @if (closable()) {
+      <p-button
+        icon="pi pi-times"
+        size="small"
+        [rounded]="true"
+        [text]="true"
+        pTooltip="Remove from the comparison"
+        tooltipPosition="bottom"
+        [ariaLabel]="'Remove ' + name() + ' from the comparison'"
+        (onClick)="closeRequested.emit()"
+      ></p-button>
+    }
+  </header>
+
+  @if (status() === 'error') {
+    <div class="pane-message">
+      <i class="pi pi-exclamation-triangle"></i>
+      <span>This sequence could not be loaded.</span>
+    </div>
+  }
+</div>

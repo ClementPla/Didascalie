@@ -8,6 +8,7 @@ pub mod project;
 pub mod classification;
 pub mod text_description;
 pub mod frame;
+pub mod inspect;
 pub mod sequences;
 pub mod formats;
 pub mod dataset_io;

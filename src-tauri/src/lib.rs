@@ -177,6 +177,8 @@ pub fn run() {
             commands::annotation::clear_sequence_annotations,
             commands::volume::load_sequence_image_volume,
             commands::volume::load_label_volume,
+            commands::inspect::get_frame_preview,
+            commands::inspect::render_label_overlay,
             commands::window::close_detached_window,
             commands::vector::save_vector_annotations,
             commands::vector::load_vector_annotations,

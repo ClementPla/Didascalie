@@ -40,6 +40,14 @@ export const routes: Routes = [
     canActivate: [projectStartedGuard],
   },
   {
+    path: 'inspect',
+    loadComponent: () =>
+      import('./features/inspect/inspect.component').then(
+        (m) => m.InspectComponent,
+      ),
+    canActivate: [projectStartedGuard],
+  },
+  {
     path: 'composite-registration-viewport-popout',
     loadComponent: () =>
       import('./features/registration/components/popout-composite-viewport/popout-composite-viewport.component').then(

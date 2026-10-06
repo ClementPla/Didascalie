@@ -55,6 +55,19 @@
         ></p-button>
         }
         <p-button
+          [label]="selectedCount > 1 ? 'Inspect side by side' : 'Inspect'"
+          icon="pi pi-video"
+          severity="secondary"
+          [disabled]="selectedCount > maxInspected"
+          [pTooltip]="
+            selectedCount > maxInspected
+              ? 'Select at most ' + maxInspected + ' sequences to compare them'
+              : 'Play the selected sequences back, labels on top'
+          "
+          tooltipPosition="bottom"
+          (click)="inspectSelected()"
+        ></p-button>
+        <p-button
           label="Mark as reviewed"
           icon="pi pi-verified"
           severity="success"
@@ -294,6 +307,8 @@
           [frameIds]="item.frameIds"
           (thumbnailSelected)="handleSelect($event)"
           (thumbnailClicked)="openItem(item)"
+          (inspectClicked)="inspectItem(item)"
+          (pairingClicked)="pairItem(item)"
           (reviewedToggled)="onItemReviewedToggle($event)"
         ></app-gallery-element>
         }
@@ -318,6 +333,8 @@
           [id]="item.sequenceId"
           [frameIds]="item.frameIds"
           (thumbnailClicked)="openItem(item)"
+          (inspectClicked)="inspectItem(item)"
+          (pairingClicked)="pairItem(item)"
           (reviewedToggled)="onItemReviewedToggle($event)"
         ></app-gallery-element>
         }

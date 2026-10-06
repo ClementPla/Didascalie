@@ -67,6 +67,17 @@
       >
       </p-button>
       <p-button
+        routerLink="inspect/"
+        icon="pi pi-video"
+        pTooltip="Inspect sequence"
+        tooltipPosition="right"
+        [rounded]="true"
+        [text]="true"
+        [disabled]="!isProjectStarted()"
+        [raised]="true"
+      >
+      </p-button>
+      <p-button
         routerLink="model-lab/"
         icon="pi pi-chart-line"
         pTooltip="Segmentation head lab"

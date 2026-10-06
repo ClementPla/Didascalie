@@ -44,6 +44,7 @@ import {
 } from '../../services/tauri-event';
 import { IOService } from '../../services/io.service';
 import { MaskVolumeService } from '../../services/mask-volume.service';
+import { InspectionService } from '../inspect/inspection.service';
 import { NotificationService } from '../../services/notification.service';
 import { api } from '../../lib/api';
 import { OrchestratorService } from './drawable-canvas/service/orchestrator.service';
@@ -91,6 +92,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   editorService = inject(EditorService);
   private labelService = inject(LabelsService);
   private uiStateService = inject(UIStateService);
+  private inspection = inject(InspectionService);
   sequenceService = inject(SequenceService);
   projectService = inject(ProjectService);
   private zoomPanService = inject(ZoomPanService);
@@ -468,6 +470,18 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (z !== this.sequenceService.currentFrameIndex()) {
       await this.changedOfFrame(z); // picks up a pending slice when done
     }
+  }
+
+  /** Play the open sequence back in the inspector, from the current frame. */
+  public async inspectSequence(): Promise<void> {
+    const sequence = this.sequenceService.currentSequence();
+    if (!sequence) return;
+    // The inspector reads the project: make sure it holds what is on screen.
+    await this.ioService.saveIfDirty();
+    await this.inspection.open(
+      [sequence.id],
+      this.sequenceService.currentFrameIndex(),
+    );
   }
 
   /** Turn 3D mode on or off (the View menu toggle). */

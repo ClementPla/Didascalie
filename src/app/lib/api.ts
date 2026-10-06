@@ -414,6 +414,30 @@ export const api = {
   loadLabelVolume: (frameIds: number[], labelId: number) =>
     invoke<ArrayBuffer>('load_label_volume', { frameIds, labelId }),
 
+  /** A frame's image as *encoded* bytes (JPEG, PNG, …) whose longest side is at
+   *  most `maxDim` (0 = native size). Backs the sequence inspector's playback. */
+  getFramePreview: (frameId: number, maxDim: number) =>
+    invoke<ArrayBuffer>('get_frame_preview', { frameId, maxDim }),
+  /**
+   * A frame's labels composited to RGBA at the same preview size: an 8-byte
+   * header (width, height as little-endian uint32) then `width*height*4`
+   * bytes. `labels` lists what to draw, bottom to top, each with its 256-entry
+   * RGBA palette; `edgesOnly` outlines the regions instead of filling them.
+   * Empty when the frame has nothing to draw.
+   */
+  renderLabelOverlay: (
+    frameId: number,
+    maxDim: number,
+    labels: { id: number; palette: number[] }[],
+    edgesOnly: boolean,
+  ) =>
+    invoke<ArrayBuffer>('render_label_overlay', {
+      frameId,
+      maxDim,
+      labels,
+      edgesOnly,
+    }),
+
   /** Close the detached view window titled `title` (`window.close()` from
    *  the opener leaves these native windows open). */
   closeDetachedWindow: (title: string) =>

@@ -196,7 +196,7 @@ pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Re
 /// exact size. So a 100 MP JPEG never becomes a ~400 MB bitmap — sharply cutting
 /// peak memory and decode time. Other formats (PNG, TIFF, …) have no
 /// reduced-resolution decode, so they fall back to a full decode.
-fn decode_downscaled(bytes: &[u8], max_dim: u32) -> Result<image::DynamicImage> {
+pub(crate) fn decode_downscaled(bytes: &[u8], max_dim: u32) -> Result<image::DynamicImage> {
   if detect_mime_type(bytes) == "image/jpeg" {
     if let Some(img) = decode_jpeg_downscaled(bytes, max_dim) {
       return Ok(img);
@@ -370,7 +370,7 @@ pub fn set_frames_reviewed(db: State<DbState>, frame_ids: Vec<i64>, reviewed: bo
 // Utility
 // ==========================================
 
-fn detect_mime_type(data: &[u8]) -> &'static str {
+pub(crate) fn detect_mime_type(data: &[u8]) -> &'static str {
   if data.len() < 8 {
     return "application/octet-stream";
   }

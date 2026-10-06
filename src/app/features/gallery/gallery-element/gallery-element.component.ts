@@ -63,6 +63,10 @@ export class GalleryElementComponent
   // Events
   readonly thumbnailSelected = output<ThumbnailSelectionEvent>();
   readonly thumbnailClicked = output<void>();
+  /** Play the sequence back in the inspector. */
+  readonly inspectClicked = output<void>();
+  /** Open the sequence in the keypoint pairing panel. */
+  readonly pairingClicked = output<void>();
   readonly reviewedToggled = output<{
     id: number;
     reviewed: boolean;
@@ -335,6 +339,11 @@ export class GalleryElementComponent
   }
 
   public get hasMultipleFrames(): boolean {
+    return this.frameCount() > 1;
+  }
+
+  /** Keypoints pair two frames of one sequence, so pairing needs two. */
+  public get canPair(): boolean {
     return this.frameCount() > 1;
   }
 
