@@ -8,6 +8,37 @@ A lot of medical image data cannot be sent to a cloud service. The tools that wo
 offline usually expect you to maintain a Python environment or to adopt a whole
 analysis pipeline. Didascalie is an installer and a project file.
 
+<!-- Screenshots live in docs/assets/screenshots/. A slide whose image is
+     missing is dropped, so entries can be listed before they are captured. -->
+<div class="carousel">
+  <div class="carousel__track">
+    <figure>
+      <img src="assets/screenshots/editor.jpeg" alt="The editor: masks and vector shapes on the same image.">
+      <figcaption>The editor: masks and vector shapes on the same image.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/screenshots/assistance.png" alt="Assisted labelling: a rough stroke refined by an operator.">
+      <figcaption>Assisted labelling: a rough stroke refined by an operator.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/screenshots/gallery.png" alt="The gallery: filter sequences and track review status.">
+      <figcaption>The gallery: filter sequences and track review status.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/screenshots/inspect.png" alt="The inspector: play a sequence back with its labels.">
+      <figcaption>The inspector: play a sequence back with its labels.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/screenshots/registration.png" alt="Frame registration from keypoint correspondences.">
+      <figcaption>Frame registration from keypoint correspondences.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/screenshots/volume3d.png" alt="3D volume mode (experimental): a sequence as a volume.">
+      <figcaption>3D volume mode (experimental): a sequence as a volume.</figcaption>
+    </figure>
+  </div>
+</div>
+
 !!! note "Status"
     This is a solo research project under active development. The core annotation
     workflow is usable day to day. Features marked **experimental** are less

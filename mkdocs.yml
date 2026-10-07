@@ -39,6 +39,12 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
 
+extra_css:
+  - stylesheets/carousel.css
+
+extra_javascript:
+  - javascripts/carousel.js
+
 markdown_extensions:
   - admonition
   - attr_list

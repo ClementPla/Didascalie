@@ -48,7 +48,14 @@ pub struct ProjectConfig {
     /// do not carry it, and they must still open. The TypeScript side declared
     /// it long before the Rust side did, which made it `undefined` after every
     /// project open and broke the next folder scan.
-    #[serde(default = "default_embed_threshold_kb")]
+    ///
+    /// `null` is read as the default too: some project files written from
+    /// Python carry `"embed_threshold_kb": null`, and refusing the whole
+    /// project over an import setting helps nobody.
+    #[serde(
+        default = "default_embed_threshold_kb",
+        deserialize_with = "embed_threshold_kb_or_default"
+    )]
     pub embed_threshold_kb: u32,
     
     // Task types
@@ -73,6 +80,13 @@ fn default_embed_threshold_kb() -> u32 {
     100
 }
 
+fn embed_threshold_kb_or_default<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<u32>::deserialize(deserializer)?.unwrap_or_else(default_embed_threshold_kb))
+}
+
 impl Default for ProjectConfig {
     fn default() -> Self {
         Self {
@@ -95,3 +109,38 @@ impl Default for ProjectConfig {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::ProjectConfig;
+
+    /// The config of a project written from Python, as found in the field.
+    fn config_with(threshold: &str) -> String {
+        format!(
+            r#"{{"name": "p", "input_folder": null, "images_embedded": true, {threshold}
+               "segmentation_enabled": true, "classification_enabled": false,
+               "instance_segmentation_enabled": false, "text_description_enabled": false,
+               "input_regex": "x", "recursive": true, "folders_as_sequences": false}}"#
+        )
+    }
+
+    #[test]
+    fn a_null_embed_threshold_reads_as_the_default() {
+        let config: ProjectConfig =
+            serde_json::from_str(&config_with(r#""embed_threshold_kb": null,"#)).unwrap();
+        assert_eq!(config.embed_threshold_kb, 100);
+    }
+
+    #[test]
+    fn a_missing_embed_threshold_reads_as_the_default() {
+        let config: ProjectConfig = serde_json::from_str(&config_with("")).unwrap();
+        assert_eq!(config.embed_threshold_kb, 100);
+    }
+
+    #[test]
+    fn a_stored_embed_threshold_is_kept() {
+        let config: ProjectConfig =
+            serde_json::from_str(&config_with(r#""embed_threshold_kb": 250,"#)).unwrap();
+        assert_eq!(config.embed_threshold_kb, 250);
+    }
+}
