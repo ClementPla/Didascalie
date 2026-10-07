@@ -144,7 +144,7 @@ Didascalie is built with Tauri v2 and Rust, Angular 20 and PrimeNG, SQLite, WebG
 
 ## AI-assisted development
 
-For a couple of years I built this alone. As more people started using it, the features, tests, debugging and documentation they asked for start to feel like a full-time job for one person, so I now use an AI coding tool (Claude Code) to help implement them. I find it often codes more efficiently than I do, as long as it is closely supervised, and I review what it produces.
+For a couple of years I built this alone. As more people started using it, the features, tests, debugging and documentation they asked for started to feel like a full-time job for one person, so I now use an AI coding tool (Claude Code) to help implement them. I find it often codes more efficiently than I do, as long as it is closely supervised, and I review what it produces.
 
 I think this only holds for a single developer who knows the whole codebase. It is why contributions need a human intent behind them, as described below.
 
