@@ -6,9 +6,6 @@
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-BSD--3--Clause-blue">
-  <img alt="Desktop" src="https://img.shields.io/badge/desktop-Tauri%20v2-24C8DB">
-  <img alt="UI" src="https://img.shields.io/badge/UI-Angular%2020-DD0031">
-  <img alt="Core" src="https://img.shields.io/badge/core-Rust-000000">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey">
   <img alt="Status" src="https://img.shields.io/badge/status-in%20development-orange">
   <a href="https://didascalie.readthedocs.io/"><img alt="Documentation" src="https://img.shields.io/readthedocs/didascalie?label=docs"></a>
@@ -26,72 +23,88 @@
 
 ---
 
-Segmentation masks, classification labels, keypoints, and a few other annotation types — with nothing leaving your machine.
+<p align="center">
+  <img alt="The editor, with masks drawn on an image" src="docs/assets/screenshots/editor.jpg" width="900">
+</p>
 
-Didascalie is usable for day-to-day annotation and has been used in published research. It remains under active development, and some features are still experimental. 
+Didascalie annotates medical images with segmentation masks, vector shapes, classification labels and keypoints. Drawing, image processing and model training all run on your computer. Nothing is uploaded.
 
-The name: a *didascalie* is the french word for a stage direction — one of the little notes in a play script. It seemed like a reasonable word for annotations, which are really just notes added to data. (Pronounced *di-da-ska-LEE*.)
+It started as a personal project, out of frustration with the tools I knew. Many researchers and clinicians still annotate images in Paint or PowerPoint, and the tools built for the task often assume skills they don't have: asking a clinician to `pip install` a package and run a script is less trivial than it sounds. Didascalie is an installer and a project file.
 
-> **Status:** early and evolving. The core annotation workflow is usable day-to-day; the parts marked *experimental* below are not.
+The core annotation workflow is usable day to day and has been used in published research. The project is under active development, and the features marked *experimental* are less reliable.
 
-<!-- Suggested image: a screenshot of the editor with an image open and a mask drawn. One honest screenshot is plenty. -->
-<!-- ![The editor](doc/images/editor.png) -->
+A *didascalie* (*di-da-ska-LEE*) is the French word for a stage direction, one of the notes in a play script. Annotations are notes added to data.
 
 ## What it does
 
-- **Runs locally.** Annotation, image processing and model training all happen on your machine. Nothing is uploaded. This is why the tool exists.
-- **Segmentation masks**, drawn with brush, polygon, line, point and flood-fill tools.
-- **Vector shapes** (polygons, lines, keypoints) on the same image as the masks, with one undo history covering both. Masks can be traced into editable shapes and shapes rasterised back into masks, including tracing a region's centreline instead of its outline.
-- **Classification labels**, multiclass and multilabel, with several tasks per project.
-- **Text notes** per frame, tied to a configurable text task rather than to a drawn region.
-- **Very large images.** A resolution pyramid with native-resolution tiles loaded on demand, so gigapixel microscopy can be annotated at full zoom without the browser trying to decode the whole thing at once.
-- **Multi-frame projects.** Images can be grouped into sequences and navigated frame by frame.
-- **Frame registration.** Pick a reference and a moving frame from a sequence, place corresponding keypoints, and watch the estimated homography update as you go, with overlay and checkerboard views for checking the result.
-- **One file per project.** A project is a single `.dida` file (SQLite underneath) holding the images (embedded or referenced), masks, labels, trained models and metadata. Easy to copy, back up, or hand to someone else.
-- **Image adjustments for readability.** Brightness, contrast, gamma, tone curves and colour inversion, applied while you look at an image. They change what you see, and optionally what the assistance tools read, but never the stored pixels.
-- **A filterable gallery to track progress.** Filter by review status, keypoint presence or name. Sequences show how much of their content is annotated and reviewed, and individual frames can be marked reviewed too.
-- **Batch classification from the gallery.** Select several images and apply multiclass/multilabel choices to all of them at once.
-- **3D volume mode** (experimental). Treat a sequence as a voxel volume, with a 3D view and a curved projection you can paint directly. The 3D annotation workflow will likely see more development in the future, but it's usable enough to be interesting now. 
+- **Segmentation masks**, painted with pen, line and lasso tools, one mask per label. Instance segmentation is supported.
+- **Vector shapes** on the same image, with one undo history for both. A mask can be traced into an editable outline or centreline, and a shape painted back into the mask.
+- **Classification and text notes** per frame, with several tasks per project and batch classification from the gallery.
+- **Assisted labelling**, from instant operators to a model trained on your own scribbles (see below).
+- **Very large images.** Gigapixel microscopy is annotated at full resolution, from a resolution pyramid and tiles loaded on demand.
+- **Sequences.** Group images into videos, volumes or patient visits, copy labels from one frame to the others, and play a sequence back with its labels in the inspector.
+- **Frame registration.** Place corresponding keypoints on two frames and check the estimated transform with overlay and checkerboard views.
+- **A gallery to track progress**, with filters by name, review status and keypoints.
+- **One file per project.** A `.dida` file is a SQLite database holding the images (embedded or referenced), annotations, labels and trained model.
 
-## Assistance while annotating
+<table>
+  <tr>
+    <td width="50%"><img alt="Assisted labelling" src="docs/assets/screenshots/assisted_labelling.gif"><br><sub>Assisted labelling: a rough stroke refined by an operator.</sub></td>
+    <td width="50%"><img alt="The gallery" src="docs/assets/screenshots/gallery.jpg"><br><sub>The gallery: filter sequences and track review status.</sub></td>
+  </tr>
+  <tr>
+    <td><img alt="The inspector" src="docs/assets/screenshots/inspect.gif"><br><sub>The inspector: play a sequence back with its labels.</sub></td>
+    <td><img alt="Frame registration" src="docs/assets/screenshots/registration.png"><br><sub>Frame registration from keypoint correspondences.</sub></td>
+  </tr>
+  <tr>
+    <td><img alt="A very large image" src="docs/assets/screenshots/large_images.png"><br><sub>A very large image, annotated at full resolution.</sub></td>
+    <td><img alt="3D volume mode" src="docs/assets/screenshots/volume3d.png"><br><sub>3D volume mode (experimental): a sequence as a volume.</sub></td>
+  </tr>
+</table>
 
-Two kinds, with different setup costs.
+## Assisted labelling
 
-**Nothing to set up.** Rough in a region with the brush and refine it inside that stroke: dynamic Otsu thresholding, flood fill with a tolerance, superpixel selection, connected-component erasure, with optional morphological opening and a connectivity constraint. These are deterministic and instant, and the image adjustments above can be routed into them, so you can raise contrast on a faint structure until it's visible and have the algorithm read the same pixels you do.
+**Nothing to set up.** Paint roughly over a region and an operator refines the stroke: dynamic Otsu thresholding or flood fill, with optional smoothing and a connectivity constraint. Brightness, contrast, gamma and tone curves can be fed to the operators, so they read the same enhanced image you are looking at.
 
-**Train a model on your own data.** Scribble on a few frames and Didascalie fits a small segmentation head, then applies it to the rest. Dense features come from a frozen self-supervised encoder (DINOv3 by default), computed once per image and cached; only the head is trained, which takes seconds to minutes on a laptop rather than needing a GPU server. The fitted head is saved inside the project file and restored when you reopen it. The encoder is downloaded once, on request; nothing is sent anywhere.
+**A model trained on your data.** Scribble on a few frames and Didascalie fits a small segmentation head, then applies it to the rest. The features come from a frozen self-supervised encoder (DINOv3 by default) and are computed once per image, so training takes seconds to minutes on a laptop. The model is saved in the project file. The encoder is downloaded once; no data is sent anywhere.
 
 ## Why you might use it
 
 There are several good open-source annotation tools already. Reasons this one might suit you:
 
-- **A responsive UI on large medical images.** Mask encoding, image decoding and file I/O run in a compiled Rust backend instead of a browser tab or a Python layer, so the canvas stays responsive on big files. Masks are run-length encoded and the gallery lazy-loads thumbnails as they scroll into view.
-- **Vector and raster annotation in one tool.** Pixel-level masks and vector shapes coexist on the same image, and convert between each other, so you aren't forced into one paradigm or a second tool for the other.
-- **Multiplatform.** Native installers for Windows, macOS (Intel and Apple Silicon) and Linux, from the same codebase.
-- **Projects are one shareable file.** Sending an annotation task to a collaborator, or getting the results back, means sending one file rather than a folder of images plus a database or a running server.
-- **Model assistance without a server.** Training and inference happen on the machine doing the annotating, which matters when the images can't leave it.
-- **It's been used for real work.** Annotations made with it have gone into published research (the DNAi study<!-- TODO: add citation / DOI / link -->).
-- **Built with feedback from people who annotate.** Clinicians and researchers across several medical fields have used it on real data throughout development, and the workflow reflects that.
-- **Open to suggestions.** A young solo project with no fixed roadmap, so it's easy to influence what gets built next. See [Contributing](#contributing).
+- **Your images can't leave the machine.** There is no server. Model training and inference run where the annotation happens.
+- **Large medical images stay responsive.** Decoding, mask encoding and file I/O run in a compiled Rust backend.
+- **Masks and vector shapes in one tool**, convertible in both directions.
+- **A project is one file.** Sending an annotation task to a collaborator, or getting it back, means sending that file.
+- **Native installers** for Windows, macOS (Intel and Apple Silicon) and Linux.
+- **It has been used for real work.** Annotations made with it have gone into published research (the [DNAi study](https://academic.oup.com/nar/article/54/7/gkag335/8657744?searchresult=1)).
+- **It was built with the people who annotate.** Clinicians and researchers from several medical fields have used it on real data throughout development.
+- **It is easy to influence.** A young solo project with no fixed roadmap. See [Contributing](#contributing).
 
-## Experimental / work in progress
+## Experimental features
 
-These exist but are unfinished and lightly tested — use with low expectations:
+These are hidden until you switch on **Experimental features** in the toolbar. They work, but they are unfinished and lightly tested.
 
-- **SAM-based mask refinement.** An ONNX model path for cleaning up a coarse mask. Not polished, benchmarked or reliable yet.
-- **Keypoint suggestion for registration.** An optional bridge to a Python process (over ZeroMQ) can propose keypoint correspondences instead of placing them all by hand. Rough and narrow in scope.
-- **3D volume mode.** Treats a sequence as a voxel volume, with a 3D view and a curved projection you can paint directly. Usable enough to be interesting, not enough to rely on.
+- **3D volume mode.** A sequence opened as a volume, with a 3D view and a curved projection you can paint on.
+- **Superpixel selection** and **MedSAM refinement**, two more ways to refine a stroke.
+- **Keypoint suggestion.** A Python function of yours proposes keypoint pairs for registration, over ZeroMQ.
+
+Details are in the [documentation](https://didascalie.readthedocs.io/experimental/).
+
+## Try it
+
+[`examples/`](examples/) contains a small sample project, `nuclei_histology.dida`, and a script that builds seven more from public datasets: fundus photographs, dermoscopy, laparoscopy and ultrasound videos, brain MRI and liver CT volumes, and a registration set. Their sources and licences are listed in the [examples README](examples/README.md).
 
 ## The `.dida` format and the Python library
 
-A `.dida` file is an ordinary SQLite database, so it's inspectable and scriptable, not a proprietary blob. The companion Python library, [**pydidascalie**](https://github.com/ClementPla/pydidascalie), reads and writes that format directly. Typical uses:
+A `.dida` file is an ordinary SQLite database. The companion library, [**pydidascalie**](https://github.com/ClementPla/pydidascalie), reads and writes it without the application running. Typical uses:
 
-- **Pre-populate a project from a model.** Run your own segmentation/classification model over a folder of images and write the predictions straight into a `.dida` file, so annotators open the app and start from a draft instead of a blank image — you correct the model instead of annotating from scratch.
-- **Bulk import.** Load a folder of images (optionally with existing masks) into a new project without clicking through the UI one file at a time.
-- **Read results back out.** Once annotation is done, iterate over frames/labels/masks directly from Python for training or analysis.
-- **Convert to/from COCO and YOLO**, for moving datasets in or out of other tooling.
+- **Start from a model's predictions.** Write them into a project, so annotators correct a draft.
+- **Bulk import** of a folder of images, with existing masks if you have them.
+- **Read the results** for training or analysis.
+- **Convert** to and from COCO and YOLO.
 
-It's **not published on PyPI** — install it straight from the repo:
+It is not on PyPI. Install it from the repository:
 
 ```bash
 pip install git+https://github.com/ClementPla/pydidascalie.git
@@ -105,44 +118,41 @@ with DidascalieProject.create("dataset.dida", name="My Dataset") as project:
     project.import_folder("/path/to/images")
 ```
 
-Requires `numpy` and `Pillow` (and `pyzmq` if you use the optional Python bridge described above).
+It requires `numpy` and `Pillow`, plus `pyzmq` and `msgpack` for keypoint suggestion.
 
 ## Installing
 
-Prebuilt installers for **Windows, macOS (Intel and Apple Silicon), and Linux** are built automatically by GitHub Actions and attached to each release — download the one for your platform from the [Releases page](https://github.com/ClementPla/Didascalie/releases).
+Download the installer for your platform from the [Releases page](https://github.com/ClementPla/Didascalie/releases). The application updates itself afterwards.
 
-GPU training is optional. Without a GPU the head trains on the CPU, which is slower but works. To use an NVIDIA GPU you need the **CUDA Toolkit** installed, not just a driver: the training backend compiles its kernels at runtime with NVRTC, which ships with the toolkit. The app reports which device it selected, and falls back to the CPU if the GPU path isn't usable.
+Training works on the CPU. Using an NVIDIA GPU needs the CUDA Toolkit: see [Installing](https://didascalie.readthedocs.io/install/).
 
 ### Building from source
 
-If you'd rather build it yourself:
-
-**Requirements:** [Node.js + npm](https://nodejs.org/), [Rust](https://www.rust-lang.org/tools/install), and the [Angular CLI](https://angular.dev/tools/cli).
+**Requirements:** [Node.js and npm](https://nodejs.org/), [Rust](https://www.rust-lang.org/tools/install), and the [Angular CLI](https://angular.dev/tools/cli).
 
 ```bash
 git clone https://github.com/ClementPla/Didascalie.git
 cd Didascalie
 npm install
 npm run tauri dev      # run in development
-npm run tauri build    # build binaries (in src-tauri/target/release/)
+npm run tauri build    # build installers into src-tauri/target/release/
 ```
 
 Building with GPU support needs the CUDA Toolkit; `cargo build --no-default-features` skips it.
 
-## Built with
+Didascalie is built with Tauri v2 and Rust, Angular 20 and PrimeNG, SQLite, WebGPU, ONNX Runtime, burn, three.js and ZeroMQ.
 
-Angular 20 and PrimeNG (UI) · Tauri v2 / Rust (desktop shell and native processing) · SQLite via rusqlite (project files) · WebGPU (mask compositing, with a CPU fallback) · ONNX Runtime (encoder inference) · burn (training the segmentation head) · three.js (the experimental 3D view) · ZeroMQ (the experimental Python bridge).
+## AI-assisted development
 
-## Personal stance on AI-assisted coding
+For a couple of years I built this alone. As more people started using it, the features, tests, debugging and documentation they asked for start to feel like a full-time job for one person, so I now use an AI coding tool (Claude Code) to help implement them. I find it often codes more efficiently than I do, as long as it is closely supervised, and I review what it produces.
 
-Didascalie started as a personal project, grown out of frustration with the tools I knew. Many researchers and clinicians still use Paint or PowerPoint to annotate images, and the ones that are designed for the task often have workflows that don't match their technical expertise or clinical needs. It may sound trivial to ask for a clinician to just ```pip install``` a Python package and run a script, but in practice, this is far from true.
-Over the years, I have appreciated the ability to annotate without sending data to a server, the easy sharing of a single project file, all that was very convenient. 
-But it appears that I was not the only interested in such a tool (I hope it's useful to you too!). Integrating the new features, the tests, the debugs, and the documentation started to feel like a fulltime job for a single person; and for that reason, recently I've been using the assistance of AI coding tools (Claude Code) to integrate new requested features. 
-I found it to be often a more efficient coder than I am as long as it remained monitored closely. In a practical sense though, I believe that this stance remains only valid for a single developer and I would not accept contributions that do not come with a clear and well-documented rationale, which means a human intent. I hope that this project will remain a useful tool for the community, and I will continue to maintain it as best as I can.
+I think this only holds for a single developer who knows the whole codebase. It is why contributions need a human intent behind them, as described below.
 
 ## Contributing
 
-Currently, it's a one-person project, but bug reports and suggestions are welcome — please open an issue. If you work with medical images and something is missing or awkward, I'd like to hear about it.
+This is a one-person project, and bug reports and suggestions are welcome: please open an issue. If you work with medical images and something is missing or awkward, I would like to hear about it.
+
+Pull requests are welcome too, provided they come with a clear, documented rationale written by a person.
 
 ## License
 
