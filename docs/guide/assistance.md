@@ -21,10 +21,10 @@ Two options apply to several of them:
 - **Morphological opening** removes speckle left by a threshold.
 - **Connectivity constraint** keeps only the component touching your stroke.
 
+![Assisted labelling with Otsu thresholding](../assets/screenshots/assisted_labelling.gif)
 ### Adjustments can feed the operators
 
-Brightness, contrast, gamma, tone curves and inversion normally change only what
-you see. With ++q++, the operators read the adjusted image too.
+Brightness, contrast, gamma, tone curves and inversion normally change not only affect what you see, but the operators too.
 
 Use this on low-contrast images. Otherwise you raise the contrast to see a faint
 boundary, and the operator still works on the original, nearly flat pixels.

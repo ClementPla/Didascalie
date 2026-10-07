@@ -13,11 +13,9 @@ Launch Didascalie and choose **New project**. You will be asked for:
   ([which to pick](guide/projects.md#embedded-or-referenced-images));
 - which **annotation types** the project uses: segmentation, classification, text.
 
-Define at least one segmentation label before continuing. Each label has a name
-and a colour.
 
-<!-- SCREENSHOT: the new-project dialog with a folder chosen and one label defined. -->
 
+![The project configuration page](assets/screenshots/project_config.png)
 ## 2. Annotate a frame
 
 The gallery opens on the imported images. Double-click one to open the editor.

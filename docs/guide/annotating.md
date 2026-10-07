@@ -1,50 +1,123 @@
 # Annotating
 
-## Masks
+Double-click a sequence in the gallery to open it in the editor. The labels are
+on the left, the tools above the image, and the settings of the current tool on
+the right.
 
-Pixel-level masks, one per segmentation label. Tools: pen, eraser, lasso, lasso
-eraser, line, point and flood fill. Brush size is adjustable, and can follow
-pressure with a pen or touch device.
+<!-- SCREENSHOT: the whole editor with a mask drawn, labels panel on the left and settings on the right. -->
 
-Each label has its own mask, so annotations of different labels can overlap.
+## Labels
+
+Click a label in the left panel to make it active. Everything you paint goes to
+the active label. ++ctrl+tab++ and ++ctrl+shift+tab++ move to the next and
+previous label.
+
+The panel also has:
+
+- an **opacity** slider for the masks;
+- a button to hide or show all labels (++tab++);
+- a button to clear every label on the frame.
+
+++ctrl+e++ shows the masks as outlines, to see the image under them.
+
+## Painting masks
+
+Each label has its own mask, so two labels can cover the same pixels.
+
+| Tool | Key | What it does |
+| --- | --- | --- |
+| Pen | ++p++ | Paints freehand |
+| Line | ++l++ | Paints a straight line between two clicks |
+| Lasso | ++shift+l++ | Fills a closed outline |
+| Eraser | ++e++ | Erases painted pixels |
+| Lasso eraser | ++ctrl+shift+e++ | Erases everything inside a closed outline |
+
+++ctrl++ + wheel changes the brush size. With a stylus, **Pressure sensitivity**
+makes the brush wider as you press harder.
+
+Options next to the tools:
+
+- **Swap labels**: the stroke replaces any other label under it.
+- **All labels** (eraser): erases every label, not only the active one.
+- The eraser can also remove the whole connected region it touches, which is
+  quicker than rubbing out a region pixel by pixel.
+
+A stroke does not have to follow the boundary. With **Auto-segment** (++d++), an
+operator refines each stroke when you release it. See
+[Assisted labelling](assistance.md).
+
+### Instances
+
+In an instance-segmentation project, each label separates up to 255 objects per
+frame. Select the instance to paint in the labels panel. With
+**Auto-increment instance after each stroke**, every stroke starts a new object.
 
 ## Vector shapes
 
-Polygons, lines and keypoints. Draw them with the path tool (++b++) and edit them
-point by point with the node tool (++n++). The select tool (++s++) moves and
-duplicates whole shapes.
+Shapes are outlines and lines drawn on top of the image. They stay editable
+point by point, unlike a mask. An outline can be open or closed, and a closed one
+can be filled.
 
-Vector and raster annotations are on the same image and share one undo history.
+| Tool | Key | What it does |
+| --- | --- | --- |
+| Draw shape | ++b++ | Click to place the points of a new outline or line |
+| Edit points | ++n++ | Drag the points of an existing shape |
+| Select | ++s++ | Move, duplicate or delete a whole shape |
 
-### Converting between the two
+### Converting between masks and shapes
 
-- **Vectorize** (++v++) traces the outline of a mask region into an editable shape.
-- **Skeletonize** (++k++) traces its centreline, which suits vessels, ducts and
-  other elongated structures.
-- **Rasterize** burns a shape into the mask.
+- **Trace outline** (++v++): click a painted region to get its border as a shape.
+- **Trace centerline** (++k++): click a painted region to get its centreline as a
+  line. Use it for vessels, ducts and other elongated structures.
+- **Rasterize**: paints every shape into the mask of its label.
 
-Each conversion is one undo step.
+## Moving around
+
+| Action | Keys |
+| --- | --- |
+| Pan | ++g++, hold ++space++, or middle mouse button |
+| Zoom | Wheel, or ++plus++ and ++minus++ |
+| Next / previous frame | ++arrow-up++ / ++arrow-down++ |
+| Next / previous sequence | ++arrow-right++ / ++arrow-left++ |
+
+## Undo
+
+++ctrl+z++ undoes and ++ctrl+y++ redoes. Mask and shape edits share one history.
+A conversion between the two is one step.
+
+The history belongs to the frame. It is reset when you open another frame.
+
+## Working on a sequence
+
+For a sequence with several frames, the **Navigation** panel adds:
+
+- **Propagate labels**: copies the labels of the current frame to the following
+  frames, or to all the other frames. You can copy all labels or only the active
+  one. The copied labels replace what the target frames had.
+- **Clear sequence**: removes the labels of every frame.
+- **Inspect sequence**: plays the sequence with its labels. See
+  [Inspecting sequences](inspect.md).
+
+## Classification and text
+
+If the project has classification tasks or text fields, they appear in the left
+panel under the labels. They apply to the frame as a whole.
+
+To classify many images at once, use
+[batch classification](gallery.md#batch-classification) in the gallery.
 
 ## Keypoints
 
-Points with a label. They are used on their own, or as correspondences between two
-frames for [registration](registration.md). The gallery can filter sequences by
-whether they have keypoints.
+Keypoints are used as correspondences between two frames. They are placed in the
+registration view, not in the editor. See [Frame registration](registration.md).
 
-## Classification
-
-Multiclass and multilabel tasks, several per project. Set them in the editor, or
-apply them to a whole selection from
-[the gallery](gallery.md#batch-classification).
-
-## Text notes
-
-A free-text note per frame, attached to a configurable text task. The note belongs
-to the frame as a whole.
-
-## Saving
+## Saving and review
 
 Annotations are saved automatically a few seconds after you stop editing, and
-before you leave a frame. ++ctrl+s++ saves immediately.
+when you leave a frame.
 
-<!-- SCREENSHOT: the editor's left panel showing several labels, one active. -->
+++ctrl+s++ saves immediately and marks the frame **reviewed**. You can also mark
+or unmark a frame, or the whole sequence, with the two review buttons. Only
+reviewed frames are used to [train a model](assistance.md#training-a-model-on-your-own-data).
+
+All shortcuts are listed in [Keyboard shortcuts](shortcuts.md).

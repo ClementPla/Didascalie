@@ -13,7 +13,7 @@ analysis pipeline. Didascalie is an installer and a project file.
 <div class="carousel">
   <div class="carousel__track">
     <figure>
-      <img src="assets/screenshots/editor.jpeg" alt="The editor: masks and vector shapes on the same image.">
+      <img src="assets/screenshots/editor.jpg" alt="The editor: masks and vector shapes on the same image.">
       <figcaption>The editor: masks and vector shapes on the same image.</figcaption>
     </figure>
     <figure>
@@ -21,11 +21,11 @@ analysis pipeline. Didascalie is an installer and a project file.
       <figcaption>Assisted labelling: a rough stroke refined by an operator.</figcaption>
     </figure>
     <figure>
-      <img src="assets/screenshots/gallery.png" alt="The gallery: filter sequences and track review status.">
-      <figcaption>The gallery: filter sequences and track review status.</figcaption>
+      <img src="assets/screenshots/gallery.jpg" alt="The gallery: filter sequences and track review status.">
+      <figcaption>The gallery: filter sequences and track review status. Batch classify sequences</figcaption>
     </figure>
     <figure>
-      <img src="assets/screenshots/inspect.png" alt="The inspector: play a sequence back with its labels.">
+      <img src="assets/screenshots/inspect.gif" alt="The inspector: play a sequence back with its labels.">
       <figcaption>The inspector: play a sequence back with its labels.</figcaption>
     </figure>
     <figure>

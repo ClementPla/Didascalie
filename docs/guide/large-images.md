@@ -3,6 +3,7 @@
 Didascalie can annotate images much larger than a browser can decode in one piece,
 including gigapixel microscopy, at full resolution.
 
+![A 17785x8298 microscopy image](../assets/screenshots/large_images.png)
 ## How it works
 
 1. **A resolution pyramid.** Each level is half the size of the previous one, down

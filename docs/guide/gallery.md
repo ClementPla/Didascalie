@@ -1,45 +1,71 @@
 # The gallery and review
 
-The gallery shows the whole dataset: what it contains, what is done, and what
-still needs work.
+The gallery lists the sequences of the project, with their progress. It is where
+you pick what to work on, check what is left, and act on several sequences at
+once.
 
-## Filtering
+<!-- SCREENSHOT: the gallery in grid view with a few items selected and the batch
+     actions visible. -->
 
-Filter by:
+## Opening a sequence
 
-- **name**, matching the sequence title;
-- **status**: empty, annotated, or reviewed;
-- **keypoint presence**, for sequences with or without keypoints;
-- **frame count**, to isolate long or short sequences.
+Double-click a sequence to open it in the editor. Each sequence also has buttons
+to:
 
-Sort order and thumbnail size are remembered between visits. Filters are reset
-when you open a different project.
+- open it in the [inspector](inspect.md), which plays it with its masks;
+- open the [registration view](registration.md) (**Pair keypoints**), for
+  sequences with at least two frames.
+
+Hovering over a sequence with several frames previews them in its thumbnail.
+
+## Finding sequences
+
+- **Search** by sequence name.
+- **Status**: not started, in progress or reviewed.
+- **Frame count**, to keep only long or short sequences.
+- **Keypoints**, to keep sequences with or without keypoints.
+
+Sequences can be sorted by name, number of frames or progress, and shown as a
+grid or a list. **Reset filters** clears the filters.
+
+The sort order, the layout and the thumbnail size are remembered. Filters are
+reset when you open another project.
 
 ## Review status
 
-| State | Meaning |
+| Status | Meaning |
 | --- | --- |
-| Empty | No annotations |
-| Annotated | Has annotations, not yet checked |
-| Reviewed | Checked and trusted |
+| Not started | No annotation |
+| In progress | Has annotations, not fully reviewed |
+| Reviewed | Checked |
 
 **Only reviewed frames are used to train a model.** Mark a frame reviewed when you
-are satisfied with its labels, since the model will learn from them.
+are satisfied with its labels.
 
-Frames can be marked reviewed one by one, and sequences in bulk. Both can be
-undone: a batch can be marked un-reviewed the same way.
+A frame is marked reviewed from the editor, with the review button or by saving
+with ++ctrl+s++. In the gallery, the review button of a sequence marks all its
+frames, and **Mark as reviewed** does the same for the selection. Both can be
+undone with **Mark as not reviewed**.
 
-## Playing a sequence back
+## Acting on several sequences
 
-The video button on a sequence opens the [inspector](inspect.md), which plays it
-with its masks overlaid. Select several sequences and click **Inspect side by
-side** to compare them.
+Click sequences to select them. ++shift++ + click selects a range, and
+**Select all** takes everything that matches the current filters.
 
-## Batch classification
+With a selection you can:
 
-Select several images and apply multiclass or multilabel choices to all of them at
-once. When most images of a dataset share a label, this is much quicker than
-opening each one.
+- **Mark as reviewed** or **not reviewed**;
+- **Inspect side by side**, with up to six sequences;
+- apply a classification, as described below.
 
-<!-- SCREENSHOT: the gallery in grid view with a few items selected and the batch
-     action visible. -->
+### Batch classification
+
+If the project has classification tasks, choose the classes above the gallery
+and click **Apply**. Every frame of the selected sequences gets them.
+
+This is quicker than opening each image when most of a dataset shares a class.
+
+## Refreshing
+
+**Refresh** reloads the list. With auto-refresh on, the gallery reloads every few
+seconds, which is useful while a script writes to the project.

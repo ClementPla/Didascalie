@@ -1,0 +1,105 @@
+/* Screenshot carousel (home page). Markup in index.md, behaviour in
+   javascripts/carousel.js. Without JavaScript it is still a row of images that
+   scrolls sideways. */
+
+.carousel {
+  position: relative;
+  margin: 1.5em 0;
+}
+
+.carousel[hidden] {
+  display: none;
+}
+
+.carousel__track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  border-radius: 0.4rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel__track > figure {
+  flex: 0 0 100%;
+  margin: 0;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.carousel__track img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: contain;
+  background: var(--md-code-bg-color);
+}
+
+.carousel__track figcaption {
+  max-width: none;
+  margin: 0;
+  padding: 0.6em 1em;
+  font-style: normal;
+  text-align: center;
+}
+
+.carousel__button {
+  position: absolute;
+  top: calc(50% - 2.4rem);
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 2rem;
+  color: var(--md-primary-bg-color);
+  background: var(--md-primary-fg-color);
+  opacity: 0.75;
+}
+
+.carousel__button:hover,
+.carousel__button:focus-visible {
+  opacity: 1;
+}
+
+.carousel__button--previous {
+  left: 0.5rem;
+}
+
+.carousel__button--next {
+  right: 0.5rem;
+}
+
+.carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.carousel__dots button {
+  width: 0.55rem;
+  height: 0.55rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--md-default-fg-color--lighter);
+}
+
+.carousel__dots button[aria-current="true"] {
+  background: var(--md-accent-fg-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel__track {
+    scroll-behavior: auto;
+  }
+}

@@ -55,3 +55,9 @@ README_files/
 
 # Generated API docs (Compodoc) — regenerate with `npm run compodoc:build`
 /documentation
+
+# Example projects: rebuilt with examples/build_examples.py. Only the smallest
+# one is kept in the repository.
+/examples/*.dida
+/examples/*.dida-*
+!/examples/nuclei_histology.dida
