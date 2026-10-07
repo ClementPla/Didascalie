@@ -4,11 +4,13 @@ import {
   ExperimentalFeatureDescriptor,
   ExperimentalPostProcess,
 } from './descriptor';
+import { MEDSAM_FEATURE } from './medsam/medsam.feature';
 import { SUPERPIXEL_FEATURE } from './superpixel/superpixel.feature';
 import { VOLUME3D_FEATURE } from './volume3d/volume3d.feature';
 
 /** All experimental features. Register a new feature by adding it here. */
 export const EXPERIMENTAL_FEATURES: ExperimentalFeatureDescriptor[] = [
+  MEDSAM_FEATURE,
   SUPERPIXEL_FEATURE,
   VOLUME3D_FEATURE,
 ];

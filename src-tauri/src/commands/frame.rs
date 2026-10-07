@@ -35,8 +35,14 @@ pub struct FrameImage {
 }
 
 /// Bounded in-memory cache of generated thumbnails, keyed by (frame, size), so
-/// a frame's full image is decoded at most once per session — the gallery
+/// a frame's full image is decoded at most once per project — the gallery
 /// otherwise re-decodes the full (possibly 100+ MP) image on every scroll/hover.
+///
+/// Frame ids restart from 1 in every project, so the key says nothing about
+/// which project an entry came from: the cache must be [`clear`]ed whenever the
+/// open project changes, or the next project's gallery shows this one's images.
+///
+/// [`clear`]: ThumbnailCache::clear
 #[derive(Default)]
 pub struct ThumbnailCache {
   inner: Mutex<ThumbnailCacheInner>,
@@ -46,6 +52,9 @@ pub struct ThumbnailCache {
 struct ThumbnailCacheInner {
   map: std::collections::HashMap<(i64, u32), FrameImage>,
   order: std::collections::VecDeque<(i64, u32)>,
+  /// Bumped by `clear`. A thumbnail decoded for one project must not be stored
+  /// once another has been opened, so `put` drops anything started before.
+  generation: u64,
 }
 
 const THUMBNAIL_CACHE_CAP: usize = 1024;
@@ -55,8 +64,16 @@ impl ThumbnailCache {
     self.inner.lock().ok()?.map.get(&(frame_id, size)).cloned()
   }
 
-  fn put(&self, frame_id: i64, size: u32, image: FrameImage) {
+  fn generation(&self) -> u64 {
+    self.inner.lock().map(|g| g.generation).unwrap_or(0)
+  }
+
+  /// Store a thumbnail, unless the cache was cleared since `generation` was read.
+  fn put(&self, generation: u64, frame_id: i64, size: u32, image: FrameImage) {
     let Ok(mut guard) = self.inner.lock() else { return };
+    if guard.generation != generation {
+      return;
+    }
     let key = (frame_id, size);
     if guard.map.insert(key, image).is_none() {
       guard.order.push_back(key);
@@ -66,6 +83,14 @@ impl ThumbnailCache {
         }
       }
     }
+  }
+
+  /// Drop every thumbnail. Call when the open project changes.
+  pub fn clear(&self) {
+    let Ok(mut guard) = self.inner.lock() else { return };
+    guard.map.clear();
+    guard.order.clear();
+    guard.generation += 1;
   }
 }
 
@@ -239,6 +264,7 @@ pub fn get_frame_thumbnail(
   if let Some(hit) = cache.get(frame_id, max_size) {
     return Ok(hit);
   }
+  let generation = cache.generation();
 
   // Read the raw file bytes directly — NOT via get_frame_image, which would
   // base64-encode the whole full-resolution image just for us to decode it
@@ -256,7 +282,7 @@ pub fn get_frame_thumbnail(
     frame: meta.frame,
     image_base64: format!("data:image/jpeg;base64,{}", BASE64.encode(&jpeg_bytes)),
   };
-  cache.put(frame_id, max_size, frame_image.clone());
+  cache.put(generation, frame_id, max_size, frame_image.clone());
   Ok(frame_image)
 }
 
@@ -270,6 +296,16 @@ pub fn get_frame_thumbnail(
 #[derive(Default)]
 pub struct FrameImageCache {
     inner: Mutex<Option<CachedFrame>>,
+}
+
+impl FrameImageCache {
+    /// Drop the cached frame. Call when the open project changes: the frame id
+    /// alone does not tell two projects apart.
+    pub fn clear(&self) {
+        if let Ok(mut guard) = self.inner.lock() {
+            *guard = None;
+        }
+    }
 }
 
 struct CachedFrame {
@@ -410,7 +446,49 @@ pub(crate) fn detect_mime_type(data: &[u8]) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{crop_rgba, decode_downscaled, decode_thumbnail};
+    use super::{
+        crop_rgba, decode_downscaled, decode_thumbnail, Frame, FrameImage, ThumbnailCache,
+    };
+
+    fn thumbnail(tag: &str) -> FrameImage {
+        FrameImage {
+            frame: Frame {
+                id: 1,
+                sequence_id: 1,
+                frame_index: 0,
+                relative_path: None,
+                width: 1,
+                height: 1,
+                reviewed: false,
+                is_embedded: true,
+            },
+            image_base64: tag.to_string(),
+        }
+    }
+
+    /// Frame 1 of the next project is not frame 1 of this one.
+    #[test]
+    fn clearing_the_thumbnail_cache_forgets_the_previous_project() {
+        let cache = ThumbnailCache::default();
+        cache.put(cache.generation(), 1, 256, thumbnail("first project"));
+        assert!(cache.get(1, 256).is_some());
+
+        cache.clear();
+        assert!(cache.get(1, 256).is_none());
+
+        cache.put(cache.generation(), 1, 256, thumbnail("second project"));
+        assert_eq!(cache.get(1, 256).unwrap().image_base64, "second project");
+    }
+
+    /// A thumbnail still being decoded when the project changes is dropped.
+    #[test]
+    fn a_thumbnail_started_before_a_clear_is_not_stored() {
+        let cache = ThumbnailCache::default();
+        let started = cache.generation();
+        cache.clear();
+        cache.put(started, 1, 256, thumbnail("first project"));
+        assert!(cache.get(1, 256).is_none());
+    }
 
     /// Build a 2x2 RGBA image whose R channel encodes (y*2 + x) so pixels are
     /// distinguishable: (0,0)=0, (1,0)=1, (0,1)=2, (1,1)=3.

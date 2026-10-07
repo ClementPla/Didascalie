@@ -45,6 +45,6 @@ with the structural directive instead of an `@if`:
 
 Handlers receive an `Injector` and resolve the feature's services through it,
 so nothing outside this folder gains an import on feature internals.
-Rust-side commands (e.g. `crf_refine`, `superpixel_refine`) stay registered
+Rust-side commands (e.g. `mask_sam_segment`, `superpixel_refine`) stay registered
 unconditionally in `src-tauri`; they are simply unreachable while the
 feature's UI is hidden.

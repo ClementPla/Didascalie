@@ -161,17 +161,14 @@ export enum PostProcessOption {
 
 /** Stable post-processing modes, in the order the tool settings panel shows
  *  them. Otsu and Flood Fill come first: both are deterministic, stroke-bounded
- *  operators sharing one set of refinement controls. MedSAM is last because it
- *  is a different kind of thing — a downloaded model, with its own single
- *  setting and no refinement step.
+ *  operators sharing one set of refinement controls.
  *
- *  Experimental modes (Superpixel, …) are contributed by
+ *  Experimental modes (MedSAM, Superpixel, …) are contributed by
  *  `src/app/experimental/registry.ts` and appended only while the
  *  experimental-features switch is on (see FeatureFlagsService). */
 export const postProcessingOptions = [
   PostProcessOption.OTSU,
   PostProcessOption.FLOODFILL,
-  PostProcessOption.MEDSAM,
 ];
 
 /** Modes refined by the shared invert / smooth / connectivity controls. */

@@ -2,8 +2,8 @@
 
 ## Importing
 
-Images are imported from a folder when the project is created, and more can be added
-later. Options at import time:
+Images are imported from a folder when the project is created, and more can be
+added later. Options at import time:
 
 - **recursive**, to walk subdirectories;
 - **folders as sequences**, so each subdirectory becomes a sequence;
@@ -11,21 +11,19 @@ later. Options at import time:
 - **embed or reference** the image data
   ([which to pick](projects.md#embedded-or-referenced-images)).
 
-Existing masks can be imported alongside the images, so a partially labelled dataset
-does not start from nothing.
+Existing masks can be imported with the images, so you can continue a partially
+labelled dataset.
 
 ## Exporting
 
-Annotations export to mask images, and to **COCO** and **YOLO** layouts. Both of
-those conversions also work in the other direction, so a dataset can be brought in
-from other tooling and taken back out.
+Annotations can be exported as mask images, or in **COCO** or **YOLO** layout.
+COCO and YOLO datasets can also be imported.
 
 ## Or skip the UI
 
-Since a `.dida` file is plain SQLite, the companion Python library reads and writes
-it directly — including COCO and YOLO conversion — which is usually better for
-anything scripted or repeated. See [Python library](../python.md).
+The companion Python library reads and writes `.dida` files directly, including
+COCO and YOLO conversion. Prefer it for anything scripted or repeated. See
+[Python library](../python.md).
 
 !!! note "DICOM and NIfTI"
-    Not supported yet. Images go in through the standard formats
-    (PNG, JPEG, TIFF, BMP).
+    Not supported yet. Supported image formats are PNG, JPEG, TIFF and BMP.

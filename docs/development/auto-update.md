@@ -22,8 +22,8 @@ the update.
 
 ## One-time setup (required)
 
-The updater only works once a signing keypair exists. This is a manual step —
-the private key must never be committed.
+The updater only works once a signing keypair exists. Create it by hand, and
+never commit the private key.
 
 1. Generate a keypair (from the repo root):
 
@@ -41,8 +41,8 @@ the private key must never be committed.
    ```
 
 3. Add two **repository secrets** (Settings → Secrets and variables → Actions):
-   - `TAURI_SIGNING_PRIVATE_KEY` — the contents of `~/.tauri/didascalie.key`
-   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — the password from step 1
+   - `TAURI_SIGNING_PRIVATE_KEY`: the contents of `~/.tauri/didascalie.key`
+   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the password from step 1
 
 After that, every push to `release` produces signed installers + `latest.json`;
 publish the draft release and clients will be offered the update.

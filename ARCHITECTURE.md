@@ -128,7 +128,7 @@ subtlety is. It's decomposed into single-responsibility services:
 | `draw.service` + `tools/*` | brush/line/lasso stroke pipeline (rasterized on a bounded buffer) |
 | `vector-editor.service` | vector shapes + Select/Path/Node tool state machines + vector undo |
 | `convert.service` | rasterize / vectorize / skeletonize bridges |
-| `post-process.service` | Otsu / flood-fill / SAM / CRF / superpixel (call Rust, write result into active mask) |
+| `post-process.service` | Otsu / flood-fill, plus the experimental modes (MedSAM, superpixel) through the registry (call Rust, write result into active mask) |
 | `undo-redo.service` | unified raster+vector timeline (per-layer snapshot stacks + compound groups) |
 | `image-adjustment/*` | on-the-fly brightness/gamma/invert (view-only LUT) |
 | `tiled-image.service` | native-resolution tiles fetched on zoom for very large images |
@@ -222,7 +222,7 @@ schema-driven and needs no per-format UI code.
 
 ## Experimental features
 
-Unstable work (CRF, superpixel, SAM/MedSAM) is gated behind a feature-flag
+Unstable work (superpixel, MedSAM, 3D volume mode) is gated behind a feature-flag
 registry in `src/app/experimental/` (`feature-flags.service`, `registry.ts`,
 per-feature folders). These are hidden unless the experimental switch is on — the
 line between "stable, daily-usable" and "not yet" is deliberate.

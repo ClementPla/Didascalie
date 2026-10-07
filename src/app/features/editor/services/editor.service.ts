@@ -174,10 +174,6 @@ export class EditorService {
   get useProcessing(): boolean { return this._useProcessing(); }
   set useProcessing(v: boolean) { this._useProcessing.set(v); }
 
-  private readonly _samThreshold = signal(0.5);
-  get samThreshold(): number { return this._samThreshold(); }
-  set samThreshold(v: number) { this._samThreshold.set(v); }
-
   // ==========================================
   // Rendering / navigation
   // ==========================================

@@ -7,7 +7,6 @@ import { StateManagerService } from './state-manager.service';
 import { ImageAdjustmentService } from './image-adjustment/image-adjustment.service';
 import { RGBLUT } from './image-adjustment/image-processing.model';
 import { UndoRedoService } from './undo-redo.service';
-import { PostProcessService } from './post-process.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { DrawService } from './draw.service';
 import { EditorService } from '../../services/editor.service';
@@ -31,7 +30,6 @@ export class OrchestratorService {
   private imageProc = inject(ImageAdjustmentService);
   private canvasManager = inject(CanvasManagerService);
   private undoRedo = inject(UndoRedoService);
-  private postProcess = inject(PostProcessService);
   private zoomPan = inject(ZoomPanService);
   private drawService = inject(DrawService);
   private editorService = inject(EditorService);
@@ -136,8 +134,7 @@ export class OrchestratorService {
       await this.canvasManager.updateCanvasesDimensions();
 
       this.imageProc.setImage(img);
-      this.postProcess.featuresExtracted = false;
-      // Let experimental features (superpixel map, …) invalidate their
+      // Let experimental features (superpixel map, SAM features, …) invalidate their
       // per-image caches.
       notifyExperimentalImageLoaded(this.injector);
       this.state.recomputeCanvasSum = true;

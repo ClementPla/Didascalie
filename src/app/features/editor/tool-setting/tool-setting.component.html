@@ -53,34 +53,8 @@
                     />
                   </div>
                 }
-                @case (ppOption.MEDSAM) {
-                  <div
-                    class="setting-row"
-                    pTooltip="Confidence a pixel needs before the model keeps it."
-                  >
-                    <label class="setting-row__label" for="sam-threshold"
-                      >Threshold</label
-                    >
-                    <p-slider
-                      [(ngModel)]="editorService.samThreshold"
-                      [min]="0"
-                      [max]="1"
-                      [step]="0.01"
-                    ></p-slider>
-                    <input
-                      id="sam-threshold"
-                      type="number"
-                      pInputText
-                      class="setting-row__value"
-                      [(ngModel)]="editorService.samThreshold"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                    />
-                  </div>
-                }
                 @default {
-                  <!-- Experimental modes (superpixel, …): settings come from
+                  <!-- Experimental modes (MedSAM, superpixel, …): settings come from
                        the experimental registry. -->
                   @if (experimentalPostProcess?.settingsComponent; as settings) {
                     <ng-container

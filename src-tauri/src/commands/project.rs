@@ -4,14 +4,35 @@ use tauri::State;
 use crate::utils::error::Result;
 use crate::storage::{DbState, queries};
 use crate::types::project::ProjectConfig;
+use crate::commands::frame::{FrameImageCache, ThumbnailCache};
+use crate::commands::ml::predict::MlState;
+
+/// Forget everything derived from the project being left.
+///
+/// Frame and label ids restart from 1 in every project, so anything cached
+/// under them is silently wrong for the next one: the gallery showed the
+/// previous project's thumbnails, for instance. Every command that changes the
+/// open database goes through here.
+fn forget_project(thumbnails: &ThumbnailCache, tiles: &FrameImageCache, ml: &MlState) {
+    thumbnails.clear();
+    tiles.clear();
+    // A head only means anything against the labels it was fitted to, and the
+    // encoder features belong to one frame of one project.
+    *ml.model.lock() = None;
+    *ml.features.lock() = None;
+}
 
 #[tauri::command]
 pub fn create_project(
     db: State<DbState>,
+    ml: State<MlState>,
+    thumbnails: State<ThumbnailCache>,
+    tiles: State<FrameImageCache>,
     path: String,
     config: ProjectConfig,
 ) -> Result<()> {
     log::info!("[project] creating at {}", path);
+    forget_project(&thumbnails, &tiles, &ml);
     
     let conn = queries::create_database(Path::new(&path))?;
     queries::insert_project(&conn, &config)?;
@@ -26,14 +47,16 @@ pub fn create_project(
 #[tauri::command]
 pub fn open_project(
     db: State<DbState>,
-    ml: State<crate::commands::ml::predict::MlState>,
+    ml: State<MlState>,
+    thumbnails: State<ThumbnailCache>,
+    tiles: State<FrameImageCache>,
     path: String,
 ) -> Result<ProjectConfig> {
     if db.is_open() {
         log::info!("[project] closing the open project first");
         db.close();
-        *ml.model.lock() = None;
     }
+    forget_project(&thumbnails, &tiles, &ml);
 
     let conn = queries::open_database(Path::new(&path))?;
     let config = queries::get_project_config(&conn)?;
@@ -53,12 +76,12 @@ pub fn open_project(
 #[tauri::command]
 pub fn close_project(
     db: State<DbState>,
-    ml: State<crate::commands::ml::predict::MlState>,
+    ml: State<MlState>,
+    thumbnails: State<ThumbnailCache>,
+    tiles: State<FrameImageCache>,
 ) -> Result<()> {
     db.close();
-    // A head only means anything against the labels it was fitted to, so it must
-    // not outlive its project into the next one.
-    *ml.model.lock() = None;
+    forget_project(&thumbnails, &tiles, &ml);
     Ok(())
 }
 

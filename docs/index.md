@@ -1,16 +1,17 @@
 # Didascalie
 
 Didascalie is a desktop application for annotating medical and biomedical images.
-Everything it does — drawing, image processing, and training models — runs on your
-own machine. Nothing is uploaded.
+Drawing, image processing and model training all run on your own machine. Nothing
+is uploaded.
 
-It exists because much medical image data cannot be sent to a cloud service, and
-the tools that avoid the network tend to assume you will maintain a Python
-environment or adopt a whole analysis pipeline.
+A lot of medical image data cannot be sent to a cloud service. The tools that work
+offline usually expect you to maintain a Python environment or to adopt a whole
+analysis pipeline. Didascalie is an installer and a project file.
 
 !!! note "Status"
     This is a solo research project under active development. The core annotation
-    workflow is usable day to day. Anything marked **experimental** is not.
+    workflow is usable day to day. Features marked **experimental** are less
+    reliable.
 
 ## Where to start
 
@@ -22,7 +23,7 @@ environment or adopt a whole analysis pipeline.
 
 -   :material-rocket-launch: **[Quickstart](quickstart.md)**
 
-    Create a project, annotate an image, and get the result back out.
+    Create a project, annotate an image, and export the result.
 
 -   :material-book-open-variant: **[User guide](guide/projects.md)**
 
@@ -44,11 +45,12 @@ environment or adopt a whole analysis pipeline.
 | Keypoints | Including correspondences between frames for registration |
 | Text notes | Per frame, attached to a configurable text task |
 
-Raster and vector annotations live on the same image and share one undo history.
+Raster and vector annotations are drawn on the same image and share one undo
+history.
 
-## The shape of a project
+## Project files
 
-A project is a single `.dida` file. It is an ordinary SQLite database holding the
-images (embedded or referenced on disk), the annotations, the label definitions,
-any trained model, and the project settings. Copying, backing up, or handing a
-project to a colleague means moving one file.
+A project is a single `.dida` file. It is an ordinary SQLite database that holds
+the images (embedded or referenced on disk), the annotations, the label
+definitions, any trained model and the project settings. To back up a project or
+give it to a colleague, copy that file.

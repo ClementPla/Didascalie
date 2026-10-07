@@ -1,7 +1,6 @@
 # Keyboard shortcuts
 
-Shortcuts are ignored while the focus is in a text field, so typing a label name
-never triggers a tool change.
+Shortcuts are ignored while you type in a text field.
 
 ## Tools
 
@@ -19,7 +18,7 @@ never triggers a tool change.
 | Vectorize (trace an outline) | ++v++ |
 | Skeletonize (trace a centreline) | ++k++ |
 
-Holding the middle mouse button pans from any tool, without switching to Pan.
+Hold the middle mouse button to pan from any tool.
 
 ## Editing
 
@@ -28,9 +27,9 @@ Holding the middle mouse button pans from any tool, without switching to Pan.
 | Undo | ++ctrl+z++ |
 | Redo | ++ctrl+y++ |
 
-One history covers both raster and vector edits, so ++ctrl+z++ reverses whatever
-you did last regardless of which kind it was. An action touching both — rasterising
-a shape, for instance — is undone in a single step.
+Raster and vector edits share one history, so ++ctrl+z++ undoes your last action
+of either kind. An action that touches both, such as rasterising a shape, is
+undone in one step.
 
 ## View
 
@@ -60,5 +59,5 @@ a shape, for instance — is undone in a single step.
 | --- | --- |
 | Save annotations | ++ctrl+s++ |
 
-Annotations also save automatically a few seconds after you stop editing, and
-before navigating away from a frame.
+Annotations are also saved automatically a few seconds after you stop editing,
+and before you leave a frame.

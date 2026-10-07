@@ -1,9 +1,8 @@
 # Development notes
 
 !!! note "Not a developer guide yet"
-    This section currently holds internal notes kept for reference. A proper
-    contributor guide — architecture, the storage schema, how to add a format or an
-    encoder — is planned but not written.
+    This section contains internal notes. A contributor guide (architecture,
+    storage schema, how to add a format or an encoder) is planned but not written.
 
 ## Working on these docs
 
@@ -21,8 +20,8 @@ save and reloads the browser. Changing `mkdocs.yml` itself also triggers a rebui
 npm run docs:build      # mkdocs build --strict, as Read the Docs runs it
 ```
 
-`--strict` turns warnings into errors, which is what catches a broken internal link
-or a page missing from the navigation before it reaches the published site.
+`--strict` turns warnings into errors. A broken internal link or a page missing
+from the navigation then fails the build.
 
 ## Building the application
 
@@ -58,9 +57,9 @@ Two generators, neither part of this site yet:
 
 ## Notes kept for reference
 
-- [Auto-update](auto-update.md) — how the Tauri updater is wired, and the signing
+- [Auto-update](auto-update.md): how the Tauri updater is set up, and the signing
   keypair it needs.
-- Literature review on few-shot scribble segmentation — background for the
+- Literature review on few-shot scribble segmentation: background for the
   assisted-labelling design. Served at
   `development/literature-review-fewshot-scribble/` but left out of the navigation
   because of its length.
