@@ -1,0 +1,13 @@
+<div pTooltip="Confidence a pixel needs before the model keeps it.">
+  <label class="mb-1 block">Threshold</label>
+  <input
+    type="number"
+    pInputText
+    [(ngModel)]="medsam.threshold"
+    min="0"
+    max="1"
+    step="0.01"
+    class="mb-3 w-full"
+  />
+  <p-slider [(ngModel)]="medsam.threshold" [min]="0" [max]="1" [step]="0.01" />
+</div>
