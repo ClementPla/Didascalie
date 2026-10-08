@@ -22,7 +22,7 @@ export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   classification_enabled: false,
   instance_segmentation_enabled: false,
   text_description_enabled: false, // Add this
-  input_regex: '\\.(png|jpe?g|bmp|tiff?)$',
+  input_regex: '\\.(png|jpe?g|bmp|tiff?|mp4|m4v|mov|mkv|webm|avi)$',
   recursive: true,
   folders_as_sequences: false,
   segmentation_labels: [],
@@ -115,6 +115,17 @@ export class ProjectService {
 
   setInputRegex(regex: string): void {
     this.updateConfig({ input_regex: regex });
+  }
+
+  /**
+   * Keep one frame out of this many from each video of the input folder. An
+   * import option rather than part of the saved config: it says how the frames
+   * were chosen, and they are in the project from then on.
+   */
+  readonly videoFrameStep = signal(1);
+
+  setVideoFrameStep(step: number): void {
+    this.videoFrameStep.set(Math.max(1, Math.floor(Number(step)) || 1));
   }
 
   setRecursive(recursive: boolean): void {
@@ -236,6 +247,7 @@ export class ProjectService {
       inputRegex: config.input_regex,
       recursive: config.recursive,
       foldersAsSequences: config.folders_as_sequences,
+      videoFrameStep: this.videoFrameStep(),
     });
 
     // Update counts after scan

@@ -14,6 +14,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { SliderModule } from 'primeng/slider';
 import { ToggleButtonModule } from 'primeng/togglebutton';
@@ -22,6 +23,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { buildLabelPalette } from '../../core/misc/colors';
 import { IOService } from '../../services/io.service';
 import { LabelsService } from '../../services/labels/labels.service';
+import { ProjectService } from '../../services/project/project.service';
 import { SequenceService } from '../../services/sequence.service';
 import { UIStateService } from '../../services/uistate.service';
 import { OverlayLabel } from './frame-cache';
@@ -29,6 +31,10 @@ import {
   InspectPaneComponent,
   RelativeView,
 } from './inspect-pane/inspect-pane.component';
+import {
+  InspectSidebarComponent,
+  SidebarTask,
+} from './inspect-sidebar/inspect-sidebar.component';
 import { InspectionService, MAX_INSPECT_PANES } from './inspection.service';
 
 /** Decoded frames held across all panes, in bytes; split evenly between them. */
@@ -59,11 +65,13 @@ interface LegendLabel {
   imports: [
     FormsModule,
     ButtonModule,
+    InputTextModule,
     SelectModule,
     SliderModule,
     ToggleButtonModule,
     TooltipModule,
     InspectPaneComponent,
+    InspectSidebarComponent,
   ],
   templateUrl: './inspect.component.html',
   styleUrl: './inspect.component.scss',
@@ -72,6 +80,7 @@ export class InspectComponent implements OnInit, OnDestroy {
   readonly inspection = inject(InspectionService);
   private readonly sequences = inject(SequenceService);
   private readonly labelsService = inject(LabelsService);
+  private readonly project = inject(ProjectService);
   private readonly io = inject(IOService);
   private readonly uiState = inject(UIStateService);
   private readonly zone = inject(NgZone);
@@ -96,6 +105,38 @@ export class InspectComponent implements OnInit, OnDestroy {
   /** Timeline length: the longest sequence on screen. */
   readonly length = computed(() =>
     Math.max(1, ...this.panes().map((p) => p.frameCount())),
+  );
+  /**
+   * The frames playback runs over, first and last included: the whole
+   * timeline, narrowed by the range the user set (see `InspectionService`).
+   */
+  readonly range = computed<readonly [number, number]>(() => {
+    const end = this.length() - 1;
+    const first = Math.min(Math.max(this.inspection.rangeStart() ?? 0, 0), end);
+    const last = Math.min(Math.max(this.inspection.rangeEnd() ?? end, first), end);
+    return [first, last];
+  });
+  readonly hasRange = computed(
+    () =>
+      this.inspection.rangeStart() !== null ||
+      this.inspection.rangeEnd() !== null,
+  );
+  /**
+   * What the panes buffer: the range as the user set it, not clamped to the
+   * timeline. Each pane clamps to its own sequence, and the timeline's length
+   * is not known while they load.
+   */
+  readonly paneRange = computed<readonly [number, number] | null>(() =>
+    this.hasRange()
+      ? [
+          this.inspection.rangeStart() ?? 0,
+          this.inspection.rangeEnd() ?? Number.MAX_SAFE_INTEGER,
+        ]
+      : null,
+  );
+  /** The sequence the focused pane shows: the one a pick in the list replaces. */
+  readonly focusedSequenceId = computed(
+    () => this.sequenceIds()[this.inspection.focused()] ?? null,
   );
   readonly columns = computed(() =>
     Math.ceil(Math.sqrt(this.sequenceIds().length)),
@@ -125,6 +166,8 @@ export class InspectComponent implements OnInit, OnDestroy {
   /** The project's segmentation labels, in drawing order (bottom to top). */
   readonly legend = signal<LegendLabel[]>([]);
   readonly hiddenLabels = signal<ReadonlySet<number>>(new Set());
+  /** The project's classification tasks, to classify a sequence as a whole. */
+  readonly tasks = signal<SidebarTask[]>([]);
   readonly overlayLabels = computed<OverlayLabel[]>(() => {
     const hidden = this.hiddenLabels();
     return this.legend()
@@ -144,16 +187,18 @@ export class InspectComponent implements OnInit, OnDestroy {
   private rateWindowFrames = 0;
 
   constructor() {
-    // A sequence was swapped for a shorter one: stay on the timeline. Waits
-    // for every pane to know its length, so a frame to open on is not clamped
-    // against sequences that have not loaded yet.
+    // A sequence was swapped for a shorter one, or the range moved: stay on
+    // the frames being played. Waits for every pane to know its length, so a
+    // frame to open on is not clamped against sequences that have not loaded
+    // yet.
     effect(() => {
       const panes = this.panes();
       if (panes.length === 0) return;
       if (panes.some((p) => p.status() === 'loading')) return;
-      const last = this.length() - 1;
+      const [first, last] = this.range();
       untracked(() => {
         if (this.frame() > last) this.frame.set(last);
+        else if (this.frame() < first) this.frame.set(first);
       });
     });
   }
@@ -174,6 +219,28 @@ export class InspectComponent implements OnInit, OnDestroy {
         palette: Array.from(buildLabelPalette(label.color, label.shades)),
       })),
     );
+
+    if (this.project.isClassification()) {
+      const multilabel = this.labelsService.multiLabelTask;
+      this.tasks.set(
+        [
+          ...this.labelsService.listClassificationTasks.map((task) => ({
+            name: task.taskName,
+            classes: [...task.classLabels],
+            multilabel: false,
+          })),
+          ...(multilabel
+            ? [
+                {
+                  name: multilabel.taskName,
+                  classes: [...multilabel.taskLabels],
+                  multilabel: true,
+                },
+              ]
+            : []),
+        ].filter((task) => task.classes.length > 0),
+      );
+    }
 
     this.resolveSequences();
     this.frame.set(Math.max(0, this.inspection.startFrame));
@@ -224,10 +291,11 @@ export class InspectComponent implements OnInit, OnDestroy {
   }
 
   play(): void {
-    if (this.playing() || this.length() < 2) return;
+    const [first, last] = this.range();
+    if (this.playing() || last <= first) return;
     // Pressing play at the end of a sequence that does not loop restarts it.
-    if (!this.inspection.loop() && this.frame() >= this.length() - 1) {
-      this.frame.set(0);
+    if (!this.inspection.loop() && this.frame() >= last) {
+      this.frame.set(first);
     }
     this.playing.set(true);
     this.achievedFps.set(null);
@@ -283,14 +351,15 @@ export class InspectComponent implements OnInit, OnDestroy {
     }
   };
 
-  /** The frame `step` away from `from`, wrapping when looping; null past an
-   *  end that does not wrap. */
+  /** The frame `step` away from `from` in the played range, wrapping when
+   *  looping; null past an end that does not wrap. */
   private frameAfter(from: number, step: number): number | null {
-    const length = this.length();
+    const [first, last] = this.range();
+    const span = last - first + 1;
     const target = from + step;
-    if (target >= 0 && target < length) return target;
+    if (target >= first && target <= last) return target;
     if (!this.inspection.loop()) return null;
-    return ((target % length) + length) % length;
+    return first + ((((target - first) % span) + span) % span);
   }
 
   /** Move one frame by hand, which stops playback. */
@@ -302,7 +371,42 @@ export class InspectComponent implements OnInit, OnDestroy {
 
   /** Jump to a frame (timeline drag). Playback, if running, goes on from it. */
   seek(index: number): void {
-    this.frame.set(Math.max(0, Math.min(index, this.length() - 1)));
+    const [first, last] = this.range();
+    this.frame.set(Math.max(first, Math.min(index, last)));
+  }
+
+  // ==========================================
+  // Frame range
+  // ==========================================
+
+  /** The range's ends as shown: frames are numbered from 1 on screen. */
+  readonly rangeStartShown = computed(() => {
+    const start = this.inspection.rangeStart();
+    return start === null ? null : start + 1;
+  });
+  readonly rangeEndShown = computed(() => {
+    const end = this.inspection.rangeEnd();
+    return end === null ? null : end + 1;
+  });
+
+  setRangeStart(shown: unknown): void {
+    this.inspection.rangeStart.set(this.parseFrameNumber(shown));
+  }
+
+  setRangeEnd(shown: unknown): void {
+    this.inspection.rangeEnd.set(this.parseFrameNumber(shown));
+  }
+
+  clearRange(): void {
+    this.inspection.rangeStart.set(null);
+    this.inspection.rangeEnd.set(null);
+  }
+
+  /** A frame number typed by the user (from 1) as an index; null when empty. */
+  private parseFrameNumber(shown: unknown): number | null {
+    if (shown === null || shown === undefined || shown === '') return null;
+    const value = Number(shown);
+    return Number.isFinite(value) ? Math.max(0, Math.round(value) - 1) : null;
   }
 
   // ==========================================
@@ -317,14 +421,28 @@ export class InspectComponent implements OnInit, OnDestroy {
   /** Swap the focused pane's sequence for the previous / next one. */
   stepSequence(delta: number): void {
     const target = this.sequenceAfterFocused(delta);
-    if (target === null) return;
+    if (target !== null) this.showInFocused(target);
+  }
+
+  /**
+   * Show a sequence picked in the list: in the focused pane — or, when another
+   * pane already shows it, by focusing that one.
+   */
+  selectSequence(id: number): void {
+    const at = this.sequenceIds().indexOf(id);
+    if (at >= 0) this.focusPane(at);
+    else this.showInFocused(id);
+  }
+
+  /** Swap the focused pane's sequence for `target`. */
+  private showInFocused(target: number): void {
     const focused = this.inspection.focused();
     this.sequenceIds.update((ids) =>
       ids.map((id, i) => (i === focused ? target : id)),
     );
     // Alone, a new sequence is a new video: start it from the beginning. In a
     // comparison the other panes define the position, so keep it.
-    if (!this.multiple()) this.frame.set(0);
+    if (!this.multiple()) this.frame.set(this.inspection.rangeStart() ?? 0);
     this.shareFocused();
   }
 

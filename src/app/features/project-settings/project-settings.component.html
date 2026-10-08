@@ -71,6 +71,21 @@
                 [(ngModel)]="addRegex"
               />
             </label>
+            <label
+              class="field"
+              title="Each video is one sequence. 1 keeps every frame, 10 one frame out of ten."
+            >
+              <span class="field-label">Video frame step</span>
+              <input
+                pInputText
+                type="number"
+                min="1"
+                step="1"
+                class="video-step"
+                aria-label="Video frame step"
+                [(ngModel)]="addVideoFrameStep"
+              />
+            </label>
             <app-labelled-switch [(checked)]="addRecursive">
               Recursive
             </app-labelled-switch>
@@ -87,12 +102,14 @@
           @if (addFolderIsOutside()) {
             <small class="hint">
               This folder is outside the project's image folder, so its images
-              will be copied into the project file.
+              will be copied into the project file. Videos cannot be: move them
+              into the image folder to add them.
             </small>
           } @else {
             <small class="hint">
               Images already in the project are left as they are; only new
-              files are added.
+              files are added. Videos (mp4, m4v, mov, mkv, webm, avi) are added
+              when the pattern matches them, and stay on disk.
             </small>
           }
 

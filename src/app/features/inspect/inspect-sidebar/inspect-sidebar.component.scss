@@ -1,0 +1,293 @@
+:host {
+  display: block;
+  flex-shrink: 0;
+  width: 17rem;
+  min-height: 0;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius);
+  background: var(--p-content-background);
+}
+
+.block-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--p-text-muted-color);
+}
+
+.count {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Labels ────────────────────────────────────────────────────────────────
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  // Many labels must not push the sequence list out of the panel.
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.chip {
+  max-width: 100%;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--chip);
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--chip-text);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter 0.15s, opacity 0.15s;
+
+  &:hover {
+    filter: brightness(1.1);
+  }
+
+  // Off: the colour stays as an outline, so the label is still recognisable.
+  &.is-off {
+    background: transparent;
+    color: var(--p-text-muted-color);
+    text-decoration: line-through;
+    opacity: 0.75;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 2px;
+  }
+}
+
+// ── Classification ────────────────────────────────────────────────────────
+
+.block-hint {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+}
+
+.tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  max-height: 30vh;
+  overflow-y: auto;
+
+  .chips {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+.task {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.task-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.mixed {
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--p-content-hover-background);
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+  font-weight: 400;
+}
+
+.choice {
+  max-width: 100%;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--p-text-color);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--p-content-hover-background);
+  }
+
+  &.is-on {
+    border-color: var(--p-primary-color);
+    background: var(--p-primary-color);
+    color: var(--p-primary-contrast-color);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 2px;
+  }
+}
+
+// ── Sequences ─────────────────────────────────────────────────────────────
+
+.sequences {
+  flex: 1;
+  min-height: 0;
+}
+
+.rows {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.row {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--p-content-border-radius);
+  background: transparent;
+  color: var(--p-text-color);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--p-content-hover-background);
+  }
+
+  // On screen in another pane of a comparison.
+  &.is-shown {
+    border-color: var(--p-content-border-color);
+  }
+
+  &.is-current {
+    border-color: var(--p-primary-color);
+    background: var(--p-highlight-background);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: -2px;
+  }
+}
+
+.thumb {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--p-content-hover-background);
+  color: var(--p-text-muted-color);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.sub {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-text-muted-color);
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--p-surface-400);
+
+  &.dot-annotated {
+    background: var(--p-amber-500, #f59e0b);
+  }
+  &.dot-reviewed {
+    background: var(--p-green-500, #22c55e);
+  }
+}
+
+.none {
+  margin: 1rem 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-text-muted-color);
+}

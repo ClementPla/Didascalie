@@ -1,4 +1,4 @@
-import { Component, Input, ElementRef, OnDestroy, OnChanges, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone, inject, input, output } from '@angular/core';
+import { Component, Input, ElementRef, OnDestroy, OnChanges, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone, computed, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { PanelModule } from 'primeng/panel';
@@ -18,6 +18,9 @@ export interface ThumbnailSelectionEvent {
   selected: boolean;
   isShiftClick: boolean;
 }
+
+/** How many frames of a sequence its card shows on hover. */
+const MAX_PREVIEW_FRAMES = 10;
 
 @Component({
   selector: 'app-gallery-element',
@@ -54,6 +57,20 @@ export class GalleryElementComponent
   readonly imgSize = input(256);
   @Input() selected = false;
   readonly frameIds = input<number[]>([]);
+  /**
+   * The frames the hover preview cycles through: at most
+   * `MAX_PREVIEW_FRAMES`, spread evenly from the first to the last. A video is
+   * a sequence of thousands of frames, and each one shown is a decode.
+   */
+  readonly previewFrameIds = computed(() => {
+    const ids = this.frameIds();
+    if (ids.length <= MAX_PREVIEW_FRAMES) return ids;
+    const last = MAX_PREVIEW_FRAMES - 1;
+    return Array.from(
+      { length: MAX_PREVIEW_FRAMES },
+      (_, i) => ids[Math.round((i * (ids.length - 1)) / last)],
+    );
+  });
   /** Render as a full-width list row instead of a card. */
   readonly listMode = input(false);
   /** Show the per-row "Reviewed" toggle (list mode only). */
@@ -231,8 +248,7 @@ export class GalleryElementComponent
   // ==========================================
 
   public onMouseEnter(): void {
-    const frameIds = this.frameIds(); // Use cached, don't await here
-    if (frameIds.length <= 1) return;
+    if (this.previewFrameIds().length <= 1) return;
 
     if (this.hoverTimer || this.loopInterval) return; // Already active
 
@@ -243,8 +259,7 @@ export class GalleryElementComponent
   }
 
   public onMouseLeave(): void {
-    const frameIds = this.frameIds();
-    if (frameIds.length <= 1) return;
+    if (this.previewFrameIds().length <= 1) return;
 
     if (this.hoverTimer) {
       clearTimeout(this.hoverTimer);
@@ -274,7 +289,7 @@ export class GalleryElementComponent
 
     this.isLoading = true;
     try {
-      const frameIds = await this.getFrameIds();
+      const frameIds = this.previewFrameIds();
       this.currentFrameIndex = (this.currentFrameIndex + 1) % frameIds.length;
       await this.loadThumbnail(frameIds[this.currentFrameIndex]);
     } finally {
@@ -345,10 +360,5 @@ export class GalleryElementComponent
   /** Keypoints pair two frames of one sequence, so pairing needs two. */
   public get canPair(): boolean {
     return this.frameCount() > 1;
-  }
-
-  async getFrameIds(): Promise<number[]> {
-    const frames = await api.getSequenceFrames(this.id());
-    return frames.map((f) => f.id);
   }
 }

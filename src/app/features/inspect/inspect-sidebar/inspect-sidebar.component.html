@@ -1,0 +1,153 @@
+<aside class="sidebar">
+  @if (labels().length > 0) {
+    <section class="block">
+      <h3 class="block-title">Labels</h3>
+      <div class="chips">
+        @for (label of labels(); track label.id) {
+          <button
+            type="button"
+            class="chip"
+            [class.is-off]="isHidden(label.id)"
+            [style.--chip]="label.color"
+            [style.--chip-text]="textOn(label.color)"
+            [attr.aria-pressed]="!isHidden(label.id)"
+            [pTooltip]="(isHidden(label.id) ? 'Show ' : 'Hide ') + label.name"
+            tooltipPosition="right"
+            (click)="labelToggled.emit(label.id)"
+          >
+            {{ label.name }}
+          </button>
+        }
+      </div>
+    </section>
+  }
+
+  @if (tasks().length > 0 && focusedId() !== null) {
+    <section class="block">
+      <h3 class="block-title">Classification</h3>
+      <p class="block-hint" [title]="focusedName()">
+        Applies to every frame of <strong>{{ focusedName() }}</strong>
+      </p>
+      <div class="tasks">
+        @for (task of tasks(); track task.name) {
+          <div class="task">
+            <span class="task-name">
+              {{ task.name }}
+              @if (isMixed(task)) {
+                <span
+                  class="mixed"
+                  pTooltip="The frames of this sequence are not classified alike. Choosing a class gives it to all of them."
+                  tooltipPosition="right"
+                  >frames differ</span
+                >
+              }
+            </span>
+            <div class="chips">
+              @for (name of task.classes; track name) {
+                <button
+                  type="button"
+                  class="choice"
+                  [class.is-on]="isSelected(task, name)"
+                  [attr.aria-pressed]="isSelected(task, name)"
+                  [disabled]="classifying() || classification() === null"
+                  (click)="classify(task, name)"
+                >
+                  {{ name }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <section class="block sequences">
+    <h3 class="block-title">
+      Sequences
+      <span class="count">
+        @if (query().trim()) {
+          {{ filtered().length }} of {{ sequences().length }}
+        } @else {
+          {{ sequences().length }}
+        }
+      </span>
+    </h3>
+
+    <p-iconfield>
+      <p-inputicon styleClass="pi pi-search" />
+      <input
+        type="search"
+        pInputText
+        pSize="small"
+        class="w-full"
+        placeholder="Search by name…"
+        aria-label="Search sequences by name"
+        [ngModel]="query()"
+        (ngModelChange)="search($event)"
+      />
+    </p-iconfield>
+
+    <div class="rows">
+      @for (row of rows(); track row.id) {
+        <button
+          type="button"
+          class="row"
+          [class.is-current]="row.id === focusedId()"
+          [class.is-shown]="shown().has(row.id)"
+          [attr.aria-current]="row.id === focusedId() ? 'true' : null"
+          (click)="sequenceSelected.emit(row.id)"
+        >
+          <span class="thumb">
+            @if (thumbnails().get(row.thumbnailFrameId); as src) {
+              <img [src]="src" alt="" decoding="async" />
+            } @else {
+              <i class="pi pi-image"></i>
+            }
+          </span>
+          <span class="meta">
+            <span class="name" [title]="row.name">{{ row.name }}</span>
+            <span class="sub">
+              <span class="dot" [class]="'dot-' + row.status" [title]="row.status"></span>
+              {{ row.frameCount }} {{ row.frameCount === 1 ? 'frame' : 'frames' }}
+            </span>
+          </span>
+        </button>
+      } @empty {
+        <p class="none">
+          @if (sequences().length === 0) {
+            No sequence in this project.
+          } @else {
+            No sequence matches.
+          }
+        </p>
+      }
+    </div>
+
+    @if (pageCount() > 1) {
+      <div class="pager">
+        <p-button
+          icon="pi pi-chevron-left"
+          severity="secondary"
+          size="small"
+          [text]="true"
+          [rounded]="true"
+          [disabled]="currentPage() === 0"
+          ariaLabel="Previous page"
+          (onClick)="turnPage(-1)"
+        ></p-button>
+        <span>{{ currentPage() + 1 }} / {{ pageCount() }}</span>
+        <p-button
+          icon="pi pi-chevron-right"
+          severity="secondary"
+          size="small"
+          [text]="true"
+          [rounded]="true"
+          [disabled]="currentPage() >= pageCount() - 1"
+          ariaLabel="Next page"
+          (onClick)="turnPage(1)"
+        ></p-button>
+      </div>
+    }
+  </section>
+</aside>

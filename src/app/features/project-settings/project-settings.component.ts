@@ -136,6 +136,8 @@ export class ProjectSettingsComponent {
   addRecursive = this.config().recursive;
   addFoldersAsSequences = this.config().folders_as_sequences;
   addEmbed = this.config().images_embedded;
+  /** Keep one frame out of this many from each added video. */
+  addVideoFrameStep = 1;
   readonly adding = signal(false);
   readonly lastImport = signal<AddImagesResult | null>(null);
 
@@ -350,6 +352,7 @@ export class ProjectSettingsComponent {
         inputRegex: this.addRegex,
         recursive: this.addRecursive,
         foldersAsSequences: this.addFoldersAsSequences,
+        videoFrameStep: Math.max(1, Math.floor(Number(this.addVideoFrameStep)) || 1),
       });
       this.lastImport.set(result);
       if (result.framesImported > 0) {

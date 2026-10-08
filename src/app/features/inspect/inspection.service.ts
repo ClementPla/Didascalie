@@ -48,6 +48,17 @@ export class InspectionService implements ProjectScoped {
   /** Zooming or panning one pane moves the others the same way. */
   readonly syncViews = signal(true);
 
+  /** The sequence list and label toggles on the left are shown. */
+  readonly sidebarVisible = signal(true);
+
+  /**
+   * First and last frame to play (0-based, included); null for the sequence's
+   * own. Kept from one sequence to the next: looking at the first 30 frames of
+   * each video of a project is one setting, not one per video.
+   */
+  readonly rangeStart = signal<number | null>(null);
+  readonly rangeEnd = signal<number | null>(null);
+
   /** The latest sequence asked to be shared, while one is being applied. */
   private pendingShare: { id: number; frameIndex?: number } | null = null;
   private sharing: Promise<boolean> | null = null;
@@ -141,5 +152,7 @@ export class InspectionService implements ProjectScoped {
     this.startFrame = 0;
     this.requested = false;
     this.pendingShare = null;
+    this.rangeStart.set(null);
+    this.rangeEnd.set(null);
   }
 }

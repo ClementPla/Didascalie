@@ -33,7 +33,27 @@ CREATE TABLE IF NOT EXISTS frames (
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
     reviewed BOOLEAN DEFAULT FALSE,
+    -- Set for a frame decoded from a video instead of read from an image:
+    -- which video, its rank among that video's frames, and the time it is
+    -- shown at (seconds). `relative_path` is then a made-up, unique name.
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    video_frame INTEGER,
+    video_time REAL,
     UNIQUE(sequence_id, frame_index)
+);
+
+-- Video files frames are decoded from (see `crate::video`). The file stays on
+-- disk, under the project's image folder.
+CREATE TABLE IF NOT EXISTS videos (
+    id INTEGER PRIMARY KEY,
+    relative_path TEXT NOT NULL UNIQUE,
+    -- Frames in the file; a project may hold only some of them.
+    frame_count INTEGER NOT NULL,
+    fps REAL NOT NULL,
+    -- How a frame is found from `frames.video_time`: the tolerance on its
+    -- time, and how much earlier decoding starts. See `crate::video`.
+    seek_margin REAL NOT NULL,
+    seek_preroll REAL NOT NULL DEFAULT 1.0
 );
 
 -- The people annotating this project. There is always at least one: the
@@ -201,6 +221,27 @@ CREATE TABLE IF NOT EXISTS vector_annotations (
 CREATE INDEX IF NOT EXISTS idx_vector_annotations_frame
     ON vector_annotations(frame_id);
 "#;
+
+/// v4 -> v5: frames decoded from video files. The `videos` table comes from the
+/// baseline SCHEMA; these are the columns it could not add to an existing
+/// `frames` table. Not run on a database whose `frames` already has them.
+pub const MIGRATION_V5_FRAME_COLUMNS: &str = r#"
+ALTER TABLE frames ADD COLUMN video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE;
+ALTER TABLE frames ADD COLUMN video_frame INTEGER;
+ALTER TABLE frames ADD COLUMN video_time REAL;
+"#;
+
+/// v5 -> v6: `videos.seek_preroll`. v5 was never released, but projects made
+/// while it was being developed exist; their videos get the default, which is
+/// longer than needed and so only slower. Not run when the column is there.
+pub const MIGRATION_V6_SEEK_PREROLL: &str =
+    "ALTER TABLE videos ADD COLUMN seek_preroll REAL NOT NULL DEFAULT 1.0;";
+
+/// The index finding a video's frames in order. Apart from the baseline
+/// indexes because those are created before the migrations run, when an older
+/// project's `frames` has no such columns yet.
+pub const VIDEO_FRAMES_INDEX: &str =
+    "CREATE INDEX IF NOT EXISTS idx_frames_video_frame ON frames(video_id, video_frame);";
 
 /// The per-user tables as they were up to v3, each paired with the columns it
 /// carried then. v4 rebuilds them: SQLite cannot widen a `UNIQUE` constraint in

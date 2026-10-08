@@ -10,4 +10,9 @@
  * passed, and creating a project failed at run time. `ts-rs` reads the serde
  * attributes, so the two cannot disagree again.
  */
-export type ScanOptions = { folderPath: string, embedImages: boolean, embedThresholdKb: number, inputRegex: string, recursive: boolean, foldersAsSequences: boolean, };
+export type ScanOptions = { folderPath: string, embedImages: boolean, embedThresholdKb: number, inputRegex: string, recursive: boolean, foldersAsSequences: boolean, 
+/**
+ * Keep one frame out of this many from each video (1, or 0, keeps them
+ * all). A video is always one sequence, whatever `folders_as_sequences`.
+ */
+videoFrameStep: number, };

@@ -73,6 +73,9 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
   /** Decoded bytes this pane's frame cache may hold. */
   readonly budget = input(128 * 1024 ** 2);
   readonly loop = input(true);
+  /** The panel's frames playback is limited to (first and last, included);
+   *  null for the whole sequence. Only those are buffered. */
+  readonly range = input<readonly [number, number] | null>(null);
   readonly focused = input(false);
   readonly closable = input(false);
 
@@ -178,6 +181,11 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const loop = this.loop();
       untracked(() => this.cache?.setLoop(loop));
+    });
+
+    effect(() => {
+      const range = this.range();
+      untracked(() => this.applyRange(range));
     });
 
     effect(() => {
@@ -325,6 +333,11 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private applyRange(range: readonly [number, number] | null): void {
+    // The cache clamps to this sequence's own length.
+    this.cache?.setRange(range?.[0] ?? 0, range?.[1] ?? Number.MAX_SAFE_INTEGER);
+  }
+
   private rebuildCache(frames: readonly Frame[], maxDim: number): void {
     this.cache?.dispose();
     this.cache = null;
@@ -345,6 +358,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
       if (index === this.localIndex()) this.draw();
     };
     this.cache = cache;
+    this.applyRange(this.range());
     if (!this.userMoved) this.fit();
     cache.setPlayhead(this.localIndex());
     this.draw();

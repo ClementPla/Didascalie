@@ -17,7 +17,7 @@ use tauri::ipc::Response;
 use tauri::State;
 
 use crate::commands::annotation::decode_to_uint8;
-use crate::commands::frame::{decode_downscaled, detect_mime_type, read_frame_bytes};
+use crate::commands::frame::{decode_downscaled, detect_mime_type, read_frame_bytes_ahead};
 use crate::storage::{queries, DbState};
 
 /// JPEG quality of a re-encoded preview: playback, not an annotation backdrop,
@@ -65,7 +65,7 @@ pub async fn get_frame_preview(
     frame_id: i64,
     max_dim: u32,
 ) -> Result<Response, String> {
-    let (meta, bytes) = read_frame_bytes(&db, frame_id).map_err(|e| e.to_string())?;
+    let (meta, bytes) = read_frame_bytes_ahead(&db, frame_id).map_err(|e| e.to_string())?;
     let native = (
         meta.frame.width.max(0) as u32,
         meta.frame.height.max(0) as u32,

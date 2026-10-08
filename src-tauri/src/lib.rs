@@ -20,6 +20,7 @@ mod utils;
 mod storage;
 mod superpixel;
 mod types;
+mod video;
 
 /// Per-OS webview tuning, applied before the webview is created.
 ///
@@ -209,6 +210,8 @@ pub fn run() {
             commands::classification::save_classification,
             commands::classification::load_classification,
             commands::classification::save_batch_classifications,
+            commands::classification::get_sequence_classification,
+            commands::classification::save_sequence_classification,
             // Text Description commands
             commands::text_description::save_text_description,
             commands::text_description::load_text_descriptions,

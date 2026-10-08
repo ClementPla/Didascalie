@@ -233,12 +233,12 @@
       <!-- Hover Preview Indicator -->
       @if (hasMultipleFrames && isLooping) {
         <div class="absolute bottom-2 flex gap-1 left-2">
-          @for (fId of frameIds(); track fId) {
+          @for (fId of previewFrameIds(); track fId; let i = $index) {
             <span
               class="h-2 rounded-full w-2"
               [ngClass]="{
-                'bg-white': frameIds().indexOf(fId) === currentFrameIndex,
-                'bg-white/50': frameIds().indexOf(fId) !== currentFrameIndex,
+                'bg-white': i === currentFrameIndex,
+                'bg-white/50': i !== currentFrameIndex,
               }"
             ></span>
           }

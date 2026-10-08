@@ -43,7 +43,7 @@ Large binary payloads (masks, image tiles) cross as `ArrayBuffer` /
 
 A project is a single SQLite file (`.dida`; `.labelmed` from the old name still
 opens). Schema in `src-tauri/src/storage/schema.rs`, versioned by
-`PRAGMA user_version` (`SCHEMA_VERSION`, currently **4**) with forward-compat
+`PRAGMA user_version` (`SCHEMA_VERSION`, currently **6**) with forward-compat
 guard: a newer file refuses to open in an older build; an older file is migrated
 on open. Core tables:
 
@@ -52,6 +52,7 @@ on open. Core tables:
 | `project` | single-row JSON config (labels/tasks definitions) |
 | `labels` | segmentation labels (name, color, `is_instance`, order) |
 | `sequences` / `frames` | images grouped into sequences; pixels embedded (`embedded_data` BLOB) or referenced (`relative_path` + `content_hash`) |
+| `videos` | video files frames are decoded from; a frame of one has `video_id` / `video_frame` / `video_time` instead of pixels (see below) |
 | `users` | accounts: name, role (`admin`/`editor`), optional clear-text password |
 | `annotations` | **raster** masks, one row per (frame, label, user), `encoding` + `mask_data` BLOB |
 | `vector_annotations` | **vector** shapes, one row per (frame, label, user), `shapes` JSON |
@@ -59,6 +60,33 @@ on open. Core tables:
 | `text_descriptions` | per (frame, text-task, user) free text |
 | `frame_reviews` | which frames each user marked reviewed (replaces `frames.reviewed`, kept only as a legacy column) |
 | `registrations` / `keypoint_pairs` | homography + keypoint correspondences per (ref, moving) frame pair |
+
+### Frames decoded from videos
+
+A video in the image folder is imported as one sequence with **one `frames` row
+per kept frame**, so everything keyed on a frame (annotations, reviews,
+propagation, registration) is unaware of it. The file is never unpacked: the
+row holds the frame's presentation time and `read_frame_bytes`
+(`commands/frame.rs`) — the one place frame pixels are read — has ffmpeg decode
+it to a BMP on demand (`src-tauri/src/video/mod.rs`, with a 512 MB cache).
+
+Starting ffmpeg costs far more than decoding a frame, so a caller going through
+a sequence in order (inspector playback, the 3D volume loader) uses
+`read_frame_bytes_ahead`: one process then decodes the frame and up to 31 that
+follow, streaming them into the cache, and a request for a frame already on its
+way waits for it instead of starting another process.
+
+A row must always decode to the same picture, since labels are drawn on it.
+The module's header explains how that is obtained (frames addressed by time
+from an index of the file and picked by timestamp after a seek that aims
+early, software decoding)
+and which containers are refused because ffmpeg cannot seek them exactly. The
+test `a_video_frame_decodes_to_the_same_pixels_as_playing_the_video` checks it
+end to end when ffmpeg is installed.
+
+ffmpeg is looked up as `DIDASCALIE_FFMPEG`, then next to the executable, then
+on `PATH`. Videos are referenced only: they cannot be embedded, and one outside
+the image folder is refused.
 
 ## Users and per-user data (important)
 

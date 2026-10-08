@@ -123,6 +123,20 @@ export interface TextDescriptionData {
   content: string;
 }
 
+/** How the frames of a sequence are classified. See `get_sequence_classification`. */
+export interface SequenceClassification {
+  /** Frames in the sequence, classified or not. */
+  frameCount: number;
+  /** One entry per distinct answer to a task. */
+  answers: {
+    taskName: string;
+    isMultilabel: boolean;
+    selectedClasses: string[];
+    /** Frames of the sequence giving this answer. */
+    frameCount: number;
+  }[];
+}
+
 export interface BatchClassificationPayload {
   frameId: number; // snake_case to match Rust
   taskName: string;
@@ -751,6 +765,27 @@ export const api = {
     invoke<void>('save_text_description', { frameId, fieldName, content }),
   deleteTextDescription: (frameId: number, fieldName: string) =>
     invoke<void>('delete_text_description', { frameId, fieldName }),
+
+  // Whole sequences
+  getSequenceClassification: (sequenceId: number) =>
+    invoke<SequenceClassification>('get_sequence_classification', {
+      sequenceId,
+    }),
+
+  /** Give every frame of a sequence the same answer to a task (none selected
+   *  removes it). Resolves to the number of frames in the sequence. */
+  saveSequenceClassification: (
+    sequenceId: number,
+    taskName: string,
+    selectedClasses: string[],
+    isMultilabel: boolean,
+  ) =>
+    invoke<number>('save_sequence_classification', {
+      sequenceId,
+      taskName,
+      selectedClasses,
+      isMultilabel,
+    }),
 
   // Batch operations
   saveBatchClassifications: (classifications: BatchClassificationPayload[]) =>

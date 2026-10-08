@@ -17,7 +17,7 @@ use tauri::ipc::Response;
 use tauri::State;
 
 use crate::commands::annotation::decode_to_uint8;
-use crate::commands::frame::read_frame_bytes;
+use crate::commands::frame::read_frame_bytes_ahead;
 use crate::storage::{queries, DbState};
 use crate::types::image::MaskEncoding;
 
@@ -67,33 +67,38 @@ pub async fn load_sequence_image_volume(
     let slice = (w as usize) * (h as usize);
 
     // Reading is serialised by the connection lock; decoding is the expensive
-    // part, so gather the encoded bytes first and decode them in parallel.
-    let encoded: Vec<Vec<u8>> = frame_ids
-        .iter()
-        .map(|&id| read_frame_bytes(&db, id).map(|(_, bytes)| bytes))
-        .collect::<crate::utils::error::Result<_>>()
-        .map_err(|e| e.to_string())?;
-
+    // part, so gather the encoded bytes first and decode them in parallel. A
+    // few frames at a time: a video frame comes uncompressed, and a whole
+    // sequence of those is several times the volume being built.
+    const BATCH: usize = 16;
     let mut volume = vec![0u8; slice * frame_ids.len()];
-    volume
-        .par_chunks_mut(slice)
-        .zip(encoded.par_iter())
-        .try_for_each(|(out, bytes)| -> Result<(), String> {
-            let luma = image::load_from_memory(bytes)
-                .map_err(|e| format!("Failed to decode image: {}", e))?
-                .to_luma8();
-            if luma.width() != w || luma.height() != h {
-                return Err(format!(
-                    "Decoded image is {}×{}, but its frame is recorded as {}×{}",
-                    luma.width(),
-                    luma.height(),
-                    w,
-                    h
-                ));
-            }
-            out.copy_from_slice(luma.as_raw());
-            Ok(())
-        })?;
+    for (ids, slices) in frame_ids.chunks(BATCH).zip(volume.chunks_mut((slice * BATCH).max(1))) {
+        let encoded: Vec<Vec<u8>> = ids
+            .iter()
+            .map(|&id| read_frame_bytes_ahead(&db, id).map(|(_, bytes)| bytes))
+            .collect::<crate::utils::error::Result<_>>()
+            .map_err(|e| e.to_string())?;
+
+        slices
+            .par_chunks_mut(slice.max(1))
+            .zip(encoded.par_iter())
+            .try_for_each(|(out, bytes)| -> Result<(), String> {
+                let luma = image::load_from_memory(bytes)
+                    .map_err(|e| format!("Failed to decode image: {}", e))?
+                    .to_luma8();
+                if luma.width() != w || luma.height() != h {
+                    return Err(format!(
+                        "Decoded image is {}×{}, but its frame is recorded as {}×{}",
+                        luma.width(),
+                        luma.height(),
+                        w,
+                        h
+                    ));
+                }
+                out.copy_from_slice(luma.as_raw());
+                Ok(())
+            })?;
+    }
 
     Ok(Response::new(volume))
 }

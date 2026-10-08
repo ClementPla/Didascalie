@@ -62,6 +62,10 @@ export class SequenceFrameCache {
   private readonly failed = new Set<number>();
 
   private playhead = 0;
+  /** The frames playback is limited to, both included. Nothing outside is
+   *  fetched, apart from the frame the playhead is on. */
+  private first = 0;
+  private last: number;
   /** A frame kept regardless of the window: the one currently on screen. */
   private pinned: number | null = null;
   private capacity = MIN_FRAMES;
@@ -85,6 +89,7 @@ export class SequenceFrameCache {
     // is, and starting at frame 0 would spend every fetch slot on frames it
     // may not be looking at, with the one it is waiting for queued behind.
     this.capacity = this.capacityFor(budgetBytes);
+    this.last = Math.max(0, frames.length - 1);
   }
 
   get length(): number {
@@ -114,6 +119,21 @@ export class SequenceFrameCache {
   setLoop(loop: boolean): void {
     if (loop === this.loop) return;
     this.loop = loop;
+    this.pump();
+  }
+
+  /**
+   * Limit playback to the frames `first`..`last` (both included): a loop wraps
+   * from `last` back to `first`, and what lies outside is dropped rather than
+   * buffered — the point of looking at 30 frames of a long video.
+   */
+  setRange(first: number, last: number): void {
+    const end = Math.max(0, this.frames.length - 1);
+    const lo = Math.max(0, Math.min(Math.round(first), end));
+    const hi = Math.max(lo, Math.min(Math.round(last), end));
+    if (lo === this.first && hi === this.last) return;
+    this.first = lo;
+    this.last = hi;
     this.pump();
   }
 
@@ -160,21 +180,30 @@ export class SequenceFrameCache {
     if (count === 0) return [];
     const order: number[] = [];
     const seen = new Set<number>();
-    const add = (index: number) => {
-      const i = this.loop
-        ? ((index % count) + count) % count
-        : index;
+    const keep = (i: number) => {
       if (i < 0 || i >= count || seen.has(i)) return;
       seen.add(i);
       order.push(i);
     };
+    const { first, last } = this;
+    const span = last - first + 1;
+    /** A frame of the range, wrapping around its ends when looping. */
+    const add = (index: number) => {
+      const i = this.loop
+        ? first + ((((index - first) % span) + span) % span)
+        : index;
+      if (i >= first && i <= last) keep(i);
+    };
 
-    const whole = this.capacity >= count;
-    const ahead = whole ? count : Math.floor(this.capacity * AHEAD_SHARE);
-    const behind = whole ? count : this.capacity - 1 - ahead;
-    for (let d = 0; d <= ahead; d++) add(this.playhead + d);
+    // The frame on screen comes first, even when the range excludes it (the
+    // owner moves the playhead into a new range a moment after setting it).
+    keep(this.playhead);
+    const whole = this.capacity >= span;
+    const ahead = whole ? span : Math.floor(this.capacity * AHEAD_SHARE);
+    const behind = whole ? span : this.capacity - 1 - ahead;
+    for (let d = 1; d <= ahead; d++) add(this.playhead + d);
     for (let d = 1; d <= behind; d++) add(this.playhead - d);
-    if (this.pinned !== null) add(this.pinned);
+    if (this.pinned !== null) keep(this.pinned);
     return order;
   }
 

@@ -5,6 +5,19 @@
       <p>No sequence to inspect in this project yet.</p>
     </div>
   } @else if (ready()) {
+    @if (inspection.sidebarVisible()) {
+      <app-inspect-sidebar
+        [labels]="legend()"
+        [hiddenLabels]="hiddenLabels()"
+        [shownIds]="sequenceIds()"
+        [focusedId]="focusedSequenceId()"
+        [tasks]="tasks()"
+        (labelToggled)="toggleLabel($event)"
+        (sequenceSelected)="selectSequence($event)"
+      ></app-inspect-sidebar>
+    }
+
+    <div class="inspect-main">
     <div class="pane-grid" [style.--columns]="columns()">
       @for (id of sequenceIds(); track $index; let i = $index) {
         <app-inspect-pane
@@ -15,6 +28,7 @@
           [edgesOnly]="inspection.edgesOnly()"
           [budget]="paneBudget()"
           [loop]="inspection.loop()"
+          [range]="paneRange()"
           [focused]="multiple() && i === inspection.focused()"
           [closable]="multiple()"
           (focusRequested)="focusPane(i)"
@@ -32,10 +46,10 @@
           class="timeline"
           [ngModel]="frame()"
           (ngModelChange)="seek($event)"
-          [min]="0"
-          [max]="length() - 1"
+          [min]="range()[0]"
+          [max]="range()[1]"
           [step]="1"
-          [disabled]="length() < 2"
+          [disabled]="range()[1] <= range()[0]"
           ariaLabel="Timeline"
         />
         <span class="frame-counter">{{ frame() + 1 }} / {{ length() }}</span>
@@ -44,6 +58,18 @@
       <!-- Controls -->
       <div class="player-row">
         <div class="control-group">
+          <p-togglebutton
+            [ngModel]="inspection.sidebarVisible()"
+            (ngModelChange)="inspection.sidebarVisible.set($event)"
+            onIcon="pi pi-bars"
+            offIcon="pi pi-bars"
+            [onLabel]="''"
+            [offLabel]="''"
+            size="small"
+            pTooltip="Sequences and labels panel"
+            tooltipPosition="top"
+            ariaLabel="Sequences and labels panel"
+          ></p-togglebutton>
           <p-button
             icon="pi pi-chevron-left"
             severity="secondary"
@@ -175,26 +201,57 @@
               ariaLabel="Show only edges"
             ></p-togglebutton>
           </div>
-
-          <div class="control-group legend">
-            @for (label of legend(); track label.id) {
-              <button
-                type="button"
-                class="legend-chip"
-                [class.is-hidden]="isLabelHidden(label.id)"
-                [attr.aria-pressed]="!isLabelHidden(label.id)"
-                [pTooltip]="
-                  (isLabelHidden(label.id) ? 'Show ' : 'Hide ') + label.name
-                "
-                tooltipPosition="top"
-                (click)="toggleLabel(label.id)"
-              >
-                <span class="legend-swatch" [style.background]="label.color"></span>
-                <span class="legend-name">{{ label.name }}</span>
-              </button>
-            }
-          </div>
         }
+
+        <div
+          class="control-group range-control"
+          pTooltip="Play, and buffer, only these frames. Leave empty for the whole sequence."
+          tooltipPosition="top"
+        >
+          <span class="range-label">Frames</span>
+          <input
+            pInputText
+            pSize="small"
+            type="number"
+            min="1"
+            step="1"
+            class="range-input"
+            placeholder="1"
+            aria-label="First frame to play"
+            [ngModel]="rangeStartShown()"
+            (ngModelChange)="setRangeStart($event)"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            (keydown.enter)="$any($event.target).blur()"
+          />
+          <span>–</span>
+          <input
+            pInputText
+            pSize="small"
+            type="number"
+            min="1"
+            step="1"
+            class="range-input"
+            [placeholder]="length()"
+            aria-label="Last frame to play"
+            [ngModel]="rangeEndShown()"
+            (ngModelChange)="setRangeEnd($event)"
+            [ngModelOptions]="{ updateOn: 'blur' }"
+            (keydown.enter)="$any($event.target).blur()"
+          />
+          @if (hasRange()) {
+            <p-button
+              icon="pi pi-times"
+              severity="secondary"
+              size="small"
+              [text]="true"
+              [rounded]="true"
+              pTooltip="Play the whole sequence"
+              tooltipPosition="top"
+              ariaLabel="Clear the frame range"
+              (onClick)="clearRange()"
+            ></p-button>
+          }
+        </div>
 
         <span class="flex-1"></span>
 
@@ -244,5 +301,6 @@
         </div>
       </div>
     </footer>
+    </div>
   }
 </div>

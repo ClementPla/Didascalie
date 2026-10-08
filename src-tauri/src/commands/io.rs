@@ -35,6 +35,9 @@ pub struct ScanOptions {
   pub input_regex: String,
   pub recursive: bool,
   pub folders_as_sequences: bool, // NEW: if true, subfolders become sequences
+  /// Keep one frame out of this many from each video (1, or 0, keeps them
+  /// all). A video is always one sequence, whatever `folders_as_sequences`.
+  pub video_frame_step: u32,
 }
 
 #[derive(Serialize, Debug, TS)]
@@ -96,10 +99,12 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
   )?;
 
   // Scan for image files
-  let image_files = scan_for_images(&folder_path, &folder_path, &regex, options.recursive)?;
+  let (videos, image_files) =
+    split_videos(scan_for_images(&folder_path, &folder_path, &regex, options.recursive)?);
   log::info!(
-    "[import] {} file(s) matched /{}/ (recursive: {}, foldersAsSequences: {})",
+    "[import] {} image(s) and {} video(s) matched /{}/ (recursive: {}, foldersAsSequences: {})",
     image_files.len(),
+    videos.len(),
     options.input_regex,
     options.recursive,
     options.folders_as_sequences
@@ -108,7 +113,21 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
   let sequences = group_into_sequences(image_files, options.folders_as_sequences);
   log::info!("[import] grouped into {} sequence(s)", sequences.len());
   // Import into database
-  let result = import_sequences(&db, sequences, options.embed_images, options.embed_threshold_kb)?;
+  let mut result = import_sequences(&db, sequences, options.embed_images, options.embed_threshold_kb)?;
+
+  // Videos stay on disk whatever `embed_images` says: see `crate::video`.
+  db.with_conn(|conn| {
+    for video in &videos {
+      match import_video(conn, video, options.video_frame_step) {
+        Ok(frames) => {
+          result.sequences_created += 1;
+          result.frames_imported += frames;
+        }
+        Err(e) => result.errors.push(format!("Failed to import {}: {}", video.relative_path, e)),
+      }
+    }
+    Ok(())
+  })?;
 
   Ok(result)
 }
@@ -128,6 +147,7 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
 ///   and a project has one `input_folder`, so a file outside it could never be
 ///   found again. Their paths are prefixed with the folder's own name to keep
 ///   them apart from the project's, and they always form new sequences.
+///   A video cannot be embedded, so one found there is reported as an error.
 #[tauri::command]
 pub fn add_images_to_project(db: State<DbState>, options: ScanOptions) -> Result<AddImagesResult> {
   log::info!("[import] adding images from {}", options.folder_path);
@@ -166,7 +186,8 @@ fn add_images(
   };
   let embed_images = options.embed_images || !inside;
 
-  let images = scan_for_images(&scan_root, &folder, regex, options.recursive)?;
+  let (videos, images) =
+    split_videos(scan_for_images(&scan_root, &folder, regex, options.recursive)?);
   let mut groups: Vec<(String, Vec<ImageFile>)> =
     group_into_sequences(images, options.folders_as_sequences).into_iter().collect();
   groups.sort_by(|a, b| a.0.cmp(&b.0));
@@ -268,6 +289,34 @@ fn add_images(
     }
   }
 
+  for video in &videos {
+    if !inside {
+      result.errors.push(format!(
+        "{}: a video is read from the project's image folder and cannot be copied into \
+         the project file. Move it into that folder first.",
+        video.relative_path
+      ));
+      continue;
+    }
+    let known: bool = tx.query_row(
+      "SELECT EXISTS (SELECT 1 FROM frames f JOIN videos v ON v.id = f.video_id
+                      WHERE v.relative_path = ?1)",
+      params![video.relative_path],
+      |row| row.get(0)
+    )?;
+    if known {
+      result.frames_skipped += 1;
+      continue;
+    }
+    match import_video(&tx, video, options.video_frame_step) {
+      Ok(frames) => {
+        result.sequences_created += 1;
+        result.frames_imported += frames;
+      }
+      Err(e) => result.errors.push(format!("Failed to import {}: {}", video.relative_path, e)),
+    }
+  }
+
   tx.commit()?;
   log::info!(
     "[import] added {} frame(s), skipped {}, {} error(s)",
@@ -348,6 +397,11 @@ fn scan_for_images(
   images.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
 
   Ok(images)
+}
+
+/// Separate the videos (first) from the images among scanned files.
+fn split_videos(files: Vec<ImageFile>) -> (Vec<ImageFile>, Vec<ImageFile>) {
+  files.into_iter().partition(|f| crate::video::is_video(&f.absolute_path))
 }
 
 /// Group images into sequences
@@ -489,6 +543,98 @@ fn import_frame(
   Ok(should_embed)
 }
 
+/// Import a video as a new sequence, one frame out of `step`. Returns how many
+/// frames it gave.
+///
+/// Indexing the file is the slow part and happens first, so nothing is written
+/// for a video ffmpeg cannot read.
+fn import_video(conn: &rusqlite::Connection, video: &ImageFile, step: u32) -> Result<usize> {
+  let index = crate::video::probe(&video.absolute_path)?;
+  log::info!(
+    "[import] {}: {} frame(s), {}x{}, {:.3} fps",
+    video.relative_path,
+    index.times.len(),
+    index.width,
+    index.height,
+    index.fps
+  );
+
+  // A savepoint rather than a transaction: this runs both on its own and
+  // inside the transaction of `add_images`.
+  conn.execute_batch("SAVEPOINT import_video")?;
+  let inserted = insert_video(conn, &video.relative_path, &index, step);
+  conn.execute_batch(if inserted.is_ok() {
+    "RELEASE import_video"
+  } else {
+    "ROLLBACK TO import_video; RELEASE import_video"
+  })?;
+  inserted
+}
+
+/// Write the sequence, video and frame rows of an indexed video.
+fn insert_video(
+  conn: &rusqlite::Connection,
+  relative_path: &str,
+  index: &crate::video::VideoIndex,
+  step: u32
+) -> Result<usize> {
+  // Named after the file, folders included: two videos of one folder are two
+  // sequences, unlike two images.
+  let name = Path::new(relative_path).with_extension("").to_string_lossy().to_string();
+  let taken: bool = conn.query_row(
+    "SELECT EXISTS (SELECT 1 FROM sequences WHERE name = ?1)",
+    params![name],
+    |row| row.get(0)
+  )?;
+  let name = if taken { free_sequence_name(conn, &name)? } else { name };
+  conn.execute(
+    "INSERT INTO sequences (name, sort_order)
+     VALUES (?1, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM sequences))",
+    params![name]
+  )?;
+  let sequence_id = conn.last_insert_rowid();
+
+  // Deleting a sequence deletes its frames, not the video they came from. A
+  // video left without frames is as good as absent, and is replaced here.
+  conn.execute(
+    "DELETE FROM videos WHERE relative_path = ?1
+       AND NOT EXISTS (SELECT 1 FROM frames WHERE video_id = videos.id)",
+    params![relative_path]
+  )?;
+  conn.execute(
+    "INSERT INTO videos (relative_path, frame_count, fps, seek_margin, seek_preroll)
+     VALUES (?1, ?2, ?3, ?4, ?5)",
+    params![relative_path, index.times.len() as i64, index.fps, index.seek_margin, index.seek_preroll]
+  )?;
+  let video_id = conn.last_insert_rowid();
+
+  let mut stmt = conn.prepare(
+    "INSERT INTO frames (
+            sequence_id, frame_index, relative_path, width, height, reviewed,
+            video_id, video_frame, video_time
+        ) VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8)"
+  )?;
+  let mut frames = 0;
+  for (video_frame, time) in index.times.iter().enumerate().step_by(step.max(1) as usize) {
+    // Exports and annotation imports identify a frame by this path, so each
+    // frame needs one of its own. The extension is a lossless format's: what
+    // a frame of a video would be saved as.
+    let frame_path = Path::new(relative_path).join(format!("{:06}.png", video_frame));
+    stmt.execute(params![
+      sequence_id,
+      frames as i64,
+      frame_path.to_string_lossy(),
+      index.width,
+      index.height,
+      video_id,
+      video_frame as i64,
+      time
+    ])?;
+    frames += 1;
+  }
+  Ok(frames)
+}
+
 /// Get image dimensions from raw bytes
 fn get_image_dimensions(data: &[u8]) -> Result<(i32, i32)> {
   let img = image
@@ -589,6 +735,7 @@ mod tests {
             input_regex: DEFAULT_REGEX.into(),
             recursive: true,
             folders_as_sequences,
+            video_frame_step: 1,
         }
     }
 
@@ -698,5 +845,172 @@ mod tests {
         let root = dir_with("non_recursive", &["top.png", "sub/deep.png"]);
         let re = Regex::new(DEFAULT_REGEX).unwrap();
         assert_eq!(scan_for_images(&root, &root, &re, false).unwrap().len(), 1);
+    }
+
+    // ---- videos ----
+
+    fn video_index(frames: usize) -> crate::video::VideoIndex {
+        crate::video::VideoIndex {
+            times: (0..frames).map(|n| n as f64 / 30.0).collect(),
+            seek_margin: 1.0 / 120.0,
+            seek_preroll: 0.1,
+            fps: 30.0,
+            width: 4,
+            height: 2,
+        }
+    }
+
+    #[test]
+    fn a_video_becomes_one_sequence_of_its_frames() {
+        let conn = open_project();
+        let clip = Path::new("day1").join("clip.mp4").to_string_lossy().to_string();
+        assert_eq!(insert_video(&conn, &clip, &video_index(5), 1).unwrap(), 5);
+
+        let names: Vec<String> = column(&conn, "SELECT name FROM sequences");
+        assert_eq!(names, [Path::new("day1").join("clip").to_string_lossy().to_string()]);
+        let source: Vec<i64> = column(&conn, "SELECT video_frame FROM frames ORDER BY frame_index");
+        assert_eq!(source, [0, 1, 2, 3, 4]);
+        let paths: Vec<String> = column(&conn, "SELECT DISTINCT relative_path FROM frames");
+        assert_eq!(paths.len(), 5, "every frame has a path of its own");
+        assert_eq!(column::<i64>(&conn, "SELECT frame_count FROM videos"), [5]);
+    }
+
+    #[test]
+    fn a_frame_step_keeps_one_frame_out_of_n() {
+        let conn = open_project();
+        assert_eq!(insert_video(&conn, "clip.mp4", &video_index(10), 4).unwrap(), 3);
+        let source: Vec<i64> = column(&conn, "SELECT video_frame FROM frames ORDER BY frame_index");
+        assert_eq!(source, [0, 4, 8]);
+        let index: Vec<i64> = column(&conn, "SELECT frame_index FROM frames ORDER BY frame_index");
+        assert_eq!(index, [0, 1, 2], "frames stay contiguous in their sequence");
+        let times: Vec<f64> = column(&conn, "SELECT video_time FROM frames ORDER BY frame_index");
+        assert!((times[1] - 4.0 / 30.0).abs() < 1e-12);
+        // A step of 0 is "no step", not a division by zero.
+        assert_eq!(insert_video(&conn, "other.mp4", &video_index(3), 0).unwrap(), 3);
+    }
+
+    #[test]
+    fn a_video_named_like_an_existing_sequence_gets_its_own() {
+        let root = dir_with("video_names", &[]);
+        write_png(&root, "clip/a.png", 1);
+        let conn = open_project();
+        add(&conn, &root, &root, true);
+        insert_video(&conn, "clip.mp4", &video_index(2), 1).unwrap();
+        let names: Vec<String> = column(&conn, "SELECT name FROM sequences ORDER BY sort_order");
+        assert_eq!(names, ["clip", "clip (2)"]);
+    }
+
+    #[test]
+    fn deleting_a_sequence_leaves_its_video_importable_again() {
+        let conn = open_project();
+        insert_video(&conn, "clip.mp4", &video_index(2), 1).unwrap();
+        // The same file twice is refused by the schema, whatever the caller checks.
+        assert!(insert_video(&conn, "clip.mp4", &video_index(2), 1).is_err());
+
+        conn.execute("DELETE FROM sequences", []).unwrap();
+        assert_eq!(insert_video(&conn, "clip.mp4", &video_index(3), 1).unwrap(), 3);
+        assert_eq!(column::<i64>(&conn, "SELECT frame_count FROM videos"), [3]);
+    }
+
+    const VIDEO_REGEX: &str = r"\.(png|mp4)$";
+
+    /// Run the ffmpeg the application would, or `None` where there is none
+    /// (the tests needing it are then skipped).
+    fn ffmpeg(args: &[&str]) -> Option<Vec<u8>> {
+        let exe = std::env::var("DIDASCALIE_FFMPEG").unwrap_or_else(|_| "ffmpeg".into());
+        let out = std::process::Command::new(exe).args(["-v", "error"]).args(args).output().ok()?;
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        Some(out.stdout)
+    }
+
+    /// The property everything rests on: frame `n` of a project decodes to
+    /// frame `n` of the video, however it is asked for — alone and out of
+    /// order, or in order with the following frames decoded along (every
+    /// frame of the video, then one out of three). B-frames and a short GOP
+    /// make most frames neither keyframes nor in file order.
+    #[test]
+    fn a_video_frame_decodes_to_the_same_pixels_as_playing_the_video() {
+        use crate::commands::frame::{read_frame_bytes, read_frame_bytes_ahead};
+
+        let root = dir_with("video_exact", &[]);
+        let clip_arg = root.join("alone.mp4").to_string_lossy().to_string();
+        let (w, h, count) = (64usize, 48usize, 80usize);
+        if ffmpeg(&[
+            "-f", "lavfi", "-i", "testsrc=size=64x48:rate=30", "-frames:v", "80",
+            "-c:v", "mpeg4", "-bf", "2", "-g", "12", "-q:v", "3", "-y", &clip_arg,
+        ]).is_none() {
+            eprintln!("ffmpeg not found: skipping");
+            return;
+        }
+        let played = ffmpeg(&[
+            "-i", &clip_arg, "-map", "0:v:0", "-sws_flags", "bitexact",
+            "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ]).unwrap();
+        assert_eq!(played.len(), w * h * 3 * count);
+        // Decoded frames are cached by file: a file per way of reading, or the
+        // second way would only read what the first decoded.
+        fs::copy(root.join("alone.mp4"), root.join("run.mp4")).unwrap();
+        fs::copy(root.join("alone.mp4"), root.join("sparse.mp4")).unwrap();
+
+        type Read = fn(&DbState, i64) -> Result<(crate::commands::frame::FrameMeta, Vec<u8>)>;
+        let cases: [(&str, u32, bool, Read); 3] = [
+            ("alone", 1, true, read_frame_bytes),
+            ("run", 1, false, read_frame_bytes_ahead),
+            ("sparse", 3, false, read_frame_bytes_ahead),
+        ];
+        for (name, step, backwards, read) in cases {
+            let conn = open_project();
+            conn.execute(
+                "INSERT OR REPLACE INTO project (id, config) VALUES (1, json_object('input_folder', ?1))",
+                params![root.to_string_lossy()],
+            ).unwrap();
+            let re = Regex::new(&format!(r"^{}\.mp4$", name)).unwrap();
+            let mut opts = options(&root, false);
+            opts.video_frame_step = step;
+            let result = add_images(&conn, Some(&root.to_string_lossy()), &opts, &re).unwrap();
+            assert_eq!(result.errors, Vec::<String>::new());
+            let expected = count.div_ceil(step as usize);
+            assert_eq!((result.sequences_created, result.frames_imported), (1, expected), "{name}");
+
+            // A rescan finds the video already there.
+            let again = add_images(&conn, Some(&root.to_string_lossy()), &opts, &re).unwrap();
+            assert_eq!((again.frames_imported, again.frames_skipped), (0, 1));
+
+            let mut frames: Vec<(i64, i64)> = {
+                let mut stmt =
+                    conn.prepare("SELECT id, video_frame FROM frames ORDER BY frame_index").unwrap();
+                let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+                rows.map(|r| r.unwrap()).collect()
+            };
+            if backwards {
+                frames.reverse();
+            }
+
+            let db = DbState::new();
+            db.set(conn);
+            for (frame_id, video_frame) in frames {
+                let (meta, bytes) = read(&db, frame_id).unwrap();
+                assert_eq!((meta.frame.width, meta.frame.height), (w as i32, h as i32));
+                let decoded = image::load_from_memory(&bytes).unwrap().to_rgb8();
+                let n = video_frame as usize;
+                assert!(
+                    decoded.as_raw()[..] == played[n * w * h * 3..(n + 1) * w * h * 3],
+                    "{name}: frame {n} of the video"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_video_outside_the_image_folder_is_refused() {
+        let root = dir_with("video_outside_root", &[]);
+        let other = dir_with("video_outside_other", &["clip.mp4"]);
+        let conn = open_project();
+        let re = Regex::new(VIDEO_REGEX).unwrap();
+        let result =
+            add_images(&conn, Some(&root.to_string_lossy()), &options(&other, false), &re).unwrap();
+        assert_eq!(result.frames_imported, 0);
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(column::<String>(&conn, "SELECT name FROM sequences").len(), 0);
     }
 }

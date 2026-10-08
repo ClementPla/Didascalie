@@ -98,7 +98,7 @@ impl Default for ProjectConfig {
             classification_enabled: false,
             instance_segmentation_enabled: false,
             text_description_enabled: false, 
-            input_regex: String::from(r"\.(png|jpg|jpeg|bmp|tiff?)$"),
+            input_regex: String::from(r"\.(png|jpg|jpeg|bmp|tiff?|mp4|m4v|mov|mkv|webm|avi)$"),
             recursive: false,
             segmentation_labels: None,
             classification_tasks: None,

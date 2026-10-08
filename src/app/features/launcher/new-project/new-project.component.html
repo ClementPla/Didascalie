@@ -81,6 +81,22 @@
             <label for="inputRegex">Filename pattern (regex)</label>
           </p-floatLabel>
 
+          <p-floatLabel
+            class="video-step"
+            title="Each video is one sequence. 1 keeps every frame, 10 one frame out of ten."
+          >
+            <input
+              pInputText
+              id="videoFrameStep"
+              type="number"
+              min="1"
+              step="1"
+              class="w-full"
+              [(ngModel)]="videoFrameStep"
+            />
+            <label for="videoFrameStep">Video frame step</label>
+          </p-floatLabel>
+
           <app-labelled-switch [(checked)]="recursive">
             Recursive
           </app-labelled-switch>

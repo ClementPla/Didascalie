@@ -119,6 +119,13 @@ export class NewProjectComponent implements OnInit {
     this.projectService.setInputRegex(v);
   }
 
+  get videoFrameStep(): number {
+    return this.projectService.videoFrameStep();
+  }
+  set videoFrameStep(v: number) {
+    this.projectService.setVideoFrameStep(v);
+  }
+
   get recursive(): boolean {
     return this.projectService.recursive();
   }

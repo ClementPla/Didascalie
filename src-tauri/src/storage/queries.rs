@@ -7,7 +7,7 @@ use crate::types::image::{AnnotationData, MaskEncoding};
 
 /// Current on-disk schema version. Bump this whenever the schema changes and
 /// add a matching arm in `run_migrations`.
-pub const SCHEMA_VERSION: i64 = 4;
+pub const SCHEMA_VERSION: i64 = 6;
 
 /// The account every project has: created with it, or added to an older
 /// project when it is migrated. See the `users` table in `schema.rs`.
@@ -93,8 +93,30 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         v = 4;
     }
 
+    // v4 -> v5: frames decoded from video files.
+    if v < 5 {
+        if !has_column(&tx, "frames", "video_id")? {
+            tx.execute_batch(super::schema::MIGRATION_V5_FRAME_COLUMNS)
+                .map_err(AppError::Database)?;
+        }
+        tx.execute_batch(super::schema::VIDEO_FRAMES_INDEX)
+            .map_err(AppError::Database)?;
+        v = 5;
+    }
+
+    // v5 -> v6: how much earlier than a video frame decoding starts.
+    if v < 6 {
+        if !has_column(&tx, "videos", "seek_preroll")? {
+            tx.execute_batch(super::schema::MIGRATION_V6_SEEK_PREROLL)
+                .map_err(AppError::Database)?;
+        }
+        tx.execute_batch(super::schema::VIDEO_FRAMES_INDEX)
+            .map_err(AppError::Database)?;
+        v = 6;
+    }
+
     // Future migrations go here, one block per version:
-    //   if v < 5 { tx.execute_batch(MIGRATION_V5)?; v = 5; }
+    //   if v < 7 { tx.execute_batch(MIGRATION_V7)?; v = 7; }
 
     // PRAGMA doesn't accept bound parameters; v is an internal integer.
     tx.execute_batch(&format!("PRAGMA user_version = {};", v))
@@ -684,6 +706,29 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    /// Backward compatibility: an older project gains what video frames need,
+    /// and its image frames are untouched by it.
+    #[test]
+    fn an_older_project_gains_the_video_columns() {
+        let conn = v3_project();
+        run_migrations(&conn).unwrap();
+        for column in ["video_id", "video_frame", "video_time"] {
+            assert!(has_column(&conn, "frames", column).unwrap(), "{column}");
+        }
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM frames WHERE video_id IS NULL"), 2);
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM videos"), 0);
+        // Deleting a video takes its frames along.
+        conn.execute_batch(
+            "INSERT INTO videos (id, relative_path, frame_count, fps, seek_margin, seek_preroll)
+               VALUES (1, 'clip.mp4', 1, 30, 0.01, 0.1);
+             INSERT INTO frames (sequence_id, frame_index, width, height, video_id, video_frame, video_time)
+               VALUES (1, 2, 2, 2, 1, 0, 0);
+             DELETE FROM videos;",
+        )
+        .unwrap();
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM frames"), 2);
     }
 
     fn n(conn: &Connection, sql: &str) -> i64 {
