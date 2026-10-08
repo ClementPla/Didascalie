@@ -54,7 +54,7 @@ A *didascalie* (*di-da-ska-LEE*) is the French word for a stage direction, one o
     <td width="50%"><img alt="The gallery" src="docs/assets/screenshots/gallery.jpg"><br><sub>The gallery: filter sequences and track review status.</sub></td>
   </tr>
   <tr>
-    <td><img alt="The inspector" src="docs/assets/screenshots/inspect.gif"><br><sub>The inspector: play a sequence back with its labels.</sub></td>
+    <td><a href="https://didascalie.readthedocs.io/guide/inspect/"><img alt="The inspector" src="docs/assets/screenshots/inspect_poster.jpg"></a><br><sub>The inspector: play a sequence back with its labels (<a href="https://didascalie.readthedocs.io/guide/inspect/">video</a>).</sub></td>
     <td><img alt="Frame registration" src="docs/assets/screenshots/registration.png"><br><sub>Frame registration from keypoint correspondences.</sub></td>
   </tr>
   <tr>

@@ -14,7 +14,7 @@ The inspector is read-only.
   you are working on.
 - From the left toolbar: the video icon.
 
-<video src="../../assets/screenshots/inspect.mp4" poster="../../assets/screenshots/inspect_poster.jpg"
+<video src="../../assets/screenshots/inspect.webm" poster="../../assets/screenshots/inspect_poster.jpg"
        autoplay loop muted playsinline controls preload="metadata" style="width: 100%"
        aria-label="The inspector playing a sequence back with its masks outlined."></video>
 

@@ -25,7 +25,7 @@ analysis pipeline. Didascalie is an installer and a project file.
       <figcaption>The gallery: filter sequences and track review status. Batch classify sequences</figcaption>
     </figure>
     <figure>
-      <video src="assets/screenshots/inspect.mp4" poster="assets/screenshots/inspect_poster.jpg"
+      <video src="assets/screenshots/inspect.webm" poster="assets/screenshots/inspect_poster.jpg"
              autoplay loop muted playsinline preload="metadata"
              aria-label="The inspector: play a sequence back with its labels."></video>
       <figcaption>The inspector: play a sequence back with its labels.</figcaption>

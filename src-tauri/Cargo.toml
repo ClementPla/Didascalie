@@ -145,8 +145,6 @@ opt-level = 2 # Prioritizes speed over binary size. Use `z` if you prefer smalle
 strip = true # Ensures debug symbols are removed.
 incremental = true
 
-# A shipping build, when the last few percent matter more than the wait.
-#   cargo tauri build -- --profile release-full
 [profile.release-full]
 inherits = "release"
 codegen-units = 1
