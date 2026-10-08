@@ -39,7 +39,11 @@ pub fn create_project(
     
     // Sync labels table from config
     queries::sync_labels_from_config(&conn, &config)?;
-    
+
+    // A new project has exactly one account, its creator's, so this logs in.
+    queries::install_user_scope(&conn)?;
+    crate::commands::users::auto_login(&conn)?;
+
     db.set(conn);
     Ok(())
 }
@@ -63,6 +67,12 @@ pub fn open_project(
 
     // Ensure labels table is in sync with config
     queries::sync_labels_from_config(&conn, &config)?;
+
+    // From here on the connection shows one user's annotations. With a single
+    // passwordless account that user is known already; otherwise the frontend
+    // asks who is there before anything else is loaded.
+    queries::install_user_scope(&conn)?;
+    crate::commands::users::auto_login(&conn)?;
 
     db.set(conn);
     // Restore this project's trained head, if it has one, so predicting works

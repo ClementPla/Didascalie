@@ -11,7 +11,12 @@ Launch Didascalie and choose **New project**. You will be asked for:
 - an **input folder** of images;
 - whether to **embed** the images or reference them on disk
   ([which to pick](guide/projects.md#embedded-or-referenced-images));
-- which **annotation types** the project uses: segmentation, classification, text.
+- which **annotation types** the project uses: segmentation, classification, text;
+- **your name**, for the project's first account. You can leave it empty if you
+  work alone.
+
+Other people can later add their own account to the same project and annotate
+it independently. See [Several annotators](guide/multi-user.md).
 
 
 

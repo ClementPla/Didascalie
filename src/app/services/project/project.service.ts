@@ -1,5 +1,12 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { api, ProjectConfig, ScanResult } from '../../lib/api';
+import {
+  api,
+  AddImagesResult,
+  ProjectConfig,
+  ProjectEdit,
+  ScanOptions,
+  ScanResult,
+} from '../../lib/api';
 import { LabelsService } from '../labels/labels.service';
 import { ProjectLifecycleService } from './project-lifecycle.service';
 // ==========================================
@@ -235,6 +242,44 @@ export class ProjectService {
     await this.refreshCounts();
 
     return result;
+  }
+
+  /**
+   * Add a folder's images to the open project. See `add_images_to_project` for
+   * how images already present, and folders outside the project's own, are
+   * handled.
+   */
+  async addImages(options: ScanOptions): Promise<AddImagesResult> {
+    const result = await api.addImagesToProject(options);
+    await this.refreshCounts();
+    return result;
+  }
+
+  // ==========================================
+  // Editing an open project
+  // ==========================================
+
+  /**
+   * Apply one configuration change to the open project.
+   *
+   * The backend changes the config and the annotations that depend on it in
+   * one transaction and hands back the result, which replaces the local copy
+   * wholesale: nothing here patches `_config` by hand, so the two cannot
+   * disagree about what a half-applied edit looks like.
+   *
+   * Callers go through `ProjectSettingsService`, which also flushes and drops
+   * the editor's in-memory state around the edit. Calling this directly while
+   * a frame is loaded leaves that state describing labels that have changed.
+   */
+  async applyEdit(edit: ProjectEdit): Promise<void> {
+    const config = await api.applyProjectEdit(edit);
+    this._config.set({ ...DEFAULT_PROJECT_CONFIG, ...config });
+    await this.labelService.setDefinitions(config);
+
+    const path = this._projectPath();
+    if (edit.type === 'renameProject' && path) {
+      this.addToRecentProjects(config.name, path);
+    }
   }
 
   async refreshCounts(): Promise<void> {

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::storage::DbState;
+use crate::storage::{queries, DbState};
 use crate::utils::error::Result;
 use crate::utils::AppError;
 
@@ -24,11 +24,13 @@ pub fn save_vector_annotations(
 ) -> Result<()> {
     db.with_conn(|conn| {
         // No shapes for this label → drop the row so we don't keep empty records.
+        let user = queries::current_user_id(conn)?;
         let is_empty = shapes.as_array().map(|a| a.is_empty()).unwrap_or(true);
         if is_empty {
             conn.execute(
-                "DELETE FROM vector_annotations WHERE frame_id = ?1 AND label_id = ?2",
-                (frame_id, label_id),
+                "DELETE FROM main.vector_annotations
+                 WHERE frame_id = ?1 AND label_id = ?2 AND user_id = ?3",
+                (frame_id, label_id, user),
             )?;
             return Ok(());
         }
@@ -37,11 +39,11 @@ pub fn save_vector_annotations(
             .map_err(|e| AppError::Generic(format!("Failed to serialize shapes: {}", e)))?;
 
         conn.execute(
-            "INSERT INTO vector_annotations (frame_id, label_id, shapes, modified_at)
-             VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
-             ON CONFLICT(frame_id, label_id)
+            "INSERT INTO main.vector_annotations (frame_id, label_id, user_id, shapes, modified_at)
+             VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)
+             ON CONFLICT(frame_id, label_id, user_id)
              DO UPDATE SET shapes = excluded.shapes, modified_at = CURRENT_TIMESTAMP",
-            (frame_id, label_id, &shapes_json),
+            (frame_id, label_id, user, &shapes_json),
         )?;
         Ok(())
     })

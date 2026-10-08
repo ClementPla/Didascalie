@@ -29,6 +29,12 @@ frontend (the WebView) talking to a **Rust** backend over Tauri's IPC.
 - **The boundary** is `src/app/lib/api.ts` (one typed wrapper per Tauri command)
   ↔ `src-tauri/src/lib.rs` `invoke_handler![…]` (~60 commands, grouped by module
   under `src-tauri/src/commands/`). If you add a command, it goes in both places.
+- **Editing an open project** goes through one command, `apply_project_edit`
+  (`commands/project_edit.rs`), taking a typed `ProjectEdit`. It changes the
+  config JSON *and* the rows that refer to it by name or id in one transaction;
+  nothing writes a whole `ProjectConfig` back. On the frontend,
+  `ProjectSettingsService` brackets each edit with a save-flush and a reset of
+  the editor's per-frame state, because that state is indexed by label position.
 
 Large binary payloads (masks, image tiles) cross as `ArrayBuffer` /
 `tauri::ipc::Response`, **not** base64, to avoid multi-hundred-MB copies.
@@ -37,7 +43,7 @@ Large binary payloads (masks, image tiles) cross as `ArrayBuffer` /
 
 A project is a single SQLite file (`.dida`; `.labelmed` from the old name still
 opens). Schema in `src-tauri/src/storage/schema.rs`, versioned by
-`PRAGMA user_version` (`SCHEMA_VERSION`, currently **3**) with forward-compat
+`PRAGMA user_version` (`SCHEMA_VERSION`, currently **4**) with forward-compat
 guard: a newer file refuses to open in an older build; an older file is migrated
 on open. Core tables:
 
@@ -46,11 +52,42 @@ on open. Core tables:
 | `project` | single-row JSON config (labels/tasks definitions) |
 | `labels` | segmentation labels (name, color, `is_instance`, order) |
 | `sequences` / `frames` | images grouped into sequences; pixels embedded (`embedded_data` BLOB) or referenced (`relative_path` + `content_hash`) |
-| `annotations` | **raster** masks, one row per (frame, label), `encoding` + `mask_data` BLOB |
-| `vector_annotations` | **vector** shapes, one row per (frame, label), `shapes` JSON |
-| `classifications` | per (frame, task) selected classes; multiclass/multilabel |
-| `text_descriptions` | per (frame, text-task) free text |
+| `users` | accounts: name, role (`admin`/`editor`), optional clear-text password |
+| `annotations` | **raster** masks, one row per (frame, label, user), `encoding` + `mask_data` BLOB |
+| `vector_annotations` | **vector** shapes, one row per (frame, label, user), `shapes` JSON |
+| `classifications` | per (frame, task, user) selected classes; multiclass/multilabel |
+| `text_descriptions` | per (frame, text-task, user) free text |
+| `frame_reviews` | which frames each user marked reviewed (replaces `frames.reviewed`, kept only as a legacy column) |
 | `registrations` / `keypoint_pairs` | homography + keypoint correspondences per (ref, moving) frame pair |
+
+## Users and per-user data (important)
+
+Annotations, classifications, text and reviews belong to a **user**
+(`user_id`, default 1 = the account every project has). Several people open the
+same file in turn and annotate independently; `commands/agreement.rs` compares
+them.
+
+Isolation is done once, at the connection, not per query. When a project opens,
+`queries::install_user_scope` creates a `TEMP` view named after each per-user
+table, filtered on the logged-in user (a row in a temp `dida_session` table).
+SQLite resolves unqualified names in `temp` first, so:
+
+- **`FROM annotations` reads the current user's rows** — in every existing and
+  future query, with nothing to remember.
+- **Writes must say whose**: a view is read-only, so writers target
+  `main.annotations` and pass `queries::current_user_id(conn)`. A writer that
+  forgets fails loudly instead of writing to the wrong user.
+- **`main.<table>` means everyone's**, used on purpose by project edits, the
+  inter-grader report and account deletion.
+
+Nothing is logged in until `users::log_in` / `auto_login` (a lone passwordless
+account logs in by itself, which keeps single-user projects unchanged). On the
+frontend, `UserService` brackets a user switch like a project switch: flush the
+pending save as the old user, log in, reset every project-scoped service.
+Routes are guarded by `projectStartedGuard` (needs a session) and `adminGuard`.
+
+Shared across users: images, sequences, label/task definitions, registration
+keypoints, the trained model.
 
 ## Two annotation data models (important)
 
@@ -74,7 +111,7 @@ RGBA-canvas-per-label model and makes recolour/opacity/visibility free.
   `r8uint` texture array + palette) with a CPU fallback in `canvas-manager.service.ts`.
 
 ### 2. Vector — `VectorShape[]` per label
-Bezier paths / polygons / polylines, edited with the Select/Path/Node tools.
+Bezier paths / polygons / polylines, edited with the Select/Path/Box/Ellipse/Node tools.
 A `VectorShape` is `{ id, labelId, closed, filled, nodes: VectorNode[] }`; a node
 carries its anchor + two bezier handles. Pure geometry (flatten, hit-test,
 bounds, path `d` string, split, translate) lives in
@@ -126,7 +163,7 @@ subtlety is. It's decomposed into single-responsibility services:
 | `orchestrator.service` | ties image + masks + view together; drives redraws; display pyramid |
 | `zoom-pan.service` | view transform; image↔viewport↔screen coordinate conversions |
 | `draw.service` + `tools/*` | brush/line/lasso stroke pipeline (rasterized on a bounded buffer) |
-| `vector-editor.service` | vector shapes + Select/Path/Node tool state machines + vector undo |
+| `vector-editor.service` | vector shapes + Select/Path/Box/Ellipse/Node tool state machines + move/rotate gizmo + vector undo |
 | `convert.service` | rasterize / vectorize / skeletonize bridges |
 | `post-process.service` | Otsu / flood-fill, plus the experimental modes (MedSAM, superpixel) through the registry (call Rust, write result into active mask) |
 | `undo-redo.service` | unified raster+vector timeline (per-layer snapshot stacks + compound groups) |

@@ -54,11 +54,15 @@ fn load_frames(
     index_by_id: &HashMap<i64, u32>,
 ) -> Result<Vec<FrameData>> {
     let sql = if only_reviewed {
-        "SELECT id, relative_path, width, height, reviewed, embedded_data
-         FROM frames WHERE reviewed = 1 ORDER BY id"
+        "SELECT f.id, f.relative_path, f.width, f.height, 1, f.embedded_data
+         FROM frames f
+         WHERE EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id)
+         ORDER BY f.id"
     } else {
-        "SELECT id, relative_path, width, height, reviewed, embedded_data
-         FROM frames ORDER BY id"
+        "SELECT f.id, f.relative_path, f.width, f.height,
+                EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id),
+                f.embedded_data
+         FROM frames f ORDER BY f.id"
     };
 
     struct Row {
@@ -139,6 +143,8 @@ fn load_frames(
 
 pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResult> {
     let mut result = ImportResult::default();
+    // Imported annotations become the importing user's.
+    let user = queries::current_user_id(conn)?;
 
     // Existing labels by name.
     let mut label_id_by_name: HashMap<String, i64> = HashMap::new();
@@ -215,11 +221,12 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
                 all.extend(new_shapes);
                 let json = serde_json::to_string(&all)?;
                 conn.execute(
-                    "INSERT INTO vector_annotations (frame_id, label_id, shapes, modified_at)
-                     VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
-                     ON CONFLICT(frame_id, label_id)
+                    "INSERT INTO main.vector_annotations
+                     (frame_id, label_id, user_id, shapes, modified_at)
+                     VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)
+                     ON CONFLICT(frame_id, label_id, user_id)
                      DO UPDATE SET shapes = excluded.shapes, modified_at = CURRENT_TIMESTAMP",
-                    (frame_id, label_id, &json),
+                    (frame_id, label_id, user, &json),
                 )?;
             }
         }
@@ -237,11 +244,12 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
         for c in &frame.classifications {
             let json = serde_json::to_string(&c.values).unwrap_or_else(|_| "[]".to_string());
             conn.execute(
-                "INSERT INTO classifications (frame_id, task_name, selected_classes, modified_at)
-                 VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
-                 ON CONFLICT(frame_id, task_name)
+                "INSERT INTO main.classifications
+                 (frame_id, user_id, task_name, selected_classes, modified_at)
+                 VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)
+                 ON CONFLICT(frame_id, task_name, user_id)
                  DO UPDATE SET selected_classes = excluded.selected_classes, modified_at = CURRENT_TIMESTAMP",
-                (frame_id, &c.task, &json),
+                (frame_id, user, &c.task, &json),
             )?;
         }
     }

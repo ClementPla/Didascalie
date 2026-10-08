@@ -298,7 +298,10 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     if (this.editorService.canPan()) {
       this.orchestrator.pan(data.event);
     } else if (this.editorService.isVectorTool()) {
-      this.vectorEditor.onPointerMove(raw);
+      this.vectorEditor.onPointerMove(raw, {
+        shift: data.event.shiftKey,
+        toggle: data.event.ctrlKey || data.event.metaKey,
+      });
     } else if (this.editorService.isVectorizeTool()) {
       // Click-only tool: nothing to render on move.
     } else {

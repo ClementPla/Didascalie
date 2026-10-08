@@ -102,6 +102,62 @@
     />
   }
 
+  <!-- Move / rotate gizmo: drag the pivot to move, the knob to rotate -->
+  @if (gizmo; as g) {
+    <line
+      [attr.x1]="g.pivot.x"
+      [attr.y1]="g.pivot.y"
+      [attr.x2]="g.knob.x"
+      [attr.y2]="g.knob.y"
+      stroke="#000000"
+      stroke-width="3"
+      vector-effect="non-scaling-stroke"
+      opacity="0.6"
+    />
+    <line
+      [attr.x1]="g.pivot.x"
+      [attr.y1]="g.pivot.y"
+      [attr.x2]="g.knob.x"
+      [attr.y2]="g.knob.y"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      vector-effect="non-scaling-stroke"
+    />
+    <g [attr.transform]="decoTransform(g.pivot.x, g.pivot.y)">
+      <circle r="7" fill="#00000099" stroke="#ffffff" stroke-width="1.5" />
+      <path d="M -4 0 H 4 M 0 -4 V 4" stroke="#ffffff" stroke-width="1.5" />
+    </g>
+    <g [attr.transform]="decoTransform(g.knob.x, g.knob.y)">
+      <circle
+        r="6"
+        [attr.fill]="g.rotating ? '#ffffff' : '#4aa3ff'"
+        stroke="#ffffff"
+        stroke-width="1.5"
+      />
+      @if (g.rotating) {
+        <text
+          x="12"
+          y="4"
+          fill="#ffffff"
+          stroke="#000000"
+          stroke-width="3"
+          paint-order="stroke"
+          font-size="13"
+          font-weight="600"
+        >
+          {{ gizmoAngleLabel(g) }}
+        </text>
+      }
+    </g>
+  }
+
+  <!-- Side grips of a box / ellipse: drag to move that side along its normal -->
+  @for (h of sideHandles; track $index) {
+    <g [attr.transform]="decoTransform(h.x, h.y)">
+      <circle r="5" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
+    </g>
+  }
+
   <!-- Node anchors -->
   @for (a of anchors; track $index) {
     <g [attr.transform]="decoTransform(a.x, a.y)">

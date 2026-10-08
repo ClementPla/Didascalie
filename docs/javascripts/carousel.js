@@ -57,13 +57,35 @@ function setUpCarousel(carousel) {
 
   // A screenshot that does not exist (yet) takes its slide with it, so the
   // list in index.md can run ahead of the images actually captured.
-  for (const image of track.querySelectorAll("img")) {
+  for (const media of track.querySelectorAll("img, video")) {
     const drop = () => {
-      image.closest("figure").remove();
+      media.closest("figure").remove();
       render();
     };
-    if (image.complete && image.naturalWidth === 0) drop();
-    else image.addEventListener("error", drop);
+    // A still that already failed to load reports no size; a clip reports an
+    // error. Either can also fail later, once the listener is in place.
+    const failed =
+      media instanceof HTMLVideoElement
+        ? media.error !== null
+        : media.complete && media.naturalWidth === 0;
+    if (failed) drop();
+    else media.addEventListener("error", drop);
+  }
+
+  // Clips only play while their slide is the one on screen, so a clip three
+  // slides away is not decoding in the background.
+  const clips = Array.from(track.querySelectorAll("video"));
+  if (clips.length > 0 && "IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) entry.target.play().catch(() => {});
+          else entry.target.pause();
+        }
+      },
+      { root: track, threshold: 0.6 },
+    );
+    clips.forEach((clip) => observer.observe(clip));
   }
 
   track.addEventListener("scroll", mark, { passive: true });

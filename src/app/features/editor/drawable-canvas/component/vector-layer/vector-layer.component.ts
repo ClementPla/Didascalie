@@ -4,10 +4,10 @@ import { CommonModule } from '@angular/common';
 import { Rect } from '../../../../../core/interface';
 import { LabelsService } from '../../../../../services/labels/labels.service';
 import { EditorService } from '../../../services/editor.service';
-import { VectorEditorService } from '../../service/vector-editor.service';
+import { VectorEditorService, VectorGizmo } from '../../service/vector-editor.service';
 import { ZoomPanService } from '../../service/zoom-pan.service';
 import { Tools } from '../../../../../core/tools';
-import { Bounds, VectorNode, buildPathData } from '../../vector/vector.model';
+import { Bounds, Pt, VectorNode, buildPathData } from '../../vector/vector.model';
 
 interface RenderShape {
   id: string;
@@ -129,9 +129,14 @@ export class VectorLayerComponent {
     e.preventDefault();
   }
 
-  /** True while a tool that owns an object selection is active (Select/Node). */
+  /** True while a tool that owns an object selection is active (every vector
+   *  tool but Draw shape, whose keys belong to the path being placed). */
   private isSelectionContext(): boolean {
-    return this.editorService.isSelectTool() || this.editorService.isNodeTool();
+    return (
+      this.editorService.isSelectTool() ||
+      this.editorService.isNodeTool() ||
+      this.editorService.isShapeTool()
+    );
   }
 
   /** Don't hijack keys while the user is typing in a form control. */
@@ -181,6 +186,22 @@ export class VectorLayerComponent {
   /** The Select-tool marquee rectangle (image space), or null when inactive. */
   get marqueeRect(): Bounds | null {
     return this.vectorEditor.marquee();
+  }
+
+  // ── Move / rotate gizmo ───────────────────────────────────────────────────
+
+  get gizmo(): VectorGizmo | null {
+    return this.vectorEditor.gizmo();
+  }
+
+  /** Side grips of a selected box or ellipse (drag to resize along the normal). */
+  get sideHandles(): Pt[] {
+    return this.vectorEditor.sideHandles().map((h) => h.pos);
+  }
+
+  /** Signed rotation of the drag in progress, for the readout beside the knob. */
+  gizmoAngleLabel(gizmo: VectorGizmo): string {
+    return `${Math.round((gizmo.angle * 180) / Math.PI)}°`;
   }
 
   // ── Pen draft + rubber-band preview ───────────────────────────────────────
@@ -246,6 +267,8 @@ export class VectorLayerComponent {
   private editTarget(): { nodes: VectorNode[]; isDraft: boolean } | null {
     const draft = this.vectorEditor.draft();
     if (draft) {
+      // A box or ellipse being dragged out has no points to place by hand.
+      if (this.editorService.isShapeTool()) return null;
       return this.isLabelVisible(draft.labelId)
         ? { nodes: draft.nodes, isDraft: true }
         : null;

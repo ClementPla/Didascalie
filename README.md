@@ -45,6 +45,7 @@ A *didascalie* (*di-da-ska-LEE*) is the French word for a stage direction, one o
 - **Sequences.** Group images into videos, volumes or patient visits, copy labels from one frame to the others, and play a sequence back with its labels in the inspector.
 - **Frame registration.** Place corresponding keypoints on two frames and check the estimated transform with overlay and checkerboard views.
 - **A gallery to track progress**, with filters by name, review status and keypoints.
+- **Several annotators in one project.** Each has an account and annotates the same images independently; roles separate administrators from editors, and an inter-grader page reports Dice, IoU and kappa between graders, with pictures of where they differ.
 - **One file per project.** A `.dida` file is a SQLite database holding the images (embedded or referenced), annotations, labels and trained model.
 
 <table>
@@ -93,7 +94,7 @@ Details are in the [documentation](https://didascalie.readthedocs.io/experimenta
 
 ## Try it
 
-[`examples/`](examples/) contains a small sample project, `nuclei_histology.dida`, and a script that builds seven more from public datasets: fundus photographs, dermoscopy, laparoscopy and ultrasound videos, brain MRI and liver CT volumes, and a registration set. Their sources and licences are listed in the [examples README](examples/README.md).
+[`examples/`](examples/) contains a small sample project, `nuclei_histology.dida`, and a script that builds eight more from public datasets: fundus photographs (including a set traced by two graders, to try the inter-grader page), dermoscopy, laparoscopy and ultrasound videos, brain MRI and liver CT volumes, and a registration set. Their sources and licences are listed in the [examples README](examples/README.md).
 
 ## The `.dida` format and the Python library
 

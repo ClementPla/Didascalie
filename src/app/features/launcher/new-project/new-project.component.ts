@@ -23,6 +23,10 @@ import { PixelsConfigurationComponent } from '../project-configuration/pixels-co
 
 import { ProjectService } from '../../../services/project/project.service';
 import { LabelsService } from '../../../services/labels/labels.service';
+import { UserService } from '../../../services/users/user.service';
+
+/** Remembers the name last typed, so it is asked once per machine. */
+const OWNER_NAME_KEY = 'didascalie_user_name';
 
 @Component({
   selector: 'app-new-project',
@@ -52,6 +56,11 @@ export class NewProjectComponent implements OnInit {
   labelService = inject(LabelsService);
   private router = inject(Router);
   private messageService = inject(MessageService);
+  private userService = inject(UserService);
+
+  /** Name of the project's first account, its administrator. Optional: left
+   *  empty, the account keeps the default name and can be renamed later. */
+  ownerName = localStorage.getItem(OWNER_NAME_KEY) ?? '';
 
   readonly isLoading = signal(false);
   readonly savePath = signal<string | null>(null);
@@ -182,6 +191,7 @@ export class NewProjectComponent implements OnInit {
     this.isLoading.set(true);
     try {
       await this.projectService.create(this.savePath()!);
+      await this.nameOwner();
       const result = await this.projectService.scanFolder();
       this.messageService.add({
         severity: 'success',
@@ -197,6 +207,28 @@ export class NewProjectComponent implements OnInit {
       });
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  /**
+   * Give the project's first account the creator's name.
+   *
+   * A new project already has that account and is logged in as it; this only
+   * renames it. A failure here must not fail the creation that just succeeded,
+   * so it is reported and swallowed — the account page can rename it later.
+   */
+  private async nameOwner(): Promise<void> {
+    const name = this.ownerName.trim();
+    if (!name) return;
+    try {
+      if (!(await this.userService.ensureSession())) return;
+      const me = this.userService.current()!;
+      if (me.name !== name) {
+        await this.userService.update(me.id, { type: 'rename', name });
+      }
+      localStorage.setItem(OWNER_NAME_KEY, name);
+    } catch (error) {
+      console.error('[new-project] could not name the first account', error);
     }
   }
 

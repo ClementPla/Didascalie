@@ -8,6 +8,7 @@ import { Tools } from '../../../../core/tools';
 import {
   Bounds,
   Pt,
+  SideHandle,
   VectorNode,
   VectorShape,
   boundsIntersect,
@@ -16,11 +17,17 @@ import {
   closestSegment,
   distance,
   distanceToShape,
+  ellipseNodes,
   isFlatHandle,
   makeNode,
   pointInShape,
+  rectNodes,
+  rotateShape,
   shapeBounds,
+  shapesBounds,
+  sideHandles,
   splitSegment,
+  stretchShape,
   translateShape,
 } from '../vector/vector.model';
 import { VectorHistory } from '../vector/vector-history';
@@ -32,14 +39,36 @@ const HIT_PX = 9;
 /** Image-px offset applied to pasted/duplicated shapes so the copy is visible. */
 const PASTE_OFFSET = 12;
 
+/** Screen-pixel distance from the gizmo's pivot to its rotation knob. */
+const GIZMO_ARM_PX = 38;
+
+/** Rotation step while Shift is held. */
+const ROTATE_SNAP = Math.PI / 12;
+
+/** Screen-pixel size under which a Box/Ellipse drag counts as a plain click. */
+const MIN_SHAPE_PX = 3;
+
 type HandleSide = 'in' | 'out';
 
-/** Modifier state captured at pointer-down for the Select tool. */
+/** Modifier state of a pointer event. */
 export interface SelectMods {
-  /** Shift: additive marquee / add-to-selection. */
+  /** Shift: additive marquee / add-to-selection; square or circle while
+   *  dragging out a shape; 15° steps while rotating. */
   shift: boolean;
-  /** Ctrl/Cmd: toggle a shape's membership. */
+  /** Ctrl/Cmd: toggle a shape's membership; drag a shape out from its center. */
   toggle: boolean;
+}
+
+/**
+ * The move/rotate gizmo drawn over the selection (image space). Dragging the
+ * pivot moves the selection, dragging the knob rotates it around the pivot.
+ */
+export interface VectorGizmo {
+  pivot: Pt;
+  knob: Pt;
+  /** Rotation applied by the drag in progress, in radians (0 when idle). */
+  angle: number;
+  rotating: boolean;
 }
 
 /** A shape's bounding box for the overlay (label colour resolved at render). */
@@ -139,6 +168,34 @@ export class VectorEditorService implements ProjectScoped {
   private marqueeDrag: { origin: Pt; base: string[]; additive: boolean; moved: boolean } | null =
     null;
 
+  // Box/Ellipse tool: dragging out a new shape (mirrored into the draft).
+  private shapeDrag: {
+    origin: Pt;
+    id: string;
+    labelId: number;
+    ellipse: boolean;
+  } | null = null;
+  // Gizmo knob: rotating the selection around a pivot fixed at drag start.
+  // `base` holds the shapes as they were, so each move rotates from scratch
+  // instead of accumulating rounding error.
+  private rotateDrag: {
+    pivot: Pt;
+    startAngle: number;
+    base: Map<string, VectorShape>;
+    moved: boolean;
+  } | null = null;
+  // Side grip of a box/ellipse: stretching it along `u` away from `anchor`.
+  private stretchDrag: {
+    base: VectorShape;
+    anchor: Pt;
+    u: Pt;
+    /** Distance from anchor to the grip at drag start. */
+    extent: number;
+    moved: boolean;
+  } | null = null;
+  /** Pivot + angle of the rotation in progress, for the gizmo. */
+  private readonly _rotation = signal<{ pivot: Pt; angle: number } | null>(null);
+
   // Cross-frame copy buffer. Deliberately NOT reset by setShapes()/clear() so a
   // shape copied on one frame can be pasted onto another frame or sequence.
   private clipboard: VectorShape[] = [];
@@ -148,6 +205,12 @@ export class VectorEditorService implements ProjectScoped {
     // the Node tool (toolbar or keyboard) doesn't strand an uncommitted path.
     // A transient pan (space/middle-click) is excluded so it doesn't finalize.
     this.editor.toolChanged$.subscribe((tool) => {
+      // A half-dragged box is not worth keeping; drop it rather than commit it.
+      if (this.shapeDrag) {
+        this.shapeDrag = null;
+        this._draft.set(null);
+        return;
+      }
       if (this._draft() && tool !== Tools.PATH && tool !== Tools.PAN) {
         this.finalizeDraft(false, false);
       }
@@ -230,6 +293,10 @@ export class VectorEditorService implements ProjectScoped {
     this.handleDrag = null;
     this.groupDrag = null;
     this.marqueeDrag = null;
+    this.shapeDrag = null;
+    this.rotateDrag = null;
+    this.stretchDrag = null;
+    this._rotation.set(null);
     // NB: clipboard is intentionally preserved across frames (cross-frame paste).
   }
 
@@ -271,21 +338,34 @@ export class VectorEditorService implements ProjectScoped {
 
   onPointerDown(p: Pt, mods: SelectMods = { shift: false, toggle: false }): void {
     this.pointerDown = true;
+    // The gizmo sits on top of everything, so it gets the first say.
+    if (this.gizmoDown(p)) return;
     if (this.editor.isPathTool()) this.penDown(p);
     else if (this.editor.isNodeTool()) this.nodeDown(p);
     else if (this.editor.isSelectTool()) this.selectDown(p, mods);
+    else if (this.editor.isShapeTool()) this.shapeDown(p);
   }
 
-  onPointerMove(p: Pt): void {
-    if (this.editor.isPathTool()) this.penMove(p);
+  onPointerMove(p: Pt, mods: SelectMods = { shift: false, toggle: false }): void {
+    if (this.rotateDrag) this.rotateMove(p, mods);
+    else if (this.stretchDrag) this.stretchMove(p);
+    else if (this.shapeDrag) this.shapeMove(p, mods);
+    else if (this.editor.isPathTool()) this.penMove(p);
     else if (this.editor.isNodeTool()) this.nodeMove(p);
-    else if (this.editor.isSelectTool()) this.selectMove(p);
+    else if (this.groupDrag || this.marqueeDrag) this.selectMove(p);
   }
 
   onPointerUp(): void {
-    if (this.editor.isNodeTool() && (this.nodeDrag || this.handleDrag)) {
+    if (this.rotateDrag) {
+      this.rotateUp();
+    } else if (this.stretchDrag) {
+      if (this.stretchDrag.moved) this.commit(); // one undoable step
+      this.stretchDrag = null;
+    } else if (this.shapeDrag) {
+      this.shapeUp();
+    } else if (this.editor.isNodeTool() && (this.nodeDrag || this.handleDrag)) {
       this.commit(); // commit a node/handle drag once, at the end
-    } else if (this.editor.isSelectTool()) {
+    } else if (this.groupDrag || this.marqueeDrag) {
       this.selectUp();
     }
     this.pointerDown = false;
@@ -363,10 +443,23 @@ export class VectorEditorService implements ProjectScoped {
 
   /** Esc: cancel an in-progress draft, otherwise clear the selection. */
   cancel(): void {
+    if (this.rotateDrag) {
+      this.restoreRotateBase();
+      this.rotateDrag = null;
+      this._rotation.set(null);
+      return;
+    }
+    if (this.stretchDrag) {
+      const base = this.stretchDrag.base;
+      this._shapes.update((list) => list.map((s) => (s.id === base.id ? base : s)));
+      this.stretchDrag = null;
+      return;
+    }
     if (this._draft()) {
       this._draft.set(null);
       this._hover.set(null);
       this.penHandleNode = null;
+      this.shapeDrag = null;
       return;
     }
     this._selectedIds.set([]);
@@ -739,6 +832,208 @@ export class VectorEditorService implements ProjectScoped {
     }
     this._selectedIds.set([...ids]);
     this._selectedNode.set(null);
+  }
+
+  // ── Box / Ellipse tools (drag out a ready-made closed shape) ──────────────
+
+  private shapeDown(p: Pt): void {
+    const labelId = this.labels.activeLabel?.id;
+    if (labelId == null) return; // need an active label to own the shape
+    this.shapeDrag = {
+      origin: p,
+      id: crypto.randomUUID(),
+      labelId,
+      ellipse: this.editor.isEllipseTool(),
+    };
+  }
+
+  private shapeMove(p: Pt, mods: SelectMods): void {
+    const drag = this.shapeDrag;
+    if (!drag) return;
+    const o = drag.origin;
+    let dx = p.x - o.x;
+    let dy = p.y - o.y;
+    if (mods.shift) {
+      // Square / circle: both sides follow the longer one.
+      const side = Math.max(Math.abs(dx), Math.abs(dy));
+      dx = dx < 0 ? -side : side;
+      dy = dy < 0 ? -side : side;
+    }
+    const a = mods.toggle ? { x: o.x - dx, y: o.y - dy } : o;
+    const b = { x: o.x + dx, y: o.y + dy };
+    this._draft.set({
+      id: drag.id,
+      labelId: drag.labelId,
+      closed: true,
+      filled: false,
+      nodes: drag.ellipse ? ellipseNodes(a, b) : rectNodes(a, b),
+    });
+  }
+
+  private shapeUp(): void {
+    const drag = this.shapeDrag;
+    const draft = this._draft();
+    this.shapeDrag = null;
+    this._draft.set(null);
+    if (!drag) return;
+
+    const bounds = draft ? shapeBounds(draft) : null;
+    const min = MIN_SHAPE_PX / Math.max(1e-6, this.zoomPan.scale);
+    if (!draft || !bounds || bounds.width < min || bounds.height < min) {
+      // A click rather than a drag: pick what is under it, so the gizmo can be
+      // moved to another shape without leaving the tool.
+      this.selectOnly(this.pickSelectable(drag.origin, this.tol())?.id ?? null);
+      return;
+    }
+
+    this._shapes.update((list) => [...list, draft]);
+    this.commit();
+    this.selectOnly(draft.id);
+  }
+
+  // ── Move / rotate gizmo (Select, Box and Ellipse tools) ───────────────────
+
+  /**
+   * The gizmo for the current selection, or null when there is nothing to
+   * transform. A method rather than a computed: it depends on the active tool
+   * and on label visibility, neither of which is a signal.
+   */
+  gizmo(): VectorGizmo | null {
+    if (!this.editor.isSelectTool() && !this.editor.isShapeTool()) return null;
+    if (this._draft() || this._marquee()) return null;
+
+    const live = this._rotation();
+    const pivot = live?.pivot ?? this.selectionCenter();
+    if (!pivot) return null;
+
+    const angle = live?.angle ?? 0;
+    const arm = GIZMO_ARM_PX / Math.max(1e-6, this.zoomPan.scale);
+    return {
+      pivot,
+      knob: {
+        x: pivot.x + arm * Math.sin(angle),
+        y: pivot.y - arm * Math.cos(angle),
+      },
+      angle,
+      rotating: live !== null,
+    };
+  }
+
+  /** Center of the visible selected shapes' joint bounding box. */
+  private selectionCenter(): Pt | null {
+    const bounds = shapesBounds(
+      this.selectedShapes().filter((s) => this.isLabelVisible(s.labelId)),
+    );
+    if (!bounds) return null;
+    return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  }
+
+  /** Start a rotate (knob) or move (pivot) drag. False when p misses the gizmo. */
+  private gizmoDown(p: Pt): boolean {
+    const gizmo = this.gizmo();
+    if (!gizmo) return false;
+    const tol = this.tol();
+
+    if (distance(p, gizmo.knob) < tol) {
+      const base = new Map(this.selectedShapes().map((s) => [s.id, s]));
+      this.rotateDrag = {
+        pivot: gizmo.pivot,
+        startAngle: Math.atan2(p.y - gizmo.pivot.y, p.x - gizmo.pivot.x),
+        base,
+        moved: false,
+      };
+      this._rotation.set({ pivot: gizmo.pivot, angle: 0 });
+      return true;
+    }
+
+    for (const h of this.sideHandles()) {
+      if (distance(p, h.pos) >= tol) continue;
+      const shape = this.selectedShape();
+      if (!shape) break;
+      const extent = distance(h.pos, h.anchor);
+      this.stretchDrag = {
+        base: shape,
+        anchor: h.anchor,
+        u: { x: (h.pos.x - h.anchor.x) / extent, y: (h.pos.y - h.anchor.y) / extent },
+        extent,
+        moved: false,
+      };
+      return true;
+    }
+
+    if (distance(p, gizmo.pivot) < tol) {
+      // Same drag as grabbing a shape's body, without needing to hit its outline.
+      this.groupDrag = { last: p, moved: false, clickedId: '', wasSelected: false };
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Resize grips for the selection: one per side when it is a single box or
+   * ellipse. Dragging one moves that side along its normal, the opposite side
+   * staying put, whatever the shape's rotation.
+   */
+  sideHandles(): SideHandle[] {
+    if (!this.gizmo() || this._rotation()) return [];
+    const shape = this.selectedShape();
+    if (!shape) return [];
+    // Too small on screen to tell the grips from the pivot: leave only the pivot.
+    const min = 4 * this.tol();
+    return sideHandles(shape).filter((h) => distance(h.pos, h.anchor) >= min);
+  }
+
+  private stretchMove(p: Pt): void {
+    const drag = this.stretchDrag;
+    if (!drag) return;
+    // Stop short of the opposite side so the shape can't collapse or flip.
+    const min = MIN_SHAPE_PX / Math.max(1e-6, this.zoomPan.scale);
+    const along =
+      (p.x - drag.anchor.x) * drag.u.x + (p.y - drag.anchor.y) * drag.u.y;
+    const factor = Math.max(min, along) / drag.extent;
+
+    drag.moved = true;
+    this._shapes.update((list) =>
+      list.map((s) =>
+        s.id === drag.base.id
+          ? stretchShape(drag.base, drag.anchor, drag.u, factor)
+          : s,
+      ),
+    );
+  }
+
+  private rotateMove(p: Pt, mods: SelectMods): void {
+    const drag = this.rotateDrag;
+    if (!drag) return;
+    let angle =
+      Math.atan2(p.y - drag.pivot.y, p.x - drag.pivot.x) - drag.startAngle;
+    // Keep it in (-180°, 180°] so the readout never shows a wound-up angle.
+    angle = Math.atan2(Math.sin(angle), Math.cos(angle));
+    if (mods.shift) angle = Math.round(angle / ROTATE_SNAP) * ROTATE_SNAP;
+
+    drag.moved = true;
+    this._rotation.set({ pivot: drag.pivot, angle });
+    this._shapes.update((list) =>
+      list.map((s) => {
+        const base = drag.base.get(s.id);
+        return base ? rotateShape(base, drag.pivot, angle) : s;
+      }),
+    );
+  }
+
+  private rotateUp(): void {
+    const drag = this.rotateDrag;
+    const angle = this._rotation()?.angle ?? 0;
+    this.rotateDrag = null;
+    this._rotation.set(null);
+    if (drag?.moved && angle !== 0) this.commit(); // one undoable step
+  }
+
+  /** Put the shapes of an abandoned rotation back as they were. */
+  private restoreRotateBase(): void {
+    const base = this.rotateDrag?.base;
+    if (!base) return;
+    this._shapes.update((list) => list.map((s) => base.get(s.id) ?? s));
   }
 
   // ── Copy / paste / duplicate (cross-frame) ────────────────────────────────

@@ -48,6 +48,10 @@ In practice:
   trained head, so predictions are reproducible and travel with the data.
 - **Only reviewed frames are used for training.** Partially annotated frames that
   are not marked reviewed are ignored.
+- **With several accounts, it learns from yours.** Training uses the frames you
+  annotated and reviewed. The trained model itself is shared: there is one per
+  project, so training replaces it for every account. See
+  [Several annotators](multi-user.md).
 
 The encoder is downloaded once, the first time you use it. No data is sent
 anywhere.

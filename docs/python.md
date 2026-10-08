@@ -39,6 +39,12 @@ analysis.
 
 **Format conversion.** To and from COCO and YOLO.
 
+## Accounts
+
+The library does not know about [accounts](guide/multi-user.md) yet. A project it
+creates has none; the application adds one administrator account the first time
+it opens the file, and that account owns everything the library wrote.
+
 ## The round trip
 
 These uses combine into a loop: write predictions from Python, correct them in the

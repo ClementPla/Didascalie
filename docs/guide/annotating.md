@@ -61,8 +61,22 @@ can be filled.
 | Tool | Key | What it does |
 | --- | --- | --- |
 | Draw shape | ++b++ | Click to place the points of a new outline or line |
+| Box | ++r++ | Drag to draw a box |
+| Ellipse | ++o++ | Drag to draw an ellipse |
 | Edit points | ++n++ | Drag the points of an existing shape |
-| Select | ++s++ | Move, duplicate or delete a whole shape |
+| Select | ++s++ | Move, rotate, duplicate or delete a whole shape |
+
+While dragging out a box or an ellipse, ++shift++ keeps it square or circular
+and ++ctrl++ draws it from its center. Both are ordinary shapes once drawn, so
+**Edit points** can reshape them.
+
+A selected shape shows a pivot at its center with a knob above it. Drag the
+pivot to move the shape and the knob to rotate it; hold ++shift++ to rotate in
+15° steps. With several shapes selected they move and rotate together. The
+A box or an ellipse selected on its own also shows a grip on each side: drag one
+to move that side in or out, the opposite side staying where it is. This works
+at any rotation. The pivot also appears on a shape just drawn with **Box** or **Ellipse**, and
+clicking another shape with those tools moves it there.
 
 ### Converting between masks and shapes
 

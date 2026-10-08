@@ -1,0 +1,457 @@
+<div class="page">
+  <header class="page-header">
+    <h1>Inter-grader agreement</h1>
+    <div class="controls">
+      <p-selectButton
+        [options]="basisOptions"
+        [(ngModel)]="basis"
+        (onChange)="load()"
+        optionLabel="label"
+        optionValue="value"
+        [allowEmpty]="false"
+        pTooltip="Which frames two graders are compared on"
+        tooltipPosition="bottom"
+      />
+      <p-button
+        icon="pi pi-refresh"
+        label="Recompute"
+        severity="secondary"
+        [disabled]="loading()"
+        (onClick)="load()"
+      ></p-button>
+    </div>
+  </header>
+
+  <p class="page-note">
+    @if (basis === 'reviewedByBoth') {
+      Comparing the frames both graders marked as reviewed. A reviewed frame
+      left empty counts as "nothing here".
+    } @else {
+      Comparing the frames both graders annotated. A frame one of them left
+      empty on purpose is not compared, so this can overstate agreement.
+    }
+  </p>
+
+  @if (loading()) {
+    <p-progressbar mode="indeterminate"></p-progressbar>
+  }
+  @if (error(); as message) {
+    <p class="error">{{ message }}</p>
+  }
+
+  @if (report(); as r) {
+    @if (r.graders.length < 2) {
+      <p class="empty">
+        This project has a single account. Agreement needs at least two graders
+        annotating the same frames: other annotators can register from the
+        account button in the top bar.
+      </p>
+    } @else {
+      <!-- Every pair of graders, once each. -->
+      <p-fieldset legend="Pairs of graders">
+        <div class="stack">
+          <ul class="graders" aria-label="Graders and the frames they contribute">
+            @for (g of r.graders; track g.id) {
+              <li>
+                <strong>{{ g.name }}</strong>
+                <span class="muted">{{ g.frames }} frames</span>
+              </li>
+            }
+          </ul>
+
+          <div class="table-scroll">
+            <table class="stats pairs">
+              <thead>
+                <tr>
+                  <th scope="col">Pair</th>
+                  <th scope="col" pTooltip="Frames both graders have, under the choice at the top of the page">Frames in common</th>
+                  <th scope="col" pTooltip="Mean of the Dice score over labels">Segmentation (Dice)</th>
+                  <th scope="col" pTooltip="Mean of Cohen's kappa over tasks">Classification (kappa)</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (pair of r.pairs; track pair.a + '-' + pair.b) {
+                  <tr
+                    class="pair-row"
+                    [class.pair-row--selected]="isSelected(pair.a, pair.b)"
+                    (click)="select(pair.a, pair.b)"
+                  >
+                    <th scope="row">
+                      <button
+                        type="button"
+                        class="pair-button"
+                        [attr.aria-pressed]="isSelected(pair.a, pair.b)"
+                      >
+                        {{ name(pair.a) }} and {{ name(pair.b) }}
+                      </button>
+                    </th>
+                    <td>{{ pair.frames }}</td>
+                    <td>{{ num(pair.meanDice) }}</td>
+                    <td>{{ num(pair.meanKappa) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <small class="hint">
+            @if (r.pairs.length > 1) {
+              Graders are always compared two at a time: {{ r.graders.length }}
+              graders make {{ r.pairs.length }} pairs. Select a pair for its
+              detail and examples below; “All graders” at the bottom summarises
+              them together.
+            } @else {
+              The detail and examples for this pair are below.
+            }
+            A dash means there is nothing to compare.
+          </small>
+        </div>
+      </p-fieldset>
+
+      <!-- One pair -->
+      @if (selectedPair(); as p) {
+        <p-fieldset [legend]="name(p.a) + ' and ' + name(p.b)">
+          <div class="stack">
+            <span class="muted">{{ p.frames }} frames in common</span>
+
+            @if (p.frames === 0) {
+              <p class="empty">These two graders have no frame in common yet.</p>
+            } @else {
+              @if (hasLabels()) {
+                <div class="table-scroll">
+                  <table class="stats">
+                    <thead>
+                      <tr>
+                        <th scope="col">Label</th>
+                        <th scope="col" pTooltip="Overlap, pooled over all compared frames">Dice</th>
+                        <th scope="col" pTooltip="Intersection over union, pooled">IoU</th>
+                        <th scope="col" pTooltip="Dice averaged frame by frame, over frames where either drew the label">Mean frame Dice</th>
+                        <th scope="col" pTooltip="Cohen's kappa on pixels">Kappa</th>
+                        <th scope="col" pTooltip="Compared frames where either drew the label">Frames</th>
+                        <th scope="col">Pixels, {{ name(p.a) }}</th>
+                        <th scope="col">Pixels, {{ name(p.b) }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (l of p.labels; track l.labelId) {
+                        <tr>
+                          <th scope="row">
+                            <span class="swatch" [style.background]="labelColor(l.labelId)"></span>
+                            {{ labelName(l.labelId) }}
+                          </th>
+                          <td>{{ num(l.dice) }}</td>
+                          <td>{{ num(l.iou) }}</td>
+                          <td>{{ num(l.meanFrameDice) }}</td>
+                          <td>{{ num(l.kappa) }}</td>
+                          <td>{{ l.frames }}</td>
+                          <td>{{ l.pixelsA | number }}</td>
+                          <td>{{ l.pixelsB | number }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+
+              <!-- Qualitative cases: where the two differ, not just how much. -->
+              @if (hasLabels()) {
+                <section class="cases">
+                  <div class="cases-header">
+                    <h3>Examples</h3>
+                    @if (r.labels.length > 1) {
+                      <p-select
+                        [options]="r.labels"
+                        optionLabel="name"
+                        optionValue="id"
+                        [ngModel]="caseLabel()"
+                        (onChange)="setCaseLabel($event.value)"
+                        appendTo="body"
+                        ariaLabel="Label shown in the examples"
+                      ></p-select>
+                    }
+                    <!-- The legend is also where the colours are changed. -->
+                    <ul
+                      class="legend"
+                      aria-label="Colours of the examples; click one to change it"
+                    >
+                      <li pTooltip="Click the colour to change it" tooltipPosition="top">
+                        <p-colorPicker
+                          appendTo="body"
+                          [ngModel]="colorOf('both')"
+                          (ngModelChange)="draftColor('both', $event)"
+                          (onHide)="commitColor('both')"
+                          aria-label="Colour where both marked"
+                        />
+                        Both
+                      </li>
+                      <li pTooltip="Click the colour to change it" tooltipPosition="top">
+                        <p-colorPicker
+                          appendTo="body"
+                          [ngModel]="colorOf('a')"
+                          (ngModelChange)="draftColor('a', $event)"
+                          (onHide)="commitColor('a')"
+                          [attr.aria-label]="'Colour where only ' + name(p.a) + ' marked'"
+                        />
+                        Only {{ name(p.a) }}
+                      </li>
+                      <li pTooltip="Click the colour to change it" tooltipPosition="top">
+                        <p-colorPicker
+                          appendTo="body"
+                          [ngModel]="colorOf('b')"
+                          (ngModelChange)="draftColor('b', $event)"
+                          (onHide)="commitColor('b')"
+                          [attr.aria-label]="'Colour where only ' + name(p.b) + ' marked'"
+                        />
+                        Only {{ name(p.b) }}
+                      </li>
+                      @if (hasCustomColors()) {
+                        <li>
+                          <p-button
+                            label="Default colours"
+                            size="small"
+                            severity="secondary"
+                            [text]="true"
+                            (onClick)="resetColors()"
+                          ></p-button>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+
+                  @if (casesLoading() && cases().length === 0) {
+                    <span class="muted">Scoring each frame…</span>
+                  } @else if (cases().length === 0) {
+                    <p class="empty">
+                      Neither of them drew “{{ labelName(caseLabel() ?? -1) }}” on a
+                      frame they share.
+                    </p>
+                  } @else {
+                    <div class="case-rows">
+                      <div class="case-row">
+                        <span class="case-row-title">Lowest agreement</span>
+                        <div class="thumbs">
+                          @for (c of worst(); track c.frameId) {
+                            <ng-container
+                              *ngTemplateOutlet="thumb; context: { $implicit: c }"
+                            ></ng-container>
+                          }
+                        </div>
+                      </div>
+                      @if (best().length > 0) {
+                        <div class="case-row">
+                          <span class="case-row-title">Highest agreement</span>
+                          <div class="thumbs">
+                            @for (c of best(); track c.frameId) {
+                              <ng-container
+                                *ngTemplateOutlet="thumb; context: { $implicit: c }"
+                              ></ng-container>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+
+                    <div class="case-controls">
+                      <p-select
+                        [options]="cases()"
+                        optionLabel="caption"
+                        optionValue="frameId"
+                        [ngModel]="chosen()"
+                        (onChange)="choose($event.value)"
+                        [filter]="cases().length > 12"
+                        filterBy="caption"
+                        appendTo="body"
+                        placeholder="Any compared frame"
+                        ariaLabel="Frame shown enlarged"
+                        pTooltip="Every compared frame, least agreement first"
+                        tooltipPosition="top"
+                        [style]="{ 'min-width': '18rem' }"
+                      ></p-select>
+                      <div class="marks-toggle">
+                        <p-toggleswitch
+                          [ngModel]="showMarks()"
+                          (ngModelChange)="setShowMarks($event)"
+                          inputId="showMarks"
+                        ></p-toggleswitch>
+                        <label for="showMarks">Show annotations</label>
+                      </div>
+                      <div class="marks-toggle">
+                        <p-toggleswitch
+                          [ngModel]="edgesOnly()"
+                          (ngModelChange)="setEdgesOnly($event)"
+                          inputId="edgesOnly"
+                        ></p-toggleswitch>
+                        <label for="edgesOnly">Edges only</label>
+                      </div>
+                      @if (edgesOnly()) {
+                        <div
+                          class="edge-width"
+                          pTooltip="Outline thickness"
+                          tooltipPosition="top"
+                        >
+                          <p-slider
+                            class="edge-width-slider"
+                            [ngModel]="edgeWidth()"
+                            (onSlideEnd)="setEdgeWidth($event.value)"
+                            [min]="1"
+                            [max]="maxEdgeWidth"
+                            ariaLabel="Outline thickness in pixels"
+                          />
+                          <span class="muted">{{ edgeWidth() }} px</span>
+                        </div>
+                      }
+                    </div>
+
+                    @if (chosenCase(); as c) {
+                      <figure class="case-view">
+                        @if (view(); as url) {
+                          <img [src]="url" [alt]="'Both graders on ' + c.name" />
+                        } @else {
+                          <div class="case-view-loading muted">Loading…</div>
+                        }
+                        <figcaption>
+                          <strong>{{ c.name }}</strong>
+                          · Dice {{ num(c.dice) }} · {{ c.pixelsA | number }} px
+                          by {{ name(p.a) }}, {{ c.pixelsB | number }} px by
+                          {{ name(p.b) }}
+                        </figcaption>
+                      </figure>
+                    }
+                  }
+                </section>
+              }
+
+              @if (hasTasks()) {
+                <div class="table-scroll">
+                  <table class="stats">
+                    <thead>
+                      <tr>
+                        <th scope="col">Task</th>
+                        <th scope="col" pTooltip="One-answer tasks: share of frames with the same answer. Several-answer tasks: mean overlap (Jaccard) of the two selections.">Agreement</th>
+                        <th scope="col" pTooltip="Cohen's kappa. For several-answer tasks, averaged over classes.">Kappa</th>
+                        <th scope="col" pTooltip="Compared frames where either answered">Frames</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (t of p.tasks; track t.task) {
+                        <tr>
+                          <th scope="row">
+                            {{ t.task }}
+                            @if (isMultilabel(t.task)) {
+                              <small class="muted">several answers</small>
+                            }
+                          </th>
+                          <td>{{ percent(t.agreement) }}</td>
+                          <td>{{ num(t.kappa) }}</td>
+                          <td>{{ t.frames }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            }
+          </div>
+        </p-fieldset>
+      }
+
+      <!-- Everyone -->
+      <p-fieldset legend="All graders">
+        <div class="stack">
+          @if (hasLabels()) {
+            <div class="table-scroll">
+              <table class="stats">
+                <thead>
+                  <tr>
+                    <th scope="col">Label</th>
+                    <th scope="col" pTooltip="Mean of the pairwise Dice scores">Mean Dice</th>
+                    <th scope="col">Lowest pair</th>
+                    <th scope="col">Highest pair</th>
+                    <th scope="col" pTooltip="Pairs of graders with something to compare for this label">Pairs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (l of r.overallLabels; track l.labelId) {
+                    <tr>
+                      <th scope="row">
+                        <span class="swatch" [style.background]="labelColor(l.labelId)"></span>
+                        {{ labelName(l.labelId) }}
+                      </th>
+                      <td>{{ num(l.meanDice) }}</td>
+                      <td>{{ num(l.minDice) }}</td>
+                      <td>{{ num(l.maxDice) }}</td>
+                      <td>{{ l.pairs }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @if (hasTasks()) {
+            <div class="table-scroll">
+              <table class="stats">
+                <thead>
+                  <tr>
+                    <th scope="col">Task</th>
+                    <th scope="col" pTooltip="Mean of the pairwise agreements">Mean agreement</th>
+                    <th scope="col" pTooltip="Mean of the pairwise Cohen's kappas">Mean kappa</th>
+                    <th scope="col" pTooltip="All graders at once, on the frames every one of them has">Fleiss' kappa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of r.overallTasks; track t.task) {
+                    <tr>
+                      <th scope="row">{{ t.task }}</th>
+                      <td>{{ percent(t.meanAgreement) }}</td>
+                      <td>{{ num(t.meanKappa) }}</td>
+                      <td>{{ num(t.fleissKappa) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <small class="hint">
+              Fleiss' kappa uses the {{ r.framesCommonToAll }} frames that every
+              grader with at least one frame has in common.
+            </small>
+          }
+
+          @if (!hasLabels() && !hasTasks()) {
+            <p class="empty">
+              This project defines no segmentation label and no classification
+              task, so there is nothing to compare.
+            </p>
+          }
+        </div>
+      </p-fieldset>
+
+      <small class="hint">
+        Kappa corrects agreement for chance: 1 is perfect, 0 is what chance
+        alone would give. It is undefined, and shown as a dash, when the answers
+        do not vary at all. Instance numbers are ignored: two graders agree on a
+        pixel when both marked it with the label.
+      </small>
+    }
+  }
+</div>
+
+<!-- One case thumbnail; clicking it shows the case enlarged. -->
+<ng-template #thumb let-c>
+  <button
+    type="button"
+    class="thumb"
+    [class.thumb--chosen]="chosen() === c.frameId"
+    [attr.aria-label]="'Show ' + c.name + ', Dice ' + num(c.dice)"
+    (click)="choose(c.frameId)"
+  >
+    @if (thumbs()[c.frameId]; as url) {
+      <img [src]="url" alt="" />
+    } @else {
+      <span class="thumb-placeholder"></span>
+    }
+    <span class="thumb-caption">
+      <span class="thumb-name">{{ c.name }}</span>
+      <span class="thumb-score">{{ num(c.dice) }}</span>
+    </span>
+  </button>
+</ng-template>

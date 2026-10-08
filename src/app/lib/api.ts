@@ -4,8 +4,41 @@ import { invoke } from '@tauri-apps/api/core';
 // Do not hand-write mirrors of an IPC type — that is what broke project creation.
 import type { ScanOptions } from './generated/ScanOptions';
 import type { ScanResult } from './generated/ScanResult';
+import type { AddImagesResult } from './generated/AddImagesResult';
+import type { EditImpact } from './generated/EditImpact';
+import type { ProjectEdit } from './generated/ProjectEdit';
+import type { TaskKind } from './generated/TaskKind';
+import type { AgreementReport } from './generated/AgreementReport';
+import type { CaseScore } from './generated/CaseScore';
+import type { ComparisonStyle } from './generated/ComparisonStyle';
+import type { FrameBasis } from './generated/FrameBasis';
+import type { LabelAgreement } from './generated/LabelAgreement';
+import type { PairAgreement } from './generated/PairAgreement';
+import type { Role } from './generated/Role';
+import type { TaskAgreement } from './generated/TaskAgreement';
+import type { UserChange } from './generated/UserChange';
+import type { UserFootprint } from './generated/UserFootprint';
+import type { UserInfo } from './generated/UserInfo';
 
-export type { ScanOptions, ScanResult };
+export type {
+  ScanOptions,
+  ScanResult,
+  AddImagesResult,
+  EditImpact,
+  ProjectEdit,
+  TaskKind,
+  AgreementReport,
+  CaseScore,
+  ComparisonStyle,
+  FrameBasis,
+  LabelAgreement,
+  PairAgreement,
+  Role,
+  TaskAgreement,
+  UserChange,
+  UserFootprint,
+  UserInfo,
+};
 export interface Sequence {
   id: number;
   name: string;
@@ -607,6 +640,84 @@ export const api = {
 
   scanAndImportFolder: (options: ScanOptions) =>
     invoke<ScanResult>('scan_and_import_folder', { options }),
+
+  // ── User accounts ─────────────────────────────────────────────────────────
+  // Logging in decides whose annotations every other call reads and writes.
+
+  listUsers: () => invoke<UserInfo[]>('list_users'),
+
+  /** The logged-in account, or null while the project waits for one. */
+  currentUser: () => invoke<UserInfo | null>('current_user'),
+
+  login: (userId: number, password: string | null) =>
+    invoke<UserInfo>('login', { userId, password }),
+
+  logout: () => invoke<void>('logout'),
+
+  /** Create an editor account. Does not log it in. */
+  registerUser: (name: string, password: string | null) =>
+    invoke<UserInfo>('register_user', { name, password }),
+
+  updateUser: (userId: number, change: UserChange) =>
+    invoke<UserInfo>('update_user', { userId, change }),
+
+  /** What an account has annotated: what deleting it would erase. */
+  userFootprint: (userId: number) =>
+    invoke<UserFootprint>('user_footprint', { userId }),
+
+  deleteUser: (userId: number) => invoke<void>('delete_user', { userId }),
+
+  /** Agreement between every pair of graders. Administrators only. */
+  intergraderReport: (basis: FrameBasis) =>
+    invoke<AgreementReport>('intergrader_report', { basis }),
+
+  /**
+   * The frames behind one pair's score for one label, least agreement first.
+   * Frames where neither grader drew the label are left out.
+   */
+  intergraderCases: (a: number, b: number, labelId: number, basis: FrameBasis) =>
+    invoke<CaseScore[]>('intergrader_cases', { a, b, labelId, basis }),
+
+  /**
+   * One frame as JPEG bytes, with both graders' regions for a label drawn
+   * over it in the colours of `style`: where they agree, where only `a`
+   * marked, where only `b` did. `style.edgeWidth` above 0 outlines the regions
+   * instead of filling them. `overlay: false` gives the bare image at the same
+   * size.
+   */
+  intergraderCaseImage: (
+    frameId: number,
+    a: number,
+    b: number,
+    labelId: number,
+    maxDim: number,
+    overlay: boolean,
+    style: ComparisonStyle,
+  ) =>
+    invoke<ArrayBuffer>('intergrader_case_image', {
+      frameId,
+      a,
+      b,
+      labelId,
+      maxDim,
+      overlay,
+      style,
+    }),
+
+  /** Add a folder's images to the open project, skipping those it has. */
+  addImagesToProject: (options: ScanOptions) =>
+    invoke<AddImagesResult>('add_images_to_project', { options }),
+
+  /** What `edit` would permanently delete if applied now. */
+  projectEditImpact: (edit: ProjectEdit) =>
+    invoke<EditImpact>('project_edit_impact', { edit }),
+
+  /**
+   * Change the open project's configuration, together with every stored
+   * annotation that depends on it. Returns the configuration as it now stands.
+   */
+  applyProjectEdit: (edit: ProjectEdit) =>
+    invoke<ProjectConfig>('apply_project_edit', { edit }),
 
   setFrameReviewed: (frameId: number, reviewed: boolean) =>
     invoke('set_frame_reviewed', {

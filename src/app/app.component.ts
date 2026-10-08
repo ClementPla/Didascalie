@@ -21,6 +21,7 @@ import { IOService } from './services/io.service';
 import { FpsDisplayComponent } from "./shared/fps-display/fps-display.component";
 import { ProjectService } from './services/project/project.service';
 import { UpdateService } from './services/update.service';
+import { UserService } from './services/users/user.service';
 import { ExperimentalSettingsComponent } from './experimental/experimental-settings/experimental-settings.component';
 @Component({
   selector: 'app-root',
@@ -51,6 +52,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private ioService = inject(IOService);
   projectService = inject(ProjectService);
   updateService = inject(UpdateService);
+  userService = inject(UserService);
 
   title = 'Didascalie';
 
@@ -135,5 +137,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public isProjectStarted(): boolean {
     return this.projectService.isOpen();
+  }
+
+  /** A project is open and someone is logged in: the working pages have
+   *  annotations to show. Until then only the account picker is reachable. */
+  public canWork(): boolean {
+    return this.projectService.isOpen() && this.userService.current() !== null;
   }
 }

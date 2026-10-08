@@ -108,16 +108,17 @@ impl Default for DatasetConfig {
 /// the frame is correct, which is exactly the guarantee training needs. It also
 /// matches export, which has always defaulted to reviewed-only.
 ///
-/// `reviewed` lives on `frames`; marking a sequence reviewed sets it on every
-/// frame of that sequence, so filtering here is what "use reviewed sequences"
-/// means in practice.
+/// A review is per user (`frame_reviews`), as are the annotations: training
+/// uses what the logged-in user drew and signed off. Marking a sequence
+/// reviewed records it for every frame of that sequence, so filtering here is
+/// what "use reviewed sequences" means in practice.
 pub fn annotated_frame_ids(db: &DbState) -> Result<Vec<i64>, String> {
     db.with_conn(|conn| {
         // Both annotation tables: a frame drawn only with the path tool is
         // annotated, and checking just `annotations` would exclude it entirely.
         let mut stmt = conn.prepare(
             "SELECT f.id FROM frames f \
-             WHERE f.reviewed = 1 \
+             WHERE EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id) \
                AND (EXISTS (SELECT 1 FROM annotations a WHERE a.frame_id = f.id) \
                  OR EXISTS (SELECT 1 FROM vector_annotations v WHERE v.frame_id = f.id)) \
              ORDER BY f.id",
@@ -138,7 +139,7 @@ pub fn annotated_unreviewed_count(db: &DbState) -> Result<usize, String> {
     db.with_conn(|conn| {
         let n: i64 = conn.query_row(
             "SELECT COUNT(*) FROM frames f \
-             WHERE f.reviewed != 1 \
+             WHERE NOT EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id) \
                AND (EXISTS (SELECT 1 FROM annotations a WHERE a.frame_id = f.id) \
                  OR EXISTS (SELECT 1 FROM vector_annotations v WHERE v.frame_id = f.id))",
             [],
@@ -657,11 +658,14 @@ mod tests {
             .unwrap();
         for &(id, reviewed) in frames {
             conn.execute(
-                "INSERT INTO frames (id, sequence_id, frame_index, width, height, reviewed)
-                 VALUES (?1, 1, ?1, 8, 8, ?2)",
-                rusqlite::params![id, reviewed],
+                "INSERT INTO frames (id, sequence_id, frame_index, width, height)
+                 VALUES (?1, 1, ?1, 8, 8)",
+                [id],
             )
             .unwrap();
+            if reviewed {
+                conn.execute("INSERT INTO frame_reviews (frame_id) VALUES (?1)", [id]).unwrap();
+            }
             // `color` is NOT NULL, and `annotations.label_id` is a foreign key —
             // a silently skipped label here fails the annotation insert instead.
             conn.execute(
@@ -714,11 +718,12 @@ mod tests {
         db.with_conn(|c| {
             c.execute("DELETE FROM annotations", []).unwrap();
             c.execute(
-                "INSERT INTO frames (id, sequence_id, frame_index, width, height, reviewed)
-                 VALUES (9, 1, 9, 8, 8, 1)",
+                "INSERT INTO frames (id, sequence_id, frame_index, width, height)
+                 VALUES (9, 1, 9, 8, 8)",
                 [],
             )
             .unwrap();
+            c.execute("INSERT INTO frame_reviews (frame_id) VALUES (9)", []).unwrap();
             Ok(())
         })
         .unwrap();

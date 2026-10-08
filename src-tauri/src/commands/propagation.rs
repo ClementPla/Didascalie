@@ -205,20 +205,24 @@ fn read_source(conn: &Connection, frame_id: i64, scope: &[i64]) -> Result<Vec<So
 /// back whatever the source had. The delete is what makes an absent source
 /// label erase the target's.
 fn write_label(conn: &Connection, frame_id: i64, label: &SourceLabel) -> Result<()> {
+    // Reads above went through the user-scoped views; writes name the user.
+    let user = queries::current_user_id(conn)?;
     conn.execute(
-        "DELETE FROM annotations WHERE frame_id = ?1 AND label_id = ?2",
-        params![frame_id, label.label_id],
+        "DELETE FROM main.annotations WHERE frame_id = ?1 AND label_id = ?2 AND user_id = ?3",
+        params![frame_id, label.label_id, user],
     )?;
     conn.execute(
-        "DELETE FROM vector_annotations WHERE frame_id = ?1 AND label_id = ?2",
-        params![frame_id, label.label_id],
+        "DELETE FROM main.vector_annotations
+         WHERE frame_id = ?1 AND label_id = ?2 AND user_id = ?3",
+        params![frame_id, label.label_id, user],
     )?;
 
     if let Some((encoding, mask_data)) = &label.raster {
         conn.execute(
-            "INSERT INTO annotations (frame_id, label_id, encoding, mask_data, modified_at)
-             VALUES (?1, ?2, ?3, ?4, datetime('now'))",
-            params![frame_id, label.label_id, encoding, mask_data],
+            "INSERT INTO main.annotations
+             (frame_id, label_id, user_id, encoding, mask_data, modified_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))",
+            params![frame_id, label.label_id, user, encoding, mask_data],
         )?;
     }
 
@@ -229,9 +233,9 @@ fn write_label(conn: &Connection, frame_id: i64, label: &SourceLabel) -> Result<
             return Ok(());
         }
         conn.execute(
-            "INSERT INTO vector_annotations (frame_id, label_id, shapes, modified_at)
-             VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)",
-            params![frame_id, label.label_id, serde_json::to_string(&shapes)?],
+            "INSERT INTO main.vector_annotations (frame_id, label_id, user_id, shapes, modified_at)
+             VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)",
+            params![frame_id, label.label_id, user, serde_json::to_string(&shapes)?],
         )?;
     }
 

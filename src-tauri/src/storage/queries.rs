@@ -7,7 +7,11 @@ use crate::types::image::{AnnotationData, MaskEncoding};
 
 /// Current on-disk schema version. Bump this whenever the schema changes and
 /// add a matching arm in `run_migrations`.
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
+
+/// The account every project has: created with it, or added to an older
+/// project when it is migrated. See the `users` table in `schema.rs`.
+pub const DEFAULT_USER_ID: i64 = 1;
 
 /// Common configuration for all connections
 fn configure_connection(conn: &Connection) -> Result<()> {
@@ -81,14 +85,161 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         v = 3;
     }
 
+    // v3 -> v4: user accounts. Every annotation, classification, text and
+    // review now belongs to a user; whatever the project already held goes to
+    // the account created here.
+    if v < 4 {
+        migrate_to_user_accounts(&tx)?;
+        v = 4;
+    }
+
     // Future migrations go here, one block per version:
-    //   if v < 4 { tx.execute_batch(MIGRATION_V4)?; v = 4; }
+    //   if v < 5 { tx.execute_batch(MIGRATION_V5)?; v = 5; }
 
     // PRAGMA doesn't accept bound parameters; v is an internal integer.
     tx.execute_batch(&format!("PRAGMA user_version = {};", v))
         .map_err(AppError::Database)?;
     tx.commit().map_err(AppError::Database)?;
     Ok(())
+}
+
+fn has_column(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info(?1) WHERE name = ?2",
+        params![table, column],
+        |row| row.get(0),
+    )?;
+    Ok(n > 0)
+}
+
+/// v3 -> v4. Safe on a fresh database, where the baseline already created the
+/// tables in their new shape and only the first account is missing.
+fn migrate_to_user_accounts(conn: &Connection) -> Result<()> {
+    // The baseline schema guarantees an account exists. Whatever the project
+    // held before accounts did goes to its first administrator.
+    let owner: i64 = conn.query_row(
+        "SELECT id FROM users ORDER BY role = 'admin' DESC, id LIMIT 1",
+        [],
+        |row| row.get(0),
+    )?;
+
+    let outdated: Vec<&(&str, &str)> = super::schema::V3_PER_USER_TABLES
+        .iter()
+        .filter(|(table, _)| !has_column(conn, table, "user_id").unwrap_or(true))
+        .collect();
+    if !outdated.is_empty() {
+        for (table, _) in &outdated {
+            conn.execute_batch(&format!("ALTER TABLE {table} RENAME TO {table}_v3;"))?;
+        }
+        // Recreates the tables just moved aside, in their current shape.
+        conn.execute_batch(super::schema::SCHEMA)?;
+        for (table, columns) in &outdated {
+            conn.execute(
+                &format!(
+                    "INSERT INTO {table} ({columns}, user_id)
+                     SELECT {columns}, ?1 FROM {table}_v3"
+                ),
+                params![owner],
+            )?;
+            conn.execute_batch(&format!("DROP TABLE {table}_v3;"))?;
+        }
+        // Once more for the indexes: each kept its name while its table was
+        // renamed, so `CREATE INDEX IF NOT EXISTS` skipped it above, and it
+        // then went with the dropped table.
+        conn.execute_batch(super::schema::SCHEMA)?;
+    }
+
+    // "Reviewed" used to be one flag per frame; it becomes the owner's review.
+    if has_column(conn, "frames", "reviewed")? {
+        conn.execute(
+            "INSERT OR IGNORE INTO frame_reviews (frame_id, user_id)
+             SELECT id, ?1 FROM frames WHERE reviewed = 1",
+            params![owner],
+        )?;
+    }
+    Ok(())
+}
+
+// ============ User scope ============
+
+/// Make this connection see one user's annotations only.
+///
+/// # How
+///
+/// Each per-user table gets a `TEMP` view of the same name, filtered on the
+/// logged-in user. SQLite resolves an unqualified name in `temp` before `main`,
+/// so on this connection `FROM annotations` reads the view. Three consequences,
+/// all intended:
+///
+/// - **Reads are scoped without knowing it.** Every query in the app — export,
+///   training, propagation, the gallery counts, 3D volumes — returns the current
+///   user's data, including the ones written before accounts existed and the
+///   ones nobody has written yet. There is no per-query `AND user_id = ?` to
+///   forget, and forgetting it is how one grader's masks would end up in
+///   another's export.
+/// - **Writes must say whose.** A view cannot be written to, so `INSERT INTO
+///   annotations` fails loudly. Writers target `main.annotations` and pass
+///   [`current_user_id`].
+/// - **`main.<table>` is everyone's.** Used deliberately by the few things that
+///   are about all users at once: project edits, the inter-grader report,
+///   account deletion.
+///
+/// The views live in the connection, not in the file: nothing here changes what
+/// is stored. Nobody is logged in until [`set_session_user`] says so, and until
+/// then the views are empty and writes are refused.
+///
+/// Must run after the migrations — `CREATE TABLE IF NOT EXISTS annotations`
+/// would see the view and conclude the table exists.
+pub fn install_user_scope(conn: &Connection) -> Result<()> {
+    let mut sql = String::from(
+        "CREATE TEMP TABLE IF NOT EXISTS dida_session (
+             id INTEGER PRIMARY KEY CHECK (id = 1),
+             user_id INTEGER
+         );
+         INSERT OR IGNORE INTO dida_session (id, user_id) VALUES (1, NULL);",
+    );
+    for (table, columns) in super::schema::USER_SCOPED_TABLES {
+        sql.push_str(&format!(
+            "CREATE TEMP VIEW IF NOT EXISTS {table} AS
+               SELECT {columns} FROM main.{table}
+               WHERE user_id = (SELECT user_id FROM temp.dida_session);"
+        ));
+    }
+    conn.execute_batch(&sql)?;
+    Ok(())
+}
+
+fn has_user_scope(conn: &Connection) -> Result<bool> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_temp_master WHERE name = 'dida_session'",
+        [],
+        |row| row.get(0),
+    )?;
+    Ok(n > 0)
+}
+
+/// Log a user in on this connection (`None` logs out).
+pub fn set_session_user(conn: &Connection, user_id: Option<i64>) -> Result<()> {
+    conn.execute("UPDATE temp.dida_session SET user_id = ?1", params![user_id])?;
+    Ok(())
+}
+
+/// The logged-in user, or `None` when nobody is.
+pub fn session_user(conn: &Connection) -> Result<Option<i64>> {
+    if !has_user_scope(conn)? {
+        return Ok(Some(DEFAULT_USER_ID));
+    }
+    Ok(conn.query_row("SELECT user_id FROM temp.dida_session", [], |row| row.get(0))?)
+}
+
+/// Whose rows a write belongs to.
+///
+/// A connection that never had [`install_user_scope`] run on it — a script, a
+/// test — acts as the default account, matching the `DEFAULT 1` on the columns.
+/// In the app every connection is scoped, so there this is the logged-in user,
+/// or an error.
+pub fn current_user_id(conn: &Connection) -> Result<i64> {
+    session_user(conn)?.ok_or_else(|| AppError::Other("Nobody is logged in.".into()))
 }
 
 pub fn create_database(path: &Path) -> Result<Connection> {
@@ -200,7 +351,7 @@ pub fn sync_labels_from_config(conn: &Connection, config: &ProjectConfig) -> Res
         let sql = format!(
             "DELETE FROM labels 
              WHERE name NOT IN ({}) 
-             AND id NOT IN (SELECT DISTINCT label_id FROM annotations)",
+             AND id NOT IN (SELECT DISTINCT label_id FROM main.annotations)",
             placeholders
         );
         let params: Vec<&dyn rusqlite::ToSql> = label_names
@@ -228,16 +379,16 @@ pub fn save_annotation(
     encoding: MaskEncoding,
 ) -> Result<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO annotations 
-         (frame_id, label_id, encoding, mask_data, modified_at)
-         VALUES (?1, ?2, ?3, ?4, datetime('now'))",
-        params![frame_id, label_id, encoding.as_str(), mask_data],
+        "INSERT OR REPLACE INTO main.annotations
+         (frame_id, label_id, user_id, encoding, mask_data, modified_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))",
+        params![frame_id, label_id, current_user_id(conn)?, encoding.as_str(), mask_data],
     )?;
     Ok(())
 }
 
-/// Erase every annotation on every frame of `sequence_id`, returning how many
-/// frames actually carried one.
+/// Erase every annotation the current user made on every frame of
+/// `sequence_id`, returning how many frames actually carried one.
 ///
 /// Both tables, because a label's annotation is raster *and* vector; clearing
 /// one alone leaves the frame looking annotated. The count is of frames rather
@@ -251,15 +402,16 @@ pub fn clear_sequence_annotations(conn: &Connection, sequence_id: i64) -> Result
         |row| row.get(0),
     )?;
 
+    let user = current_user_id(conn)?;
     conn.execute(
-        "DELETE FROM annotations WHERE frame_id IN \
+        "DELETE FROM main.annotations WHERE user_id = ?2 AND frame_id IN \
            (SELECT id FROM frames WHERE sequence_id = ?1)",
-        params![sequence_id],
+        params![sequence_id, user],
     )?;
     conn.execute(
-        "DELETE FROM vector_annotations WHERE frame_id IN \
+        "DELETE FROM main.vector_annotations WHERE user_id = ?2 AND frame_id IN \
            (SELECT id FROM frames WHERE sequence_id = ?1)",
-        params![sequence_id],
+        params![sequence_id, user],
     )?;
     Ok(affected as usize)
 }
@@ -479,6 +631,126 @@ mod tests {
             .unwrap();
         assert_eq!(has_registrations, 1);
         assert_eq!(read_version(&conn), SCHEMA_VERSION);
+    }
+
+    /// A project as v3 left it: no accounts, one annotation set per frame.
+    fn v3_project() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        configure_connection(&conn).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE project (id INTEGER PRIMARY KEY CHECK (id = 1), config JSON NOT NULL,
+                 created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+             CREATE TABLE labels (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE,
+                 color TEXT NOT NULL, is_instance BOOLEAN DEFAULT FALSE, sort_order INTEGER DEFAULT 0);
+             CREATE TABLE sequences (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE,
+                 sort_order INTEGER DEFAULT 0);
+             CREATE TABLE frames (id INTEGER PRIMARY KEY,
+                 sequence_id INTEGER NOT NULL REFERENCES sequences(id) ON DELETE CASCADE,
+                 frame_index INTEGER NOT NULL, relative_path TEXT, content_hash TEXT,
+                 embedded_data BLOB, width INTEGER NOT NULL, height INTEGER NOT NULL,
+                 reviewed BOOLEAN DEFAULT FALSE, UNIQUE(sequence_id, frame_index));
+             CREATE TABLE annotations (id INTEGER PRIMARY KEY,
+                 frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+                 label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+                 encoding TEXT NOT NULL DEFAULT 'rle', mask_data BLOB NOT NULL,
+                 modified_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(frame_id, label_id));
+             CREATE TABLE vector_annotations (id INTEGER PRIMARY KEY,
+                 frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+                 label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+                 shapes JSON NOT NULL, modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                 UNIQUE(frame_id, label_id));
+             CREATE TABLE classifications (id INTEGER PRIMARY KEY,
+                 frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+                 task_name TEXT NOT NULL, selected_classes JSON NOT NULL,
+                 is_multilabel BOOLEAN DEFAULT FALSE, modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                 UNIQUE(frame_id, task_name));
+             CREATE TABLE text_descriptions (id INTEGER PRIMARY KEY,
+                 frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+                 label_name TEXT NOT NULL, content TEXT NOT NULL,
+                 modified_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(frame_id, label_name));
+             CREATE INDEX idx_annotations_frame ON annotations(frame_id);
+
+             INSERT INTO labels (id, name, color) VALUES (1, 'a', '#ff0000');
+             INSERT INTO sequences (id, name) VALUES (1, 's');
+             INSERT INTO frames (id, sequence_id, frame_index, width, height, reviewed)
+               VALUES (1, 1, 0, 2, 2, 1), (2, 1, 1, 2, 2, 0);
+             INSERT INTO annotations (id, frame_id, label_id, encoding, mask_data, modified_at)
+               VALUES (7, 1, 1, 'rle8', x'0102', '2024-01-02 03:04:05');
+             INSERT INTO vector_annotations (frame_id, label_id, shapes) VALUES (2, 1, '[{}]');
+             INSERT INTO classifications (frame_id, task_name, selected_classes, is_multilabel)
+               VALUES (1, 'quality', '[\"good\"]', 0);
+             INSERT INTO text_descriptions (frame_id, label_name, content) VALUES (1, 'notes', 'hi');
+             PRAGMA user_version = 3;",
+        )
+        .unwrap();
+        conn
+    }
+
+    fn n(conn: &Connection, sql: &str) -> i64 {
+        conn.query_row(sql, [], |r| r.get(0)).unwrap()
+    }
+
+    /// Backward compatibility: a project from before accounts opens, keeps
+    /// every annotation, and gains one administrator who owns them.
+    #[test]
+    fn a_project_without_accounts_gains_one_that_owns_everything() {
+        let conn = v3_project();
+        run_migrations(&conn).unwrap();
+        assert_eq!(read_version(&conn), SCHEMA_VERSION);
+
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM users WHERE role = 'admin'"), 1);
+        for table in ["annotations", "vector_annotations", "classifications", "text_descriptions"] {
+            assert_eq!(n(&conn, &format!("SELECT COUNT(*) FROM {table}")), 1, "{table} kept its row");
+            assert_eq!(
+                n(&conn, &format!("SELECT COUNT(*) FROM {table} WHERE user_id = {DEFAULT_USER_ID}")),
+                1,
+                "{table} row belongs to the first account"
+            );
+        }
+
+        // Rows survive verbatim, ids and timestamps included.
+        let (id, mask, at): (i64, Vec<u8>, String) = conn
+            .query_row("SELECT id, mask_data, modified_at FROM annotations", [], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .unwrap();
+        assert_eq!((id, mask, at.as_str()), (7, vec![1, 2], "2024-01-02 03:04:05"));
+
+        // The one reviewed frame becomes that account's review.
+        assert_eq!(n(&conn, "SELECT frame_id FROM frame_reviews"), 1);
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM frame_reviews"), 1);
+
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE name LIKE '%_v3'"), 0);
+        assert_eq!(
+            n(&conn, "SELECT COUNT(*) FROM sqlite_master WHERE name = 'idx_annotations_frame'"),
+            1,
+            "the index was rebuilt on the new table"
+        );
+    }
+
+    /// What the rebuild is for: a second user annotating the same frame and
+    /// label used to violate `UNIQUE(frame_id, label_id)`.
+    #[test]
+    fn a_migrated_project_accepts_a_second_users_annotation_of_the_same_frame() {
+        let conn = v3_project();
+        run_migrations(&conn).unwrap();
+        conn.execute_batch(
+            "INSERT INTO users (id, name) VALUES (2, 'second');
+             INSERT INTO annotations (frame_id, label_id, user_id, encoding, mask_data)
+               VALUES (1, 1, 2, 'rle8', x'09');",
+        )
+        .unwrap();
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM annotations WHERE frame_id = 1"), 2);
+    }
+
+    #[test]
+    fn migrating_twice_changes_nothing() {
+        let conn = v3_project();
+        run_migrations(&conn).unwrap();
+        run_migrations(&conn).unwrap();
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM users"), 1);
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM annotations"), 1);
+        assert_eq!(n(&conn, "SELECT COUNT(*) FROM frame_reviews"), 1);
     }
 
     #[test]

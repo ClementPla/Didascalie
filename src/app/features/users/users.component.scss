@@ -1,0 +1,212 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface-ground, #15171b);
+}
+
+.page {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  box-sizing: border-box;
+}
+
+.page-header {
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+}
+.page-note {
+  margin: 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.9rem;
+}
+
+// One card per account, plus the "new account" card.
+.accounts {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  align-items: start;
+}
+
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--p-content-border-color, rgba(255, 255, 255, 0.1));
+  background: var(--p-content-background, #1d2026);
+
+  &--current {
+    border-color: var(--p-primary-color);
+  }
+  &--new {
+    padding: 1rem;
+    border-style: dashed;
+  }
+}
+
+.account-button {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1.25rem 1rem 1rem;
+  border-radius: 10px;
+  text-align: center;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--p-primary-color) 10%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 2px;
+  }
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+.avatar {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--p-primary-contrast-color, #fff);
+  background: var(--p-primary-color);
+}
+.account-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.account-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+}
+.account-state {
+  font-size: 0.8rem;
+  color: var(--p-primary-color);
+}
+.account-new-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.password-form {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem;
+}
+.error {
+  padding: 0 0.75rem 0.75rem;
+  color: var(--p-red-400, #e35d6a);
+}
+
+// Management list
+.manage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.manage-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.manage-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.manage-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.hint {
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+  max-width: 44rem;
+}
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+// Destructive confirmation (same look as project settings)
+.danger-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+
+  .pi {
+    color: var(--p-red-400, #e35d6a);
+    font-size: 1.2rem;
+  }
+}
+.danger-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+
+  p {
+    margin: 0;
+  }
+}
+.danger-list {
+  margin: 0;
+  padding: 0.75rem 0.75rem 0.75rem 1.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--p-red-400, #e35d6a);
+  background: color-mix(in srgb, var(--p-red-400, #e35d6a) 10%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.danger-final {
+  font-size: 0.9rem;
+}
+.danger-ack {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+
+  label {
+    cursor: pointer;
+  }
+}

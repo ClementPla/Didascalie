@@ -103,7 +103,7 @@ pub fn get_progress(db: State<DbState>) -> Result<(i64, i64)> {
       .map_err(|e| AppError::Database(e))?;
 
     let reviewed: i64 = conn
-      .query_row("SELECT COUNT(*) FROM frames WHERE reviewed = 1", [], |row| row.get(0))
+      .query_row("SELECT COUNT(*) FROM frame_reviews", [], |row| row.get(0))
       .map_err(|e| AppError::Database(e))?;
 
     Ok((reviewed, total))
@@ -122,7 +122,8 @@ pub fn read_frame_bytes(
     db.with_conn(|conn| {
         let row = conn.query_row(
             "SELECT f.id, f.sequence_id, f.frame_index, f.relative_path,
-                    f.embedded_data, f.width, f.height, f.reviewed,
+                    f.embedded_data, f.width, f.height,
+                    EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id),
                     json_extract(p.config, '$.input_folder')
              FROM frames f
              JOIN sequences s ON f.sequence_id = s.id
@@ -373,33 +374,34 @@ pub fn get_frame_tile(
 
 #[tauri::command]
 pub fn set_frame_reviewed(db: State<DbState>, frame_id: i64, reviewed: bool) -> Result<()> {
-  db.with_conn(|conn| {
-    conn
-      .execute("UPDATE frames SET reviewed = ?1 WHERE id = ?2", params![reviewed, frame_id])
-      .map_err(|e| AppError::Database(e))?;
-
-    Ok(())
-  })
+  db.with_conn(|conn| mark_reviewed(conn, &[frame_id], reviewed))
 }
 
 #[tauri::command]
 pub fn set_frames_reviewed(db: State<DbState>, frame_ids: Vec<i64>, reviewed: bool) -> Result<()> {
-  db.with_conn(|conn| {
-    let placeholders = frame_ids
-      .iter()
-      .map(|_| "?")
-      .collect::<Vec<_>>()
-      .join(",");
-    let sql = format!("UPDATE frames SET reviewed = ?1 WHERE id IN ({})", placeholders);
+  db.with_conn(|conn| mark_reviewed(conn, &frame_ids, reviewed))
+}
 
-    let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(reviewed)];
-    for id in &frame_ids {
-      params.push(Box::new(*id));
+/// Record (or withdraw) the current user's review of `frame_ids`.
+///
+/// A review is a row in `frame_reviews`, one per user: marking a frame reviewed
+/// is the annotator asserting *their* labels on it are finished, which says
+/// nothing about anyone else's.
+pub fn mark_reviewed(conn: &rusqlite::Connection, frame_ids: &[i64], reviewed: bool) -> Result<()> {
+  let user = crate::storage::queries::current_user_id(conn)?;
+  let tx = conn.unchecked_transaction()?;
+  {
+    let mut stmt = tx.prepare(if reviewed {
+      "INSERT OR IGNORE INTO main.frame_reviews (frame_id, user_id) VALUES (?1, ?2)"
+    } else {
+      "DELETE FROM main.frame_reviews WHERE frame_id = ?1 AND user_id = ?2"
+    })?;
+    for frame_id in frame_ids {
+      stmt.execute(params![frame_id, user])?;
     }
-
-    conn.execute(&sql, rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())))?;
-    Ok(())
-  })
+  }
+  tx.commit()?;
+  Ok(())
 }
 
 // ==========================================

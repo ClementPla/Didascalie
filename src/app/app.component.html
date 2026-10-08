@@ -37,13 +37,36 @@
         [text]="true"
         [raised]="true"
       ></p-button>
+      <!-- Shared by every user of the project, so administrators only. -->
+      @if (userService.isAdmin()) {
+        <p-button
+          routerLink="agreement/"
+          icon="pi pi-chart-bar"
+          pTooltip="Inter-grader agreement"
+          tooltipPosition="right"
+          [rounded]="true"
+          [text]="true"
+          [raised]="true"
+        >
+        </p-button>
+        <p-button
+          routerLink="settings/"
+          icon="pi pi-cog"
+          pTooltip="Project settings"
+          tooltipPosition="right"
+          [rounded]="true"
+          [text]="true"
+          [raised]="true"
+        >
+        </p-button>
+      }
       <p-button
         #galleryButton
         routerLink="gallery/"
         icon="pi pi-list"
         [rounded]="true"
         [text]="true"
-        [disabled]="!isProjectStarted()"
+        [disabled]="!canWork()"
         [raised]="true"
       >
       </p-button>
@@ -53,7 +76,7 @@
         icon="pi pi-pencil"
         [rounded]="true"
         [text]="true"
-        [disabled]="!isProjectStarted()"
+        [disabled]="!canWork()"
         [raised]="true"
       >
       </p-button>
@@ -62,7 +85,7 @@
         icon="pi pi-map"
         [rounded]="true"
         [text]="true"
-        [disabled]="!isProjectStarted()"
+        [disabled]="!canWork()"
         [raised]="true"
       >
       </p-button>
@@ -73,7 +96,7 @@
         tooltipPosition="right"
         [rounded]="true"
         [text]="true"
-        [disabled]="!isProjectStarted()"
+        [disabled]="!canWork()"
         [raised]="true"
       >
       </p-button>
@@ -84,7 +107,7 @@
         tooltipPosition="right"
         [rounded]="true"
         [text]="true"
-        [disabled]="!isProjectStarted()"
+        [disabled]="!canWork()"
         [raised]="true"
       >
       </p-button>
@@ -93,13 +116,26 @@
         icon="pi pi-file-export"
         [rounded]="true"
         [text]="true"
-        [disabled]="!isProjectStarted()"
+        [disabled]="!canWork()"
         [raised]="true"
       >
       </p-button>
+
     </p>
   </ng-template>
   <ng-template pTemplate="end">
+    @if (isProjectStarted()) {
+      <p-button
+        routerLink="users/"
+        icon="pi pi-user"
+        [label]="userService.current()?.name ?? 'Sign in'"
+        severity="secondary"
+        [text]="true"
+        [raised]="true"
+        pTooltip="Accounts: switch user, register, manage"
+        tooltipPosition="bottom"
+      ></p-button>
+    }
     <p-button
       icon="pi pi-gauge"
       [rounded]="true"

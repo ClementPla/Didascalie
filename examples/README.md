@@ -1,12 +1,13 @@
 # Example projects
 
-Eight small `.dida` projects built from public datasets, to try Didascalie without
+Nine small `.dida` projects built from public datasets, to try Didascalie without
 preparing data. Each one is a subset of at most 20 samples (images, clips or
 volumes) with the images embedded, so the file opens on its own.
 
 | File | Content | Try |
 | --- | --- | --- |
 | `fundus_vessels.dida` | 20 fundus photographs with vessel masks, 5 per diagnosis | Skeletonize and vectorize, classification, gallery filters |
+| `fundus_vessels_two_graders.dida` | 20 fundus photographs of children, with the vessels traced independently by two observers, each as their own account | Signing in as either account, and the inter-grader agreement page (as *First observer*, the administrator) |
 | `skin_lesions.dida` | 20 dermoscopy images, 12 with a lesion mask and 8 left empty | Otsu and flood fill on the empty frames, training a model from the 12 reviewed ones |
 | `nuclei_histology.dida` | 19 H&E patches (one per tissue), each nucleus an instance of one of 5 cell types | Instance segmentation, several labels on one image, edge display |
 | `fundus_registration.dida` | 8 infant eyes photographed at 3 or 4 visits; 6 with keypoint pairs against the first visit, 2 without | Frame registration: overlay and checkerboard on the 6, placing keypoints by hand on the 2 |
@@ -25,6 +26,7 @@ authors if you reuse them.
 | File | Dataset | Hugging Face repository | Licence |
 | --- | --- | --- | --- |
 | `fundus_vessels.dida` | FIVES (Jin et al., *Scientific Data*, 2022) | `tyluan/FIVES` | CC BY 4.0 |
+| `fundus_vessels_two_graders.dida` | CHASE_DB1 (Fraz et al., *IEEE TBME*, 2012) | `MedOtter/CHASE_DB1` | CC BY 4.0 |
 | `skin_lesions.dida` | ISIC 2017 challenge (Codella et al., ISBI 2018) | `MedOtter/ISIC2017` | CC0 1.0 |
 | `nuclei_histology.dida` | PanNuke (Gamper et al., 2019) | `RationAI/PanNuke` | CC BY-NC-SA 4.0 |
 | `fundus_registration.dida` | COph100 (Hu et al., *Scientific Data*, 2025), images from Timkovič et al. (*Scientific Data*, 2024) | `MedOtter/COph100` | CC BY 4.0 |
@@ -36,6 +38,11 @@ authors if you reuse them.
 ## What was changed
 
 - **Fundus**: masks binarised. The diagnosis comes from the file name.
+- **Two graders**: the first 20 images by name (children 01 to 10, both eyes).
+  The first observer's masks belong to the account *First observer* and the
+  second observer's to *Second observer*; both accounts have every frame marked
+  reviewed and no password. On these 20 images the two agree with a Dice of
+  0.77, in line with the 0.78 reported for the whole dataset.
 - **Nuclei**: each cell type is an instance label, and its nuclei are numbered
   from 1 within each image.
 - **Registration**: the 10 manual control points of each image are paired by
@@ -52,3 +59,8 @@ authors if you reuse them.
 
 `build_examples.py` rebuilds the files from the Hugging Face downloads. It needs
 `pydidascalie`, `pyarrow`, `nibabel`, `h5py`, `hdf5plugin` and `huggingface_hub`.
+
+The two-grader project is written with user accounts already in place, which
+the library does not know about yet: the script adds them itself, reading the
+table definitions from `src-tauri/src/storage/schema.rs`, so it has to be run
+from a checkout of this repository.

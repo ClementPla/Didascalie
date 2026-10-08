@@ -1,6 +1,10 @@
 import { Routes } from '@angular/router';
 import { GalleryComponent } from './features/gallery/gallery.component';
-import { projectStartedGuard } from './guards/project-started.guard';
+import {
+  adminGuard,
+  projectOpenGuard,
+  projectStartedGuard,
+} from './guards/project-started.guard';
 import { EditorComponent } from './features/editor/editor.component';
 import { ExportComponent } from './features/export/export.component';
 import { LauncherComponent } from './features/launcher/launcher.component';
@@ -46,6 +50,29 @@ export const routes: Routes = [
         (m) => m.InspectComponent,
       ),
     canActivate: [projectStartedGuard],
+  },
+  {
+    path: 'settings',
+    loadComponent: () =>
+      import('./features/project-settings/project-settings.component').then(
+        (m) => m.ProjectSettingsComponent,
+      ),
+    canActivate: [adminGuard],
+  },
+  {
+    // Reachable without a session: this is where one logs in.
+    path: 'users',
+    loadComponent: () =>
+      import('./features/users/users.component').then((m) => m.UsersComponent),
+    canActivate: [projectOpenGuard],
+  },
+  {
+    path: 'agreement',
+    loadComponent: () =>
+      import('./features/agreement/agreement.component').then(
+        (m) => m.AgreementComponent,
+      ),
+    canActivate: [adminGuard],
   },
   {
     path: 'composite-registration-viewport-popout',

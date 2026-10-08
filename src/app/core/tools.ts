@@ -3,9 +3,9 @@ export class Tool {
   public name: string;
   public icon: string;
   public shortcut: string | null = null;
-  /** One line saying what the tool does, shown in its toolbar tooltip. The
-   *  toolbar only prints a tool's name while it is the selected one, so this
-   *  is the only place the vector tools explain themselves. */
+  /** One line saying what the tool does, appended to its toolbar tooltip.
+   *  Left null for the vector tools, whose tooltip is the name and shortcut
+   *  only. */
   public description: string | null = null;
   /** Second icon badged over `icon`, for tools that are a combination of two
    *  others (the lasso eraser is a lasso plus an eraser). */
@@ -85,7 +85,7 @@ export class Tools {
     'Select',
     'pi pi-arrow-up-left',
     'S',
-    'Click a shape to move, duplicate or delete it as a whole.',
+    null,
     null,
     'ink_selection'
   );
@@ -94,16 +94,34 @@ export class Tools {
     'Draw shape',
     'pi pi-pen-to-square',
     'B',
-    'Click to place points and build a new outline or line.',
+    null,
     null,
     'shape_line'
+  );
+  public static RECT = new Tool(
+    11,
+    'Box',
+    'pi pi-stop',
+    'R',
+    null,
+    null,
+    'rectangle'
+  );
+  public static ELLIPSE = new Tool(
+    12,
+    'Ellipse',
+    'pi pi-circle',
+    'O',
+    null,
+    null,
+    'circle'
   );
   public static NODE = new Tool(
     6,
     'Edit points',
     'pi pi-share-alt',
     'N',
-    'Drag the individual points of an existing shape.',
+    null,
     null,
     'polyline'
   );
@@ -146,7 +164,13 @@ export const NAV_TOOLS = [Tools.PAN];
 export const ALL_TOOLS = [...NAV_TOOLS, ...RASTER_TOOLS];
 
 /** Vector drawing/selection tools, rendered as a distinct toolbar group. */
-export const VECTOR_TOOLS = [Tools.SELECT, Tools.PATH, Tools.NODE];
+export const VECTOR_TOOLS = [
+  Tools.SELECT,
+  Tools.PATH,
+  Tools.RECT,
+  Tools.ELLIPSE,
+  Tools.NODE,
+];
 
 /** Convert tools (raster ↔ vector): click a pixel region to trace it. Paired in
  *  the toolbar with the Rasterize action button. */

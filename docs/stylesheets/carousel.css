@@ -33,7 +33,11 @@
   flex-direction: column;
 }
 
-.carousel__track img {
+/* A slide is a still or a clip. Clips are muted, looping videos rather than
+   GIFs: a GIF this size is several megabytes and decoded on the main thread,
+   which is what made it stutter and freeze. */
+.carousel__track img,
+.carousel__track video {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 10;

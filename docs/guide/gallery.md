@@ -42,6 +42,12 @@ reset when you open another project.
 **Only reviewed frames are used to train a model.** Mark a frame reviewed when you
 are satisfied with its labels.
 
+In a project with [several accounts](multi-user.md), the status is yours: the
+gallery shows what *you* have annotated and reviewed, and marking a frame
+reviewed says nothing about the other annotators. The review mark is also what
+[inter-grader agreement](multi-user.md#which-frames-are-compared) relies on to
+know that you have finished a frame, including one you left empty on purpose.
+
 A frame is marked reviewed from the editor, with the review button or by saving
 with ++ctrl+s++. In the gallery, the review button of a sequence marks all its
 frames, and **Mark as reviewed** does the same for the selection. Both can be

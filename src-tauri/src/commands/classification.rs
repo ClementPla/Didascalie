@@ -1,7 +1,7 @@
 use rusqlite::params;
 use tauri::State;
 use serde::{Deserialize, Serialize};
-use crate::storage::DbState;
+use crate::storage::{queries, DbState};
 use crate::utils::AppError;
 use crate::utils::error::Result;
 
@@ -105,22 +105,25 @@ pub fn save_classification(
     is_multilabel: bool,
 ) -> Result<()> {
     db.with_conn(|conn| {
+        let user = queries::current_user_id(conn)?;
         if selected_classes.is_empty() {
             // Delete if no classes selected
             conn.execute(
-                "DELETE FROM classifications WHERE frame_id = ?1 AND task_name = ?2",
-                params![frame_id, task_name],
+                "DELETE FROM main.classifications
+                 WHERE frame_id = ?1 AND task_name = ?2 AND user_id = ?3",
+                params![frame_id, task_name, user],
             ).map_err(AppError::Database)?;
         } else {
             conn.execute(
-                "INSERT OR REPLACE INTO classifications 
-                 (frame_id, task_name, selected_classes, is_multilabel, modified_at)
-                 VALUES (?1, ?2, ?3, ?4, datetime('now'))",
+                "INSERT OR REPLACE INTO main.classifications
+                 (frame_id, user_id, task_name, selected_classes, is_multilabel, modified_at)
+                 VALUES (?1, ?5, ?2, ?3, ?4, datetime('now'))",
                 params![
                     frame_id,
                     task_name,
                     serde_json::to_string(&selected_classes).unwrap_or_default(),
                     is_multilabel,
+                    user,
                 ],
             ).map_err(AppError::Database)?;
         }
@@ -136,18 +139,20 @@ pub fn save_batch_classifications(
     classifications: Vec<BatchClassificationPayload>,
 ) -> Result<()> {
     db.with_conn(|conn| {
+        let user = queries::current_user_id(conn)?;
         let tx = conn.unchecked_transaction()?;
 
         for c in classifications {
             tx.execute(
-                "INSERT OR REPLACE INTO classifications 
-                 (frame_id, task_name, selected_classes, is_multilabel, modified_at)
-                 VALUES (?1, ?2, ?3, ?4, datetime('now'))",
+                "INSERT OR REPLACE INTO main.classifications
+                 (frame_id, user_id, task_name, selected_classes, is_multilabel, modified_at)
+                 VALUES (?1, ?5, ?2, ?3, ?4, datetime('now'))",
                 params![
                     c.frame_id,
                     c.task_name,
                     serde_json::to_string(&c.selected_classes)?,
                     c.is_multilabel,
+                    user,
                 ],
             )?;
         }

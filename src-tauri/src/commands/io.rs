@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{ Path, PathBuf };
 
 use regex::Regex;
-use rusqlite::params;
+use rusqlite::{ params, OptionalExtension };
 use serde::{ Deserialize, Serialize };
 use sha2::{ Digest, Sha256 };
 use tauri::State;
@@ -44,6 +44,19 @@ pub struct ScanResult {
   pub sequences_created: usize,
   pub frames_imported: usize,
   pub frames_embedded: usize,
+  pub errors: Vec<String>,
+}
+
+/// Outcome of adding images to a project that already has some.
+#[derive(Serialize, Debug, Default, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/app/lib/generated/")]
+pub struct AddImagesResult {
+  pub sequences_created: usize,
+  pub frames_imported: usize,
+  pub frames_embedded: usize,
+  /// Files left out because the project already holds them.
+  pub frames_skipped: usize,
   pub errors: Vec<String>,
 }
 
@@ -100,9 +113,197 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
   Ok(result)
 }
 
+/// Add the images of a folder to the open project, leaving out the ones it
+/// already has.
+///
+/// Unlike [`scan_and_import_folder`], which fills an empty project, this has to
+/// coexist with what is there, and where the folder sits decides how:
+///
+/// - **Inside the project's image folder** (or that folder itself): a rescan.
+///   Paths stay relative to the image folder, so a file already imported is
+///   recognised by its path and skipped, and new files of a known sequence
+///   folder are appended to that sequence.
+/// - **Anywhere else**: the images are embedded, whatever `embed_images` says.
+///   A frame that is not embedded is read from `input_folder/relative_path`,
+///   and a project has one `input_folder`, so a file outside it could never be
+///   found again. Their paths are prefixed with the folder's own name to keep
+///   them apart from the project's, and they always form new sequences.
+#[tauri::command]
+pub fn add_images_to_project(db: State<DbState>, options: ScanOptions) -> Result<AddImagesResult> {
+  log::info!("[import] adding images from {}", options.folder_path);
+  let regex = Regex::new(&options.input_regex).map_err(|e|
+    AppError::Other(format!("Invalid filename pattern: {}", e))
+  )?;
+  db.with_conn(|conn| {
+    crate::commands::users::require_admin(conn)?;
+    let input_folder = crate::storage::queries::get_project_config(conn)?.input_folder;
+    add_images(conn, input_folder.as_deref(), &options, &regex)
+  })
+}
+
 // ==========================================
 // Internal Functions
 // ==========================================
+
+fn add_images(
+  conn: &rusqlite::Connection,
+  input_folder: Option<&str>,
+  options: &ScanOptions,
+  regex: &Regex
+) -> Result<AddImagesResult> {
+  let folder = fs::canonicalize(&options.folder_path).map_err(|_|
+    AppError::Other(format!("Folder not found: {}", options.folder_path))
+  )?;
+  // A project whose image folder has moved or is unplugged simply has no
+  // "inside": everything is then embedded, which is always safe.
+  let root = input_folder.and_then(|f| fs::canonicalize(f).ok());
+  let inside = root.as_ref().is_some_and(|r| folder.starts_with(r));
+
+  let (scan_root, prefix) = if inside {
+    (root.unwrap(), None)
+  } else {
+    (folder.clone(), folder.file_name().map(PathBuf::from))
+  };
+  let embed_images = options.embed_images || !inside;
+
+  let images = scan_for_images(&scan_root, &folder, regex, options.recursive)?;
+  let mut groups: Vec<(String, Vec<ImageFile>)> =
+    group_into_sequences(images, options.folders_as_sequences).into_iter().collect();
+  groups.sort_by(|a, b| a.0.cmp(&b.0));
+
+  // Every path the project already holds, with the hash of what is behind it.
+  let mut known: HashMap<String, Option<String>> = {
+    let mut stmt = conn.prepare(
+      "SELECT relative_path, content_hash FROM frames WHERE relative_path IS NOT NULL"
+    )?;
+    let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+    rows.collect::<std::result::Result<_, _>>()?
+  };
+
+  let mut result = AddImagesResult::default();
+  let tx = conn.unchecked_transaction()?;
+  let mut next_sort_order: i64 = tx.query_row(
+    "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM sequences",
+    [],
+    |row| row.get(0)
+  )?;
+
+  for (name, files) in groups {
+    // Decide what is new before touching the sequences table, so a folder that
+    // brings nothing does not leave an empty sequence behind.
+    let mut fresh = Vec::new();
+    for mut image in files {
+      if let Some(prefix) = &prefix {
+        image.relative_path = prefix.join(&image.relative_path).to_string_lossy().to_string();
+      }
+      match known.get(&image.relative_path) {
+        None => fresh.push(image),
+        // Same root, same path: the same file, already imported.
+        Some(_) if inside => result.frames_skipped += 1,
+        // Another root: only the content can tell a re-import from a namesake.
+        Some(hash) => {
+          let same = fs::read(&image.absolute_path).ok().map(|d| sha256_hex(&d)) == *hash;
+          if same {
+            result.frames_skipped += 1;
+          } else {
+            result.errors.push(format!(
+              "{}: the project already has a different image under this path",
+              image.relative_path
+            ));
+          }
+        }
+      }
+    }
+    if fresh.is_empty() {
+      continue;
+    }
+
+    let existing: Option<i64> = tx
+      .query_row("SELECT id FROM sequences WHERE name = ?1", params![name], |row| row.get(0))
+      .optional()?;
+    let (sequence_id, mut frame_index) = match existing {
+      Some(id) if inside => {
+        let next: i64 = tx.query_row(
+          "SELECT COALESCE(MAX(frame_index), -1) + 1 FROM frames WHERE sequence_id = ?1",
+          params![id],
+          |row| row.get(0)
+        )?;
+        (id, next as usize)
+      }
+      taken => {
+        let name = if taken.is_some() { free_sequence_name(&tx, &name)? } else { name };
+        tx.execute(
+          "INSERT INTO sequences (name, sort_order) VALUES (?1, ?2)",
+          params![name, next_sort_order]
+        )?;
+        next_sort_order += 1;
+        (tx.last_insert_rowid(), 0)
+      }
+    };
+    let imported_before = result.frames_imported;
+
+    for image in &fresh {
+      match import_frame(&tx, sequence_id, frame_index, image, embed_images, options.embed_threshold_kb) {
+        Ok(embedded) => {
+          frame_index += 1;
+          result.frames_imported += 1;
+          if embedded {
+            result.frames_embedded += 1;
+          }
+          known.insert(image.relative_path.clone(), None);
+        }
+        Err(e) => {
+          result.errors.push(format!("Failed to import {}: {}", image.relative_path, e));
+        }
+      }
+    }
+
+    if existing.is_none() || !inside {
+      if result.frames_imported > imported_before {
+        result.sequences_created += 1;
+      } else {
+        // Every file failed to decode: do not leave an empty sequence behind.
+        tx.execute("DELETE FROM sequences WHERE id = ?1", params![sequence_id])?;
+      }
+    }
+  }
+
+  tx.commit()?;
+  log::info!(
+    "[import] added {} frame(s), skipped {}, {} error(s)",
+    result.frames_imported,
+    result.frames_skipped,
+    result.errors.len()
+  );
+  Ok(result)
+}
+
+/// `name (2)`, `name (3)`, … — the first one no sequence uses yet.
+fn free_sequence_name(conn: &rusqlite::Connection, name: &str) -> Result<String> {
+  for n in 2.. {
+    let candidate = format!("{} ({})", name, n);
+    let taken: bool = conn.query_row(
+      "SELECT EXISTS (SELECT 1 FROM sequences WHERE name = ?1)",
+      params![candidate],
+      |row| row.get(0)
+    )?;
+    if !taken {
+      return Ok(candidate);
+    }
+  }
+  unreachable!()
+}
+
+fn sha256_hex(data: &[u8]) -> String {
+  let mut hasher = Sha256::new();
+  hasher.update(data);
+  let digest = hasher.finalize();
+  let mut hex = String::with_capacity(digest.len() * 2);
+  for byte in digest {
+    write!(&mut hex, "{:02x}", byte).unwrap();
+  }
+  hex
+}
 
 /// Recursively scan folder for image files matching the regex
 fn scan_for_images(
@@ -255,13 +456,7 @@ fn import_frame(
   let file_data = fs::read(&image.absolute_path).map_err(|e| AppError::Io(e))?;
 
   // Calculate content hash
-  let mut hasher = Sha256::new();
-  hasher.update(&file_data);
-  let digest = hasher.finalize();
-  let mut content_hash = String::with_capacity(digest.len() * 2);
-  for byte in digest {
-    write!(&mut content_hash, "{:02x}", byte).unwrap();
-  }
+  let content_hash = sha256_hex(&file_data);
 
   // Get image dimensions
   let (width, height) = get_image_dimensions(&file_data)?;
@@ -367,6 +562,135 @@ mod tests {
         let seqs = group_into_sequences(found, true);
         assert_eq!(seqs.len(), 2);
         assert_eq!(seqs.values().map(|v| v.len()).sum::<usize>(), 3);
+    }
+
+    // ---- adding to an existing project ----
+
+    /// A 1x1 PNG whose single pixel is `shade`, so two files can differ.
+    fn png(shade: u8) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        image::DynamicImage::ImageLuma8(image::GrayImage::from_pixel(1, 1, image::Luma([shade])))
+            .write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .unwrap();
+        bytes
+    }
+
+    fn write_png(root: &Path, name: &str, shade: u8) {
+        let p = root.join(name);
+        fs::create_dir_all(p.parent().unwrap()).unwrap();
+        fs::write(p, png(shade)).unwrap();
+    }
+
+    fn options(folder: &Path, folders_as_sequences: bool) -> ScanOptions {
+        ScanOptions {
+            folder_path: folder.to_string_lossy().to_string(),
+            embed_images: false,
+            embed_threshold_kb: 0,
+            input_regex: DEFAULT_REGEX.into(),
+            recursive: true,
+            folders_as_sequences,
+        }
+    }
+
+    fn open_project() -> rusqlite::Connection {
+        crate::storage::queries::create_database(Path::new(":memory:")).unwrap()
+    }
+
+    fn add(conn: &rusqlite::Connection, root: &Path, folder: &Path, as_sequences: bool) -> AddImagesResult {
+        let re = Regex::new(DEFAULT_REGEX).unwrap();
+        add_images(conn, Some(&root.to_string_lossy()), &options(folder, as_sequences), &re).unwrap()
+    }
+
+    fn column<T: rusqlite::types::FromSql>(conn: &rusqlite::Connection, sql: &str) -> Vec<T> {
+        let mut stmt = conn.prepare(sql).unwrap();
+        let rows = stmt.query_map([], |r| r.get(0)).unwrap();
+        rows.map(|r| r.unwrap()).collect()
+    }
+
+    #[test]
+    fn rescanning_the_image_folder_adds_only_what_is_new() {
+        let root = dir_with("add_rescan", &[]);
+        write_png(&root, "s1/a.png", 1);
+        let conn = open_project();
+        let first = add(&conn, &root, &root, true);
+        assert_eq!((first.sequences_created, first.frames_imported, first.frames_skipped), (1, 1, 0));
+
+        write_png(&root, "s1/b.png", 2);
+        write_png(&root, "s2/c.png", 3);
+        let second = add(&conn, &root, &root, true);
+        assert_eq!((second.sequences_created, second.frames_imported, second.frames_skipped), (1, 2, 1));
+        assert_eq!(second.frames_embedded, 0, "inside the image folder, files stay on disk");
+
+        // b.png joined the sequence a.png was already in, after it.
+        let s1: Vec<String> = column(
+            &conn,
+            "SELECT relative_path FROM frames f JOIN sequences s ON s.id = f.sequence_id
+             WHERE s.name = 's1' ORDER BY frame_index",
+        );
+        assert_eq!(s1.len(), 2);
+        assert!(s1[0].ends_with("a.png") && s1[1].ends_with("b.png"), "{s1:?}");
+
+        let third = add(&conn, &root, &root, true);
+        assert_eq!((third.sequences_created, third.frames_imported, third.frames_skipped), (0, 0, 3));
+    }
+
+    #[test]
+    fn a_subfolder_of_the_image_folder_keeps_paths_relative_to_the_root() {
+        let root = dir_with("add_subfolder", &[]);
+        write_png(&root, "s1/a.png", 1);
+        let conn = open_project();
+        add(&conn, &root, &root.join("s1"), true);
+        let paths: Vec<String> = column(&conn, "SELECT relative_path FROM frames");
+        assert_eq!(paths, [Path::new("s1").join("a.png").to_string_lossy().to_string()]);
+    }
+
+    #[test]
+    fn a_folder_outside_the_image_folder_is_embedded_under_its_own_name() {
+        let root = dir_with("add_outside_root", &[]);
+        write_png(&root, "a.png", 1);
+        let other = dir_with("add_outside_other", &[]);
+        write_png(&other, "a.png", 2);
+
+        let conn = open_project();
+        add(&conn, &root, &root, false);
+        let added = add(&conn, &root, &other, false);
+        assert_eq!((added.frames_imported, added.frames_embedded, added.frames_skipped), (1, 1, 0));
+
+        let embedded: Vec<bool> = column(
+            &conn,
+            "SELECT embedded_data IS NOT NULL FROM frames ORDER BY id",
+        );
+        assert_eq!(embedded, [false, true]);
+        let paths: Vec<String> = column(&conn, "SELECT relative_path FROM frames ORDER BY id");
+        assert_ne!(paths[0], paths[1], "the namesake must not shadow the project's own a.png");
+
+        // Importing the same outside folder again brings nothing new.
+        let again = add(&conn, &root, &other, false);
+        assert_eq!((again.frames_imported, again.frames_skipped), (0, 1));
+    }
+
+    #[test]
+    fn an_outside_sequence_never_merges_into_one_of_the_same_name() {
+        let root = dir_with("add_names_root", &[]);
+        write_png(&root, "s1/a.png", 1);
+        let other = dir_with("add_names_other", &[]);
+        write_png(&other, "s1/z.png", 2);
+
+        let conn = open_project();
+        add(&conn, &root, &root, true);
+        add(&conn, &root, &other, true);
+        let names: Vec<String> = column(&conn, "SELECT name FROM sequences ORDER BY sort_order");
+        assert_eq!(names, ["s1", "s1 (2)"]);
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_decoded_is_reported_and_leaves_no_empty_sequence() {
+        let root = dir_with("add_broken", &["broken.png"]);
+        let conn = open_project();
+        let result = add(&conn, &root, &root, false);
+        assert_eq!(result.frames_imported, 0);
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(column::<String>(&conn, "SELECT name FROM sequences").len(), 0);
     }
 
     #[test]

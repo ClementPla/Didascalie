@@ -2,7 +2,7 @@ use rusqlite::params;
 use tauri::State;
 use serde::{Deserialize, Serialize};
 
-use crate::storage::DbState;
+use crate::storage::{queries, DbState};
 use crate::utils::error::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,17 +38,20 @@ pub fn save_text_description(
     content: String,
 ) -> Result<()> {
     db.with_conn(|conn| {
+        let user = queries::current_user_id(conn)?;
         if content.is_empty() {
             // Delete if content is empty
             conn.execute(
-                "DELETE FROM text_descriptions WHERE frame_id = ?1 AND label_name = ?2",
-                params![frame_id, field_name],
+                "DELETE FROM main.text_descriptions
+                 WHERE frame_id = ?1 AND label_name = ?2 AND user_id = ?3",
+                params![frame_id, field_name, user],
             )?;
         } else {
             conn.execute(
-                "INSERT OR REPLACE INTO text_descriptions (frame_id, label_name, content, modified_at)
-                 VALUES (?1, ?2, ?3, datetime('now'))",
-                params![frame_id, field_name, content],
+                "INSERT OR REPLACE INTO main.text_descriptions
+                 (frame_id, user_id, label_name, content, modified_at)
+                 VALUES (?1, ?4, ?2, ?3, datetime('now'))",
+                params![frame_id, field_name, content, user],
             )?;
         }
         Ok(())
@@ -63,8 +66,9 @@ pub fn delete_text_description(
 ) -> Result<()> {
     db.with_conn(|conn| {
         conn.execute(
-            "DELETE FROM text_descriptions WHERE frame_id = ?1 AND label_name = ?2",
-            params![frame_id, field_name],
+            "DELETE FROM main.text_descriptions
+             WHERE frame_id = ?1 AND label_name = ?2 AND user_id = ?3",
+            params![frame_id, field_name, queries::current_user_id(conn)?],
         )?;
         Ok(())
     })

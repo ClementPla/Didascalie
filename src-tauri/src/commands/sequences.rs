@@ -125,7 +125,9 @@ pub fn get_gallery_sequences(db: State<DbState>) -> Result<Vec<GallerySequence>>
                 s.name,
                 s.sort_order,
                 COUNT(f.id) as frame_count,
-                SUM(CASE WHEN f.reviewed THEN 1 ELSE 0 END) as reviewed_count,
+                COUNT(DISTINCT CASE
+                    WHEN EXISTS (SELECT 1 FROM frame_reviews fr WHERE fr.frame_id = f.id)
+                    THEN f.id END) as reviewed_count,
                 COUNT(DISTINCT CASE
                     WHEN EXISTS (SELECT 1 FROM annotations a WHERE a.frame_id = f.id)
                       OR EXISTS (SELECT 1 FROM vector_annotations v WHERE v.frame_id = f.id)
@@ -197,7 +199,7 @@ pub fn get_sequence_frames(db: State<DbState>, sequence_id: i64) -> Result<Vec<F
                 relative_path,
                 width, 
                 height, 
-                reviewed,
+                EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = frames.id),
                 embedded_data IS NOT NULL as is_embedded
              FROM frames 
              WHERE sequence_id = ?1

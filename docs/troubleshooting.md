@@ -64,6 +64,37 @@ This was a bug, fixed in 0.8.0: project state is now cleared when a project
 closes. If you see it on a current version, please report it and describe what you
 did between opening the two projects.
 
+## The project asks "Who is annotating?"
+
+The project has several accounts, or its only account has a password. Click
+your account to continue. See [Several annotators](guide/multi-user.md).
+
+To stop being asked on a project you use alone, sign in as an administrator,
+delete the other accounts and remove your password. Deleting an account erases
+what it annotated.
+
+## A password is forgotten
+
+An administrator can set a new one: open the account page, then **Change
+password** next to the account.
+
+If it is the only administrator's password, the application cannot help.
+Passwords are stored unencrypted, so it can still be read with any SQLite
+client, in the `password` column of the `users` table of the `.dida` file.
+
+## An older version of Didascalie refuses to open a project
+
+Opening a project with a version that has accounts upgrades the file, and
+earlier versions then refuse it rather than misread it. Update the application
+on the other computer. Nothing is lost in the upgrade.
+
+## My annotations are gone after signing in
+
+Each account has its own annotations. Check the name in the top bar: you may be
+signed in with another account than the one you annotated with. In a project
+created before accounts existed, earlier work belongs to the account named
+**Admin** (unless it has been renamed).
+
 ## Reporting something
 
 Open an issue at

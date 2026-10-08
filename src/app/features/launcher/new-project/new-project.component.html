@@ -27,6 +27,16 @@
           <label for="projectName">Name</label>
         </p-floatLabel>
 
+        <p-floatLabel>
+          <input
+            pInputText
+            id="ownerName"
+            class="w-full"
+            [(ngModel)]="ownerName"
+          />
+          <label for="ownerName">Your name</label>
+        </p-floatLabel>
+
         <div class="save-row">
           <div class="save-label">Save as</div>
           <div class="save-path-wrap" [class.error]="savePathError()">

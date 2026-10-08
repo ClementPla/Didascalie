@@ -73,6 +73,7 @@ nav:
       - Assisted labelling: guide/assistance.md
       - Very large images: guide/large-images.md
       - The gallery and review: guide/gallery.md
+      - Several annotators: guide/multi-user.md
       - Inspecting sequences: guide/inspect.md
       - Frame registration: guide/registration.md
       - Import and export: guide/import-export.md

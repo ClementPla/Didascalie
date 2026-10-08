@@ -68,8 +68,8 @@ export class EditorToolbarComponent {
     return this.editorService.selectedTool === tool;
   }
 
-  /** Name, shortcut and what the tool does — the buttons are icon-only
-   *  unless selected, so this is where they explain themselves. */
+  /** Name and shortcut, plus the tool's description when it has one — the
+   *  buttons are icon-only unless selected. */
   toolTooltip(tool: Tool): string {
     const head = tool.shortcut ? `${tool.name} · ${tool.shortcut}` : tool.name;
     return tool.description ? `${head} — ${tool.description}` : head;

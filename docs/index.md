@@ -25,7 +25,9 @@ analysis pipeline. Didascalie is an installer and a project file.
       <figcaption>The gallery: filter sequences and track review status. Batch classify sequences</figcaption>
     </figure>
     <figure>
-      <img src="assets/screenshots/inspect.gif" alt="The inspector: play a sequence back with its labels.">
+      <video src="assets/screenshots/inspect.mp4" poster="assets/screenshots/inspect_poster.jpg"
+             autoplay loop muted playsinline preload="metadata"
+             aria-label="The inspector: play a sequence back with its labels."></video>
       <figcaption>The inspector: play a sequence back with its labels.</figcaption>
     </figure>
     <figure>
@@ -35,6 +37,10 @@ analysis pipeline. Didascalie is an installer and a project file.
     <figure>
       <img src="assets/screenshots/volume3d.png" alt="3D volume mode (experimental): a sequence as a volume.">
       <figcaption>3D volume mode (experimental): a sequence as a volume.</figcaption>
+    </figure>
+    <figure>
+      <img src="assets/screenshots/intergrader.png" alt="Intergrader assessment.">
+      <figcaption>Multiple users can be working on a same project; inspect the intergrader assessment</figcaption>
     </figure>
   </div>
 </div>
@@ -60,6 +66,10 @@ analysis pipeline. Didascalie is an installer and a project file.
 
     Projects, annotation types, assisted labelling, review workflow.
 
+-   :material-account-multiple: **[Several annotators](guide/multi-user.md)**
+
+    Accounts and roles in one project file, and inter-grader agreement.
+
 -   :material-language-python: **[Python library](python.md)**
 
     Read and write project files from Python, and convert to COCO or YOLO.
@@ -82,6 +92,19 @@ history.
 ## Project files
 
 A project is a single `.dida` file. It is an ordinary SQLite database that holds
-the images (embedded or referenced on disk), the annotations, the label
-definitions, any trained model and the project settings. To back up a project or
-give it to a colleague, copy that file.
+the images (embedded or referenced on disk), the annotations of every account,
+the label definitions, any trained model and the project settings. To back up a project or
+give it to a colleague, copy that file. 
+
+## Several annotators
+
+One project file can hold the work of several people. Each has an account, with
+or without a password, and annotates the same images independently: nobody sees
+or overwrites anyone else's masks. Accounts are either editors, who annotate, or
+administrators, who also manage the accounts and the project's labels.
+
+An **inter-grader agreement** page lets administrators compare the graders pair
+by pair, with Dice, IoU and kappa scores and pictures of where they differ.
+
+A project used by one person works as it always has, with no account to pick.
+See [Several annotators](guide/multi-user.md).

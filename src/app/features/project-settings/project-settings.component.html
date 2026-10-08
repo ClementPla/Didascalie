@@ -1,0 +1,450 @@
+<div class="page">
+  <header class="page-header">
+    <h1>Project settings</h1>
+    <p class="page-note">
+      Changes are written to the project file as you make them.
+    </p>
+  </header>
+
+  <div class="sections">
+    <!-- Project -->
+    <p-fieldset legend="Project" class="section-project">
+      <div class="field-stack">
+        <label class="field">
+          <span class="field-label">Name</span>
+          <input
+            #projectName
+            pInputText
+            class="w-full"
+            aria-label="Project name"
+            [value]="config().name"
+            (change)="renameProject(projectName)"
+            (keydown.enter)="projectName.blur()"
+          />
+        </label>
+        <div class="field">
+          <span class="field-label">File</span>
+          <span class="path" [title]="project.projectPath()">{{
+            project.projectPath()
+          }}</span>
+        </div>
+        <small class="hint">
+          Renaming the project does not rename or move its file.
+        </small>
+      </div>
+    </p-fieldset>
+
+    <!-- Images -->
+    <p-fieldset legend="Images" class="section-images">
+      <div class="field-stack">
+        <div class="field">
+          <span class="field-label">In the project</span>
+          <span>
+            {{ project.framesCount() }} images in
+            {{ project.sequencesCount() }} sequences
+          </span>
+        </div>
+        <div class="field">
+          <span class="field-label">Image folder</span>
+          @if (config().input_folder; as folder) {
+            <span class="path" [title]="folder">{{ folder }}</span>
+          } @else {
+            <span class="muted">None — every image is stored in the project file</span>
+          }
+        </div>
+
+        <h3 class="subhead">Add images</h3>
+        <app-folder-drop-zone
+          [folderPath]="addFolder()"
+          [compact]="!!addFolder()"
+          (folderChange)="onAddFolderChange($event)"
+        ></app-folder-drop-zone>
+
+        @if (addFolder()) {
+          <div class="input-options">
+            <label class="field flex-1">
+              <span class="field-label">Filename pattern (regex)</span>
+              <input
+                pInputText
+                class="w-full"
+                aria-label="Filename pattern"
+                [(ngModel)]="addRegex"
+              />
+            </label>
+            <app-labelled-switch [(checked)]="addRecursive">
+              Recursive
+            </app-labelled-switch>
+            <app-labelled-switch [(checked)]="addFoldersAsSequences">
+              Folders as sequences
+            </app-labelled-switch>
+            @if (!addFolderIsOutside()) {
+              <app-labelled-switch [(checked)]="addEmbed">
+                Embed in project file
+              </app-labelled-switch>
+            }
+          </div>
+
+          @if (addFolderIsOutside()) {
+            <small class="hint">
+              This folder is outside the project's image folder, so its images
+              will be copied into the project file.
+            </small>
+          } @else {
+            <small class="hint">
+              Images already in the project are left as they are; only new
+              files are added.
+            </small>
+          }
+
+          <div class="actions">
+            @if (adding()) {
+              <p-progressbar mode="indeterminate" class="progress"></p-progressbar>
+            }
+            <p-button
+              icon="pi pi-plus"
+              label="Add images"
+              [disabled]="adding() || !addRegex"
+              (onClick)="addImages()"
+            ></p-button>
+          </div>
+        }
+
+        @if (lastImport(); as result) {
+          <div class="import-result">
+            <span>
+              {{ result.framesImported }} added
+              @if (result.framesSkipped > 0) {
+                · {{ result.framesSkipped }} already in the project
+              }
+              @if (result.errors.length > 0) {
+                · {{ result.errors.length }} failed
+              }
+            </span>
+            @if (result.errors.length > 0) {
+              <ul class="import-errors">
+                @for (error of result.errors.slice(0, 5); track $index) {
+                  <li>{{ error }}</li>
+                }
+                @if (result.errors.length > 5) {
+                  <li>… and {{ result.errors.length - 5 }} more</li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </div>
+    </p-fieldset>
+
+    <!-- Segmentation labels -->
+    <p-fieldset legend="Segmentation labels" class="section-labels">
+      <div class="field-stack">
+        <div class="switch-row">
+          <app-labelled-switch
+            [checked]="config().segmentation_enabled"
+            (checkedChange)="setTaskEnabled('segmentation', $event)"
+          >
+            Segmentation
+          </app-labelled-switch>
+          <p-tag
+            [severity]="config().instance_segmentation_enabled ? 'info' : 'secondary'"
+            [value]="
+              config().instance_segmentation_enabled
+                ? 'Instance segmentation'
+                : 'Semantic segmentation'
+            "
+            pTooltip="Chosen when the project is created. It decides what the mask values mean, so it cannot be changed afterwards."
+            tooltipPosition="bottom"
+          ></p-tag>
+        </div>
+
+        @if (labels().length === 0) {
+          <small class="muted">No labels yet.</small>
+        }
+
+        <div
+          class="label-list"
+          cdkDropList
+          (cdkDropListDropped)="reorderLabels($event)"
+        >
+        @for (label of labels(); track label.id; let i = $index) {
+          <div class="row" cdkDrag cdkDragLockAxis="y">
+            <i
+              class="drag-handle pi pi-bars"
+              cdkDragHandle
+              pTooltip="Drag to reorder"
+              tooltipPosition="left"
+              aria-hidden="true"
+            ></i>
+            <p-colorPicker
+              appendTo="body"
+              [ngModel]="colorOf(label)"
+              (ngModelChange)="draftColor(label, $event)"
+              (onHide)="commitColor(label)"
+              [attr.aria-label]="'Colour of ' + label.label"
+            />
+            <input
+              #labelName
+              pInputText
+              class="flex-1 min-w-0"
+              placeholder="Label name"
+              [attr.aria-label]="'Name of label ' + (i + 1)"
+              [value]="label.label"
+              (change)="renameLabel(label, labelName)"
+              (keydown.enter)="labelName.blur()"
+            />
+            <p-button
+              icon="pi pi-trash"
+              [rounded]="true"
+              [text]="true"
+              severity="danger"
+              pTooltip="Delete this label"
+              tooltipPosition="left"
+              [ariaLabel]="'Delete label ' + label.label"
+              [disabled]="busy()"
+              (onClick)="deleteLabel(label)"
+            ></p-button>
+          </div>
+        }
+        </div>
+
+        <p-button
+          class="self-start"
+          icon="pi pi-plus"
+          label="Add label"
+          [text]="true"
+          [disabled]="busy()"
+          (onClick)="addLabel()"
+        ></p-button>
+        <small class="hint">
+          A label's colour is not stored in the masks, so changing it recolours
+          every frame at once. Reordering labels changes their class numbers in
+          future exports.
+        </small>
+      </div>
+    </p-fieldset>
+
+    <!-- Classification -->
+    <p-fieldset legend="Classification" class="section-classification">
+      <div class="field-stack">
+        <div class="switch-row">
+          <app-labelled-switch
+            [checked]="config().classification_enabled"
+            (checkedChange)="setTaskEnabled('classification', $event)"
+          >
+            Classification
+          </app-labelled-switch>
+          @if (!config().classification_enabled && tasks().length > 0) {
+            <small class="muted">
+              Switched off: the tasks below and their answers are kept, only
+              hidden.
+            </small>
+          }
+        </div>
+
+        @if (tasks().length === 0) {
+          <small class="muted">No classification task yet.</small>
+        }
+
+        <!-- Tracked by position, not name: a name is edited in place, and
+             tracking by it would rebuild the row and drop the focus the user
+             just moved to the next field. -->
+        @for (task of tasks(); track $index; let t = $index) {
+          <div class="task">
+            <div class="row">
+              <input
+                #taskName
+                pInputText
+                class="flex-1 min-w-0 task-name"
+                placeholder="Task name"
+                [attr.aria-label]="'Name of task ' + (t + 1)"
+                [value]="task.name"
+                (change)="renameTask(task, taskName)"
+                (keydown.enter)="taskName.blur()"
+              />
+              <p-tag
+                severity="secondary"
+                [value]="task.multilabel ? 'Several answers' : 'One answer'"
+              ></p-tag>
+              <p-button
+                icon="pi pi-trash"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                pTooltip="Delete this task"
+                tooltipPosition="left"
+                [ariaLabel]="'Delete task ' + task.name"
+                [disabled]="busy()"
+                (onClick)="deleteTask(task)"
+              ></p-button>
+            </div>
+
+            <div class="classes">
+              @for (name of task.classes; track $index; let c = $index) {
+                <div class="row">
+                  <input
+                    #className
+                    pInputText
+                    class="flex-1 min-w-0"
+                    placeholder="Class name"
+                    [attr.aria-label]="'Name of class ' + (c + 1) + ' of ' + task.name"
+                    [value]="name"
+                    (change)="renameClass(task, name, className)"
+                    (keydown.enter)="className.blur()"
+                  />
+                  <p-button
+                    icon="pi pi-times"
+                    [rounded]="true"
+                    [text]="true"
+                    severity="danger"
+                    [ariaLabel]="'Delete class ' + name"
+                    [disabled]="busy()"
+                    (onClick)="deleteClass(task, name)"
+                  ></p-button>
+                </div>
+              }
+              <p-button
+                class="self-start"
+                icon="pi pi-plus"
+                label="Add class"
+                size="small"
+                [text]="true"
+                [disabled]="busy()"
+                (onClick)="addClass(task)"
+              ></p-button>
+            </div>
+          </div>
+        }
+
+        <div class="actions actions--start">
+          <p-button
+            icon="pi pi-plus"
+            label="Add task (one answer)"
+            severity="secondary"
+            [disabled]="busy()"
+            (onClick)="addMulticlassTask()"
+          ></p-button>
+          @if (!hasMultilabelTask()) {
+            <p-button
+              icon="pi pi-plus"
+              label="Add task (several answers)"
+              severity="secondary"
+              [disabled]="busy()"
+              (onClick)="addMultilabelTask()"
+            ></p-button>
+          }
+        </div>
+      </div>
+    </p-fieldset>
+
+    <!-- Text descriptions -->
+    <p-fieldset legend="Text descriptions" class="section-text">
+      <div class="field-stack">
+        <div class="switch-row">
+          <app-labelled-switch
+            [checked]="config().text_description_enabled"
+            (checkedChange)="setTaskEnabled('textDescription', $event)"
+          >
+            Text descriptions
+          </app-labelled-switch>
+          @if (!config().text_description_enabled && textFields().length > 0) {
+            <small class="muted">
+              Switched off: the fields below and their text are kept, only
+              hidden.
+            </small>
+          }
+        </div>
+
+        @if (textFields().length === 0) {
+          <small class="muted">No text field yet.</small>
+        }
+
+        @for (name of textFields(); track $index; let f = $index) {
+          <div class="row">
+            <input
+              #fieldName
+              pInputText
+              class="flex-1 min-w-0"
+              placeholder="Field name"
+              [attr.aria-label]="'Name of text field ' + (f + 1)"
+              [value]="name"
+              (change)="renameTextField(name, fieldName)"
+              (keydown.enter)="fieldName.blur()"
+            />
+            <p-button
+              icon="pi pi-trash"
+              [rounded]="true"
+              [text]="true"
+              severity="danger"
+              [ariaLabel]="'Delete text field ' + name"
+              [disabled]="busy()"
+              (onClick)="deleteTextField(name)"
+            ></p-button>
+          </div>
+        }
+
+        <p-button
+          class="self-start"
+          icon="pi pi-plus"
+          label="Add text field"
+          [text]="true"
+          [disabled]="busy()"
+          (onClick)="addTextField()"
+        ></p-button>
+      </div>
+    </p-fieldset>
+  </div>
+</div>
+
+<!-- Shown only for a deletion that would erase annotations. -->
+<p-dialog
+  [visible]="!!pending()"
+  (visibleChange)="!$event && answer(false)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [style]="{ width: '520px' }"
+>
+  <ng-template #header>
+    <span class="danger-title">
+      <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+      {{ pending()?.title }}
+    </span>
+  </ng-template>
+
+  @if (pending(); as p) {
+    <div class="danger-body">
+      <p class="danger-lead">This will permanently delete annotations:</p>
+      <ul class="danger-list">
+        @for (line of p.consequences; track $index) {
+          <li>{{ line }}</li>
+        }
+      </ul>
+      <p class="danger-final">
+        It is written to the project file immediately and
+        <strong>cannot be undone</strong> — not with Ctrl+Z, and not by closing
+        without saving. Copy the project file first if you might want this
+        back.
+      </p>
+      <div class="danger-ack">
+        <p-checkbox [(ngModel)]="acknowledged" [binary]="true" inputId="ack" />
+        <label for="ack">I understand that these annotations will be lost.</label>
+      </div>
+    </div>
+  }
+
+  <ng-template #footer>
+    <p-button
+      label="Keep it"
+      severity="secondary"
+      [text]="true"
+      (onClick)="answer(false)"
+    ></p-button>
+    <p-button
+      label="Delete permanently"
+      icon="pi pi-trash"
+      severity="danger"
+      [disabled]="!acknowledged"
+      (onClick)="answer(true)"
+    ></p-button>
+  </ng-template>
+</p-dialog>

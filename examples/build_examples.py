@@ -3,7 +3,7 @@
 Usage: python build_examples.py <download_dir> <output_dir> [name ...]
 
 Downloads what is missing into <download_dir> (about 1 GB), then writes one
-.dida file per example into <output_dir>. Names: fundus, skin, nuclei,
+.dida file per example into <output_dir>. Names: fundus, graders, skin, nuclei,
 registration, laparoscopy, echo, brain, liver (all of them when none is given).
 """
 
@@ -42,6 +42,8 @@ def fetch(key):
 
     if key == "fundus":
         get("tyluan/FIVES", "data/test-00000-of-00001.parquet", "fives")
+    elif key == "graders":
+        get("MedOtter/CHASE_DB1", "data/train-00000-of-00001.parquet", "chase")
     elif key == "skin":
         get("MedOtter/ISIC2017", "data/train-00000-of-00030.parquet", "isic")
     elif key == "registration":
@@ -80,41 +82,79 @@ def create(filename, name, labels, tasks=None, instances=False):
     config = ProjectConfig(
         name=name,
         images_embedded=True,
-        classification_enabled=bool(tasks),
         instance_segmentation_enabled=instances,
+        # Listed in the config as the application does; the library then keeps
+        # the list in step with the labels added below.
+        segmentation_labels=[],
     )
     project = DidascalieProject.create(
         os.path.join(OUT, filename), name=name, config=config, overwrite=True
     )
     for i, (label, color) in enumerate(labels):
-        project.add_label(
-            Label(name=label, color=color, is_instance=instances, sort_order=i)
-        )
-    project._tasks = tasks or {}
-    project._labels = labels
+        project.add_label(Label(name=label, color=color, sort_order=i))
+    for task, classes in (tasks or {}).items():
+        project.add_classification_task(task, classes)
     return project
 
 
 def finish(project):
-    """Write what the application reads from the config, mark annotated frames
-    reviewed, and compact the file."""
-    conn = project._conn
-    config = json.loads(conn.execute("SELECT config FROM project").fetchone()[0])
-    config["segmentation_labels"] = [
-        {"name": n, "color": c, "shades": None} for n, c in project._labels
-    ]
-    config["classification_tasks"] = [
-        {"name": n, "classes": classes, "default": None}
-        for n, classes in project._tasks.items()
-    ]
-    conn.execute("UPDATE project SET config = ?", (json.dumps(config),))
-    conn.execute(
-        "UPDATE frames SET reviewed = 1 WHERE id IN (SELECT frame_id FROM annotations)"
-    )
-    conn.commit()
+    """Mark the annotated frames reviewed and close the project."""
+    with project.bulk():
+        for _, frame in project.iter_frames():
+            if project.get_annotations_for_frame(frame.id):
+                project.set_frame_reviewed(frame.id)
     stats = project.get_statistics()
     project.close()
     return stats
+
+
+# --------------------------------------------------------------------------
+# Several graders
+# --------------------------------------------------------------------------
+
+
+def graders():
+    """CHASE_DB1: fundus photographs of children, with the vessels traced
+    independently by two human observers. Each observer is an account, so the
+    inter-grader page has something real to compare."""
+    filename = "fundus_vessels_two_graders.dida"
+    project = create(filename, "Fundus vessels, two graders (CHASE_DB1)", [("vessels", "#00E5FF")])
+    rows = pq.ParquetFile(f"{HF}/chase/data/train-00000-of-00001.parquet").read().to_pylist()
+    rows = sorted(rows, key=lambda r: r["image_id"])[:MAX_SAMPLES]
+
+    second = {}
+    for row in rows:
+        frame_id = project.import_with_masks(
+            png(row["image"]["bytes"]).convert("RGB"),
+            {"vessels": np.array(png(row["mask"]["bytes"])) > 0},
+            sequence_name=row["image_id"],
+        )
+        second[frame_id] = np.array(png(row["mask_2ndHO"]["bytes"])) > 0
+    # Accounts need the layout of the releases that have them: the first
+    # observer gets what was imported above, the second one their own masks.
+    project.enable_user_accounts("First observer")
+    project.set_user(project.add_user("Second observer").id)
+    label_id = project.get_label_by_name("vessels").id
+    with project.bulk():
+        for frame_id, mask in second.items():
+            project.add_annotation(frame_id, label_id, mask)
+    project.set_user("First observer")
+    return finish_all_users(project)
+
+
+def finish_all_users(project):
+    """`finish`, for every account of the project; the statistics returned are
+    the first account's."""
+    current = project.user
+    for user in project.get_users():
+        if user.id != current.id:
+            project.set_user(user.id)
+            with project.bulk():
+                for _, frame in project.iter_frames():
+                    if project.get_annotations_for_frame(frame.id):
+                        project.set_frame_reviewed(frame.id)
+    project.set_user(current.id)
+    return finish(project)
 
 
 # --------------------------------------------------------------------------
@@ -478,6 +518,7 @@ def liver():
 
 BUILDERS = {
     "fundus": fundus,
+    "graders": graders,
     "skin": skin,
     "nuclei": nuclei,
     "registration": registration,

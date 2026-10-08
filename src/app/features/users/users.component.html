@@ -1,0 +1,272 @@
+<div class="page">
+  <header class="page-header">
+    <h1>Who is annotating?</h1>
+    <p class="page-note">
+      Each account keeps its own annotations of
+      <strong>{{ project.projectName() }}</strong>.
+    </p>
+  </header>
+
+  <!-- The door: one click per account. -->
+  <div class="accounts">
+    @for (user of list(); track user.id) {
+      <div class="account" [class.account--current]="isCurrent(user)">
+        <button
+          type="button"
+          class="account-button"
+          [disabled]="busy()"
+          (click)="choose(user)"
+        >
+          <span class="avatar" aria-hidden="true">{{ initial(user) }}</span>
+          <span class="account-name">{{ user.name }}</span>
+          <span class="account-meta">
+            {{ user.role === 'admin' ? 'Administrator' : 'Editor' }}
+            @if (user.hasPassword) {
+              <i class="pi pi-lock" aria-label="Password protected"></i>
+            }
+          </span>
+          @if (isCurrent(user)) {
+            <span class="account-state">Signed in — continue</span>
+          }
+        </button>
+
+        @if (asking() === user.id) {
+          <form class="password-form" (ngSubmit)="signIn(user, password)">
+            <input
+              pInputText
+              type="password"
+              name="password"
+              class="w-full"
+              placeholder="Password"
+              aria-label="Password"
+              autocomplete="off"
+              [(ngModel)]="password"
+            />
+            <p-button
+              type="submit"
+              icon="pi pi-arrow-right"
+              ariaLabel="Sign in"
+              [disabled]="busy()"
+            ></p-button>
+          </form>
+          @if (loginError(); as error) {
+            <small class="error">{{ error }}</small>
+          }
+        }
+      </div>
+    }
+
+    <!-- Registering is the same gesture: a name, and you are in. -->
+    <form class="account account--new" (ngSubmit)="register()">
+      <span class="account-new-title">
+        <i class="pi pi-user-plus" aria-hidden="true"></i> New account
+      </span>
+      <input
+        pInputText
+        name="newName"
+        class="w-full"
+        placeholder="Your name"
+        aria-label="Name of the new account"
+        [(ngModel)]="newName"
+      />
+      <input
+        pInputText
+        type="password"
+        name="newPassword"
+        class="w-full"
+        placeholder="Password (optional)"
+        aria-label="Password of the new account, optional"
+        autocomplete="off"
+        [(ngModel)]="newPassword"
+      />
+      <p-button
+        type="submit"
+        label="Create and sign in"
+        [disabled]="busy() || !newName.trim()"
+      ></p-button>
+    </form>
+  </div>
+
+  <!-- Management, once inside. -->
+  @if (current(); as me) {
+    <p-fieldset legend="Manage accounts">
+      <div class="manage">
+        @for (user of list(); track user.id; let i = $index) {
+          <div class="manage-row">
+            <input
+              #nameInput
+              pInputText
+              class="manage-name"
+              [attr.aria-label]="'Name of account ' + (i + 1)"
+              [value]="user.name"
+              [disabled]="!canEdit(user)"
+              (change)="rename(user, nameInput)"
+              (keydown.enter)="nameInput.blur()"
+            />
+
+            @if (users.isAdmin()) {
+              <p-select
+                [options]="roleOptions"
+                optionLabel="label"
+                optionValue="value"
+                [ngModel]="user.role"
+                (onChange)="setRole(user, $event.value)"
+                appendTo="body"
+                [ariaLabel]="'Role of ' + user.name"
+                [style]="{ 'min-width': '10rem' }"
+              ></p-select>
+            } @else {
+              <p-tag
+                severity="secondary"
+                [value]="user.role === 'admin' ? 'Administrator' : 'Editor'"
+              ></p-tag>
+            }
+
+            @if (canEdit(user)) {
+              <p-button
+                [icon]="user.hasPassword ? 'pi pi-lock' : 'pi pi-lock-open'"
+                [label]="user.hasPassword ? 'Change password' : 'Set password'"
+                severity="secondary"
+                [text]="true"
+                [disabled]="busy()"
+                (onClick)="openPassword(user)"
+              ></p-button>
+            }
+
+            @if (isCurrent(user)) {
+              <p-tag severity="info" value="You"></p-tag>
+            } @else if (users.isAdmin()) {
+              <p-button
+                icon="pi pi-trash"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                pTooltip="Delete this account"
+                tooltipPosition="left"
+                [ariaLabel]="'Delete account ' + user.name"
+                [disabled]="busy()"
+                (onClick)="askDelete(user)"
+              ></p-button>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="manage-footer">
+        <small class="hint">
+          @if (users.isAdmin()) {
+            Administrators manage accounts and project settings and read the
+            inter-grader report. Editors annotate.
+          } @else {
+            You can rename your account and set its password. An administrator
+            manages the others.
+          }
+          Passwords are stored unencrypted in the project file: they keep
+          accounts apart, they do not protect the data.
+        </small>
+        <p-button
+          icon="pi pi-sign-out"
+          label="Sign out"
+          severity="secondary"
+          [text]="true"
+          [disabled]="busy()"
+          (onClick)="signOut()"
+        ></p-button>
+      </div>
+    </p-fieldset>
+  }
+</div>
+
+<!-- Set / remove a password -->
+<p-dialog
+  [visible]="!!settingPassword()"
+  (visibleChange)="!$event && settingPassword.set(null)"
+  [modal]="true"
+  [draggable]="false"
+  [header]="'Password for ' + (settingPassword()?.name ?? '')"
+  [style]="{ width: '420px' }"
+>
+  <form class="dialog-form" (ngSubmit)="savePassword(passwordDraft || null)">
+    <input
+      pInputText
+      type="password"
+      name="passwordDraft"
+      class="w-full"
+      placeholder="New password"
+      aria-label="New password"
+      autocomplete="off"
+      [(ngModel)]="passwordDraft"
+    />
+    <small class="hint">
+      Asked for when signing in to this account. Stored unencrypted.
+    </small>
+    <div class="dialog-actions">
+      @if (settingPassword()?.hasPassword) {
+        <p-button
+          type="button"
+          label="Remove password"
+          severity="secondary"
+          [text]="true"
+          (onClick)="savePassword(null)"
+        ></p-button>
+      }
+      <p-button type="submit" label="Save" [disabled]="!passwordDraft"></p-button>
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Delete an account -->
+<p-dialog
+  [visible]="!!pendingDelete()"
+  (visibleChange)="!$event && pendingDelete.set(null)"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '520px' }"
+>
+  <ng-template #header>
+    <span class="danger-title">
+      <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+      Delete the account “{{ pendingDelete()?.user?.name }}”?
+    </span>
+  </ng-template>
+
+  @if (pendingDelete(); as p) {
+    <div class="danger-body">
+      @if (p.consequences.length > 0) {
+        <p>This will permanently delete everything they annotated:</p>
+        <ul class="danger-list">
+          @for (line of p.consequences; track $index) {
+            <li>{{ line }}</li>
+          }
+        </ul>
+        <p class="danger-final">
+          It is written to the project file immediately and
+          <strong>cannot be undone</strong>. Other accounts are not affected.
+          Copy the project file first if you might want this back.
+        </p>
+        <div class="danger-ack">
+          <p-checkbox [(ngModel)]="acknowledged" [binary]="true" inputId="ackUser" />
+          <label for="ackUser">I understand that this work will be lost.</label>
+        </div>
+      } @else {
+        <p>This account has not annotated anything. Nothing else is affected.</p>
+      }
+    </div>
+  }
+
+  <ng-template #footer>
+    <p-button
+      label="Keep it"
+      severity="secondary"
+      [text]="true"
+      (onClick)="pendingDelete.set(null)"
+    ></p-button>
+    <p-button
+      label="Delete permanently"
+      icon="pi pi-trash"
+      severity="danger"
+      [disabled]="!canConfirmDelete() && !acknowledged"
+      (onClick)="confirmDelete()"
+    ></p-button>
+  </ng-template>
+</p-dialog>

@@ -1,0 +1,313 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface-ground, #15171b);
+}
+
+.page {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-sizing: border-box;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+}
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.page-note,
+.muted,
+.hint {
+  margin: 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.85rem;
+}
+.hint {
+  font-size: 0.8rem;
+}
+.empty {
+  margin: 0;
+  color: var(--p-text-muted-color);
+  font-style: italic;
+}
+.error {
+  margin: 0;
+  color: var(--p-red-400, #e35d6a);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  padding: 0.45rem 0.75rem;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--p-content-border-color, rgba(255, 255, 255, 0.08));
+}
+thead th {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+}
+th[scope='row'],
+thead th:first-child {
+  text-align: left;
+  font-weight: 600;
+}
+th[scope='row'] small {
+  margin-left: 0.4rem;
+  font-weight: 400;
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.45rem;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+// Graders, then one selectable row per pair.
+.graders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  font-size: 0.9rem;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+  }
+}
+.pair-row {
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
+  }
+  &--selected {
+    background: color-mix(in srgb, var(--p-primary-color) 16%, transparent);
+    box-shadow: inset 3px 0 0 var(--p-primary-color);
+  }
+}
+.pair-button {
+  all: unset;
+  cursor: pointer;
+  font-weight: 600;
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 2px;
+  }
+}
+
+// Qualitative cases
+.cases {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 0.5rem;
+}
+.cases-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+}
+
+// Each entry is a colour picker and what the colour stands for.
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  font-size: 0.85rem;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+}
+.edge-width {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.edge-width-slider {
+  width: 9rem;
+}
+
+.case-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+}
+.case-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.case-row-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--p-text-muted-color);
+}
+.thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.thumb {
+  all: unset;
+  box-sizing: border-box;
+  width: 10rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: var(--p-content-background, #1d2026);
+
+  img,
+  .thumb-placeholder {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: #000;
+  }
+  &:hover {
+    border-color: color-mix(in srgb, var(--p-primary-color) 50%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 2px;
+  }
+  &--chosen {
+    border-color: var(--p-primary-color);
+  }
+}
+.thumb-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
+.thumb-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thumb-score {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.case-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+}
+.marks-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+
+  label {
+    cursor: pointer;
+  }
+}
+
+.case-view {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 100%;
+
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 75vh;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #000;
+  }
+  figcaption {
+    font-size: 0.85rem;
+    color: var(--p-text-muted-color);
+
+    strong {
+      color: var(--p-text-color);
+    }
+  }
+}
+.case-view-loading {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #000;
+}

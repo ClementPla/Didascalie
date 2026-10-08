@@ -163,6 +163,169 @@ export function translateShape(
   };
 }
 
+/** Rotate a whole shape (anchors + both handles) by `angle` radians around `pivot`. */
+export function rotateShape(
+  shape: VectorShape,
+  pivot: Pt,
+  angle: number,
+): VectorShape {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const rx = (x: number, y: number) =>
+    pivot.x + (x - pivot.x) * cos - (y - pivot.y) * sin;
+  const ry = (x: number, y: number) =>
+    pivot.y + (x - pivot.x) * sin + (y - pivot.y) * cos;
+  return {
+    ...shape,
+    nodes: shape.nodes.map((n) => ({
+      ...n,
+      x: rx(n.x, n.y),
+      y: ry(n.x, n.y),
+      inX: rx(n.inX, n.inY),
+      inY: ry(n.inX, n.inY),
+      outX: rx(n.outX, n.outY),
+      outY: ry(n.outX, n.outY),
+    })),
+  };
+}
+
+/**
+ * Stretch a shape along the unit direction `u`, keeping the line through
+ * `anchor` perpendicular to `u` fixed. `factor` 1 leaves it unchanged.
+ *
+ * Being affine, it maps a rotated box to a rotated box and an ellipse to an
+ * ellipse, so neither needs to remember its angle to be resized.
+ */
+export function stretchShape(
+  shape: VectorShape,
+  anchor: Pt,
+  u: Pt,
+  factor: number,
+): VectorShape {
+  const k = factor - 1;
+  const sx = (x: number, y: number) =>
+    x + k * ((x - anchor.x) * u.x + (y - anchor.y) * u.y) * u.x;
+  const sy = (x: number, y: number) =>
+    y + k * ((x - anchor.x) * u.x + (y - anchor.y) * u.y) * u.y;
+  return {
+    ...shape,
+    nodes: shape.nodes.map((n) => ({
+      ...n,
+      x: sx(n.x, n.y),
+      y: sy(n.x, n.y),
+      inX: sx(n.inX, n.inY),
+      inY: sy(n.inX, n.inY),
+      outX: sx(n.outX, n.outY),
+      outY: sy(n.outX, n.outY),
+    })),
+  };
+}
+
+/** A resize grip on one side of a box or ellipse, and the point on the
+ *  opposite side that stays put while it is dragged. */
+export interface SideHandle {
+  pos: Pt;
+  anchor: Pt;
+}
+
+/**
+ * The four side grips of a box (edge midpoints) or an ellipse (its four
+ * points), read off the geometry so they follow the shape however it has been
+ * rotated. Empty for anything else: an arbitrary path has no "sides".
+ */
+export function sideHandles(shape: VectorShape): SideHandle[] {
+  const n = shape.nodes;
+  if (!shape.closed || n.length !== 4) return [];
+
+  const flat = (i: number) =>
+    isFlatHandle(n[i].x, n[i].y, n[i].inX, n[i].inY) &&
+    isFlatHandle(n[i].x, n[i].y, n[i].outX, n[i].outY);
+  const curved = (i: number) =>
+    !isFlatHandle(n[i].x, n[i].y, n[i].inX, n[i].inY) &&
+    !isFlatHandle(n[i].x, n[i].y, n[i].outX, n[i].outY);
+  const all = [0, 1, 2, 3];
+
+  let pts: Pt[];
+  if (all.every(flat)) {
+    pts = all.map((i) => lerpPt(n[i], n[(i + 1) % 4], 0.5));
+  } else if (all.every(curved)) {
+    pts = all.map((i) => ({ x: n[i].x, y: n[i].y }));
+  } else {
+    return [];
+  }
+  return pts.map((pos, i) => ({ pos, anchor: pts[(i + 2) % 4] }));
+}
+
+/** Union of the shapes' bounding boxes, or null when none has geometry. */
+export function shapesBounds(shapes: VectorShape[]): Bounds | null {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const shape of shapes) {
+    const b = shapeBounds(shape);
+    if (!b) continue;
+    minX = Math.min(minX, b.x);
+    minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.width);
+    maxY = Math.max(maxY, b.y + b.height);
+  }
+  if (minX === Infinity) return null;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/** The four corner nodes of the axis-aligned rectangle spanning a and b. */
+export function rectNodes(a: Pt, b: Pt): VectorNode[] {
+  const x0 = Math.min(a.x, b.x);
+  const y0 = Math.min(a.y, b.y);
+  const x1 = Math.max(a.x, b.x);
+  const y1 = Math.max(a.y, b.y);
+  return [
+    makeNode(x0, y0),
+    makeNode(x1, y0),
+    makeNode(x1, y1),
+    makeNode(x0, y1),
+  ];
+}
+
+/** Handle length, as a fraction of the radius, that makes four cubic segments
+ *  approximate a circle. */
+const CIRCLE_KAPPA = 0.5522847498;
+
+/**
+ * Four smooth nodes (top, right, bottom, left) tracing the ellipse inscribed
+ * in the rectangle spanning a and b. It stays an ordinary bezier path, so the
+ * Node tool can reshape it like any other.
+ */
+export function ellipseNodes(a: Pt, b: Pt): VectorNode[] {
+  const cx = (a.x + b.x) / 2;
+  const cy = (a.y + b.y) / 2;
+  const rx = Math.abs(b.x - a.x) / 2;
+  const ry = Math.abs(b.y - a.y) / 2;
+  const kx = rx * CIRCLE_KAPPA;
+  const ky = ry * CIRCLE_KAPPA;
+  const node = (
+    x: number,
+    y: number,
+    tx: number,
+    ty: number,
+  ): VectorNode => ({
+    x,
+    y,
+    inX: x - tx,
+    inY: y - ty,
+    outX: x + tx,
+    outY: y + ty,
+    smooth: true,
+  });
+  return [
+    node(cx, cy - ry, kx, 0),
+    node(cx + rx, cy, 0, ky),
+    node(cx, cy + ry, -kx, 0),
+    node(cx - rx, cy, 0, -ky),
+  ];
+}
+
 /** Squared distance from p to segment ab. */
 function distSqToSegment(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;

@@ -147,6 +147,22 @@ pub fn run() {
             #[cfg(not(target_os = "android"))]
             commands::dl::mask_sam_segment,
             commands::io::scan_and_import_folder,
+            commands::io::add_images_to_project,
+            commands::users::list_users,
+            commands::users::current_user,
+            commands::users::login,
+            commands::users::logout,
+            commands::users::register_user,
+            commands::users::update_user,
+            commands::users::user_footprint,
+            commands::users::delete_user,
+            commands::agreement::intergrader_report,
+            commands::agreement::intergrader_cases,
+            commands::agreement::intergrader_case_image,
+            #[cfg(not(target_os = "android"))]
+            commands::project_edit::project_edit_impact,
+            #[cfg(not(target_os = "android"))]
+            commands::project_edit::apply_project_edit,
             commands::project::create_project,
             commands::project::open_project,
             commands::project::close_project,

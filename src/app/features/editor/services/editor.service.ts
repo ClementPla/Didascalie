@@ -276,10 +276,25 @@ export class EditorService {
     return this.selectedTool === Tools.SKELETONIZE;
   }
 
-  /** True for the shape-editing vector tools (Select/Path/Node) — routes pointer
-   *  input to the SVG layer. Excludes Vectorize, which acts on the raster masks. */
+  public isEllipseTool(): boolean {
+    return this.selectedTool === Tools.ELLIPSE;
+  }
+
+  /** Box / Ellipse: drag out a ready-made closed shape. */
+  public isShapeTool(): boolean {
+    return this.selectedTool === Tools.RECT || this.isEllipseTool();
+  }
+
+  /** True for the shape-editing vector tools (Select/Path/Box/Ellipse/Node) —
+   *  routes pointer input to the SVG layer. Excludes Vectorize, which acts on
+   *  the raster masks. */
   public isVectorTool(): boolean {
-    return this.isPathTool() || this.isNodeTool() || this.isSelectTool();
+    return (
+      this.isPathTool() ||
+      this.isNodeTool() ||
+      this.isSelectTool() ||
+      this.isShapeTool()
+    );
   }
 
   public isToolWithBrushSize(): boolean {
