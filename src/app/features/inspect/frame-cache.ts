@@ -81,7 +81,10 @@ export class SequenceFrameCache {
     /** Whether playback wraps, i.e. the frames after the last are the first. */
     private loop: boolean,
   ) {
-    this.setBudget(budgetBytes);
+    // Sized, but not fetching yet: the owner has not said where the playhead
+    // is, and starting at frame 0 would spend every fetch slot on frames it
+    // may not be looking at, with the one it is waiting for queued behind.
+    this.capacity = this.capacityFor(budgetBytes);
   }
 
   get length(): number {
@@ -116,13 +119,18 @@ export class SequenceFrameCache {
 
   /** Memory this cache may hold, in decoded bytes. */
   setBudget(bytes: number): void {
+    this.capacity = this.capacityFor(bytes);
+    this.pump();
+  }
+
+  /** How many frames fit in `bytes`, decoded. */
+  private capacityFor(bytes: number): number {
     const perFrame = this.frames.reduce((max, f) => {
       const [w, h] = previewDimensions(f.width, f.height, this.maxDim);
       // An image and an overlay, RGBA each.
       return Math.max(max, w * h * 4 * 2);
     }, 1);
-    this.capacity = Math.max(MIN_FRAMES, Math.floor(bytes / perFrame));
-    this.pump();
+    return Math.max(MIN_FRAMES, Math.floor(bytes / perFrame));
   }
 
   /** Draw the labels differently: every cached overlay is now wrong. */
