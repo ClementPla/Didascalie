@@ -1,0 +1,110 @@
+// Same gutter as the settings panel it sits above, so the two read as one
+// column.
+$gutter: 0.75rem;
+
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+:host ::ng-deep {
+  .p-panel-header {
+    padding: $gutter;
+  }
+
+  .p-panel-content {
+    padding: 0 $gutter $gutter;
+  }
+}
+
+.panel-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+
+  &__endpoint {
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}
+
+.fn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  & + & {
+    margin-top: 0.9rem;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+}
+
+.fn-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &__text {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  // Function names are identifiers: monospace, and never wrapped mid-word.
+  &__name {
+    overflow: hidden;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.85rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__doc {
+    overflow: hidden;
+    opacity: 0.65;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.run-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.summary {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  opacity: 0.85;
+
+  &.muted {
+    opacity: 0.6;
+  }
+}

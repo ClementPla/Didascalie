@@ -6,6 +6,12 @@
   padding: 0.5rem 0;
 }
 
+// The tab panels bring their own horizontal padding, which indented the
+// sliders and the curve relative to everything else in the settings column.
+:host ::ng-deep .p-tabpanels {
+  padding-inline: 0;
+}
+
 .tab-label {
   font-weight: 600;
   font-size: 0.9rem;

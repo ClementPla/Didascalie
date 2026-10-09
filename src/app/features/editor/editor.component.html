@@ -1,6 +1,6 @@
 <app-editor-toolbar></app-editor-toolbar>
 <div
-  class="editor flex flex-1 min-h-0 overflow-hidden relative w-full xl:gap-4"
+  class="editor flex flex-1 gap-2 min-h-0 overflow-hidden px-2 relative w-full xl:gap-3"
 >
   <app-quick-access-menu
     #quickAccessMenu
@@ -46,7 +46,7 @@
         (click)="labelsCollapsed = !labelsCollapsed"
       ></button>
     }
-    @if (showSettingsPanel) {
+    @if (showRightPanel) {
       <button
         pButton
         type="button"
@@ -394,61 +394,71 @@
     </ng-template>
   </app-vertical-menu>
 
-  <!-- Frame navigation popover (a picker, not a setting — stays a popover). -->
-  <p-popover #frameNavPopover>
-    <app-multi-frames-options
-      (changeOfFrame)="changedOfFrame($event)"
-      (propagateRequested)="
-        propagationVisible.set(true); frameNavPopover.hide()
-      "
-      (clearSequenceRequested)="
-        clearSequenceVisible.set(true); frameNavPopover.hide()
-      "
-    ></app-multi-frames-options>
-  </p-popover>
-
-  <!-- Kept outside the popover: the popover is destroyed when it loses focus. -->
-  <app-propagation-dialog [(visible)]="propagationVisible" />
-
-  <p-dialog
-    header="Clear this sequence?"
-    [visible]="clearSequenceVisible()"
-    (visibleChange)="clearSequenceVisible.set($event)"
-    [modal]="true"
-    [style]="{ width: '28rem' }"
-  >
-    <p class="m-0">
-      Erases every annotation on all
-      {{ sequenceService.frameCount() }} frames of
-      <b>{{ sequenceService.currentSequence()?.name }}</b
-      >, including frames that are not open.
-    </p>
-    <p class="mt-3 opacity-70 text-sm">
-      This writes straight to the project and cannot be undone.
-    </p>
-    <ng-template pTemplate="footer">
-      <p-button
-        label="Cancel"
-        severity="secondary"
-        [text]="true"
-        (click)="clearSequenceVisible.set(false)"
-      />
-      <p-button
-        label="Clear sequence"
-        icon="pi pi-trash"
-        severity="danger"
-        [loading]="clearingSequence()"
-        (click)="clearSequence()"
-      />
-    </ng-template>
-  </p-dialog>
-
-  <!-- Right column: on-demand settings panel (opacity, pressure, adjustments, post-process) -->
-  @if (showSettingsPanel && !settingsCollapsed) {
+  <!-- Right column, on demand: the user's Python functions while a server is
+       serving some, and the settings panel (opacity, pressure, adjustments,
+       post-process) while something is toggled. -->
+  @if (showRightPanel && !settingsCollapsed) {
     <div
       class="2xl:w-96 flex flex-col gap-4 min-h-0 overflow-y-auto shrink w-80"
     >
-      <app-tool-setting></app-tool-setting>
+      @if (pythonSegmentation.available()) {
+        <app-python-functions></app-python-functions>
+      }
+      @if (showSettingsPanel) {
+        <app-tool-setting></app-tool-setting>
+      }
     </div>
   }
 </div>
+
+<!-- Overlays live outside the row above: inside it each one is a zero-width
+     flex item, and the row's gap is applied around every one of them — which
+     left a wide empty strip between the tool rail and the right panel. -->
+<!-- Frame navigation popover (a picker, not a setting — stays a popover). -->
+<p-popover #frameNavPopover>
+  <app-multi-frames-options
+    (changeOfFrame)="changedOfFrame($event)"
+    (propagateRequested)="
+      propagationVisible.set(true); frameNavPopover.hide()
+    "
+    (clearSequenceRequested)="
+      clearSequenceVisible.set(true); frameNavPopover.hide()
+    "
+  ></app-multi-frames-options>
+</p-popover>
+
+<!-- Kept outside the popover: the popover is destroyed when it loses focus. -->
+<app-propagation-dialog [(visible)]="propagationVisible" />
+
+<p-dialog
+  header="Clear this sequence?"
+  [visible]="clearSequenceVisible()"
+  (visibleChange)="clearSequenceVisible.set($event)"
+  [modal]="true"
+  [style]="{ width: '28rem' }"
+>
+  <p class="m-0">
+    Erases every annotation on all
+    {{ sequenceService.frameCount() }} frames of
+    <b>{{ sequenceService.currentSequence()?.name }}</b
+    >, including frames that are not open.
+  </p>
+  <p class="mt-3 opacity-70 text-sm">
+    This writes straight to the project and cannot be undone.
+  </p>
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      [text]="true"
+      (click)="clearSequenceVisible.set(false)"
+    />
+    <p-button
+      label="Clear sequence"
+      icon="pi pi-trash"
+      severity="danger"
+      [loading]="clearingSequence()"
+      (click)="clearSequence()"
+    />
+  </ng-template>
+</p-dialog>

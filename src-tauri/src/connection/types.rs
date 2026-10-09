@@ -16,6 +16,11 @@ pub enum ComError {
     EventError(String),
     #[error("Timeout error")]
     Timeout,
+    /// The Python peer answered `ok: false`; the message is its own.
+    #[error("{0}")]
+    Peer(String),
+    #[error("Python did not answer in time")]
+    NoReply,
 }
 
 impl From<tauri::Error> for ComError {

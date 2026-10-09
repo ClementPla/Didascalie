@@ -226,8 +226,11 @@ pub fn run() {
             commands::registration::load_registration,
             commands::registration::list_registrations,
             commands::registration::delete_registration,
-            commands::registration::inference_connect,
-            commands::registration::find_keypoints_prefill,
+            // Python bridge (user functions served by `didascalie.com`)
+            commands::python::inference_connect,
+            commands::python::find_keypoints_prefill,
+            commands::python::python_segment_frame,
+            commands::python::python_segment_sequence,
             // Segmentation-head lab (encoder download, budget sweep)
             #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_list_encoders,

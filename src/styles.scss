@@ -87,6 +87,25 @@ body {
     min-height: var(--toolbar-height);
 }
 
+/* Icon-only toggle buttons (`class="icon-toggle"`). PrimeNG renders the label
+   even when it is blank, plus the gap before it, so a button with only an icon
+   comes out wide, short and off-centre. Dropping both and evening the padding
+   makes it a square the height of the buttons beside it. */
+.p-togglebutton.icon-toggle {
+    .p-togglebutton-label {
+        display: none;
+    }
+
+    .p-togglebutton-content {
+        gap: 0;
+        padding: 0.5rem;
+    }
+
+    &.p-togglebutton-sm .p-togglebutton-content {
+        padding: 0.375rem;
+    }
+}
+
 .darkTheme{
     
 }

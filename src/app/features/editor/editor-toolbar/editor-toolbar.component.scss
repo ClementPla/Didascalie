@@ -1,5 +1,7 @@
 :host ::ng-deep .p-toolbar {
-  padding: 0;
+  // No vertical padding (the row is already min-height'd), but the first and
+  // last groups must not sit flush against the window edges.
+  padding: 0 0.75rem;
 }
 
 // `start` holds the whole row now, so it has to be allowed to take the width.

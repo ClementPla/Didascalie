@@ -17,6 +17,8 @@ pub mod sequences;
 pub mod formats;
 pub mod dataset_io;
 pub mod registration;
+/// The bridge to the user's own Python functions (`didascalie.com`).
+pub mod python;
 pub mod skeletonize;
 pub mod propagation;
 /// Scribble-conditioned segmentation head + learning-curve experiment.

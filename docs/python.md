@@ -13,7 +13,7 @@ pip install git+https://github.com/ClementPla/pydidascalie.git
 ```
 
 Requires `numpy` and `Pillow`, plus `pyzmq` and `msgpack` if you use the
-[Python bridge](experimental.md#keypoint-suggestion).
+[Python bridge](experimental.md#python-bridge).
 
 ## Creating a project
 

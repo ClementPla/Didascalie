@@ -88,7 +88,7 @@ These are hidden until you switch on **Experimental features** in the toolbar. T
 
 - **3D volume mode.** A sequence opened as a volume, with a 3D view and a curved projection you can paint on.
 - **Superpixel selection** and **MedSAM refinement**, two more ways to refine a stroke.
-- **Keypoint suggestion.** A Python function of yours proposes keypoint pairs for registration, over ZeroMQ.
+- **Python bridge.** Python functions of yours propose keypoint pairs for registration, or segment a frame or a whole sequence from the editor, over ZeroMQ.
 
 Details are in the [documentation](https://didascalie.readthedocs.io/experimental/).
 
@@ -119,7 +119,7 @@ with DidascalieProject.create("dataset.dida", name="My Dataset") as project:
     project.import_folder("/path/to/images")
 ```
 
-It requires `numpy` and `Pillow`, plus `pyzmq` and `msgpack` for keypoint suggestion.
+It requires `numpy` and `Pillow`, plus `pyzmq` and `msgpack` for the Python bridge.
 
 ## Installing
 

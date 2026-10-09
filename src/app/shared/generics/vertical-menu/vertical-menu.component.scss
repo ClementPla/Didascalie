@@ -83,10 +83,15 @@
   }
   // Center the icon: zero the content padding/gap and hide the empty label,
   // which otherwise reserves width and nudges the icon off-centre.
+  // …and make it fill the square. PrimeNG paints the pressed state on this
+  // inner element, and the square centres its children, so left alone it is
+  // only as tall as the icon: a highlighted band across a dimmer button.
   .p-togglebutton-content {
+    align-self: stretch;
     padding: 0;
     gap: 0;
     justify-content: center;
+    border-radius: inherit;
   }
   .p-togglebutton-label {
     display: none;

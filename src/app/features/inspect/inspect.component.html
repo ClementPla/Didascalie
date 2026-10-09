@@ -59,6 +59,7 @@
       <div class="player-row">
         <div class="control-group">
           <p-togglebutton
+            class="icon-toggle"
             [ngModel]="inspection.sidebarVisible()"
             (ngModelChange)="inspection.sidebarVisible.set($event)"
             onIcon="pi pi-bars"
@@ -144,6 +145,7 @@
             ariaLabel="Playback speed"
           />
           <p-togglebutton
+            class="icon-toggle"
             [ngModel]="inspection.loop()"
             (ngModelChange)="inspection.loop.set($event)"
             onIcon="pi pi-replay"
@@ -189,6 +191,7 @@
               >{{ (inspection.labelOpacity() * 100).toFixed(0) }}%</span
             >
             <p-togglebutton
+              class="icon-toggle"
               [ngModel]="inspection.edgesOnly()"
               (ngModelChange)="inspection.edgesOnly.set($event)"
               onIcon="pi pi-stop-circle"
@@ -258,6 +261,7 @@
         <div class="control-group">
           @if (multiple()) {
             <p-togglebutton
+              class="icon-toggle"
               [ngModel]="inspection.syncViews()"
               (ngModelChange)="inspection.syncViews.set($event)"
               onIcon="pi pi-link"

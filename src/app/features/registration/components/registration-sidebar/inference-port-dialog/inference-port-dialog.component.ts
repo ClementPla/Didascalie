@@ -31,8 +31,8 @@ export class InferencePortDialogComponent {
     const status = this.inference.status();
     return status.kind === 'error' ? status.message : null;
   })();
-  host = signal('127.0.0.1');
-  port = signal(5556);
+  host = signal(this.inference.endpoint().host);
+  port = signal(this.inference.endpoint().port);
 
   visible = true;
 

@@ -240,10 +240,57 @@ export interface RegistrationSummary {
   pairCount: number;
 }
 
-interface PingReply {
+// ── Python bridge ───────────────────────────────────────────────────────────
+// Functions the user registered with `didascalie.com` and serves over ZeroMQ.
+
+export type PythonFunctionKind = 'keypoints' | 'seg' | 'sequence_seg';
+
+export interface PythonFunction {
+  name: string;
+  kind: PythonFunctionKind;
+  /** First line of the function's docstring; empty when it has none. */
+  doc: string;
+  /** Extras the function declared, e.g. `masks` or `active_label`. */
+  wants: string[];
+}
+
+export interface PingReply {
   ok: boolean;
   protocol_version: number;
+  /** Keypoint function names. */
   registered: string[];
+  functions: PythonFunction[];
+}
+
+/** The editor state a segmentation function is run against. */
+export interface PythonSegContext {
+  /** Project labels in the order the editor lists them. */
+  labels: { id: number; name: string; isInstance: boolean }[];
+  activeLabelId: number | null;
+  /** Value a stroke would write on the active label: instance id, or 1. */
+  activeValue: number;
+  /** Whether the function declared `masks`; they are only sent then. */
+  sendMasks: boolean;
+}
+
+export interface PythonSegLayer {
+  labelId: number;
+  /** Paint onto the label's mask instead of replacing it. */
+  additive: boolean;
+  /** Base64 uint8 mask at native resolution, holding the values to write. */
+  maskBase64: string;
+}
+
+export interface PythonSegFrame {
+  layers: PythonSegLayer[];
+  /** Returned label names the project does not have. */
+  unknownLabels: string[];
+}
+
+export interface PythonSequenceReport {
+  /** Frames that received at least one mask. */
+  applied: number[];
+  unknownLabels: string[];
 }
 
 type WirePair = [[number, number], [number, number]];
@@ -839,8 +886,40 @@ export const api = {
     return invoke('delete_registration', { referenceFrameId, movingFrameId });
   },
 
-  inferenceConnect: (host: string, port: number) =>
-    invoke<PingReply>('inference_connect', { host, port }),
+  /** Ping the Python server and make it the bridge's endpoint. `probe` is the
+   *  background discovery poll, which gives up almost immediately. */
+  inferenceConnect: (host: string, port: number, probe = false) =>
+    invoke<PingReply>('inference_connect', { host, port, probe }),
+
+  /** Run a `@register_seg` function on one frame; the masks come back to be
+   *  applied to the canvas. */
+  pythonSegmentFrame: (
+    name: string,
+    frameId: number,
+    frameIndex: number,
+    context: PythonSegContext,
+  ) =>
+    invoke<PythonSegFrame>('python_segment_frame', {
+      name,
+      frameId,
+      frameIndex,
+      context,
+    }),
+
+  /** Run a `@register_sequence_seg` function over `frameIds`. Written straight
+   *  to the project — not undoable. Progress arrives as `python-seg-progress`. */
+  pythonSegmentSequence: (
+    name: string,
+    frameIds: number[],
+    currentFrameId: number | null,
+    context: PythonSegContext,
+  ) =>
+    invoke<PythonSequenceReport>('python_segment_sequence', {
+      name,
+      frameIds,
+      currentFrameId,
+      context,
+    }),
 
   findKeypointsPrefill: (
     name: string,

@@ -1,0 +1,138 @@
+<p-panel>
+  <ng-template #header>
+    <div class="panel-title">
+      <span class="p-panel-title">Python functions</span>
+      <small
+        class="panel-title__endpoint"
+        pTooltip="Served by your Python process. Stop it and this panel goes away."
+        tooltipPosition="left"
+        >{{ endpoint() }}</small
+      >
+    </div>
+  </ng-template>
+
+  @if (python.frameFunctions().length) {
+    <section class="fn-group">
+      <h4 class="fn-group__title">This frame</h4>
+      @for (fn of python.frameFunctions(); track fn.name) {
+        <div class="fn-row">
+          <div class="fn-row__text">
+            <span class="fn-row__name">{{ fn.name }}</span>
+            @if (fn.doc) {
+              <small class="fn-row__doc">{{ fn.doc }}</small>
+            }
+          </div>
+          <p-button
+            icon="pi pi-play"
+            severity="secondary"
+            [outlined]="true"
+            size="small"
+            [loading]="python.running() === fn.name"
+            [disabled]="python.running() !== null"
+            [pTooltip]="frameTooltip(fn)"
+            tooltipPosition="left"
+            [ariaLabel]="'Run ' + fn.name + ' on this frame'"
+            (onClick)="python.runOnFrame(fn)"
+          />
+        </div>
+      }
+    </section>
+  }
+
+  @if (python.sequenceFunctions().length) {
+    <section class="fn-group">
+      <h4 class="fn-group__title">Whole sequence</h4>
+      @for (fn of python.sequenceFunctions(); track fn.name) {
+        <div class="fn-row">
+          <div class="fn-row__text">
+            <span class="fn-row__name">{{ fn.name }}</span>
+            @if (fn.doc) {
+              <small class="fn-row__doc">{{ fn.doc }}</small>
+            }
+          </div>
+          <p-button
+            icon="pi pi-images"
+            severity="secondary"
+            [outlined]="true"
+            size="small"
+            [loading]="python.running() === fn.name"
+            [disabled]="python.running() !== null"
+            [pTooltip]="'Run ' + fn.name + ' on the sequence…'"
+            tooltipPosition="left"
+            [ariaLabel]="'Run ' + fn.name + ' on the sequence'"
+            (onClick)="askSequenceRun(fn)"
+          />
+        </div>
+      }
+    </section>
+  }
+</p-panel>
+
+<p-dialog
+  [visible]="pending() !== null"
+  (visibleChange)="closeDialog()"
+  [modal]="true"
+  [closable]="python.running() === null"
+  [header]="'Run ' + (pending()?.name ?? '') + ' on the sequence'"
+  [style]="{ width: '440px' }"
+  appendTo="body"
+>
+  <div class="run-form">
+    @if (python.running()) {
+      <p class="summary">{{ progressText() }}</p>
+      <p-progressbar
+        [mode]="progressValue() === null ? 'indeterminate' : 'determinate'"
+        [value]="progressValue() ?? 0"
+        [showValue]="false"
+        [style]="{ height: '6px' }"
+      />
+    } @else {
+      <label class="field">
+        <span class="field-label">Frames</span>
+        <p-selectButton
+          [options]="scopeOptions"
+          [ngModel]="scope()"
+          (ngModelChange)="scope.set($event)"
+          optionLabel="label"
+          optionValue="value"
+          [allowEmpty]="false"
+        />
+      </label>
+
+      <p class="summary">
+        Sends
+        <strong>{{ targetCount() }}</strong>
+        frame{{ targetCount() === 1 ? '' : 's' }} of <b>{{ sequenceName() }}</b>
+        to Python and stores the masks it returns. Labels it returns are
+        replaced on those frames; a single mask is added to
+        @if (activeLabelName; as name) {
+          <b>{{ name }}</b
+          >.
+        } @else {
+          the active label.
+        }
+      </p>
+      <p class="summary muted">
+        This writes straight to the project and cannot be undone.
+      </p>
+    }
+  </div>
+
+  <ng-template #footer>
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      [text]="true"
+      [disabled]="python.running() !== null"
+      (onClick)="closeDialog()"
+    />
+    <p-button
+      label="Run"
+      icon="pi pi-play"
+      severity="danger"
+      [loading]="python.running() !== null"
+      [disabled]="targetCount() === 0"
+      (onClick)="confirmSequenceRun()"
+    />
+  </ng-template>
+</p-dialog>

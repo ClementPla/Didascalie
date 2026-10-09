@@ -22,6 +22,9 @@ import { DrawableCanvasComponent } from './drawable-canvas/component/drawable-ca
 import { EditorToolbarComponent } from './editor-toolbar/editor-toolbar.component';
 import { LabelsComponent } from './labels/labels.component';
 import { ToolSettingComponent } from './tool-setting/tool-setting.component';
+import { PythonFunctionsComponent } from './python-functions/python-functions.component';
+import { PythonSegmentationService } from './python-functions/python-segmentation.service';
+import { InferenceClientService } from '../../services/inference-client.service';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
 import { PropagationDialogComponent } from './multi-frames-options/propagation-dialog/propagation-dialog.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
@@ -76,6 +79,7 @@ import { experimentalEditorPanes } from '../../experimental/registry';
     EditorToolbarComponent,
     LabelsComponent,
     ToolSettingComponent,
+    PythonFunctionsComponent,
     MultiFramesOptionsComponent,
     PropagationDialogComponent,
     QuickAccessMenuComponent,
@@ -106,6 +110,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   propagation = inject(PropagationService);
   private notifications = inject(NotificationService);
   volume = inject(MaskVolumeService);
+  pythonSegmentation = inject(PythonSegmentationService);
+  private inferenceClient = inject(InferenceClientService);
 
   readonly canvas = viewChild(DrawableCanvasComponent);
   readonly multiFramesOptions = viewChild(MultiFramesOptionsComponent);
@@ -191,6 +197,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async ngOnInit() {
+    // Look for the user's Python server for as long as the editor is open, so
+    // its functions show up without a connect step. Before the first await, so
+    // it is always balanced by ngOnDestroy.
+    this.inferenceClient.startDiscovery();
     await this.tauriEvents.initialize();
     this.initSubscriptions();
     this.ngZone.runOutsideAngular(() => {
@@ -213,6 +223,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+    this.inferenceClient.stopDiscovery();
     // A volume is large; don't hold it while the editor is closed.
     this.volume.disable();
     window.removeEventListener(
@@ -697,6 +708,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.editorService.showBoundingBox ||
       this.editorService.pressureSensitivity
     );
+  }
+
+  /** The right column holds the settings panel and, when a Python server is
+   *  serving segmentation functions, the list of them. */
+  get showRightPanel(): boolean {
+    return this.showSettingsPanel || this.pythonSegmentation.available();
   }
 
   get totalImages(): number {
