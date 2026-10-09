@@ -3,18 +3,24 @@ pub mod queries;
 pub mod rle;
 
 use rusqlite::Connection;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use crate::utils::error::{AppError, Result};
 
 /// Application database state - holds the open connection
 pub struct DbState {
     pub(crate) conn: Mutex<Option<Connection>>,
+    /// Where this computer finds the open project's image folder, when that
+    /// was worked out (`commands::project::resolve_image_folder`). None leaves
+    /// the folder named in the project's config.
+    image_root: Mutex<Option<PathBuf>>,
 }
 
 impl DbState {
     pub fn new() -> Self {
         Self {
             conn: Mutex::new(None),
+            image_root: Mutex::new(None),
         }
     }
     
@@ -22,7 +28,16 @@ impl DbState {
         *self.conn.lock().unwrap() = Some(conn);
     }
     
+    pub fn image_root(&self) -> Option<PathBuf> {
+        self.image_root.lock().unwrap().clone()
+    }
+
+    pub fn set_image_root(&self, root: Option<PathBuf>) {
+        *self.image_root.lock().unwrap() = root;
+    }
+
     pub fn close(&self) {
+    self.set_image_root(None);
     let mut guard = self.conn.lock().unwrap();
     if let Some(conn) = guard.take() { // .take() removes the connection from the Option
         // Attempt to checkpoint WAL into the main DB file

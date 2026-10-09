@@ -1,13 +1,16 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import {
   api,
   AddImagesResult,
+  ImageFolderStatus,
   ProjectConfig,
   ProjectEdit,
   ScanOptions,
   ScanResult,
 } from '../../lib/api';
 import { LabelsService } from '../labels/labels.service';
+import { NotificationService } from '../notification.service';
 import { ProjectLifecycleService } from './project-lifecycle.service';
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -41,6 +44,7 @@ export interface RecentProject {
 export class ProjectService {
   private labelService = inject(LabelsService);
   private lifecycle = inject(ProjectLifecycleService);
+  private notifications = inject(NotificationService);
 
   // Private state
   private readonly STORAGE_KEY = 'didascalie_recent_projects';
@@ -49,6 +53,9 @@ export class ProjectService {
   private readonly _isOpen = signal(false);
   private readonly _framesCount = signal(0);
   private readonly _sequencesCount = signal(0);
+  private readonly _imageFolder = signal<ImageFolderStatus | null>(null);
+  /** The image folder as this computer reaches it; null until a project is open. */
+  readonly imageFolder = this._imageFolder.asReadonly();
   readonly isTextDescriptionEnabled = computed(
     () => this._config().text_description_enabled,
   );
@@ -173,6 +180,7 @@ export class ProjectService {
 
     this._projectPath.set(path);
     this._isOpen.set(true);
+    await this.refreshImageFolder();
 
     this.addToRecentProjects(config.name, path);
   }
@@ -197,8 +205,55 @@ export class ProjectService {
     await this.labelService.setDefinitions(config); // Now async
     this._projectPath.set(path);
     this._isOpen.set(true);
+    // A project made on another computer may name a folder this one reaches
+    // by another path: ask for it before anything tries to load an image.
+    await this.refreshImageFolder();
+    if (this._imageFolder()?.missing && !(await this.locateImageFolder())) {
+      this.notifications.warn(
+        'Image folder not found',
+        'Images will not load. Locate the folder from the project settings.',
+      );
+    }
     await this.refreshCounts();
     this.addToRecentProjects(config.name, path);
+  }
+
+  private async refreshImageFolder(): Promise<void> {
+    try {
+      this._imageFolder.set(await api.getImageFolder());
+    } catch (error) {
+      console.error('Failed to read the image folder:', error);
+      this._imageFolder.set(null);
+    }
+  }
+
+  /**
+   * Ask where the project's image folder is on this computer. The project
+   * remembers it next to the paths it already knows, so the same file keeps
+   * working on the computers it came from. False when nothing was chosen, or
+   * the folder chosen is not the project's.
+   */
+  async locateImageFolder(): Promise<boolean> {
+    const known = this._imageFolder()?.folder;
+    const picked = await open({
+      directory: true,
+      title: known
+        ? `Locate the image folder (${known})`
+        : 'Locate the image folder',
+    });
+    if (typeof picked !== 'string' || !picked) return false;
+    try {
+      this._imageFolder.set(await api.setImageFolder(picked));
+      return true;
+    } catch (error) {
+      this.notifications.error(
+        'Could not use this folder',
+        typeof error === 'string'
+          ? error
+          : ((error as { message?: string })?.message ?? String(error)),
+      );
+      return false;
+    }
   }
 
   async close(): Promise<void> {
@@ -327,6 +382,7 @@ export class ProjectService {
     this._config.set(DEFAULT_PROJECT_CONFIG);
     this._projectPath.set(null);
     this._isOpen.set(false);
+    this._imageFolder.set(null);
     this._framesCount.set(0);
     this._sequencesCount.set(0);
   }

@@ -81,6 +81,10 @@ export class ProjectSettingsComponent {
   private readonly notifications = inject(NotificationService);
 
   readonly config = this.project.config;
+  /** The image folder as this computer reaches it. */
+  readonly imageFolder = computed(
+    () => this.project.imageFolder()?.folder ?? this.config().input_folder,
+  );
 
   /** True while an edit is being written. Only buttons react to it: disabling
    *  a text field would throw the focus out of the one the user just tabbed
@@ -150,7 +154,7 @@ export class ProjectSettingsComponent {
   readonly addFolderIsOutside = computed(() => {
     const folder = this.addFolder();
     if (!folder) return false;
-    const root = this.config().input_folder;
+    const root = this.imageFolder();
     if (!root) return true;
     const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '');
     const f = norm(folder);

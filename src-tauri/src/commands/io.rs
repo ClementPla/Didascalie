@@ -148,7 +148,9 @@ pub fn add_images_to_project(db: State<DbState>, options: ScanOptions) -> Result
   )?;
   db.with_conn(|conn| {
     crate::commands::users::require_admin(conn)?;
-    let input_folder = crate::storage::queries::get_project_config(conn)?.input_folder;
+    let config = crate::storage::queries::get_project_config(conn)?;
+    let input_folder = crate::commands::project::resolve_image_folder(&config)
+      .map(|folder| folder.to_string_lossy().into_owned());
     add_images(conn, input_folder.as_deref(), &options, &regex)
   })
 }

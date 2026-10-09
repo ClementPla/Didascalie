@@ -46,8 +46,24 @@
         </div>
         <div class="field">
           <span class="field-label">Image folder</span>
-          @if (config().input_folder; as folder) {
+          @if (imageFolder(); as folder) {
             <span class="path" [title]="folder">{{ folder }}</span>
+            @if (project.imageFolder()?.missing) {
+              <span class="hint">
+                <i class="pi pi-exclamation-triangle"></i>
+                Not found on this computer: images will not load.
+              </span>
+            }
+            <p-button
+              class="self-start"
+              label="Locate…"
+              icon="pi pi-folder-open"
+              severity="secondary"
+              size="small"
+              [outlined]="true"
+              pTooltip="Choose where this folder is on this computer. The project keeps the paths it already knows, so it still opens on the other computers."
+              (onClick)="project.locateImageFolder()"
+            ></p-button>
           } @else {
             <span class="muted">None — every image is stored in the project file</span>
           }

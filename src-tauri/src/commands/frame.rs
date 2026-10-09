@@ -2,7 +2,7 @@ use base64::{ engine::general_purpose::STANDARD as BASE64, Engine };
 use rusqlite::params;
 use serde::{ Serialize };
 use std::fs;
-use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::ipc::Response;
 use tauri::State;
@@ -151,6 +151,7 @@ fn read_frame_bytes_with(
         },
     }
 
+    let image_root = db.image_root();
     // Only the row is read under the connection lock: decoding a video frame
     // takes a while, and other frames are asked for in the meantime.
     let (frame, source) = db.with_conn(|conn| {
@@ -191,10 +192,13 @@ fn read_frame_bytes_with(
              video_path, video_time, seek_margin, video_id, video_frame, seek_preroll) = row;
 
         let is_embedded = embedded_data.is_some();
+        // The folder as this computer reaches it, when the project was opened
+        // through `open_project`; the one it was created with otherwise.
+        let input_folder = image_root.or(input_folder.map(PathBuf::from));
         let in_input_folder = |rel: &str| {
             input_folder
                 .as_deref()
-                .map(|folder| Path::new(folder).join(rel))
+                .map(|folder| crate::commands::project::join_relative(folder, rel))
                 .ok_or_else(|| AppError::Generic("Project has no input_folder in config".into()))
         };
         let source = if let Some(data) = embedded_data {

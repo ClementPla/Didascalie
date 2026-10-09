@@ -95,6 +95,8 @@ export interface MultilabelConfig {
 export interface ProjectConfig {
   name: string;
   input_folder: string | null;
+  /** Other paths the image folder is reached by, on other computers. */
+  input_folder_alternates?: string[];
   images_embedded: boolean;
   embed_threshold_kb: number;
   segmentation_enabled: boolean;
@@ -109,6 +111,14 @@ export interface ProjectConfig {
   classification_tasks?: MulticlassConfig[];
   multilabel_task?: MultilabelConfig;
   text_fields?: string[];
+}
+
+/** The image folder of the open project, as this computer sees it. */
+export interface ImageFolderStatus {
+  /** Null when the project has none (every image is embedded). */
+  folder: string | null;
+  /** Images are read from it, and it is not there. */
+  missing: boolean;
 }
 
 export interface ClassificationData {
@@ -674,6 +684,11 @@ export const api = {
     }),
   openProject: (path: string) =>
     invoke<ProjectConfig>('open_project', { path }),
+
+  getImageFolder: () => invoke<ImageFolderStatus>('get_image_folder'),
+  /** Tell the project where its image folder is on this computer. */
+  setImageFolder: (path: string) =>
+    invoke<ImageFolderStatus>('set_image_folder', { path }),
 
   closeProject: () => invoke('close_project'),
 

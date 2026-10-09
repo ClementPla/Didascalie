@@ -40,6 +40,13 @@ pub struct MultilabelConfig {
 pub struct ProjectConfig {
     pub name: String,
     pub input_folder: Option<String>,      // None if images embedded
+    /// Where else the image folder has been found: the same folder as
+    /// `input_folder`, under the path another computer reaches it by (a
+    /// network share mounted on Linux and on Windows, say). Whichever of them
+    /// exists on the computer opening the project is the one read from; see
+    /// `commands::project::resolve_image_folder`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub input_folder_alternates: Vec<String>,
     pub images_embedded: bool,
     /// Files smaller than this are embedded even when `images_embedded` is off.
     ///
@@ -89,6 +96,7 @@ impl Default for ProjectConfig {
         Self {
             name: String::new(),
             input_folder: None,
+            input_folder_alternates: Vec::new(),
             images_embedded: false,
             embed_threshold_kb: default_embed_threshold_kb(),
             segmentation_enabled: true,

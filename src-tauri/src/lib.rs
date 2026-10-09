@@ -175,6 +175,8 @@ pub fn run() {
             commands::project::create_project,
             commands::project::open_project,
             commands::project::close_project,
+            commands::project::get_image_folder,
+            commands::project::set_image_folder,
             // Frames commands
             commands::project::get_frames_count,
             commands::project::get_sequences_count,
