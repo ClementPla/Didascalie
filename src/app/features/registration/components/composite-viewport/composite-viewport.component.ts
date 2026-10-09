@@ -1,3 +1,4 @@
+import { TouchGesture } from '../../touch-gesture';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -257,20 +258,46 @@ export class CompositeViewportComponent
 
   // ── Mouse handling — pan/zoom only ───────────────────────────────────────
 
-  onMouseDown(event: MouseEvent): void {
-    if (event.button === 1) {
+  private readonly gesture = new TouchGesture();
+
+  // Middle mouse button pans. A finger pans too, and two fingers pan and pinch.
+  onMouseDown(event: PointerEvent): void {
+    const touch = event.pointerType === 'touch';
+    this.gesture.down(event);
+    if (this.gesture.multi) {
+      this.refController()?.endDrag();
+      return;
+    }
+    if (touch) {
+      (event.currentTarget as Element).setPointerCapture(event.pointerId);
+    }
+    if (touch || event.button === 1) {
       this.refController()?.startDrag(event.clientX, event.clientY);
     }
   }
 
-  onMouseMove(event: MouseEvent): void {
+  onMouseMove(event: PointerEvent): void {
     const refController = this.refController();
+    const step = this.gesture.move(event);
+    if (this.gesture.multi) {
+      if (step && refController) {
+        const rect = this.canvasEl().nativeElement.getBoundingClientRect();
+        refController.pinch(
+          refController.clientToViewport(step.pivot.x, step.pivot.y, rect),
+          step.factor,
+          step.dx,
+          step.dy,
+        );
+      }
+      return;
+    }
     if (refController?.isDragging) {
       refController?.drag(event.clientX, event.clientY);
     }
   }
 
-  onMouseUp(): void {
+  onMouseUp(event: PointerEvent): void {
+    this.gesture.up(event);
     this.refController()?.endDrag();
   }
 

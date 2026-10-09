@@ -23,6 +23,14 @@ body {
     font-size: 14px;
 }
 
+/* Tablet build. Every size in the app is in rem, so this one value scales the
+   icons, text and panels together; a tablet has fewer CSS pixels than a
+   desktop window and is looked at from closer. */
+html.is-android,
+html.is-android body {
+    font-size: 11px;
+}
+
 body {
     margin: 0;
     /* System font stack — no network fetch; uses Roboto if locally installed,

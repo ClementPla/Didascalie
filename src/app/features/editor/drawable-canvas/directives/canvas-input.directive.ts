@@ -1,3 +1,4 @@
+import { LONG_PRESS_MS, TAP_SLOP } from '../../../../core/touch';
 import { Directive, HostListener, inject, output } from '@angular/core';
 import { ZoomPanService } from '../service/zoom-pan.service';
 import { EditorService } from '../../services/editor.service';
@@ -37,7 +38,10 @@ export class CanvasInputDirective {
   @HostListener('contextmenu', ['$event'])
   onContextMenu(event: MouseEvent) {
     event.preventDefault();
-    this.contextMenu.emit(event);
+    // A finger resting on the canvas: Android reports the long press itself.
+    if (this.longPressBlocked) return;
+    if (this.longPressAt) this.claimLongPress();
+    this.openPicker(event);
   }
 
   @HostListener('mousedown', ['$event'])
@@ -101,15 +105,78 @@ export class CanvasInputDirective {
 
   // ── Touch ────────────────────────────────────────────────────────────────
 
+  // A long press stands in for the right click, which a finger does not have.
+  // Android's webview raises `contextmenu` for it; the timer below is only a
+  // fallback for a webview that does not, and waits long enough to lose.
+  private longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  private longPressAt: Point2D | null = null;
+  /** The press became a long press: ignore that finger until it lifts. */
+  private longPressed = false;
+  /** When the picker was last opened, so one press cannot open it twice (some
+   *  webviews also fire `contextmenu` on a long press). */
+  private pickerOpenedAt = 0;
+  /** A finger is down with a tool that cannot give its press back. */
+  private longPressBlocked = false;
+
+  private armLongPress(touch: Touch) {
+    this.disarmLongPress();
+    // Only for tools whose press can be taken back: a vector tool has already
+    // placed its node, and the convert tools have already run.
+    if (
+      this.editorService.isVectorTool() ||
+      this.editorService.isVectorizeTool() ||
+      this.editorService.isSkeletonizeTool()
+    ) {
+      this.longPressBlocked = true;
+      return;
+    }
+    const at = { x: touch.clientX, y: touch.clientY };
+    this.longPressAt = at;
+    this.longPressTimer = setTimeout(() => {
+      this.claimLongPress();
+      this.openPicker(
+        new MouseEvent('contextmenu', { clientX: at.x, clientY: at.y, button: 2 }),
+      );
+    }, LONG_PRESS_MS + 350);
+  }
+
+  /** The press is a long press: drop the stroke it began and ignore the
+   *  finger from here on. */
+  private claimLongPress() {
+    this.disarmLongPress();
+    this.longPressed = true;
+    this.cancelActiveStroke();
+  }
+
+  private disarmLongPress() {
+    if (this.longPressTimer !== null) clearTimeout(this.longPressTimer);
+    this.longPressTimer = null;
+    this.longPressAt = null;
+  }
+
+  private openPicker(event: MouseEvent) {
+    const now = performance.now();
+    if (now - this.pickerOpenedAt < 800) {
+      // A second report of the same press. It must not reach the document:
+      // the menu takes a `contextmenu` outside itself as a cue to close.
+      event.stopPropagation();
+      return;
+    }
+    this.pickerOpenedAt = now;
+    this.contextMenu.emit(event);
+  }
+
   @HostListener('touchstart', ['$event'])
   onTouchStart(event: TouchEvent) {
     if (event.touches.length >= 2) {
       event.preventDefault();
+      this.disarmLongPress();
       // A first finger may have started a stroke — discard it.
       this.cancelActiveStroke();
       this.beginPinch(event);
       return;
     }
+    this.armLongPress(event.touches[0]);
     const mouse = this.normalizeEvent(event);
     if (mouse) this.pointerDown(mouse);
   }
@@ -126,7 +193,17 @@ export class CanvasInputDirective {
 
     // A finger was lifted mid-pinch: ignore until all fingers are up so we
     // don't paint an accidental stroke with the remaining finger.
-    if (this.pinchActive) return;
+    if (this.pinchActive || this.longPressed) return;
+
+    const start = this.longPressAt;
+    const touch = event.touches[0];
+    if (
+      start &&
+      touch &&
+      Math.hypot(touch.clientX - start.x, touch.clientY - start.y) > TAP_SLOP
+    ) {
+      this.disarmLongPress(); // the finger is drawing, not resting
+    }
 
     const mouse = this.normalizeEvent(event);
     if (mouse) this.pointerMove(mouse);
@@ -135,6 +212,12 @@ export class CanvasInputDirective {
   @HostListener('touchend', ['$event'])
   @HostListener('touchcancel', ['$event'])
   async onTouchEnd(event: TouchEvent) {
+    this.disarmLongPress();
+    if (event.touches.length === 0) this.longPressBlocked = false;
+    if (this.longPressed) {
+      if (event.touches.length === 0) this.longPressed = false;
+      return;
+    }
     if (this.pinchActive) {
       if (event.touches.length === 0) this.pinchActive = false;
       return;

@@ -1,10 +1,11 @@
 <div
   #host
   class="composite-viewport"
-  (mousedown)="onMouseDown($event)"
-  (mousemove)="onMouseMove($event)"
-  (mouseup)="onMouseUp()"
-  (mouseleave)="onMouseLeave()"
+  (pointerdown)="onMouseDown($event)"
+  (pointermove)="onMouseMove($event)"
+  (pointerup)="onMouseUp($event)"
+  (pointercancel)="onMouseUp($event)"
+  (pointerleave)="onMouseLeave()"
   (wheel)="onWheel($event)"
 >
   <!-- Reference image: canvas (bottom layer) -->

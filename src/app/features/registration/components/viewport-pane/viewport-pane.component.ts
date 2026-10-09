@@ -1,3 +1,5 @@
+import { TAP_SLOP } from '../../../../core/touch';
+import { TouchGesture } from '../../touch-gesture';
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -58,6 +60,12 @@ export class ViewportPaneComponent
 
   /** Drag state for an existing pair point on this pane. */
   private draggingPairId: string | null = null;
+
+  private readonly gesture = new TouchGesture();
+  /** Where a finger went down on empty image, until it turns out to be a tap
+   *  (a point is placed on lift) or a drag (the image pans). */
+  private pendingTap: { clientX: number; clientY: number; native: Point2D } | null =
+    null;
 
   private readonly localHoverPairId = signal<string | null>(null);
 
@@ -256,7 +264,25 @@ export class ViewportPaneComponent
 
   // ── Mouse handling ───────────────────────────────────────────────────────
 
-  onMouseDown(event: MouseEvent): void {
+  // Pointer events, so mouse, pen and finger share these handlers. Mouse and
+  // pen behave as on desktop. A finger differs in two ways: a point is placed
+  // when it lifts rather than when it lands, so that it can instead pan or be
+  // joined by a second finger; and two fingers pan and pinch.
+
+  onMouseDown(event: PointerEvent): void {
+    const touch = event.pointerType === 'touch';
+    this.gesture.down(event);
+    if (this.gesture.multi) {
+      // A second finger: whatever the first one started is not a tap or a drag.
+      this.pendingTap = null;
+      this.draggingPairId = null;
+      this.controller().endDrag();
+      return;
+    }
+    if (touch) {
+      (event.currentTarget as Element).setPointerCapture(event.pointerId);
+    }
+
     if (event.button === 1) {
       this.controller().startDrag(event.clientX, event.clientY);
       return;
@@ -279,7 +305,15 @@ export class ViewportPaneComponent
       return;
     }
 
-    // Otherwise, register the click with the placement state machine.
+    if (touch) {
+      this.pendingTap = { clientX: event.clientX, clientY: event.clientY, native };
+      return;
+    }
+    this.placePoint(native);
+  }
+
+  /** Register a click with the placement state machine. */
+  private placePoint(native: Point2D): void {
     if (this.side() === 'ref') {
       this.state.placeRefPoint(native);
     } else {
@@ -287,8 +321,31 @@ export class ViewportPaneComponent
     }
   }
 
-  onMouseMove(event: MouseEvent): void {
+  onMouseMove(event: PointerEvent): void {
     const controller = this.controller();
+    const step = this.gesture.move(event);
+    if (this.gesture.multi) {
+      if (step) {
+        const rect = this.canvasEl().nativeElement.getBoundingClientRect();
+        controller.pinch(
+          controller.clientToViewport(step.pivot.x, step.pivot.y, rect),
+          step.factor,
+          step.dx,
+          step.dy,
+        );
+      }
+      return;
+    }
+    if (this.pendingTap) {
+      const moved = Math.hypot(
+        event.clientX - this.pendingTap.clientX,
+        event.clientY - this.pendingTap.clientY,
+      );
+      if (moved < TAP_SLOP) return;
+      // Not a tap after all: the finger is dragging the image.
+      controller.startDrag(this.pendingTap.clientX, this.pendingTap.clientY);
+      this.pendingTap = null;
+    }
     if (controller.isDragging) {
       controller.drag(event.clientX, event.clientY);
       return;
@@ -327,9 +384,13 @@ export class ViewportPaneComponent
     this.state.setHoveredPair(null);
   }
 
-  onMouseUp(): void {
+  onMouseUp(event: PointerEvent): void {
+    const tap = this.gesture.multi ? null : this.pendingTap;
+    this.gesture.up(event);
+    this.pendingTap = null;
     this.controller().endDrag();
     this.draggingPairId = null;
+    if (tap && event.type === 'pointerup') this.placePoint(tap.native);
   }
 
   onWheel(event: WheelEvent): void {

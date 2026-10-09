@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
+  "description": "Permissions every platform gets.",
   "windows": [
     "main",
     "composite-view"
@@ -10,19 +10,6 @@
     "core:default",
     "dialog:default",
     "core:path:allow-is-absolute",
-    "core:path:allow-resolve",
-    "core:webview:allow-create-webview-window",
-    "core:window:allow-set-always-on-top",
-    "core:window:allow-destroy",
-    "updater:default",
-    "process:default",
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [
-        {
-          "url": "https://didascalie.readthedocs.io/*"
-        }
-      ]
-    }
+    "core:path:allow-resolve"
   ]
 }

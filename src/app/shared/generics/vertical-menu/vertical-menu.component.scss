@@ -2,6 +2,11 @@
   display: flex;
   flex-direction: column; /* Stacks groups vertically */
   width: max-content;
+  // On a short screen (a tablet in landscape) the rail is taller than the
+  // editor: scroll it rather than lose the last groups.
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
   background: var(--p-content-background, #ffffff);
   border: 1px solid var(--p-content-border-color, #e2e8f0);
 }

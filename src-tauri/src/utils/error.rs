@@ -30,6 +30,7 @@ pub enum AppError {
     Json(#[from] serde_json::Error),
     
     // Communication
+    #[cfg(not(target_os = "android"))]
     #[error("ZMQ error: {0}")]
     Zmq(#[from] zmq::Error),
     
@@ -57,6 +58,7 @@ impl From<tauri::Error> for AppError {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 impl From<crate::connection::types::ComError> for AppError {
     fn from(e: crate::connection::types::ComError) -> Self {
         AppError::Generic(e.to_string())

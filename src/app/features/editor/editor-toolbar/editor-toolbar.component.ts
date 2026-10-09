@@ -1,3 +1,4 @@
+import { IS_ANDROID } from '../../../core/platform';
 import { Component, inject } from '@angular/core';
 import { ToolbarModule } from 'primeng/toolbar';
 import { ButtonModule } from 'primeng/button';
@@ -54,6 +55,8 @@ const OUTPUTS: { id: PredictOutput; label: string; icon: string }[] = [
     styleUrl: './editor-toolbar.component.scss'
 })
 export class EditorToolbarComponent {
+  /** No trained head on the tablet build. */
+  readonly isAndroid = IS_ANDROID;
   editorService = inject(EditorService);
   vectorEditor = inject(VectorEditorService);
   prediction = inject(PredictionService);

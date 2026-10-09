@@ -1,3 +1,4 @@
+import { LONG_PRESS_MS, TAP_SLOP } from '../../../core/touch';
 import {
   Component,
   DestroyRef,
@@ -231,6 +232,29 @@ export class CurveOverlayComponent {
     this.forward(event);
   }
 
+  /** Two fingers are on the overlay: they belong to the canvas. */
+  private pinching = false;
+
+  /**
+   * Hand two-finger gestures to the canvas, so the image can still be panned
+   * and pinched while the overlay is taking the taps that place points.
+   */
+  onBackgroundTouch(event: TouchEvent): void {
+    if (event.touches.length >= 2) this.pinching = true;
+    if (!this.pinching) return;
+    event.preventDefault();
+    this.canvas()?.dispatchEvent(
+      new TouchEvent(event.type, {
+        touches: [...event.touches],
+        targetTouches: [...event.targetTouches],
+        changedTouches: [...event.changedTouches],
+        cancelable: true,
+        bubbles: true,
+      }),
+    );
+    if (event.touches.length === 0) this.pinching = false;
+  }
+
   private forward(event: MouseEvent): void {
     this.canvas()?.dispatchEvent(new MouseEvent(event.type, event));
   }
@@ -285,15 +309,44 @@ export class CurveOverlayComponent {
     (event.target as Element).setPointerCapture(event.pointerId);
     this.projection.select(id, index);
     this.drag = { id, index, pointerId: event.pointerId };
+
+    // A finger has no right button: resting on a point removes it.
+    this.clearAnchorPress();
+    if (event.pointerType === 'touch') {
+      this.anchorPressAt = { x: event.clientX, y: event.clientY };
+      this.anchorPressTimer = setTimeout(() => {
+        this.clearAnchorPress();
+        this.drag = null;
+        this.projection.removePoint(id, index);
+      }, LONG_PRESS_MS);
+    }
+  }
+
+  private anchorPressTimer: ReturnType<typeof setTimeout> | null = null;
+  private anchorPressAt: { x: number; y: number } | null = null;
+
+  private clearAnchorPress(): void {
+    if (this.anchorPressTimer !== null) clearTimeout(this.anchorPressTimer);
+    this.anchorPressTimer = null;
+    this.anchorPressAt = null;
   }
 
   onAnchorMove(event: PointerEvent): void {
     const drag = this.drag;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    const press = this.anchorPressAt;
+    if (press) {
+      // Still resting: do not let a trembling finger nudge the point.
+      if (Math.hypot(event.clientX - press.x, event.clientY - press.y) < TAP_SLOP) {
+        return;
+      }
+      this.clearAnchorPress();
+    }
     this.projection.movePoint(drag.id, drag.index, this.imagePoint(event));
   }
 
   onAnchorUp(event: PointerEvent): void {
+    this.clearAnchorPress();
     if (this.drag?.pointerId === event.pointerId) this.drag = null;
   }
 

@@ -100,6 +100,7 @@
         [raised]="true"
       >
       </p-button>
+      @if (!isAndroid) {
       <p-button
         routerLink="model-lab/"
         icon="pi pi-chart-line"
@@ -111,15 +112,20 @@
         [raised]="true"
       >
       </p-button>
-      <p-button
-        routerLink="export/"
-        icon="pi pi-file-export"
-        [rounded]="true"
-        [text]="true"
-        [disabled]="!canWork()"
-        [raised]="true"
-      >
-      </p-button>
+      }
+      <!-- Export writes to a folder picked on the desktop. The tablet build
+           hands the project back whole instead ("save a copy"). -->
+      @if (!isAndroid) {
+        <p-button
+          routerLink="export/"
+          icon="pi pi-file-export"
+          [rounded]="true"
+          [text]="true"
+          [disabled]="!canWork()"
+          [raised]="true"
+        >
+        </p-button>
+      }
 
     </p>
   </ng-template>
@@ -134,6 +140,16 @@
         [raised]="true"
         pTooltip="Accounts: switch user, register, manage"
         tooltipPosition="bottom"
+      ></p-button>
+    }
+    @if (isAndroid && isProjectStarted()) {
+      <p-button
+        icon="pi pi-share-alt"
+        [rounded]="true"
+        [text]="true"
+        [raised]="true"
+        ariaLabel="Save a copy of the project"
+        (onClick)="saveProjectCopy()"
       ></p-button>
     }
     <p-button
@@ -156,7 +172,9 @@
       ariaLabel="Open documentation"
       (onClick)="openDocumentation()"
     ></p-button>
-    <app-connection-settings></app-connection-settings>
+    @if (!isAndroid) {
+      <app-connection-settings></app-connection-settings>
+    }
     <app-experimental-settings></app-experimental-settings>
   </ng-template>
 </p-toolbar>

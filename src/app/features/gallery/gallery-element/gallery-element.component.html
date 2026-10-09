@@ -7,6 +7,9 @@
     [class]="cardStyleClass"
     [style.background]="rowBackground"
     (dblclick)="openEditor()"
+    (pointerdown)="onTouchDown($event)"
+    (pointerup)="onTouchUp($event)"
+    (pointercancel)="onTouchCancel($event)"
     (mouseenter)="onMouseEnter()"
     (mouseleave)="onMouseLeave()"
   >
@@ -117,6 +120,9 @@
     [class]="cardStyleClass"
     [style.width.px]="imgSize()"
     (dblclick)="openEditor()"
+    (pointerdown)="onTouchDown($event)"
+    (pointerup)="onTouchUp($event)"
+    (pointercancel)="onTouchCancel($event)"
     (mouseenter)="onMouseEnter()"
     (mouseleave)="onMouseLeave()"
   >

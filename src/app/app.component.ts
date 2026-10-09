@@ -2,7 +2,9 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { ToolbarModule } from 'primeng/toolbar';
 import { LoadingComponent } from './features/loading/loading.component';
-import { RouterOutlet, RouterModule } from '@angular/router';
+import { Router, RouterOutlet, RouterModule } from '@angular/router';
+import { save } from '@tauri-apps/plugin-dialog';
+import { api } from './lib/api';
 import { EditorService } from './features/editor/services/editor.service';
 import { AppInitializationService } from './services/app-initialization.service';
 import { ThemeService } from './services/theme.service';
@@ -22,6 +24,7 @@ import { ProjectService } from './services/project/project.service';
 import { UpdateService } from './services/update.service';
 import { UserService } from './services/users/user.service';
 import { ExperimentalSettingsComponent } from './experimental/experimental-settings/experimental-settings.component';
+import { IS_ANDROID } from './core/platform';
 import { ConnectionSettingsComponent } from './shared/connection-settings/connection-settings.component';
 @Component({
   selector: 'app-root',
@@ -44,6 +47,9 @@ import { ConnectionSettingsComponent } from './shared/connection-settings/connec
   styleUrl: './app.component.scss',
 })
 export class AppComponent implements OnInit, OnDestroy {
+  /** The tablet build has no training stack and no Python bridge. */
+  readonly isAndroid = IS_ANDROID;
+  private router = inject(Router);
   uiStateService = inject(UIStateService);
   editorService = inject(EditorService);
   notificationService = inject(NotificationService);
@@ -78,6 +84,10 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
+    if (IS_ANDROID) {
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+      void this.openIncomingProject();
+    }
     // Render app-wide notifications through a single global toast.
     this.notificationService.toast$
       .pipe(takeUntil(this.destroy$))
@@ -125,7 +135,49 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Android has no "window is closing" moment: an app sent to the background
+   * can be killed without notice. So leaving the foreground saves, and coming
+   * back checks whether the app was reopened with a project file.
+   */
+  private readonly onVisibilityChange = (): void => {
+    if (document.hidden) {
+      void this.ioService.saveIfDirty();
+    } else {
+      void this.openIncomingProject();
+    }
+  };
+
+  /** Open the project the app was launched with ("Open with Didascalie"). */
+  private async openIncomingProject(): Promise<void> {
+    try {
+      const path = await api.takeIncomingProject();
+      if (!path) return;
+      await this.ioService.saveIfDirty();
+      await this.projectService.open(path);
+      await this.router.navigate(['/gallery']);
+    } catch (error) {
+      this.notificationService.error('Could not open project', String(error));
+    }
+  }
+
+  /** Android: write the open project, annotations included, to a file the
+   *  user picks, so it can be sent back. */
+  async saveProjectCopy(): Promise<void> {
+    try {
+      await this.ioService.saveIfDirty();
+      const name = this.projectService.projectName() || 'project';
+      const location = await save({ defaultPath: `${name}.dida` });
+      if (!location) return;
+      await api.exportProjectFile(location);
+      this.notificationService.success('Copy saved');
+    } catch (error) {
+      this.notificationService.error('Could not save a copy', String(error));
+    }
+  }
+
   ngOnDestroy(): void {
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.unlistenClose?.();
     this.destroy$.next();
     this.destroy$.complete();
