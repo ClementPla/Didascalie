@@ -28,7 +28,7 @@ warped image is meaningless. The view hides it and shows a warning.
 ## Suggested correspondences
 
 A Python function of yours can propose keypoint pairs, so that you do not place
-them all by hand. This is experimental: see
-[Experimental features](../experimental.md#keypoint-suggestion).
+them all by hand. See
+[Your own Python functions](python-functions.md#keypoint-functions).
 
 <!-- SCREENSHOT: side-by-side panes with a few numbered correspondences placed. -->

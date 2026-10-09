@@ -71,6 +71,7 @@ nav:
       - Projects and files: guide/projects.md
       - Annotating: guide/annotating.md
       - Assisted labelling: guide/assistance.md
+      - Your own Python functions: guide/python-functions.md
       - Very large images: guide/large-images.md
       - The gallery and review: guide/gallery.md
       - Several annotators: guide/multi-user.md
