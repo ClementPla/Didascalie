@@ -50,14 +50,14 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(app: AppHandle) -> Result<Self, ComError> {
+    pub fn new(app: AppHandle, port: u16) -> Result<Self, ComError> {
         let context = zmq::Context::new();
         let socket = context.socket(zmq::REP)?;
         socket.set_immediate(true)?; // Add immediate mode
 
-        match socket.bind("tcp://127.0.0.1:5555") {
+        match socket.bind(&format!("tcp://127.0.0.1:{port}")) {
             Ok(_) => {
-                println!("ZMQ socket bound to localhost:5555");
+                println!("ZMQ socket bound to localhost:{port}");
                 Ok(Self {
                     socket,
                     app: Arc::new(app),

@@ -1,19 +1,17 @@
 # Your own Python functions
 
-Didascalie can call functions you write in Python. You decorate a function,
-start a small server, and the function shows up in the application:
+Didascalie can call functions you write in Python:
 
 - a **segmentation** function runs on the frame open in the editor, or on its
-  whole sequence, and its masks land on your labels;
+  whole sequence;
 - a **keypoint** function proposes correspondences in the
   [registration](registration.md) view.
 
-Your model runs in the environment it was trained in, on your machine. There is
-nothing to export to ONNX, and the images never leave the computer: the
+The model runs in your own Python environment, with no ONNX export. The
 application and the Python process talk over a local ZeroMQ socket.
 
 !!! note "Experimental"
-    This works, but it is recent and lightly tested. It does not depend on the
+    This is recent and lightly tested. It does not depend on the
     [Experimental features](../experimental.md) switch.
 
 <!-- SCREENSHOT: editor with the Python functions panel listing two frame functions and one sequence function. -->
@@ -26,7 +24,7 @@ Install [pydidascalie](../python.md) with the two packages the server needs:
 pip install git+https://github.com/ClementPla/pydidascalie.git pyzmq msgpack
 ```
 
-Write a script that registers a function and serves it:
+Register a function and serve it:
 
 ```python
 from didascalie.com import register_seg, serve
@@ -39,16 +37,14 @@ def bright_regions(image):
 serve()
 ```
 
-Run it, then open a project in the editor. Within a few seconds a **Python
-functions** panel appears in the right column with a row for `bright_regions`.
-Click the button on that row to run it on the open frame. ++ctrl+z++ reverts it.
-
-There is no connect step. Stop the script and the panel goes away.
+Run the script, then open a project in the editor. A **Python functions** panel
+appears in the right column with a row for `bright_regions`. Click the button on
+that row to run it on the open frame.
 
 ## A complete example
 
-This script serves two pretrained fundus models. One segments lesions, the other
-the optic disc and the macula.
+Two pretrained fundus models: one segments lesions, the other the optic disc and
+the macula.
 
 ```python
 import cv2
@@ -64,7 +60,7 @@ def lesion_segment(image):
     h, w, c = image.shape
     # One map per class; the first is the background.
     segmentation = segment(image)[1:].cpu().numpy()
-    # The model works at its own resolution: bring each map back to the frame's.
+    # Back to the frame's resolution.
     segmentations = [
         cv2.resize(segmentation[i].astype(np.uint8), (w, h), interpolation=cv2.INTER_NEAREST)
         for i in range(len(segmentation))
@@ -81,31 +77,20 @@ def odmac_segment(image):
 serve()
 ```
 
-What to take from it:
-
-- **Several functions, one server.** Each `@register_seg` adds a row to the
-  panel. The string is the name shown there; without it the function's own name
-  is used.
-- **A dictionary targets labels by name.** The keys must be the names of labels
-  in the project: here the lesion names in `LESIONS`, and `OD` and `Macula`. A
-  key that matches no label is ignored, and the application tells you which.
-  Labels you do not return are left as they are.
-- **Masks must have the frame's size.** `image` is the frame at full
-  resolution, so a model that predicts at another size has to resize its output
-  back, as the first function does. Use nearest-neighbour interpolation so
-  class values are not blended.
-- **Tensors are fine.** The second function returns slices of a torch tensor
-  directly.
+- Each `@register_seg` adds a row to the panel, under the name given, or the
+  function's own name.
+- Dictionary keys are label names of the project: here those in `LESIONS`, and
+  `OD` and `Macula`. Keys that match no label are ignored. Labels not returned
+  are left as they are.
+- Masks must have the frame's size. A model that predicts at another resolution
+  has to resize its output, with nearest-neighbour interpolation.
 
 ## Segmentation functions
 
-### What the function receives
+### Parameters
 
-The first parameter is the frame: an H × W × 3 `uint8` RGB array.
-
-A function can ask for more by naming extra parameters. Only what is named is
-sent, so a function that does not ask for the masks does not pay for their
-transfer.
+The first parameter is the frame, an H × W × 3 `uint8` RGB array. The others are
+optional and only sent when the function names them:
 
 | Parameter | Value |
 | --- | --- |
@@ -114,8 +99,6 @@ transfer.
 | `active_label` | Name of the label selected in the editor, or `None` |
 | `frame_index` | Index of the frame in its sequence |
 
-This is how you use what is already drawn as a prompt:
-
 ```python
 @register_seg
 def refine(image, masks, active_label):
@@ -123,12 +106,9 @@ def refine(image, masks, active_label):
     return sam(image, prompt)
 ```
 
-A parameter with any other name must have a default value. Otherwise the
-decorator raises, since the application would have nothing to pass for it.
+Any other parameter needs a default value.
 
-### What it returns
-
-The shape of the result decides where the masks go.
+### Return value
 
 | Return value | Effect |
 | --- | --- |
@@ -137,25 +117,22 @@ The shape of the result decides where the masks go.
 | H × W array | Added to the active label, keeping what is there. |
 | `None` | Nothing. |
 
-A mask can be:
+Masks are NumPy arrays or torch tensors, of type:
 
 - **boolean**;
 - **float**, thresholded at 0.5;
-- **integer**. On an instance label the values are kept as instance ids, from 1
-  to 255. On a semantic label any non-zero value counts as drawn.
+- **integer**. On an instance label the values are instance ids, from 1 to 255.
+  On a semantic label any non-zero value counts as drawn.
 
-A boolean or float mask added to the active label of an instance project takes
-the instance currently selected in the editor, as a brush stroke would.
-
-NumPy arrays and torch tensors are both accepted.
+On an instance label, a boolean or float mask added to the active label takes
+the instance selected in the editor.
 
 ### Whole sequences
 
-`@register_sequence_seg` is the same contract with a leading frame axis, for
-models that need the whole sequence at once, such as trackers and video or 3D
-models.
+`@register_sequence_seg` has the same contract with a leading frame axis, for
+trackers and video or 3D models.
 
-| | One frame | Whole sequence |
+| | `register_seg` | `register_sequence_seg` |
 | --- | --- | --- |
 | First parameter | H × W × 3 | T × H × W × 3 |
 | `masks` | `{label: H × W}` | `{label: T × H × W}` |
@@ -167,37 +144,27 @@ from didascalie.com import register_sequence_seg
 
 @register_sequence_seg
 def track(frames, masks, frame_index):
-    # Follow through the sequence what is drawn on the open frame.
     return {"cell": tracker(frames, masks["cell"][frame_index])}
 ```
 
-If the frames of the sequence differ in size, the function receives a list of
-arrays instead of one stacked array, and returns its masks the same way.
+If the frames differ in size, the function receives a list of arrays and returns
+its masks the same way.
 
 ## In the editor
 
-While the editor is open it looks for the server every few seconds. When it
-finds one that serves segmentation functions, the **Python functions** panel
-appears at the top of the right column. Each function has a row with its name
-and the first line of its docstring.
+The **Python functions** panel lists each function with the first line of its
+docstring.
 
-- **This frame** lists the `@register_seg` functions. The button runs the
-  function on the open frame. The result is a single undo step, so you can run
-  it, look, press ++ctrl+z++, change the Python and run it again.
+- **This frame** lists the `@register_seg` functions. A run is a single undo
+  step.
 - **Whole sequence** lists the `@register_sequence_seg` functions, on sequences
-  of more than one frame. The button opens a dialog where you choose the whole
-  sequence or the frames from the current one onward, and see how many frames
-  that is. The masks are written straight to the project, like
-  [propagating labels](annotating.md). This cannot be undone, and nothing is
-  written unless every frame comes back valid.
+  of more than one frame. You choose the whole sequence or the frames from the
+  current one onward. The masks are written straight to the project, like
+  [propagating labels](annotating.md), and this cannot be undone.
 
-A frame function has 5 minutes to answer and a sequence function an hour. The
-first call is often the slow one, because that is when the model loads.
+A frame function has 5 minutes to answer, a sequence function an hour.
 
 ## Keypoint functions
-
-A keypoint function proposes pairs of matching points for
-[registration](registration.md).
 
 ```python
 from didascalie.com import register_kpts
@@ -211,15 +178,11 @@ def my_matcher(reference, moving, existing):
 ```
 
 1. Open the registration view and pick the reference and moving frames.
-2. Click **Find keypoints with user function** in the sidebar. The first time,
-   it asks for a host and port.
-3. Once connected, the sidebar lists the keypoint functions. Pick one and click
-   the button again.
+2. Click **Find keypoints with user function** in the sidebar.
+3. Pick a function in the list and click the button again.
 
-A call times out after 30 seconds.
-
-`register_kpts` used to be called `register`. The old name still works and
-prints a deprecation warning.
+A call times out after 30 seconds. `register_kpts` was formerly `register`,
+which still works.
 
 <!-- SCREENSHOT: registration sidebar connected to Python, with the list of registered functions. -->
 
@@ -229,33 +192,26 @@ prints a deprecation warning.
 serve(port=5556, host="tcp://*")
 ```
 
-`serve` blocks until you interrupt it with ++ctrl+c++. Register every function
-before calling it.
+`serve` blocks. Register every function before calling it.
 
-The application looks at `127.0.0.1:5556`. Do not use port 5555: the application
-listens on it itself. To use another port or another machine, set it in the
-connection dialog of the registration view. The editor uses the address entered
-there, and it is remembered between sessions.
+The application looks at `127.0.0.1:5556`. To change it, click **Connections**
+(:material-link-variant:) at the right of the top toolbar and set the host and
+port under **Python functions server**.
 
-## When something goes wrong
+The same popover sets the **Remote-control port**, the one Didascalie itself
+listens on (5555 by default). It applies after a restart, and must differ from
+the server's port when both run on the same machine.
 
-**The panel does not appear.** Check that the script is still running and
-printed `listening on …`, that it registers at least one `@register_seg` or
-`@register_sequence_seg` function (keypoint functions alone do not show the
-panel), and that the port matches. The **Whole sequence** group only shows on
-sequences of more than one frame.
+<!-- SCREENSHOT: the Connections popover, connected to a server. -->
 
-**"Nothing applied".** The function returned no mask, or only labels the project
-does not have. Dictionary keys must match the label names exactly.
+## Troubleshooting
 
-**A shape error.** A mask is not the size of the frame. Resize the model's
-output back to `image.shape[:2]`.
-
-**"Got N masks for M labels".** A C × H × W result needs exactly one mask per
-project label. Return a dictionary to fill only some of them.
-
-**The function raises.** The full traceback is printed where the script runs.
-The application shows its last line.
-
-**"Python did not answer in time".** The function took longer than the limits
-above, or the script stopped during the call.
+| Symptom | Cause |
+| --- | --- |
+| The panel does not appear | The script is not running, serves no segmentation function, or the host and port in **Connections** do not match. |
+| No **Whole sequence** group | The open sequence has a single frame. |
+| "Nothing applied" | The function returned no mask, or only keys that are not label names. |
+| A shape error | A mask is not the size of the frame. |
+| "Got N masks for M labels" | A C × H × W result needs one mask per project label. Return a dictionary to fill only some. |
+| The function raises | The traceback is printed by the script. The application shows its last line. |
+| "Python did not answer in time" | The function exceeded its time limit, or the script stopped. |

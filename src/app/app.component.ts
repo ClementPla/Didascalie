@@ -22,6 +22,7 @@ import { ProjectService } from './services/project/project.service';
 import { UpdateService } from './services/update.service';
 import { UserService } from './services/users/user.service';
 import { ExperimentalSettingsComponent } from './experimental/experimental-settings/experimental-settings.component';
+import { ConnectionSettingsComponent } from './shared/connection-settings/connection-settings.component';
 @Component({
   selector: 'app-root',
   imports: [
@@ -35,7 +36,8 @@ import { ExperimentalSettingsComponent } from './experimental/experimental-setti
     DividerModule,
     ToastModule,
     FpsDisplayComponent,
-    ExperimentalSettingsComponent
+    ExperimentalSettingsComponent,
+    ConnectionSettingsComponent,
 ],
   providers: [MessageService],
   templateUrl: './app.component.html',

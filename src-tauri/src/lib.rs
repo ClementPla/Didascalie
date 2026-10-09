@@ -130,7 +130,9 @@ pub fn run() {
         .manage(commands::frame::ThumbnailCache::default())
         .manage(commands::ml::predict::MlState::default())
         .setup(|app| {
-            connection::coms::setup_zmq_receiver(app.handle().clone())?;
+            let port = connection::settings::load_listen_port(app.handle());
+            app.manage(connection::settings::ActiveListenPort(port));
+            connection::coms::setup_zmq_receiver(app.handle().clone(), port)?;
             create_main_window(app.handle())?;
             Ok(())
         })
@@ -215,6 +217,8 @@ pub fn run() {
             commands::registration::list_registrations,
             commands::registration::delete_registration,
             // Python bridge (user functions served by `didascalie.com`)
+            connection::settings::get_listen_port,
+            connection::settings::set_listen_port,
             commands::python::inference_connect,
             commands::python::find_keypoints_prefill,
             commands::python::python_segment_frame,

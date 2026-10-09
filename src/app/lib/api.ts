@@ -886,6 +886,13 @@ export const api = {
     return invoke('delete_registration', { referenceFrameId, movingFrameId });
   },
 
+  /** The remote-control port: the one in use, and the one set for next launch. */
+  getListenPort: () =>
+    invoke<{ active: number; configured: number }>('get_listen_port'),
+
+  /** Takes effect the next time the application starts. */
+  setListenPort: (port: number) => invoke<void>('set_listen_port', { port }),
+
   /** Ping the Python server and make it the bridge's endpoint. `probe` is the
    *  background discovery poll, which gives up almost immediately. */
   inferenceConnect: (host: string, port: number, probe = false) =>

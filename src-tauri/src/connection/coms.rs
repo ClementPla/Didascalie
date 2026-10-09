@@ -4,11 +4,11 @@ use std::thread;
 use std::time::Duration;
 use tauri::AppHandle;
 
-pub fn setup_zmq_receiver(app: AppHandle) -> Result<(), ComError> {
+pub fn setup_zmq_receiver(app: AppHandle, port: u16) -> Result<(), ComError> {
     thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            match Connection::new(app) {
+            match Connection::new(app, port) {
                 Ok(connection) => {
                     loop {
                         if let Err(e) = connection.handle_message().await {
