@@ -49,8 +49,36 @@
 
 .pane-title {
   min-width: 0;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-weight: 600;
+  cursor: copy;
+
+  .pi {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    opacity: 0.6;
+  }
+
+  &:hover .pi {
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.pane-title-text {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

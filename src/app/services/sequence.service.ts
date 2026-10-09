@@ -252,6 +252,18 @@ export class SequenceService implements ProjectScoped {
   }
 
   /**
+   * Frames were marked reviewed / unreviewed outside of this service (the
+   * inspector): keep those of the current sequence in step.
+   */
+  noteFramesReviewed(frameIds: readonly number[], reviewed: boolean): void {
+    const changed = new Set(frameIds);
+    if (!this._frames().some(f => changed.has(f.id))) return;
+    this._frames.update(fs =>
+      fs.map(f => (changed.has(f.id) ? { ...f, reviewed } : f))
+    );
+  }
+
+  /**
    * Get progress (reviewed vs total frames).
    */
   async getProgress(): Promise<{ reviewed: number; total: number }> {

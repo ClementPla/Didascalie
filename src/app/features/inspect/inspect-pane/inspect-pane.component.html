@@ -2,7 +2,16 @@
   <canvas #canvas class="pane-canvas"></canvas>
 
   <header class="pane-header">
-    <span class="pane-title" [title]="name()">{{ name() }}</span>
+    <button
+      type="button"
+      class="pane-title"
+      [title]="copied() ? 'Copied' : name() + ' — click to copy the name'"
+      [attr.aria-label]="'Copy the name ' + name()"
+      (click)="copyName()"
+    >
+      <span class="pane-title-text">{{ name() }}</span>
+      <i class="pi" [class.pi-copy]="!copied()" [class.pi-check]="copied()"></i>
+    </button>
     @if (frameCount() > 0) {
       <span class="pane-frame">{{ localIndex() + 1 }} / {{ frameCount() }}</span>
     }
@@ -10,6 +19,26 @@
       <i class="pi pi-spin pi-spinner pane-spinner" aria-label="Loading"></i>
     }
     <span class="flex-1"></span>
+    <p-button
+      [icon]="reviewed() ? 'pi pi-check-circle' : 'pi pi-circle'"
+      size="small"
+      [rounded]="true"
+      [text]="!reviewed()"
+      [severity]="reviewed() ? 'success' : undefined"
+      [pTooltip]="
+        reviewed()
+          ? 'Reviewed — click to unmark every frame (R)'
+          : 'Mark every frame as reviewed (R)'
+      "
+      tooltipPosition="bottom"
+      [ariaLabel]="
+        reviewed()
+          ? 'Mark ' + name() + ' as not reviewed'
+          : 'Mark ' + name() + ' as reviewed'
+      "
+      [disabled]="status() !== 'ready' || reviewing()"
+      (onClick)="toggleReviewed()"
+    ></p-button>
     <p-button
       icon="pi pi-expand"
       size="small"

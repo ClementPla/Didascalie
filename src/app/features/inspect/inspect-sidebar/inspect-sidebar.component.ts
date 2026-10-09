@@ -54,6 +54,9 @@ interface SequenceRow {
   key: string;
   frameCount: number;
   status: SequenceStatus;
+  /** Some frame carries an annotation: what `status` falls back to when the
+   *  sequence stops being reviewed. */
+  annotated: boolean;
   thumbnailFrameId: number;
 }
 
@@ -67,7 +70,9 @@ const THUMBNAIL_SIZE = 256;
 /**
  * The inspector's left panel: the labels to draw, as on/off chips, the
  * classification of the focused sequence, and every sequence of the project,
- * searchable by name, to pick what the focused pane shows.
+ * searchable by name, to pick what the focused pane shows — or, with
+ * Ctrl+click, Shift+click or a row's own toggle, what is compared side by
+ * side.
  *
  * It owns nothing of the playback: it reports what was clicked and is told
  * what is on screen. Classifying is done here, though: a sequence is
@@ -99,9 +104,16 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
   readonly focusedId = input<number | null>(null);
   /** The project's classification tasks; none when it has no classification. */
   readonly tasks = input<SidebarTask[]>([]);
+  /** The comparison has room for one more sequence. */
+  readonly canAdd = input(true);
 
   readonly labelToggled = output<number>();
+  /** Show this sequence in the focused pane. */
   readonly sequenceSelected = output<number>();
+  /** Add this sequence to the comparison, or remove it when it is in. */
+  readonly sequenceToggled = output<number>();
+  /** Add these sequences to the comparison, nearest to the focused one first. */
+  readonly sequencesAdded = output<number[]>();
 
   readonly sequences = signal<SequenceRow[]>([]);
   readonly query = signal('');
@@ -209,6 +221,7 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
                 : s.reviewedCount > 0 || s.annotatedCount > 0
                   ? 'annotated'
                   : 'empty',
+            annotated: s.reviewedCount > 0 || s.annotatedCount > 0,
             thumbnailFrameId: s.firstFrameId!,
           })),
       );
@@ -232,6 +245,57 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
       Math.max(0, Math.min(this.currentPage() + delta, this.pageCount() - 1)),
     );
     this.host.nativeElement.querySelector('.rows')?.scrollTo({ top: 0 });
+  }
+
+  /**
+   * A click on a row: plain, it goes to the focused pane; with Ctrl (or ⌘) it
+   * joins or leaves the comparison; with Shift, so does every sequence listed
+   * between the focused one and it.
+   */
+  pick(row: SequenceRow, event: MouseEvent): void {
+    if (event.ctrlKey || event.metaKey) {
+      this.sequenceToggled.emit(row.id);
+    } else if (event.shiftKey) {
+      const listed = this.filtered();
+      const from = listed.findIndex((s) => s.id === this.focusedId());
+      const to = listed.indexOf(row);
+      if (from < 0 || from === to) {
+        this.sequencesAdded.emit([row.id]);
+        return;
+      }
+      const step = to > from ? 1 : -1;
+      const ids: number[] = [];
+      for (let i = from + step; i !== to + step; i += step) {
+        ids.push(listed[i].id);
+      }
+      this.sequencesAdded.emit(ids);
+    } else {
+      this.sequenceSelected.emit(row.id);
+    }
+  }
+
+  /** Whether a row's toggle can act: the last pane stays, a full comparison
+   *  takes no more. */
+  canToggle(id: number): boolean {
+    return this.shown().has(id) ? this.shownIds().length > 1 : this.canAdd();
+  }
+
+  /** Every frame of sequence `id` was marked reviewed, or unmarked. */
+  setReviewed(id: number, reviewed: boolean): void {
+    this.sequences.update((rows) =>
+      rows.map((row) =>
+        row.id === id
+          ? {
+              ...row,
+              status: reviewed
+                ? 'reviewed'
+                : row.annotated
+                  ? 'annotated'
+                  : 'empty',
+            }
+          : row,
+      ),
+    );
   }
 
   isHidden(id: number): boolean {

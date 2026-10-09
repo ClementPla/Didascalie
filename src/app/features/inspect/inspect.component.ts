@@ -10,6 +10,7 @@ import {
   inject,
   signal,
   untracked,
+  viewChild,
   viewChildren,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -30,12 +31,18 @@ import { OverlayLabel } from './frame-cache';
 import {
   InspectPaneComponent,
   RelativeView,
+  ReviewChange,
 } from './inspect-pane/inspect-pane.component';
 import {
   InspectSidebarComponent,
   SidebarTask,
 } from './inspect-sidebar/inspect-sidebar.component';
-import { InspectionService, MAX_INSPECT_PANES } from './inspection.service';
+import {
+  DEFAULT_SIDEBAR_WIDTH,
+  InspectionService,
+  MAX_INSPECT_PANES,
+  MIN_SIDEBAR_WIDTH,
+} from './inspection.service';
 
 /** Decoded frames held across all panes, in bytes; split evenly between them. */
 const CACHE_BUDGET_BYTES = 768 * 1024 ** 2;
@@ -86,6 +93,7 @@ export class InspectComponent implements OnInit, OnDestroy {
   private readonly zone = inject(NgZone);
 
   readonly panes = viewChildren(InspectPaneComponent);
+  private readonly sidebar = viewChild(InspectSidebarComponent);
 
   /** The sequences to show are known (see `ngOnInit`). */
   readonly ready = signal(false);
@@ -478,9 +486,38 @@ export class InspectComponent implements OnInit, OnDestroy {
     // Clear the picker whatever happens: it is a menu, not a value.
     this.sequenceToAdd.set(sequenceId);
     queueMicrotask(() => this.sequenceToAdd.set(null));
-    if (sequenceId === null || !this.canAddPane()) return;
-    if (this.sequenceIds().includes(sequenceId)) return;
-    this.sequenceIds.update((ids) => [...ids, sequenceId]);
+    if (sequenceId !== null) this.addSequences([sequenceId]);
+  }
+
+  /** Add sequences to the comparison, in order, for as long as it has room. */
+  addSequences(sequenceIds: readonly number[]): void {
+    this.sequenceIds.update((shown) => {
+      const next = [...shown];
+      for (const id of sequenceIds) {
+        if (next.length >= MAX_INSPECT_PANES) break;
+        if (!next.includes(id)) next.push(id);
+      }
+      return next;
+    });
+  }
+
+  /** Add a sequence to the comparison, or remove it when it is in. */
+  toggleSequence(id: number): void {
+    const at = this.sequenceIds().indexOf(id);
+    if (at >= 0) this.closePane(at);
+    else this.addSequences([id]);
+  }
+
+  /** Mark the focused pane's sequence reviewed, or unmark it. */
+  toggleFocusedReviewed(): void {
+    void this.panes()[this.inspection.focused()]?.toggleReviewed();
+  }
+
+  /** A pane marked its sequence reviewed, or unmarked it: tell who else
+   *  shows that. */
+  onReviewedChanged(change: ReviewChange): void {
+    this.sidebar()?.setReviewed(change.sequenceId, change.reviewed);
+    this.sequences.noteFramesReviewed(change.frameIds, change.reviewed);
   }
 
   /** Leave for the editor on the frame pane `index` is showing. */
@@ -497,6 +534,34 @@ export class InspectComponent implements OnInit, OnDestroy {
   private shareFocused(): void {
     const id = this.sequenceIds()[this.inspection.focused()];
     if (id !== undefined) void this.inspection.shareSequence(id);
+  }
+
+  // ── Left panel ───────────────────────────────────────────────────────────
+
+  startSidebarResize(event: PointerEvent): void {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = this.inspection.sidebarWidth();
+    const move = (e: PointerEvent) => {
+      const max = Math.max(MIN_SIDEBAR_WIDTH, window.innerWidth * 0.5);
+      this.inspection.sidebarWidth.set(
+        Math.round(
+          Math.min(max, Math.max(MIN_SIDEBAR_WIDTH, startWidth + e.clientX - startX)),
+        ),
+      );
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      this.inspection.saveSidebarWidth();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  resetSidebarWidth(): void {
+    this.inspection.sidebarWidth.set(DEFAULT_SIDEBAR_WIDTH);
+    this.inspection.saveSidebarWidth();
   }
 
   // ── View ─────────────────────────────────────────────────────────────────
@@ -528,7 +593,8 @@ export class InspectComponent implements OnInit, OnDestroy {
 
   /**
    * Same layout as the editor: ↑/↓ move between frames, ←/→ between
-   * sequences, Ctrl+E shows only the labels' edges. Space plays and pauses.
+   * sequences, Ctrl+E shows only the labels' edges. Space plays and pauses,
+   * R marks the focused sequence reviewed.
    */
   @HostListener('window:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
@@ -575,6 +641,10 @@ export class InspectComponent implements OnInit, OnDestroy {
         break;
       case 'ArrowLeft':
         this.stepSequence(-1);
+        break;
+      case 'r':
+      case 'R':
+        this.toggleFocusedReviewed();
         break;
       case 'Home':
         this.pause();

@@ -9,6 +9,11 @@ import { SequenceService } from '../../services/sequence.service';
  *  cache, and past a handful the panes are too small to judge labels on. */
 export const MAX_INSPECT_PANES = 6;
 
+/** Width of the left panel, in CSS px. */
+export const DEFAULT_SIDEBAR_WIDTH = 272;
+export const MIN_SIDEBAR_WIDTH = 200;
+const SIDEBAR_WIDTH_KEY = 'didascalie.inspect.sidebarWidth';
+
 /**
  * What the "Inspect sequence" panel shows, and how the rest of the app sends
  * sequences to it.
@@ -47,9 +52,13 @@ export class InspectionService implements ProjectScoped {
   readonly edgesOnly = signal(false);
   /** Zooming or panning one pane moves the others the same way. */
   readonly syncViews = signal(true);
+  /** A pane keeps its zoom and position when its sequence changes, instead
+   *  of fitting the new one. */
+  readonly keepView = signal(false);
 
   /** The sequence list and label toggles on the left are shown. */
   readonly sidebarVisible = signal(true);
+  readonly sidebarWidth = signal(readSidebarWidth());
 
   /**
    * First and last frame to play (0-based, included); null for the sequence's
@@ -145,6 +154,15 @@ export class InspectionService implements ProjectScoped {
     }
   }
 
+  /** Remember the left panel's width for the next sessions. */
+  saveSidebarWidth(): void {
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(this.sidebarWidth()));
+    } catch {
+      // Not persisted; harmless.
+    }
+  }
+
   /** @see ProjectScoped — the panes are project data, the settings are not. */
   resetForProject(): void {
     this.sequenceIds.set([]);
@@ -155,4 +173,14 @@ export class InspectionService implements ProjectScoped {
     this.rangeStart.set(null);
     this.rangeEnd.set(null);
   }
+}
+
+function readSidebarWidth(): number {
+  try {
+    const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    if (stored >= MIN_SIDEBAR_WIDTH) return stored;
+  } catch {
+    // Storage unavailable: default width.
+  }
+  return DEFAULT_SIDEBAR_WIDTH;
 }

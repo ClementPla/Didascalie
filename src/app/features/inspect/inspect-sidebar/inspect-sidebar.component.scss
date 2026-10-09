@@ -1,6 +1,7 @@
 :host {
   display: block;
   flex-shrink: 0;
+  // The default; the panel sets the width the user dragged it to.
   width: 17rem;
   min-height: 0;
 }
@@ -188,15 +189,11 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: 0.25rem;
   width: 100%;
   padding: 0.25rem;
   border: 1px solid transparent;
   border-radius: var(--p-content-border-radius);
-  background: transparent;
-  color: var(--p-text-color);
-  text-align: left;
-  cursor: pointer;
 
   &:hover {
     background: var(--p-content-hover-background);
@@ -211,10 +208,78 @@
     border-color: var(--p-primary-color);
     background: var(--p-highlight-background);
   }
+}
+
+.row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--p-text-color);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 
   &:focus-visible {
     outline: 2px solid var(--p-primary-color);
-    outline-offset: -2px;
+    outline-offset: 2px;
+  }
+}
+
+// In or out of the comparison. Quiet until the row is pointed at, unless on.
+.row-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--p-text-muted-color);
+  font-size: 0.6875rem;
+  cursor: pointer;
+  opacity: 0;
+
+  .row:hover &,
+  &:focus-visible,
+  &.is-on {
+    opacity: 1;
+  }
+
+  &.is-on {
+    border-color: var(--p-primary-color);
+    background: var(--p-primary-color);
+    color: var(--p-primary-contrast-color);
+  }
+
+  &:hover:not(:disabled):not(.is-on) {
+    border-color: var(--p-primary-color);
+    color: var(--p-primary-color);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:disabled:not(.is-on) {
+    opacity: 0;
+  }
+
+  .row:hover &:disabled:not(.is-on) {
+    opacity: 0.4;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 2px;
   }
 }
 

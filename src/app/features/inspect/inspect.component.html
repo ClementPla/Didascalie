@@ -7,14 +7,27 @@
   } @else if (ready()) {
     @if (inspection.sidebarVisible()) {
       <app-inspect-sidebar
+        [style.width.px]="inspection.sidebarWidth()"
         [labels]="legend()"
         [hiddenLabels]="hiddenLabels()"
         [shownIds]="sequenceIds()"
         [focusedId]="focusedSequenceId()"
         [tasks]="tasks()"
+        [canAdd]="canAddPane()"
         (labelToggled)="toggleLabel($event)"
         (sequenceSelected)="selectSequence($event)"
+        (sequenceToggled)="toggleSequence($event)"
+        (sequencesAdded)="addSequences($event)"
       ></app-inspect-sidebar>
+      <div
+        class="sidebar-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize the sequences and labels panel"
+        title="Drag to resize; double-click for the default width"
+        (pointerdown)="startSidebarResize($event)"
+        (dblclick)="resetSidebarWidth()"
+      ></div>
     }
 
     <div class="inspect-main">
@@ -31,10 +44,12 @@
           [range]="paneRange()"
           [focused]="multiple() && i === inspection.focused()"
           [closable]="multiple()"
+          [keepView]="inspection.keepView()"
           (focusRequested)="focusPane(i)"
           (closeRequested)="closePane(i)"
           (editRequested)="openInEditor(i, $event)"
           (viewChanged)="onViewChanged(i, $event)"
+          (reviewedChanged)="onReviewedChanged($event)"
         ></app-inspect-pane>
       }
     </div>
@@ -274,6 +289,23 @@
               ariaLabel="Zoom and pan every pane together"
             ></p-togglebutton>
           }
+          <p-togglebutton
+            class="icon-toggle"
+            [ngModel]="inspection.keepView()"
+            (ngModelChange)="inspection.keepView.set($event)"
+            onIcon="pi pi-lock"
+            offIcon="pi pi-lock-open"
+            [onLabel]="''"
+            [offLabel]="''"
+            size="small"
+            [pTooltip]="
+              inspection.keepView()
+                ? 'Zoom and position are kept when the sequence changes'
+                : 'Zoom is reset when the sequence changes'
+            "
+            tooltipPosition="top"
+            ariaLabel="Keep the zoom and position when the sequence changes"
+          ></p-togglebutton>
           <p-button
             icon="pi pi-expand"
             severity="secondary"
