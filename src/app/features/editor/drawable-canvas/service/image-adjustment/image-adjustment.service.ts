@@ -1,5 +1,3 @@
-// image-adjustment.service.ts
-
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { EditorService } from '../../../services/editor.service';
@@ -7,7 +5,6 @@ import {
   AdjustmentState,
   ChannelAdjustments,
   Channel,
-  CHANNELS,
   CurvePoints,
   Histogram,
   RGBLUT,
@@ -65,9 +62,7 @@ export class ImageAdjustmentService implements OnDestroy {
     this.renderer.destroy();
   }
 
-  // ==========================================
-  // Image lifecycle
-  // ==========================================
+  // ── Image lifecycle ──────────────────────────────────────────────────────
 
   setImage(img: HTMLImageElement): void {
     this.sourceImage = img;
@@ -126,9 +121,7 @@ export class ImageAdjustmentService implements OnDestroy {
     ctx.putImageData(image, 0, 0);
   }
 
-  // ==========================================
-  // Adjustment API
-  // ==========================================
+  // ── Adjustment API ───────────────────────────────────────────────────────
 
   setAdjustment<K extends keyof ChannelAdjustments>(
     channel: Channel, key: K, value: ChannelAdjustments[K]
@@ -152,9 +145,7 @@ export class ImageAdjustmentService implements OnDestroy {
     this.scheduleRender();
   }
 
-  // ==========================================
-  // Auto operations
-  // ==========================================
+  // ── Auto operations ──────────────────────────────────────────────────────
 
   /**
    * Auto-stretch each channel independently to [loPct, hiPct] percentile
@@ -181,9 +172,7 @@ export class ImageAdjustmentService implements OnDestroy {
     this.scheduleRender();
   }
 
-  // ==========================================
-  // Internal
-  // ==========================================
+  // ── Internal ─────────────────────────────────────────────────────────────
 
   private scheduleRender(): void {
     this._version++; // adjustment state changed — invalidate downstream caches

@@ -116,9 +116,7 @@ export class UsersComponent implements OnInit {
     return this.users.isAdmin() || this.isCurrent(user);
   }
 
-  // ==========================================
-  // Signing in
-  // ==========================================
+  // ── Signing in ───────────────────────────────────────────────────────────
 
   choose(user: UserInfo): void {
     this.loginError.set(null);
@@ -166,9 +164,7 @@ export class UsersComponent implements OnInit {
     await this.attempt('Could not sign out', () => this.users.logout());
   }
 
-  // ==========================================
-  // Managing
-  // ==========================================
+  // ── Managing ─────────────────────────────────────────────────────────────
 
   async rename(user: UserInfo, input: HTMLInputElement): Promise<void> {
     const name = input.value.trim();
@@ -231,9 +227,7 @@ export class UsersComponent implements OnInit {
     );
   }
 
-  // ==========================================
-  // Internals
-  // ==========================================
+  // ── Internals ────────────────────────────────────────────────────────────
 
   private async attempt(failure: string, action: () => Promise<void>): Promise<void> {
     if (this.busy()) return;

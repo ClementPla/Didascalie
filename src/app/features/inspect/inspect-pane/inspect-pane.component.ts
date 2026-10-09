@@ -244,9 +244,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     this.cache = null;
   }
 
-  // ==========================================
-  // Driven by the panel
-  // ==========================================
+  // ── Driven by the panel ──────────────────────────────────────────────────
 
   /**
    * Whether the panel may move on to its frame `index`: this pane has it
@@ -309,9 +307,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Loading
-  // ==========================================
+  // ── Loading ──────────────────────────────────────────────────────────────
 
   private async loadSequence(id: number): Promise<void> {
     const token = ++this.loadToken;
@@ -364,9 +360,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     this.draw();
   }
 
-  // ==========================================
-  // Drawing
-  // ==========================================
+  // ── Drawing ──────────────────────────────────────────────────────────────
 
   private resize(width: number, height: number): void {
     if (width === 0 || height === 0) return;
@@ -452,9 +446,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     );
   }
 
-  // ==========================================
-  // Input
-  // ==========================================
+  // ── Input ────────────────────────────────────────────────────────────────
 
   private onWheel(event: WheelEvent): void {
     if (isControl(event.target)) return;

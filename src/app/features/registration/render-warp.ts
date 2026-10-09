@@ -1,5 +1,3 @@
-// helpers/render-warp.ts
-
 import {
   HomographyTransform,
   Point2D,
@@ -9,9 +7,7 @@ import {
   invertHomography,
 } from './registration.model';
 
-// ==========================================
-// Point mapping (used for residuals, predicted target indicator)
-// ==========================================
+// ── Point mapping (used for residuals, predicted target indicator) ─────────
 
 /**
  * Map a single point from moving-native space to reference-native space
@@ -37,9 +33,7 @@ export function inverseMapToMoving(p: Point2D, t: Transform2D): Point2D | null {
   return applyTransform(inv, p);
 }
 
-// ==========================================
-// CSS rendering for the warped moving image
-// ==========================================
+// ── CSS rendering for the warped moving image ──────────────────────────────
 
 /**
  * Build the CSS `transform` string that warps a moving-image element from

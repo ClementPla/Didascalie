@@ -281,9 +281,7 @@ export class InspectComponent implements OnInit, OnDestroy {
     this.inspection.focused.set(Math.max(0, focused));
   }
 
-  // ==========================================
-  // Playback
-  // ==========================================
+  // ── Playback ─────────────────────────────────────────────────────────────
 
   togglePlay(): void {
     if (this.playing()) this.pause();
@@ -375,9 +373,7 @@ export class InspectComponent implements OnInit, OnDestroy {
     this.frame.set(Math.max(first, Math.min(index, last)));
   }
 
-  // ==========================================
-  // Frame range
-  // ==========================================
+  // ── Frame range ──────────────────────────────────────────────────────────
 
   /** The range's ends as shown: frames are numbered from 1 on screen. */
   readonly rangeStartShown = computed(() => {
@@ -409,9 +405,7 @@ export class InspectComponent implements OnInit, OnDestroy {
     return Number.isFinite(value) ? Math.max(0, Math.round(value) - 1) : null;
   }
 
-  // ==========================================
-  // Sequences
-  // ==========================================
+  // ── Sequences ────────────────────────────────────────────────────────────
 
   /** Whether the focused pane has a sequence to move to in that direction. */
   canStepSequence(delta: number): boolean {
@@ -505,9 +499,7 @@ export class InspectComponent implements OnInit, OnDestroy {
     if (id !== undefined) void this.inspection.shareSequence(id);
   }
 
-  // ==========================================
-  // View
-  // ==========================================
+  // ── View ─────────────────────────────────────────────────────────────────
 
   onViewChanged(source: number, view: RelativeView): void {
     if (!this.inspection.syncViews()) return;
@@ -532,9 +524,7 @@ export class InspectComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ==========================================
-  // Keyboard
-  // ==========================================
+  // ── Keyboard ─────────────────────────────────────────────────────────────
 
   /**
    * Same layout as the editor: ↑/↓ move between frames, ←/→ between

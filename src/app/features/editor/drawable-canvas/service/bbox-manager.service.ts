@@ -3,9 +3,6 @@ import { BboxLabel, SegLabel } from '../../../../core/interface';
 import { Rect } from '../interface';
 import { ProjectScoped } from '../../../../core/project-scoped';
 
-
-
-
 @Injectable({
   providedIn: 'root'
 })
@@ -29,7 +26,6 @@ export class BboxManagerService implements ProjectScoped {
     });
 
   }
-
 
   /** @see ProjectScoped */
   resetForProject(): void {

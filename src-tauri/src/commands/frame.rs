@@ -10,9 +10,7 @@ use tauri::State;
 use crate::storage::DbState;
 use crate::utils::error::{ AppError, Result };
 
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -94,7 +92,6 @@ impl ThumbnailCache {
   }
 }
 
-
 #[tauri::command]
 pub fn get_progress(db: State<DbState>) -> Result<(i64, i64)> {
   db.with_conn(|conn| {
@@ -110,9 +107,7 @@ pub fn get_progress(db: State<DbState>) -> Result<(i64, i64)> {
   })
 }
 
-// ==========================================
-// Frame Retrieval
-// ==========================================
+// ── Frame Retrieval ────────────────────────────────────────────────────────
 pub struct FrameMeta { pub frame: Frame }
 
 pub fn read_frame_bytes(
@@ -268,7 +263,6 @@ fn read_frame_bytes_with(
     Ok((FrameMeta { frame }, bytes))
 }
 
-
 #[tauri::command]
 pub fn get_frame_image(db: State<DbState>, frame_id: i64) -> Result<FrameImage> {
     let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
@@ -276,7 +270,6 @@ pub fn get_frame_image(db: State<DbState>, frame_id: i64) -> Result<FrameImage> 
     let image_base64 = format!("data:{};base64,{}", mime, BASE64.encode(&bytes));
     Ok(FrameImage { frame: meta.frame, image_base64 })
 }
-
 
 /// A display image for a frame, downsampled server-side so its longest side is
 /// ≤ `max_dim`. Images that already fit are returned unchanged. `frame.width` /
@@ -381,9 +374,7 @@ pub fn get_frame_thumbnail(
   Ok(frame_image)
 }
 
-// ==========================================
-// Native tile server (large images)
-// ==========================================
+// ── Native tile server (large images) ──────────────────────────────────────
 
 /// Caches the decoded RGBA pixels of one frame so native-resolution tile
 /// requests don't re-decode the whole image each time. Holds a single frame
@@ -462,9 +453,7 @@ pub fn get_frame_tile(
     Ok(Response::new(tile))
 }
 
-// ==========================================
-// Frame Modification
-// ==========================================
+// ── Frame Modification ─────────────────────────────────────────────────────
 
 #[tauri::command]
 pub fn set_frame_reviewed(db: State<DbState>, frame_id: i64, reviewed: bool) -> Result<()> {
@@ -498,9 +487,7 @@ pub fn mark_reviewed(conn: &rusqlite::Connection, frame_ids: &[i64], reviewed: b
   Ok(())
 }
 
-// ==========================================
-// Utility
-// ==========================================
+// ── Utility ────────────────────────────────────────────────────────────────
 
 pub(crate) fn detect_mime_type(data: &[u8]) -> &'static str {
   if data.len() < 8 {

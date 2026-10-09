@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use tauri::{self, ipc::Response}; // for .into_par_iter()
 
 fn otsu_level(pixels: &Vec<u8>) -> u8 {
-    // Step 1: Compute histogram
     let mut histogram = [0u32; 256];
     for &pixel in pixels {
         histogram[pixel as usize] += 1;
@@ -15,13 +14,11 @@ fn otsu_level(pixels: &Vec<u8>) -> u8 {
 
     let total_pixels = pixels.len() as f64;
 
-    // Step 2: Compute probabilities
     let mut probability = [0f64; 256];
     for i in 0..256 {
         probability[i] = (histogram[i] as f64) / total_pixels;
     }
 
-    // Initialize variables
     let mut max_between_class_variance = 0.0;
     let mut optimal_threshold = 0u8;
 
@@ -29,12 +26,10 @@ fn otsu_level(pixels: &Vec<u8>) -> u8 {
     let mut sum0 = 0.0; // Cumulative sum for background class
     let mut total_mean = 0.0;
 
-    // Compute total mean
     for i in 0..256 {
         total_mean += (i as f64) * probability[i];
     }
 
-    // Step 3: Iterate over possible thresholds
     for t in 0..256 {
         w0 += probability[t];
         if w0 == 0.0 {
@@ -50,10 +45,8 @@ fn otsu_level(pixels: &Vec<u8>) -> u8 {
         let μ0 = sum0 / w0;
         let μ1 = (total_mean - sum0) / w1;
 
-        // Between-class variance
         let between_class_variance = w0 * w1 * (μ0 - μ1) * (μ0 - μ1);
 
-        // Update maximum variance and threshold
         if between_class_variance > max_between_class_variance {
             max_between_class_variance = between_class_variance;
             optimal_threshold = t as u8;
@@ -117,7 +110,6 @@ fn dilation(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
 
     let radius = kernel_size as i32 / 2;
 
-    // Precompute disk structuring element offsets
     let mut disk_offsets = Vec::new();
     for dy in -radius..=radius {
         for dx in -radius..=radius {
@@ -127,7 +119,6 @@ fn dilation(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
         }
     }
 
-    // Apply dilation
     for y in 0..height {
         for x in 0..width {
             // Check if any pixel under the structuring element is foreground
@@ -158,18 +149,15 @@ fn erosion(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
 
     let radius = kernel_size as i32 / 2;
 
-    // Precompute disk structuring element offsets
     let mut disk_offsets = Vec::new();
     for dy in -radius..=radius {
         for dx in -radius..=radius {
-            // Check if point is within disk radius
             if (dx * dx + dy * dy) <= (radius * radius) {
                 disk_offsets.push((dx, dy));
             }
         }
     }
 
-    // Apply erosion
     for y in 0..height {
         for x in 0..width {
             // Check if all pixels under the structuring element are foreground
@@ -246,10 +234,8 @@ pub(crate) fn morpho_mask(
                 }
             });
         }
-        //
     }
 
-    // Convert morphed image back to Array2<bool>
     Array2::from_shape_fn(
         (morphed.height() as usize, morphed.width() as usize),
         |(y, x)| morphed.get_pixel(x as u32, y as u32)[0] > 0,
@@ -267,7 +253,6 @@ pub async fn otsu_segmentation(
     width: usize,
     height: usize,
 ) -> Result<Response, String> {
-    // 1. Load image and mask
 
     let image = image::DynamicImage::ImageRgba8(
         image::RgbaImage::from_raw(width as u32, height as u32, image).unwrap(),
@@ -281,8 +266,6 @@ pub async fn otsu_segmentation(
     let mask = convert_image_to_mask_array(&mask);
 
     let mut refined_mask = otsu_in_mask(&image, &mask, inverse)?;
-
-    // 2. Perform morphological operation
 
     let morphed_mask = morpho_mask(&refined_mask, opening, connectedness, kernel_size);
     refined_mask.assign(&morphed_mask);

@@ -31,9 +31,7 @@ export class CanvasInputDirective {
   private lastPinchDist = 0;
   private lastPinchMid: Point2D = { x: 0, y: 0 };
 
-  // ==========================================
-  // Mouse
-  // ==========================================
+  // ── Mouse ────────────────────────────────────────────────────────────────
 
   /** Right-click opens the label picker; the button routing is in `pointerDown`. */
   @HostListener('contextmenu', ['$event'])
@@ -72,9 +70,7 @@ export class CanvasInputDirective {
     await this.pointerUp(event);
   }
 
-  // ==========================================
-  // Pressure
-  // ==========================================
+  // ── Pressure ─────────────────────────────────────────────────────────────
   // Pointer events fire alongside the mouse/touch listeners above; here they
   // only record pressure (they never start a stroke), so the drawing pipeline
   // is untouched while the pen tool can scale its radius by pressure.
@@ -103,9 +99,7 @@ export class CanvasInputDirective {
     }
   }
 
-  // ==========================================
-  // Touch
-  // ==========================================
+  // ── Touch ────────────────────────────────────────────────────────────────
 
   @HostListener('touchstart', ['$event'])
   onTouchStart(event: TouchEvent) {
@@ -149,9 +143,7 @@ export class CanvasInputDirective {
     if (mouse) await this.pointerUp(mouse);
   }
 
-  // ==========================================
-  // Shared pointer logic
-  // ==========================================
+  // ── Shared pointer logic ─────────────────────────────────────────────────
 
   private pointerDown(event: MouseEvent) {
     // The right button belongs to the label picker (see `onContextMenu`), so it
@@ -229,9 +221,7 @@ export class CanvasInputDirective {
     await this.drawService.endDraw(event);
   }
 
-  // ==========================================
-  // Pinch (zoom + pan)
-  // ==========================================
+  // ── Pinch (zoom + pan) ───────────────────────────────────────────────────
 
   private beginPinch(event: TouchEvent) {
     this.pinchActive = true;
@@ -275,9 +265,7 @@ export class CanvasInputDirective {
     return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
   }
 
-  // ==========================================
-  // Helpers
-  // ==========================================
+  // ── Helpers ──────────────────────────────────────────────────────────────
 
   private isTouchEvent(event: MouseEvent | TouchEvent): event is TouchEvent {
     return typeof TouchEvent !== 'undefined' && event instanceof TouchEvent;

@@ -1,4 +1,3 @@
-// app.component.ts
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { ToolbarModule } from 'primeng/toolbar';

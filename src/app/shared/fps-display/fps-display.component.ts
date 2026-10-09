@@ -1,4 +1,3 @@
-// fps-display.component.ts
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FpsWorkerService } from './fps.service';
@@ -14,7 +13,6 @@ import { RenderStatsService } from './render-stats.service';
 export class FpsDisplayComponent implements OnInit, OnDestroy {
   service = inject(FpsWorkerService);
   stats = inject(RenderStatsService);
-
 
   ngOnInit() {
     // The overlay only exists while the counter is shown, so gate the render

@@ -1,4 +1,3 @@
-// classification.service.ts
 import { Injectable } from '@angular/core';
 import { api } from '../../lib/api';
 import { ProjectScoped } from '../../core/project-scoped';
@@ -14,7 +13,6 @@ export class ClassificationService implements ProjectScoped {
   async loadForFrame(frameId: number, taskCount: number): Promise<void> {
     const classifications = await api.loadClassification(frameId);
 
-    // Initialize arrays
     this.multiclassCache.set(frameId, new Array(taskCount).fill(null));
     this.multilabelCache.set(frameId, []);
 

@@ -4,17 +4,13 @@
 //! class map, build the feature stack (local basis ⊕ optional encoder ⊕
 //! scribble distances), and sample pixels.
 //!
-//! # Augmentation, and what is deliberately absent
+//! # Augmentation
 //!
-//! Geometric augmentation is still omitted, but the reasoning that justified it
-//! no longer holds and the omission is now a *known gap*. It was sound while the
-//! head was a per-pixel MLP: the local basis is isotropic, so a flip only
-//! permuted which pixel carried a given feature vector, and a table of sampled
-//! pixels came out identical. A convolutional head has spatial extent, so flips
-//! and rotations do produce genuinely new training signal. Adding them is the
-//! next lever to pull if accuracy plateaus.
+//! No geometric augmentation yet. The convolutional head has spatial extent,
+//! so flips and rotations would add training signal; that is the next lever
+//! if accuracy plateaus.
 //!
-//! What augments this architecture today:
+//! What augments today:
 //!
 //! * **Appearance jitter** (gamma / gain / bias) — genuinely moves feature
 //!   values, and is the realistic nuisance across scanners and acquisitions.
@@ -44,9 +40,8 @@ pub struct DatasetConfig {
     pub working_size: u32,
     /// Patches sampled per frame per repeat.
     ///
-    /// Counted in patches, not pixels: the old pixel budget divided by a
-    /// patch's 2304 pixels rounded down to *one* crop per frame, which starved
-    /// training so badly that any small structure was unlearnable.
+    /// Counted in patches, not pixels: a pixel budget rounds down to one crop
+    /// per frame, which starves training of any small structure.
     ///
     /// Kept deliberately modest because this number is expensive twice over.
     /// Every patch is materialised as dense `f32`, so the sample table costs

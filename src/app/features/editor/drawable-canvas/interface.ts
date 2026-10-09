@@ -1,4 +1,3 @@
-import { BehaviorSubject } from "rxjs";
 import { EditorService } from "../services/editor.service";
 import { CanvasManagerService } from "./service/canvas-manager.service";
 import { StateManagerService } from "./service/state-manager.service";
@@ -21,16 +20,10 @@ export interface ToolContext {
   updatePreviewPoints: (points: Point2D[]) => void;
 }
 
-
 export interface DrawingTool {
     start(event: MouseEvent, context: ToolContext): void;
     draw(event: MouseEvent, context: ToolContext): void;
     end(context: ToolContext): void; 
-}
-
-export interface UndoRedoCanvasElement {
-  data: OffscreenCanvas | OffscreenCanvas[];
-  index: number;
 }
 
 export interface Point2D {
@@ -44,7 +37,6 @@ export interface Rect {
     width: number;
     height: number;
 }
-
 
 export interface Viewbox {
     xmin: number;

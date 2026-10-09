@@ -44,9 +44,7 @@ export class ZoomPanService {
 
   public redrawRequest = new Subject<boolean>();
 
-  // ==========================================
-  // Setup
-  // ==========================================
+  // ── Setup ────────────────────────────────────────────────────────────────
 
   /** The element whose bounding rect is used for client→viewport math. */
   public setViewportRef(el: HTMLElement) {
@@ -59,9 +57,7 @@ export class ZoomPanService {
     this.viewportHeight = height;
   }
 
-  // ==========================================
-  // Coordinate conversions
-  // ==========================================
+  // ── Coordinate conversions ───────────────────────────────────────────────
 
   /** Pointer position in viewport CSS px (relative to viewport top-left). */
   public getViewportCoordinates(event: MouseEvent | WheelEvent | Point2D): Point2D {
@@ -105,9 +101,7 @@ export class ZoomPanService {
     };
   }
 
-  // ==========================================
-  // Transform application
-  // ==========================================
+  // ── Transform application ────────────────────────────────────────────────
 
   /**
    * Apply the view transform to a display canvas context.
@@ -125,9 +119,7 @@ export class ZoomPanService {
     );
   }
 
-  // ==========================================
-  // Viewbox getters
-  // ==========================================
+  // ── Viewbox getters ──────────────────────────────────────────────────────
 
   /** Where the image sits in viewport CSS px. Used by the rulers. */
   public getViewBox(): Viewbox {
@@ -150,9 +142,7 @@ export class ZoomPanService {
     };
   }
 
-  // ==========================================
-  // Pan
-  // ==========================================
+  // ── Pan ──────────────────────────────────────────────────────────────────
 
   public startDrag(event: MouseEvent) {
     if (!this.canPan) return;
@@ -177,9 +167,7 @@ export class ZoomPanService {
     this.prevClient = null;
   }
 
-  // ==========================================
-  // Zoom
-  // ==========================================
+  // ── Zoom ─────────────────────────────────────────────────────────────────
 
   public wheel(event: WheelEvent) {
     if (!this.canZoom) return;
@@ -247,9 +235,7 @@ export class ZoomPanService {
     this.redrawRequest.next(true);
   }
 
-  // ==========================================
-  // Reset / fit
-  // ==========================================
+  // ── Reset / fit ──────────────────────────────────────────────────────────
 
   public resetZoomAndPan(smooth = true, redraw = true) {
     if (this.viewportWidth === 0 || this.viewportHeight === 0) return;
@@ -297,9 +283,7 @@ export class ZoomPanService {
     };
   }
 
-  // ==========================================
-  // Smooth interpolation
-  // ==========================================
+  // ── Smooth interpolation ─────────────────────────────────────────────────
 
   public smoothUpdateTransform() {
     if (!this.smooth) {
@@ -333,18 +317,14 @@ export class ZoomPanService {
     }
   }
 
-  // ==========================================
-  // Getters
-  // ==========================================
+  // ── Getters ──────────────────────────────────────────────────────────────
 
   public getScale(): number { return this.scale; }
   public getOffset(): Point2D { return this.offset; }
   public getViewportWidth(): number { return this.viewportWidth; }
   public getViewportHeight(): number { return this.viewportHeight; }
 
-  // ==========================================
-  // Internal
-  // ==========================================
+  // ── Internal ─────────────────────────────────────────────────────────────
 
   private getClientCoords(event: MouseEvent | WheelEvent | Point2D): { clientX: number; clientY: number } {
     if ('clientX' in event && typeof (event as MouseEvent).clientX === 'number') {

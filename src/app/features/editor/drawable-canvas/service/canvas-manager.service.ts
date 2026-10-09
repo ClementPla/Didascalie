@@ -89,9 +89,7 @@ export class CanvasManagerService implements ProjectScoped {
     );
   }
 
-  // ==========================================
-  // Palettes
-  // ==========================================
+  // ── Palettes ─────────────────────────────────────────────────────────────
 
   /** Recompute every label's colour LUT from the current label definitions. */
   rebuildPalettes() {
@@ -100,9 +98,7 @@ export class CanvasManagerService implements ProjectScoped {
     );
   }
 
-  // ==========================================
-  // Composition
-  // ==========================================
+  // ── Composition ──────────────────────────────────────────────────────────
 
   async computeCombinedCanvas() {
     const t0 = performance.now();
@@ -379,9 +375,7 @@ export class CanvasManagerService implements ProjectScoped {
     ctx.putImageData(out, 0, 0);
   }
 
-  // ==========================================
-  // Allocation / lifecycle
-  // ==========================================
+  // ── Allocation / lifecycle ───────────────────────────────────────────────
 
   private ensureAuxCanvases(width: number, height: number) {
     if (this.useViewportComposite) {
@@ -442,9 +436,7 @@ export class CanvasManagerService implements ProjectScoped {
     await this.webgpuCompositor.prepareResources(w, h, Math.max(1, nLabels));
   }
 
-  // ==========================================
-  // Mask access / mutation
-  // ==========================================
+  // ── Mask access / mutation ───────────────────────────────────────────────
 
   getActiveIndex() {
     return this.labelService.getActiveIndex();

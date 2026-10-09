@@ -39,16 +39,13 @@ export class MultiFramesOptionsComponent {
    *  reason as above: the dialog cannot live inside the popover. */
   readonly clearSequenceRequested = output<void>();
 
-  // ==========================================
-  // Getters for Template
-  // ==========================================
+  // ── Getters for Template ─────────────────────────────────────────────────
 
   get currentFrame(): number {
     return this.sequenceService.currentFrameIndex();
   }
 
   set currentFrame(value: number) {
-    // This is called by the slider
     if (value !== this.sequenceService.currentFrameIndex()) {
       this.changeOfFrame.emit(value);
     }
@@ -70,9 +67,7 @@ export class MultiFramesOptionsComponent {
     return this.sequenceService.sequenceProgress();
   }
 
-  // ==========================================
-  // Actions
-  // ==========================================
+  // ── Actions ──────────────────────────────────────────────────────────────
 
   multiFrameChanged() {
     if (!this._isLoaded) {

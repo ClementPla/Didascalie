@@ -1,7 +1,6 @@
 import { BaseTool } from './base-tool';
 import { ToolContext, Point2D } from '../interface';
 
-// line-tool.ts
 export class LineTool extends BaseTool {
   private startPoint: Point2D | null = null;
 

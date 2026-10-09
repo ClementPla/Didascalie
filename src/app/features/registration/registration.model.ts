@@ -1,17 +1,11 @@
-// registration.model.ts
-
-// ==========================================
-// Geometry primitives
-// ==========================================
+// ── Geometry primitives ────────────────────────────────────────────────────
 
 export interface Point2D {
   x: number;
   y: number;
 }
 
-// ==========================================
-// Correspondence pairs
-// ==========================================
+// ── Correspondence pairs ───────────────────────────────────────────────────
 
 export interface CorrespondencePair {
   /** Stable id for UI tracking (drag, delete, color assignment). */
@@ -26,12 +20,9 @@ export function makePair(ref: Point2D, moving: Point2D): CorrespondencePair {
   return { id: crypto.randomUUID(), ref: { ...ref }, moving: { ...moving } };
 }
 
-// ==========================================
-// Transforms
-// ==========================================
+// ── Transforms ─────────────────────────────────────────────────────────────
 
 export interface IdentityTransform { type: 'identity'; }
-
 
 export interface HomographyTransform {
   type: 'homography';
@@ -62,14 +53,7 @@ export type Transform2D =
   | BSplineGridTransform;
 
 export const IDENTITY: IdentityTransform = { type: 'identity' };
-export const IDENTITY_HOMOGRAPHY: HomographyTransform = {
-  type: 'homography',
-  matrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-};
-
-// ==========================================
-// Registration state (per moving frame)
-// ==========================================
+// ── Registration state (per moving frame) ──────────────────────────────────
 
 export interface FrameRegistration {
   referenceFrameId: string;
@@ -152,9 +136,7 @@ export function fitHomography(pairs: CorrespondencePair[]): HomographyTransform 
   };
 }
 
-// ==========================================
-// Application
-// ==========================================
+// ── Application ────────────────────────────────────────────────────────────
 
 export function applyTransform(t: Transform2D, p: Point2D): Point2D {
   if (t.type === 'homography') {
@@ -203,9 +185,7 @@ export function homographyToCssMatrix3d(t: HomographyTransform): string {
                  `${h02}, ${h12}, 0, ${h22})`;
 }
 
-// ==========================================
-// Fit residuals (for UI feedback)
-// ==========================================
+// ── Fit residuals (for UI feedback) ────────────────────────────────────────
 
 export interface FitResidual {
   pairId: string;
@@ -243,9 +223,7 @@ export function computeResiduals(t: Transform2D, pairs: CorrespondencePair[]): F
   };
 }
 
-// ==========================================
-// Internals
-// ==========================================
+// ── Internals ──────────────────────────────────────────────────────────────
 
 type Matrix3x3 = [number, number, number,
                   number, number, number,

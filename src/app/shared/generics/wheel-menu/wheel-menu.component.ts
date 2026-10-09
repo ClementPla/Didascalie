@@ -118,10 +118,8 @@ export class WheelMenuComponent {
   });
 
   /**
-   * Geometry for every entry. Derived from `items()` and `radius()` rather
-   * than built once on init, so the wheel cannot go stale against its input —
-   * the previous version computed paths in `ngAfterViewInit` only, and drew
-   * the wrong number of wedges whenever the item list changed afterwards.
+    * Geometry for every entry. Derived from `items()` and `radius()` rather
+    * than built once on init, so the wheel cannot go stale against its input.
    */
   readonly segments = computed<Segment[]>(() => {
     const items = this.items();
@@ -130,7 +128,7 @@ export class WheelMenuComponent {
 
     const step = 360 / n;
     // A hair of angular padding draws the wedges as separate keys rather than
-    // one continuous disc, which is most of what made the old one unreadable.
+    // one continuous disc.
     const pad = Math.min(1.5, step * 0.04);
     const inner = this.ringInner;
     const outer = this.radius();
@@ -142,8 +140,7 @@ export class WheelMenuComponent {
 
       const kids = item.children ?? [];
       // Enough arc per option to fit its label, fanning wider than the entry's
-      // own wedge when it has several. Four options inside a 36° wedge left
-      // each of them about 28px of arc, which is why the old ring was unreadable.
+      // own wedge when it has several.
       const span =
         kids.length > 0
           ? Math.max(step, Math.min(170, kids.length * 46))

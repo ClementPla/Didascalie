@@ -37,13 +37,9 @@ export class GalleryService implements ProjectScoped {
   private readonly explicitFirst = signal<number | null>(null);
 
   /**
-   * No project I/O here.
-   *
-   * This used to kick off `loadSequences()` from the constructor. That is now
-   * unsafe as well as redundant: the service is registered as `ProjectScoped`,
-   * so a reset can be what first constructs it — which happens *after* the old
-   * project is closed and *before* the new one is open, firing a query against
-   * no database. The gallery loads its own sequences when it initialises.
+    * No project I/O here: the service is `ProjectScoped`, so a reset can be what
+    * first constructs it, between one project closing and the next opening.
+    * The gallery loads its own sequences when it initialises.
    */
 
   /**

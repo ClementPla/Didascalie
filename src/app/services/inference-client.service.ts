@@ -1,4 +1,3 @@
-// services/inference-client.service.ts
 import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
 import { api, KeypointPair, PingReply, PythonFunction } from '../lib/api';
 import { CorrespondencePair } from '../features/registration/registration.model';

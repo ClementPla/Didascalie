@@ -12,6 +12,7 @@ import { SequenceService } from '../../../services/sequence.service';
 import { CanvasManagerService } from '../drawable-canvas/service/canvas-manager.service';
 import { OrchestratorService } from '../drawable-canvas/service/orchestrator.service';
 import { UndoRedoService } from '../drawable-canvas/service/undo-redo.service';
+import { base64ToUint8 } from '../../../core/misc/base64';
 
 /** Which frames a sequence function is given. */
 export type SequenceRunScope = 'all' | 'fromCurrent';
@@ -80,13 +81,6 @@ export class PythonSegmentationService {
     return frames.slice(from).map((f) => f.id);
   }
 
-  /** Value a stroke would write on the active label (see DrawService). */
-  private activeValue(): number {
-    if (!this.projectService.isInstanceSegmentation()) return 1;
-    const instance = this.labelService.activeSegInstance?.instance ?? 1;
-    return Math.min(255, Math.max(1, Math.round(instance)));
-  }
-
   private context(fn: PythonFunction): PythonSegContext {
     return {
       labels: this.labelService.listSegmentationLabels.map((l) => ({
@@ -95,7 +89,9 @@ export class PythonSegmentationService {
         isInstance: l.shades !== null,
       })),
       activeLabelId: this.labelService.activeLabel?.id ?? null,
-      activeValue: this.activeValue(),
+      activeValue: this.labelService.paintValue(
+        this.projectService.isInstanceSegmentation(),
+      ),
       sendMasks: fn.wants.includes('masks'),
     };
   }
@@ -243,14 +239,4 @@ export class PythonSegmentationService {
     if (!unknown.length) return null;
     return `Ignored labels this project does not have: ${unknown.join(', ')}.`;
   }
-}
-
-/** Decode a base64 mask into the flat uint8 buffer the canvas manager holds. */
-function base64ToUint8(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    out[i] = binary.charCodeAt(i);
-  }
-  return out;
 }

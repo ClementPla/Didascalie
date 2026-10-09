@@ -1,4 +1,3 @@
-// render-stats.service.ts
 //
 // Lightweight perf probes surfaced through the FPS overlay. The point is to
 // make the Windows-vs-macOS/Linux gap measurable: which webview engine is

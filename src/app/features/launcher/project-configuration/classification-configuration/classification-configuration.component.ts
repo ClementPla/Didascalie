@@ -20,7 +20,6 @@ import { TagModule } from 'primeng/tag';
 export class ClassificationConfigurationComponent {
   labelService = inject(LabelsService);
 
-
   addMulticlassTask(){
     this.labelService.addNewClassificationTask();
   }
@@ -38,7 +37,6 @@ export class ClassificationConfigurationComponent {
   removeClassFromTask(taskIndex: number, classIndex: number){
     this.labelService.listClassificationTasks[taskIndex].classLabels.splice(classIndex, 1);
   
-
   }
 
   addMultiLabelClass(name: string, event: Event){
@@ -53,7 +51,6 @@ export class ClassificationConfigurationComponent {
 
     (event.target as HTMLInputElement).value = '';
     
-
   }
 
   removeTask(taskIndex: number){

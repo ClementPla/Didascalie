@@ -5,12 +5,10 @@ import { InjectionToken } from '@angular/core';
  *
  * # Why this exists
  *
- * Route components (gallery, editor, registration) are destroyed and rebuilt
- * when the user navigates, so their own fields start clean. Services provided
- * in `root` are not: they live for the lifetime of the app. Opening a second
- * project without restarting therefore left the previous project's sequences,
- * filters, masks, undo history and per-frame caches in place, and the two
- * projects mixed.
+  * Route components are destroyed and rebuilt on navigation, so their fields
+  * start clean. Services provided in `root` live as long as the app: without a
+  * reset, opening a second project keeps the first one's sequences, filters,
+  * masks, undo history and per-frame caches.
  *
  * The dangerous case is caches keyed by frame or label **id**, since ids
  * restart from 1 in every project: a stale entry is not obviously stale, it is

@@ -1,4 +1,3 @@
-// src-tauri/src/connection/inference.rs
 use std::sync::Mutex;
 use std::time::Duration;
 

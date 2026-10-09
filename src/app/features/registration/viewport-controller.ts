@@ -1,11 +1,7 @@
-// viewport-controller.ts
-
 import { signal, computed } from '@angular/core';
 import { PyramidLevel } from '../../services/pyramid.service';
 
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 export interface ViewTransform {
   /** CSS px per native image px. */
@@ -18,7 +14,6 @@ export interface ViewportSize {
   width:  number;
   height: number;
 }
-
 
 export class ViewportController {
   // ── Signals ────────────────────────────────────────────────────────────────
@@ -40,7 +35,6 @@ export class ViewportController {
   readonly minScale = 0.05;
   readonly maxScale = 64;
 
-  
   smooth = true;
 
   // ── Animation ──────────────────────────────────────────────────────────────
@@ -58,9 +52,7 @@ export class ViewportController {
   /** Redraws the canvas. Set by the component. */
   onRedrawNeeded?: () => void;
 
-  // ==========================================
-  // Setup
-  // ==========================================
+  // ── Setup ────────────────────────────────────────────────────────────────
 
   setSize(width: number, height: number): void {
     this._size.set({ width, height });
@@ -75,9 +67,7 @@ export class ViewportController {
     this.onRedrawNeeded?.();
   }
 
-  // ==========================================
-  // Coordinate conversions
-  // ==========================================
+  // ── Coordinate conversions ───────────────────────────────────────────────
 
   viewportToNative(vp: { x: number; y: number }): { x: number; y: number } {
     const s = this._scale(), o = this._offset();
@@ -107,7 +97,6 @@ export class ViewportController {
     return this.viewportToNative(vp);
   }
 
- 
   applyToContext(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     dpr: number,
@@ -134,9 +123,7 @@ export class ViewportController {
     );
   }
 
-  // ==========================================
-  // Pan
-  // ==========================================
+  // ── Pan ──────────────────────────────────────────────────────────────────
 
   startDrag(clientX: number, clientY: number): void {
     this.isDragging = true;
@@ -157,9 +144,7 @@ export class ViewportController {
     this.prevClient = null;
   }
 
-  // ==========================================
-  // Zoom
-  // ==========================================
+  // ── Zoom ─────────────────────────────────────────────────────────────────
 
   wheel(event: WheelEvent, rect: DOMRect): void {
     event.preventDefault();
@@ -188,9 +173,7 @@ export class ViewportController {
   zoomIn(factor = 1.25):  void { this.zoomAt(this.viewportCenter(), factor); }
   zoomOut(factor = 1.25): void { this.zoomAt(this.viewportCenter(), 1 / factor); }
 
-  // ==========================================
-  // Fit / reset
-  // ==========================================
+  // ── Fit / reset ──────────────────────────────────────────────────────────
 
   /**
    * Fit the image (nativeW × nativeH) inside the current viewport.
@@ -223,9 +206,7 @@ export class ViewportController {
     this.fitImage(nativeW, nativeH, false);
   }
 
-  // ==========================================
-  // External set (used by SyncGroup)
-  // ==========================================
+  // ── External set (used by SyncGroup) ─────────────────────────────────────
 
   setTransformExternal(t: ViewTransform): void {
     // Skip the onTransformChange callback to avoid re-broadcast from the
@@ -237,9 +218,7 @@ export class ViewportController {
     this.onRedrawNeeded?.();
   }
 
-  // ==========================================
-  // Viewbox (for SVG overlay sync)
-  // ==========================================
+  // ── Viewbox (for SVG overlay sync) ───────────────────────────────────────
 
   /**
    * SVG viewBox in native image space, covering exactly the visible viewport.
@@ -256,9 +235,7 @@ export class ViewportController {
     return `${x} ${y} ${w} ${h}`;
   }
 
-  // ==========================================
-  // Internal
-  // ==========================================
+  // ── Internal ─────────────────────────────────────────────────────────────
 
   private setTransformImmediate(s: number, o: { x: number; y: number }): void {
     this._scale.set(s);

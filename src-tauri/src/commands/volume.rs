@@ -150,7 +150,6 @@ pub async fn load_label_volume(
     Ok(Response::new(volume))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

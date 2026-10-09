@@ -57,11 +57,10 @@ use crate::commands::users::{self, UserInfo};
 use crate::commands::vector::{rasterize_shape, VectorShape};
 use crate::storage::{queries, DbState};
 use crate::types::image::MaskEncoding;
+use crate::utils::color::parse_hex;
 use crate::utils::error::Result;
 
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 /// Which frames two graders are compared on. See the module docs.
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, TS)]
@@ -188,9 +187,7 @@ pub struct AgreementReport {
     pub frames_common_to_all: usize,
 }
 
-// ==========================================
-// Command
-// ==========================================
+// ── Command ────────────────────────────────────────────────────────────────
 
 /// Compare every pair of graders. Administrators only: seeing how one's
 /// answers differ from a colleague's is exactly what independent grading is
@@ -315,9 +312,7 @@ pub async fn intergrader_case_image(
     Ok(Response::new(out))
 }
 
-// ==========================================
-// Qualitative cases
-// ==========================================
+// ── Qualitative cases ──────────────────────────────────────────────────────
 
 pub fn pair_cases(
     conn: &Connection,
@@ -391,18 +386,6 @@ impl Colours {
             both: parse_hex(&style.color_both)?,
         })
     }
-}
-
-fn parse_hex(colour: &str) -> std::result::Result<[u8; 3], String> {
-    let hex = colour.trim().trim_start_matches('#');
-    if hex.len() != 6 || !hex.is_ascii() {
-        return Err(format!("“{colour}” is not a #rrggbb colour"));
-    }
-    let channel = |i: usize| {
-        u8::from_str_radix(&hex[i..i + 2], 16)
-            .map_err(|_| format!("“{colour}” is not a #rrggbb colour"))
-    };
-    Ok([channel(0)?, channel(2)?, channel(4)?])
 }
 
 /// Keep only the outline, `width` pixels thick, of the region carrying `bit`.
@@ -503,9 +486,7 @@ fn draw_comparison(
     }
 }
 
-// ==========================================
-// Statistics
-// ==========================================
+// ── Statistics ─────────────────────────────────────────────────────────────
 
 fn ratio(num: f64, den: f64) -> Option<f64> {
     (den > 0.0).then(|| num / den)
@@ -581,9 +562,7 @@ fn fleiss(ratings: &[Vec<&str>]) -> Option<f64> {
     kappa(observed / subjects, expected)
 }
 
-// ==========================================
-// Segmentation
-// ==========================================
+// ── Segmentation ───────────────────────────────────────────────────────────
 
 /// Running totals for one label between two graders.
 #[derive(Default, Clone)]
@@ -706,9 +685,7 @@ fn region(rows: &FrameRows, user: i64, label: i64, width: u32, height: u32) -> O
     Some(Region { mask, count })
 }
 
-// ==========================================
-// Classification
-// ==========================================
+// ── Classification ─────────────────────────────────────────────────────────
 
 /// The answer stored when a grader gave none.
 const NO_ANSWER: &str = "";
@@ -831,9 +808,7 @@ fn task_fleiss(answers: &Answers, task: &Task, raters: &[i64], frames: &[i64]) -
     }))
 }
 
-// ==========================================
-// Report
-// ==========================================
+// ── Report ─────────────────────────────────────────────────────────────────
 
 fn frame_set(conn: &Connection, user: i64, basis: FrameBasis) -> Result<HashSet<i64>> {
     let sql = match basis {

@@ -170,9 +170,7 @@ export class SequenceFrameCache {
     this.clear();
   }
 
-  // ==========================================
-  // Window
-  // ==========================================
+  // ── Window ───────────────────────────────────────────────────────────────
 
   /** The frames worth holding, most urgent first. */
   private wanted(): number[] {

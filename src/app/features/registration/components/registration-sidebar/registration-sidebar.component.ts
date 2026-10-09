@@ -28,7 +28,6 @@ export interface FrameOption {
   label: string;
 }
 
-
 @Component({
   selector: 'app-registration-sidebar',
   standalone: true,
@@ -57,8 +56,6 @@ export class RegistrationSidebarComponent {
   public readonly inference = inject(InferenceClientService);
   public readonly isAwaiting = this.state.isAwaitingMoving;
   public readonly pairCount = this.state.pairCount;
-
-
 
   // Reactive views.
   public readonly pairs = this.state.pairs;

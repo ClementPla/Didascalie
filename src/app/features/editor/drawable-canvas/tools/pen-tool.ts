@@ -37,7 +37,6 @@ export class PenTool extends BaseTool {
     
     ctx.stroke();
 
-    // Update state for the next segment
     context.stateService.updatePreviousPoint(point);
     context.stateService.updateCurrentPoint(point);
     

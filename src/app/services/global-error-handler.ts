@@ -15,7 +15,6 @@ export class GlobalErrorHandler implements ErrorHandler {
   private readonly injector = inject(Injector);
   private readonly zone = inject(NgZone);
 
-
   handleError(error: unknown): void {
     // Always keep the full error in the console for developers.
     console.error('[Unhandled error]', error);

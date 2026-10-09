@@ -1,4 +1,3 @@
-// fps-worker.service.ts
 import { Injectable, NgZone, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
@@ -37,7 +36,6 @@ export class FpsWorkerService {
   async start(): Promise<boolean> {
     if (this.started) return true;
 
-    // Check for SharedArrayBuffer support
     if (typeof SharedArrayBuffer === 'undefined') {
       console.warn('SharedArrayBuffer not available, falling back to simple FPS counter');
       this.startFallback();
@@ -45,17 +43,14 @@ export class FpsWorkerService {
     }
 
     try {
-      // Create shared memory
       const sab = new SharedArrayBuffer(Float64Array.BYTES_PER_ELEMENT * 4);
       this.sharedBuffer = new Float64Array(sab);
 
-      // Create worker
       this.worker = new Worker(
         new URL('./fps-worker.ts', import.meta.url),
         { type: 'module' }
       );
 
-      // Handle messages from worker
       this.worker.onmessage = (event) => {
         if (event.data.type === 'metrics') {
           this.ngZone.run(() => {
@@ -69,10 +64,8 @@ export class FpsWorkerService {
         }
       };
 
-      // Initialize worker with shared buffer
       this.worker.postMessage({ type: 'init', buffer: sab });
 
-      // Start heartbeat on main thread
       this.startHeartbeat();
       this.started = true;
       return true;

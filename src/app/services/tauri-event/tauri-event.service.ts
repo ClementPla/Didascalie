@@ -1,9 +1,7 @@
-// tauri-event.service.ts
 import { Injectable, NgZone, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { TauriEventBase } from './tauri-event-base';
 import { DownloadProgress } from './interface';
-
 
 @Injectable({
   providedIn: 'root'

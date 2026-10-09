@@ -1,5 +1,3 @@
-
-
 export class MulticlassTask{
 
     constructor(public taskName: string, public classLabels: string[]){
@@ -19,4 +17,3 @@ export class MultilabelTask{
     }
 
 }
-

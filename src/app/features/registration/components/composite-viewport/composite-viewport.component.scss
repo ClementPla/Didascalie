@@ -1,5 +1,3 @@
-// composite-viewport.component.scss
-
 :host {
   display: block;
   width: 100%;
@@ -37,7 +35,6 @@
 
   /* Overlay mode: no mask, full image visible at opacity = overlayOpacity */
   &--overlay {
-    /* nothing extra needed */
   }
 }
 

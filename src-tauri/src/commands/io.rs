@@ -13,9 +13,7 @@ use crate::utils::error::{ AppError, Result };
 
 use ts_rs::TS;
 
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 /// Options for a folder scan.
 ///
@@ -69,9 +67,7 @@ struct ImageFile {
   relative_path: String,
 }
 
-// ==========================================
-// Commands
-// ==========================================
+// ── Commands ───────────────────────────────────────────────────────────────
 
 /// Scan a folder for images and import them into the database.
 ///
@@ -93,12 +89,10 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
     );
   }
 
-  // Compile regex for matching image files
   let regex = Regex::new(&options.input_regex).map_err(|e|
     AppError::Generic(format!("Invalid regex: {}", e))
   )?;
 
-  // Scan for image files
   let (videos, image_files) =
     split_videos(scan_for_images(&folder_path, &folder_path, &regex, options.recursive)?);
   log::info!(
@@ -109,10 +103,8 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
     options.recursive,
     options.folders_as_sequences
   );
-  // Group into sequences based on configuration
   let sequences = group_into_sequences(image_files, options.folders_as_sequences);
   log::info!("[import] grouped into {} sequence(s)", sequences.len());
-  // Import into database
   let mut result = import_sequences(&db, sequences, options.embed_images, options.embed_threshold_kb)?;
 
   // Videos stay on disk whatever `embed_images` says: see `crate::video`.
@@ -161,9 +153,7 @@ pub fn add_images_to_project(db: State<DbState>, options: ScanOptions) -> Result
   })
 }
 
-// ==========================================
-// Internal Functions
-// ==========================================
+// ── Internal Functions ─────────────────────────────────────────────────────
 
 fn add_images(
   conn: &rusqlite::Connection,
@@ -381,7 +371,6 @@ fn scan_for_images(
         .and_then(|n| n.to_str())
         .unwrap_or("");
 
-      // Check if filename matches regex
       if regex.is_match(file_name) {
         let relative_path = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().to_string();
 
@@ -469,7 +458,6 @@ fn import_sequences(
     for (sort_order, sequence_name) in sequence_names.iter().enumerate() {
       let frames = sequences.get(*sequence_name).unwrap();
 
-      // Insert sequence
       conn.execute(
         "INSERT INTO sequences (name, sort_order) VALUES (?1, ?2)",
         params![sequence_name, sort_order as i32]
@@ -477,7 +465,6 @@ fn import_sequences(
       let sequence_id = conn.last_insert_rowid();
       result.sequences_created += 1;
 
-      // Insert frames
       for (frame_index, image) in frames.iter().enumerate() {
         match import_frame(conn, sequence_id, frame_index, image, embed_images, embed_threshold_kb) {
           Ok(embedded) => {
@@ -506,16 +493,12 @@ fn import_frame(
   embed_images: bool,
   embed_threshold_kb: u32
 ) -> Result<bool> {
-  // Read image file
   let file_data = fs::read(&image.absolute_path).map_err(|e| AppError::Io(e))?;
 
-  // Calculate content hash
   let content_hash = sha256_hex(&file_data);
 
-  // Get image dimensions
   let (width, height) = get_image_dimensions(&file_data)?;
 
-  // Determine if we should embed
   let file_size_kb = (file_data.len() as u32) / 1024;
   let should_embed = embed_images || file_size_kb < embed_threshold_kb;
 

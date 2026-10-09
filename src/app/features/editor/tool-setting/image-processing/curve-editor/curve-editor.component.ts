@@ -101,9 +101,7 @@ export class CurveEditorComponent
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   }
 
-  // ==========================================
-  // Coordinate transforms (curve space 0..255 ↔ canvas CSS px)
-  // ==========================================
+  // ── Coordinate transforms (curve space 0..255 ↔ canvas CSS px) ───────────
 
   private curveToCanvas(p: CurveNode): { cx: number; cy: number } {
     return {
@@ -118,22 +116,18 @@ export class CurveEditorComponent
     return { x, y };
   }
 
-  // ==========================================
-  // Mouse handling
-  // ==========================================
+  // ── Mouse handling ───────────────────────────────────────────────────────
 
   onMouseDown(event: MouseEvent) {
     const { offsetX, offsetY } = this.localCoords(event);
     const hit = this.hitTestNode(offsetX, offsetY);
 
     if (hit !== null) {
-      // Begin drag
       this.draggingIndex = hit;
       this.dragStart = { x: offsetX, y: offsetY };
       window.addEventListener('mousemove', this.onWindowMouseMove);
       window.addEventListener('mouseup', this.onWindowMouseUp);
     } else if (event.button === 0 && this.curve.length < this.maxNodes) {
-      // Add new node
       const newNode = this.canvasToCurve(offsetX, offsetY);
       const sorted = [...this.curve, newNode].sort((a, b) => a.x - b.x);
       this.curve = sorted;
@@ -234,9 +228,7 @@ export class CurveEditorComponent
     this.curveChange.emit(this.curve.map((p) => ({ ...p })));
   }
 
-  // ==========================================
-  // Rendering
-  // ==========================================
+  // ── Rendering ────────────────────────────────────────────────────────────
 
   private redraw() {
     if (!this.ctx) return;
@@ -253,7 +245,6 @@ export class CurveEditorComponent
       this.drawHistogram(w, h);
     }
 
-    // Grid
     if (this.showGrid()) this.drawGrid(w, h);
 
     // Identity reference line
@@ -264,10 +255,8 @@ export class CurveEditorComponent
     this.ctx.lineTo(w, 0);
     this.ctx.stroke();
 
-    // Curve
     this.drawCurve(w, h);
 
-    // Nodes
     this.drawNodes();
   }
 

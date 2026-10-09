@@ -1,7 +1,6 @@
 import { TreeNode } from "primeng/api";
 import { SegLabel } from "../../core/interface";
 
-
 export function constructLabelTreeNode(labels: SegLabel[]): TreeNode[] {
     const tree: TreeNode[] = [];
     const nodeMap = new Map<string, TreeNode>();
@@ -22,7 +21,6 @@ export function constructLabelTreeNode(labels: SegLabel[]): TreeNode[] {
                 };
                 nodeMap.set(fullPath, newNode);
 
-                // Find or create parent
                 if (index > 0) {
                     const parentPath = parts.slice(0, index).join('/');
                     const parentNode = nodeMap.get(parentPath);
@@ -40,5 +38,3 @@ export function constructLabelTreeNode(labels: SegLabel[]): TreeNode[] {
 
     return tree;
 }
-
-

@@ -4,7 +4,6 @@ import {
   OnDestroy,
   signal,
   inject,
-  Input,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { listen, emitTo, UnlistenFn } from '@tauri-apps/api/event';

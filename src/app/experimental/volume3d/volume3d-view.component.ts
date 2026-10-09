@@ -197,9 +197,7 @@ export class Volume3dViewComponent implements OnDestroy {
     this.scene?.dispose();
   }
 
-  // ==========================================
-  // Template actions
-  // ==========================================
+  // ── Template actions ─────────────────────────────────────────────────────
 
   update(patch: Partial<Volume3dSettings>): void {
     this.settingsService.update(patch);
@@ -233,9 +231,7 @@ export class Volume3dViewComponent implements OnDestroy {
     if (hit) this.volume.sliceSelectRequested$.next(hit.z);
   }
 
-  // ==========================================
-  // Scene
-  // ==========================================
+  // ── Scene ────────────────────────────────────────────────────────────────
 
   /**
    * Builds the 3D scene, fetching three.js on first use.
@@ -294,9 +290,7 @@ export class Volume3dViewComponent implements OnDestroy {
     );
   }
 
-  // ==========================================
-  // Meshing
-  // ==========================================
+  // ── Meshing ──────────────────────────────────────────────────────────────
 
   private startMeshing(): void {
     const scene = this.scene;

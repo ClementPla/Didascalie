@@ -158,9 +158,7 @@ export class ProjectSettingsComponent {
     return f !== r && !f.startsWith(r + '/');
   });
 
-  // ==========================================
-  // Project
-  // ==========================================
+  // ── Project ──────────────────────────────────────────────────────────────
 
   async renameProject(input: HTMLInputElement): Promise<void> {
     const name = input.value.trim();
@@ -170,9 +168,7 @@ export class ProjectSettingsComponent {
     input.value = this.config().name;
   }
 
-  // ==========================================
-  // Labels
-  // ==========================================
+  // ── Labels ───────────────────────────────────────────────────────────────
 
   async addLabel(): Promise<void> {
     const taken = this.labels().map((l) => l.label);
@@ -233,9 +229,7 @@ export class ProjectSettingsComponent {
     );
   }
 
-  // ==========================================
-  // Tasks
-  // ==========================================
+  // ── Tasks ────────────────────────────────────────────────────────────────
 
   setTaskEnabled(task: TaskKind, enabled: boolean): Promise<boolean> {
     return this.run({ type: 'setTaskEnabled', task, enabled });
@@ -299,9 +293,7 @@ export class ProjectSettingsComponent {
     );
   }
 
-  // ==========================================
-  // Text fields
-  // ==========================================
+  // ── Text fields ──────────────────────────────────────────────────────────
 
   addTextField(): Promise<boolean> {
     return this.run({
@@ -330,9 +322,7 @@ export class ProjectSettingsComponent {
     );
   }
 
-  // ==========================================
-  // Images
-  // ==========================================
+  // ── Images ───────────────────────────────────────────────────────────────
 
   onAddFolderChange(path: string): void {
     this.addFolder.set(path || null);
@@ -375,17 +365,13 @@ export class ProjectSettingsComponent {
     }
   }
 
-  // ==========================================
-  // Confirmation dialog
-  // ==========================================
+  // ── Confirmation dialog ──────────────────────────────────────────────────
 
   answer(confirmed: boolean): void {
     this.pending()?.resolve(confirmed);
   }
 
-  // ==========================================
-  // Internals
-  // ==========================================
+  // ── Internals ────────────────────────────────────────────────────────────
 
   /** Apply one edit. Returns whether it went through; a failure is reported. */
   private run(edit: ProjectEdit): Promise<boolean> {

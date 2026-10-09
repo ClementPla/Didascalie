@@ -1,6 +1,5 @@
 //! COCO format: categories + images + annotations (bbox and polygon
-//! segmentation). Proves the plugin path — it only touches the [`Dataset`] IR
-//! and the shared geometry helpers.
+//! segmentation).
 
 use std::collections::HashMap;
 use std::fs;

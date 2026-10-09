@@ -2,7 +2,6 @@ import { Injectable, signal, computed } from '@angular/core';
 import { Sequence, Frame, FrameImage, api } from '../lib/api';
 import { ProjectScoped } from '../core/project-scoped';
 
-
 @Injectable({ providedIn: 'root' })
 export class SequenceService implements ProjectScoped {
 
@@ -70,7 +69,6 @@ export class SequenceService implements ProjectScoped {
     const sequences = await api.listSequences();
     this._sequences.set(sequences);
 
-    // Auto-select first sequence if none selected
     if (sequences.length > 0 && !this._currentSequence()) {
       await this.selectSequence(sequences[0]);
     }
@@ -105,9 +103,7 @@ export class SequenceService implements ProjectScoped {
     }
   }
 
-  // ==========================================
-  // Frame Navigation
-  // ==========================================
+  // ── Frame Navigation ─────────────────────────────────────────────────────
 
   /**
    * Select a frame by index within current sequence.
@@ -191,9 +187,7 @@ export class SequenceService implements ProjectScoped {
     return false;
   }
 
-  // ==========================================
-  // Frame Image Loading
-  // ==========================================
+  // ── Frame Image Loading ──────────────────────────────────────────────────
 
   /**
    * Load the image data for the current frame.
@@ -226,9 +220,7 @@ export class SequenceService implements ProjectScoped {
     }
   }
 
-  // ==========================================
-  // Frame Status
-  // ==========================================
+  // ── Frame Status ─────────────────────────────────────────────────────────
 
   /**
    * Mark current frame as reviewed.
@@ -239,7 +231,6 @@ export class SequenceService implements ProjectScoped {
 
     await api.setFrameReviewed(frame.id, reviewed);
 
-    // Update local state
     this._frames.update(frames =>
       frames.map(f =>
         f.id === frame.id ? { ...f, reviewed } : f
@@ -257,7 +248,6 @@ export class SequenceService implements ProjectScoped {
     const frameIds = frames.map(f => f.id);
     await api.setFramesReviewed(frameIds, reviewed);
 
-    // Update local state
     this._frames.update(fs => fs.map(f => ({ ...f, reviewed })));
   }
 
@@ -284,9 +274,7 @@ export class SequenceService implements ProjectScoped {
     return this.currentFrame()?.reviewed ?? false;
   }
 
-  // ==========================================
-  // Reset
-  // ==========================================
+  // ── Reset ────────────────────────────────────────────────────────────────
 
   reset(): void {
     this._sequences.set([]);

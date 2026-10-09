@@ -1,4 +1,3 @@
-// components/inference-port-dialog/inference-port-dialog.component.ts
 import {
   ChangeDetectionStrategy, Component, signal, inject,
   output
@@ -41,7 +40,6 @@ export class InferencePortDialogComponent {
   }
   cancel(): void {
     this.visible = false;
-    // TODO: The 'emit' function requires a mandatory void argument
     this.cancelled.emit();
   }
 }

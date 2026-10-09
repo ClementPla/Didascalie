@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
-// PrimeNG
 import { ToolbarModule } from 'primeng/toolbar';
 import { PanelModule } from 'primeng/panel';
 import { ButtonModule } from 'primeng/button';
@@ -13,11 +12,10 @@ import { SliderModule } from 'primeng/slider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { ToggleButtonModule } from 'primeng/togglebutton';
 import { PopoverModule } from 'primeng/popover';
-import { MeterGroupModule, MeterItem } from 'primeng/metergroup';
+import { MeterGroupModule } from 'primeng/metergroup';
 import { DialogModule } from 'primeng/dialog';
 import { ProgressBarModule } from 'primeng/progressbar';
 
-// Components
 import { DrawableCanvasComponent } from './drawable-canvas/component/drawable-canvas.component';
 import { EditorToolbarComponent } from './editor-toolbar/editor-toolbar.component';
 import { LabelsComponent } from './labels/labels.component';
@@ -30,7 +28,6 @@ import { PropagationDialogComponent } from './multi-frames-options/propagation-d
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
 import { SequenceNavigatorComponent } from './sequence-navigator/sequence-navigator.component';
 
-// Services
 import { EditorService } from './services/editor.service';
 import { LabelsService } from '../../services/labels/labels.service';
 import { PropagationService } from '../../services/labels/propagation.service';
@@ -52,7 +49,6 @@ import { NotificationService } from '../../services/notification.service';
 import { api } from '../../lib/api';
 import { OrchestratorService } from './drawable-canvas/service/orchestrator.service';
 
-// Core
 import { Tools } from '../../core/tools';
 import { VerticalMenuComponent } from '../../shared/generics/vertical-menu/vertical-menu.component';
 import { MenuGroupDirective } from '../../shared/generics/vertical-menu/menu-group.directive';
@@ -209,7 +205,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async ngAfterViewInit() {
-    // All initialization happens here, in order
     if (this.projectService.isOpen()) {
       // Now frame should be loaded (loadSequences auto-selects first)
       const frameImage = this.sequenceService.currentFrameImage();
@@ -349,9 +344,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Canvas Initialization & Loading
-  // ==========================================
+  // ── Canvas Initialization & Loading ──────────────────────────────────────
 
   private async initializeCanvas(): Promise<void> {
     const frameImage = this.sequenceService.currentFrameImage();
@@ -360,12 +353,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Update state manager with frame dimensions
     this.stateManagerService.width = frameImage.frame.width;
     this.stateManagerService.height = frameImage.frame.height;
     // Allocate the per-label masks for this frame's dimensions.
     await this.canvasManagerService.updateCanvasesDimensions();
-    // Load annotations
     await this.loadCanvas();
   }
 
@@ -377,10 +368,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     try {
-      // Load annotations from database
       await this.ioService.load();
 
-      // Capture initial state for undo/redo
       await this.orchestratorService.captureInitialHistory();
 
       this.orchestratorService.requestRedraw();
@@ -390,9 +379,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Navigation
-  // ==========================================
+  // ── Navigation ───────────────────────────────────────────────────────────
 
   public async navigateNext(): Promise<void> {
     // Ignore presses while a navigation is already running, so save→clear→load
@@ -402,10 +389,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.uiStateService.setLoading(true, 'Loading next sequence');
 
     try {
-      // Save current if dirty
       await this.ioService.saveIfDirty();
 
-      // Navigate to next frame
       const moved = await this.sequenceService.nextSequence();
 
       if (moved) {
@@ -425,10 +410,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.uiStateService.setLoading(true, 'Loading previous sequence');
 
     try {
-      // Save current if dirty
       await this.ioService.saveIfDirty();
 
-      // Navigate to previous frame
       const moved = await this.sequenceService.prevSequence();
 
       if (moved) {
@@ -442,14 +425,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /**
-   * Move `step` frames within the open sequence, wrapping at either end.
-   *
-   * This used to be a pair of `window:keydown` listeners on the frame-navigation
-   * popover's component. The popover renders its content lazily and destroys it
-   * on close, so the arrow keys only worked while the popover was open — while
-   * the hint inside it claimed otherwise.
-   */
+  /** Move `step` frames within the open sequence, wrapping at either end. */
   private stepFrame(step: number): void {
     const total = this.sequenceService.frameCount();
     if (total < 2) return;
@@ -554,17 +530,14 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private async handleNavigationSuccess(): Promise<void> {
     const frameImage = this.sequenceService.currentFrameImage();
     if (frameImage) {
-      // Update dimensions if changed
       this.stateManagerService.width = frameImage.frame.width;
       this.stateManagerService.height = frameImage.frame.height;
 
-      // Update canvas dimensions
       await this.canvasManagerService.updateCanvasesDimensions();
 
       // Reload. `load()` clears the masks itself — except in 3D mode, where
       // they are slices of the volume and must not be cleared.
       await this.ioService.load();
-      // Reset undo/redo and capture initial state
       this.orchestratorService.resetHistory();
       await this.orchestratorService.captureInitialHistory();
     }
@@ -582,9 +555,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Save
-  // ==========================================
+  // ── Save ─────────────────────────────────────────────────────────────────
 
   public async save(): Promise<boolean> {
     const success = await this.ioService.save();
@@ -628,14 +599,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.sequenceService.isCurrentSequenceReviewed();
   }
 
-  // ==========================================
-  // Progress Display
-  // ==========================================
+  // ── Progress Display ─────────────────────────────────────────────────────
 
-  // ==========================================
-  // Label Helpers
-  // ==========================================
-
+  // ── Label Helpers ────────────────────────────────────────────────────────
 
   private togglePostProcessing() {
     if (this.editorService.isDrawingTool()) {
@@ -647,9 +613,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Event Handlers
-  // ==========================================
+  // ── Event Handlers ───────────────────────────────────────────────────────
 
   public updateMousePosition(event: MouseEvent) {
     this.mousePosition = { x: event.clientX, y: event.clientY };
@@ -660,9 +624,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.downloadProgress = info.progress;
   }
 
-  // ==========================================
-  // Getters for Template
-  // ==========================================
+  // ── Getters for Template ─────────────────────────────────────────────────
 
   get volumeTooltip(): string {
     if (this.volume.enabled()) {
@@ -775,9 +737,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.round((this.globalReviewed / this.globalTotal) * 100);
   }
 
-  // ==========================================
-  // Update Progress Display (revised)
-  // ==========================================
+  // ── Update Progress Display (revised) ────────────────────────────────────
 
   private async updateProgressDisplay(): Promise<void> {
     const progress = await this.sequenceService.getProgress();

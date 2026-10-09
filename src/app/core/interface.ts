@@ -32,8 +32,6 @@ export interface Thumbnail {
   thumbnailPath: Promise<string>;
 }
 
-
-
 export interface Rect {
   x: number;
   y: number;
@@ -41,9 +39,7 @@ export interface Rect {
   height: number;
 }
 
-
-
-// This interface is used to store the setup of classification and multilabel classes in the project_config.json file
+// How classification and multilabel classes are stored in the project config.
 export interface MulticlassInterface {
   name: string;
   classes: string[];
@@ -52,30 +48,6 @@ export interface MultilabelInterface {
   name: string;
   classes: string[];
 }
-
-
-
-export interface ProjectFile {
-  root: string;
-  project_name: string;
-}
-
-export interface LabelFormat {
-  masksName: string[];
-  masks: (Blob | string)[]; // Saved as Blob, loaded as string
-  colors: string[];
-  shades: string[][] | null;
-  textsNames: string[];
-  texts: string[] | null;
-}
-
-export interface DownloadingInformations {
-  filename: string;
-  progress: number;
-  downloaded: boolean;
-  total: number;
-}
-
 
 export interface TextLabel {
   content: string;

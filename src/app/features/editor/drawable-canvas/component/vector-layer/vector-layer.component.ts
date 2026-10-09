@@ -31,7 +31,6 @@ interface HandleDeco {
   hy: number;
 }
 
-
 @Component({
   selector: 'app-vector-layer',
   imports: [CommonModule],

@@ -423,9 +423,8 @@
 }
 
 // ── Layout ───────────────────────────────────────────────────────────────────
-// Each column stacks independently. Cards used to be direct children of the
-// grid, so a tall card in one column stretched the matching row in the other
-// and left a gap under the shorter one.
+// Each column stacks independently, so a tall card does not stretch the
+// matching row in the other column.
 .lab-grid > .col {
   display: flex;
   flex-direction: column;

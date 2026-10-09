@@ -784,4 +784,3 @@ pub fn ml_predict_frame(
         &|stage, done, total| emit(&app, stage, done, total, 0.0),
     )
 }
-

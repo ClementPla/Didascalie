@@ -1,8 +1,7 @@
-import { Component, ElementRef, HostBinding, HostListener, Input, OnDestroy, OnInit, signal, inject, input, output } from '@angular/core';
+import { Component, ElementRef, HostBinding, HostListener, OnDestroy, OnInit, signal, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { open } from '@tauri-apps/plugin-dialog';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 
 /**
@@ -79,9 +78,7 @@ export class FolderDropZoneComponent implements OnInit, OnDestroy {
     this.unlistenDrop?.();
   }
 
-  // ==========================================
-  // HTML drag for hover visuals only
-  // ==========================================
+  // ── HTML drag for hover visuals only ─────────────────────────────────────
 
   @HostListener('dragenter', ['$event'])
   @HostListener('dragover', ['$event'])
@@ -122,9 +119,7 @@ export class FolderDropZoneComponent implements OnInit, OnDestroy {
     return !!this.folderPath();
   }
 
-  // ==========================================
-  // Browse fallback
-  // ==========================================
+  // ── Browse fallback ──────────────────────────────────────────────────────
 
   async browse(): Promise<void> {
     const folder = await open({ directory: true });

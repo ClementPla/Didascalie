@@ -1,4 +1,3 @@
-// keyboard-shortcut.service.ts
 import { Injectable, OnDestroy } from '@angular/core';
 import { Subject, fromEvent } from 'rxjs';
 import { filter, takeUntil } from 'rxjs/operators';
@@ -88,7 +87,6 @@ export class KeyboardShortcutService implements OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(event => {
-        // Check hold keys first
         const holdAction = this.holdKeys.get(event.key.toLowerCase());
         if (holdAction && !this.heldModifiers.has(event.key.toLowerCase())) {
           this.heldModifiers.add(event.key.toLowerCase());
@@ -97,7 +95,6 @@ export class KeyboardShortcutService implements OnDestroy {
           return;
         }
 
-        // Match regular shortcuts
         const action = this.matchShortcut(event);
         if (action) {
           event.preventDefault();
@@ -154,7 +151,6 @@ export class KeyboardShortcutService implements OnDestroy {
     if (event.shiftKey) parts.push('shift');
     if (event.altKey) parts.push('alt');
     
-    // Normalize key name
     let key = event.key.toLowerCase();
     if (key === ' ') key = 'space';
     

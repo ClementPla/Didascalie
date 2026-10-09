@@ -47,9 +47,7 @@
   // group render correctly regardless of what it contains: a bare
   // <button pButton> is itself the direct child, while a <p-togglebutton> is a
   // wrapper around its control. Sizing the direct child (not just the inner
-  // .p-button) means a group made only of bare buttons still has a width —
-  // previously such a group collapsed because width:100% had no fixed-size
-  // sibling (e.g. a p-togglebutton) to resolve against.
+  // .p-button) means a group made only of bare buttons still has a width.
   > * {
     display: flex;
     align-items: center;

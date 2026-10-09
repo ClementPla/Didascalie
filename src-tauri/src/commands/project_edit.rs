@@ -41,9 +41,7 @@ use crate::storage::{queries, DbState};
 use crate::types::project::{LabelConfig, MulticlassConfig, MultilabelConfig, ProjectConfig};
 use crate::utils::error::{AppError, Result};
 
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 /// A task family that can be switched on or off without touching its data.
 #[derive(Deserialize, Debug, Clone, Copy, PartialEq, Eq, TS)]
@@ -158,9 +156,7 @@ pub struct EditImpact {
     pub discards_model: bool,
 }
 
-// ==========================================
-// Commands
-// ==========================================
+// ── Commands ───────────────────────────────────────────────────────────────
 
 /// What `edit` would destroy if applied now. Reads only.
 #[tauri::command]
@@ -195,9 +191,7 @@ pub fn apply_project_edit(
     Ok(config)
 }
 
-// ==========================================
-// Impact
-// ==========================================
+// ── Impact ─────────────────────────────────────────────────────────────────
 
 pub fn edit_impact(conn: &Connection, edit: &ProjectEdit) -> Result<EditImpact> {
     let mut impact = EditImpact::default();
@@ -287,9 +281,7 @@ fn saved_model_uses_label(conn: &Connection, label_id: i64) -> Result<bool> {
         .is_some_and(|ids| ids.iter().any(|v| v.as_i64() == Some(label_id))))
 }
 
-// ==========================================
-// Applying
-// ==========================================
+// ── Applying ───────────────────────────────────────────────────────────────
 
 /// Apply `edit` to the config and to every row that depends on it, atomically.
 pub fn apply_edit(conn: &Connection, edit: &ProjectEdit) -> Result<ProjectConfig> {
@@ -484,9 +476,7 @@ pub fn apply_edit(conn: &Connection, edit: &ProjectEdit) -> Result<ProjectConfig
     Ok(config)
 }
 
-// ==========================================
-// Validation
-// ==========================================
+// ── Validation ─────────────────────────────────────────────────────────────
 
 fn missing(what: &str, name: &str) -> AppError {
     AppError::Other(format!("This project has no {what} named “{name}”."))
@@ -556,9 +546,7 @@ fn ensure_text_field_free(fields: &[String], name: &str) -> Result<()> {
     Ok(())
 }
 
-// ==========================================
-// Config helpers
-// ==========================================
+// ── Config helpers ─────────────────────────────────────────────────────────
 
 fn task_name_mut<'a>(config: &'a mut ProjectConfig, name: &str) -> Result<&'a mut String> {
     if let Some(task) = config.multilabel_task.as_mut().filter(|t| t.name == name) {
@@ -643,9 +631,7 @@ fn write_labels_to_config(
     Ok(())
 }
 
-// ==========================================
-// Row helpers
-// ==========================================
+// ── Row helpers ────────────────────────────────────────────────────────────
 
 /// Follow a class rename (`to = Some`) or removal (`to = None`) through every
 /// frame classified with `task`. A row left with no class is deleted, which is

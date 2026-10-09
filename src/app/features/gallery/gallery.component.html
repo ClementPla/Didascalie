@@ -1,8 +1,7 @@
 <div class="flex flex-col gallery gap-2 h-full p-2 w-full">
 
-  <!-- Shown for any selection. The classification controls inside are the only
-       part that needs a classification project; review marking applies to every
-       project and used to be hidden with them. -->
+  <!-- Shown for any selection: review marking applies to every project; only
+       the classification controls inside need a classification project. -->
   @if (hasSelection) {
   <p-panel
     [header]="'Batch actions · ' + selectedCount + ' selected'"

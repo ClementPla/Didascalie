@@ -1,6 +1,4 @@
-import { flavors, version, flavorEntries, FlavorName } from "@catppuccin/palette";
-
-
+import { flavorEntries } from "@catppuccin/palette";
 
 export function getDefaultColor(n: number) {
 

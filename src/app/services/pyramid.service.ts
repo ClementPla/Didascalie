@@ -1,11 +1,7 @@
-// pyramid.service.ts
-
 import { Injectable, OnDestroy } from '@angular/core';
 import { ProjectScoped } from '../core/project-scoped';
 
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 /**
  * One level of a resolution pyramid.
@@ -29,17 +25,13 @@ export interface Pyramid {
   nativeHeight:  number;
 }
 
-// ==========================================
-// Configuration
-// ==========================================
+// ── Configuration ──────────────────────────────────────────────────────────
 
 const MAX_LEVEL_PX       = 4096;  // coarsest level's longest side
 const OVERSAMPLE_FACTOR  = 1.5;   // prefer a level at least 1.5× the viewport
 const MAX_LEVELS         = 8;
 
-// ==========================================
-// Service
-// ==========================================
+// ── Service ────────────────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
 export class PyramidService implements OnDestroy, ProjectScoped {
@@ -64,9 +56,7 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     this.cache.clear();
   }
 
-  // ==========================================
-  // Public API
-  // ==========================================
+  // ── Public API ───────────────────────────────────────────────────────────
 
   /**
    * Build (or return cached) pyramid for `img`.
@@ -207,9 +197,7 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     };
   }
 
-  // ==========================================
-  // Build
-  // ==========================================
+  // ── Build ────────────────────────────────────────────────────────────────
 
   private async buildPyramid(img: HTMLImageElement): Promise<Pyramid> {
     const nativeWidth  = img.naturalWidth  || img.width;

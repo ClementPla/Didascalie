@@ -252,9 +252,7 @@ export class MaskVolumeService implements ProjectScoped {
     this.error.set(null);
   }
 
-  // ==========================================
-  // Loading
-  // ==========================================
+  // ── Loading ──────────────────────────────────────────────────────────────
 
   private async load(frames: readonly Frame[]): Promise<void> {
     const token = ++this.loadToken;

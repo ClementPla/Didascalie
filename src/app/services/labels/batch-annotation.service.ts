@@ -20,7 +20,6 @@ export class BatchAnnotationService {
   private classificationService = inject(ClassificationService);
   private labelsService = inject(LabelsService);
 
-
   /**
    * Apply multiclass classification choices to multiple frames.
    */
@@ -48,7 +47,6 @@ export class BatchAnnotationService {
       return result;
     }
 
-    // Build batch payload
     const payload: BatchClassificationPayload[] = [];
     for (const frameId of frameIds) {
       for (let i = 0; i < tasks.length; i++) {
@@ -64,11 +62,9 @@ export class BatchAnnotationService {
       }
     }
 
-    // Save to database
     try {
       await api.saveBatchClassifications(payload);
 
-      // Update in-memory cache
       for (const frameId of frameIds) {
         this.classificationService.setMulticlassChoices(frameId, choices);
       }

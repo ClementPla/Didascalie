@@ -1,5 +1,3 @@
-// image-adjustment-renderer.ts
-
 import { RGBLUT, packRGBLUT } from './image-processing.model';
 
 /**
@@ -75,9 +73,7 @@ export class ImageAdjustmentRenderer {
     return this.renderCPU(source, lut);
   }
 
-  // ==========================================
-  // GPU path
-  // ==========================================
+  // ── GPU path ─────────────────────────────────────────────────────────────
 
   private async createPipeline(): Promise<void> {
     const shader = `
@@ -208,9 +204,7 @@ export class ImageAdjustmentRenderer {
     return this.outputCanvas!;
   }
 
-  // ==========================================
-  // CPU path
-  // ==========================================
+  // ── CPU path ─────────────────────────────────────────────────────────────
 
   private renderCPU(source: HTMLCanvasElement, lut: RGBLUT): HTMLCanvasElement | OffscreenCanvas {
     const w = source.width, h = source.height;
@@ -229,9 +223,7 @@ export class ImageAdjustmentRenderer {
     return this.outputCanvas!;
   }
 
-  // ==========================================
-  // Output canvas
-  // ==========================================
+  // ── Output canvas ────────────────────────────────────────────────────────
 
   private ensureOutputCanvas(width: number, height: number): void {
     if (this.outputCanvas && this.outputCanvas.width === width && this.outputCanvas.height === height) return;

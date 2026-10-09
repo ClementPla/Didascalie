@@ -71,9 +71,7 @@ export class OrchestratorService {
     return this.imagePyramid;
   }
 
-  // ==========================================
-  // Redraw aggregation
-  // ==========================================
+  // ── Redraw aggregation ───────────────────────────────────────────────────
 
   private initializeRedrawAggregation() {
     this.canvasManager.requestRedraw
@@ -107,9 +105,7 @@ export class OrchestratorService {
     this.requestRedraw();
   }
 
-  // ==========================================
-  // Image lifecycle
-  // ==========================================
+  // ── Image lifecycle ──────────────────────────────────────────────────────
 
   public async loadImage(
     imgSrc: string,
@@ -178,9 +174,7 @@ export class OrchestratorService {
     });
   }
 
-  // ==========================================
-  // Display pyramid (large images)
-  // ==========================================
+  // ── Display pyramid (large images) ───────────────────────────────────────
 
   private scheduleImagePyramidRebuild(): void {
     if (this.pyramidRebuildTimer) clearTimeout(this.pyramidRebuildTimer);
@@ -250,9 +244,7 @@ export class OrchestratorService {
     this.imagePyramid = null;
   }
 
-  // ==========================================
-  // Facade getters
-  // ==========================================
+  // ── Facade getters ───────────────────────────────────────────────────────
 
   public get width(): number { return this.state.width; }
   public get height(): number { return this.state.height; }
@@ -311,17 +303,13 @@ export class OrchestratorService {
     return this.canvasManager.getBufferOrigin();
   }
 
-  // ==========================================
-  // Canvas operations
-  // ==========================================
+  // ── Canvas operations ────────────────────────────────────────────────────
 
   public ensurePixelPerfectDrawing(ctx: CanvasRenderingContext2D) {
     this.canvasManager.ensurePixelPerfectDrawing(ctx);
   }
 
-  // ==========================================
-  // View controls
-  // ==========================================
+  // ── View controls ────────────────────────────────────────────────────────
 
   /** Element used for client→viewport coordinate conversion. */
   public setViewportRef(el: HTMLElement) {

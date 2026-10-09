@@ -1,4 +1,3 @@
-// ui-state.service.ts
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
@@ -24,9 +23,8 @@ export class UIStateService {
   /**
    * Signals rather than plain fields, because templates read these directly.
    * Reading a signal in a template marks that view dirty on change; reading a
-   * plain property does not, so a component using OnPush would simply stop
-   * repainting when this state moved. The previous `loading$` observable had no
-   * consumers and is gone.
+    * plain property does not, so a component using OnPush would stop repainting
+    * when this state moved.
    */
   private readonly loadingState = signal<LoadingState>({
     isLoading: false,
@@ -40,9 +38,7 @@ export class UIStateService {
   readonly thumbnailsSize = signal(128);
   readonly showFpsCounter = signal(false);
 
-  // ==========================================
-  // Loading State Management
-  // ==========================================
+  // ── Loading State Management ─────────────────────────────────────────────
 
   public setLoading(isLoading: boolean, message = ''): void {
     this.loadingState.set({ isLoading, message });
@@ -52,9 +48,7 @@ export class UIStateService {
     this.loadingState.set({ isLoading: false, message: '' });
   }
 
-  // ==========================================
-  // Route Navigation
-  // ==========================================
+  // ── Route Navigation ─────────────────────────────────────────────────────
 
   public navigateToGallery(): Promise<boolean> {
     return this.router.navigate(['/gallery']);

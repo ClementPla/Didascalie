@@ -198,9 +198,7 @@ export class VolumeScene {
     this.root.add(this.brushAxis);
   }
 
-  // ==========================================
-  // Data
-  // ==========================================
+  // ── Data ─────────────────────────────────────────────────────────────────
 
   /** A new volume: drops all meshes and frames the camera on it. */
   setVolume(w: number, h: number, d: number, lod: number): void {
@@ -358,9 +356,7 @@ export class VolumeScene {
     this.requestRender();
   }
 
-  // ==========================================
-  // View
-  // ==========================================
+  // ── View ─────────────────────────────────────────────────────────────────
 
   resize(width: number, height: number): void {
     if (width <= 0 || height <= 0) return;
@@ -428,9 +424,7 @@ export class VolumeScene {
     this.renderer.dispose();
   }
 
-  // ==========================================
-  // Dragging the slice outline
-  // ==========================================
+  // ── Dragging the slice outline ───────────────────────────────────────────
 
   private onPointerDown(event: PointerEvent): void {
     if (event.button !== 0 || !this.onSliceDrag || !this.outlineUnder(event)) return;
@@ -524,9 +518,7 @@ export class VolumeScene {
     return Math.min(this.dims.d - 1, Math.max(0, z));
   }
 
-  // ==========================================
-  // Internals
-  // ==========================================
+  // ── Internals ────────────────────────────────────────────────────────────
 
   private render(): void {
     // The ray marcher works in the volume's local space: give it the camera
@@ -610,9 +602,7 @@ export class VolumeScene {
 /** The current slice's outline. */
 const SLICE_COLOR = 0xf9e2af;
 
-// ==========================================
-// Shaders
-// ==========================================
+// ── Shaders ────────────────────────────────────────────────────────────────
 // three.js compiles these as GLSL ES 3.0 (`varying`/`gl_FragColor` are mapped),
 // so 3D textures are available. Positions are in voxel space; texture
 // coordinates are `(p + 0.5) / dims`.

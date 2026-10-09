@@ -28,9 +28,7 @@ export class WebGPUCanvasCompositorService {
   private cachedHeight = 0;
   private cachedLayerCount = 0;
 
-  // ==========================================
-  // Init / teardown
-  // ==========================================
+  // ── Init / teardown ──────────────────────────────────────────────────────
 
   async initialize(): Promise<boolean> {
     if (this.initialized) return true;
@@ -161,9 +159,7 @@ export class WebGPUCanvasCompositorService {
     return this.initialized;
   }
 
-  // ==========================================
-  // Resource preparation
-  // ==========================================
+  // ── Resource preparation ─────────────────────────────────────────────────
 
   async prepareResources(width: number, height: number, layerCount: number): Promise<void> {
     if (!this.device) return;
@@ -244,9 +240,7 @@ export class WebGPUCanvasCompositorService {
     });
   }
 
-  // ==========================================
-  // Pipeline creation
-  // ==========================================
+  // ── Pipeline creation ────────────────────────────────────────────────────
 
   private async createCompositePipeline(): Promise<void> {
     const shaderCode = `
@@ -316,9 +310,7 @@ export class WebGPUCanvasCompositorService {
     });
   }
 
-  // ==========================================
-  // Composite
-  // ==========================================
+  // ── Composite ────────────────────────────────────────────────────────────
 
   async compositeMasks(
     masks: Uint8Array[],

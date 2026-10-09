@@ -53,9 +53,7 @@ export const EMPTY_MESH: BrickMesh = {
   indices: new Uint32Array(0),
 };
 
-// ==========================================
-// Brick layout
-// ==========================================
+// ── Brick layout ───────────────────────────────────────────────────────────
 
 /**
  * Smooth-surface bricks partition the edge bases `q ∈ [-1, n)` per axis (the
@@ -121,9 +119,7 @@ export function blockBricksInRange(
   return first < 0 ? null : [first, last];
 }
 
-// ==========================================
-// Growable output buffers
-// ==========================================
+// ── Growable output buffers ────────────────────────────────────────────────
 
 class F32 {
   data = new Float32Array(1024);
@@ -163,9 +159,7 @@ class U32 {
   }
 }
 
-// ==========================================
-// Smooth surface (surface nets on a blurred field)
-// ==========================================
+// ── Smooth surface (surface nets on a blurred field) ───────────────────────
 
 /** The 12 cell edges as pairs of corner indices (corner bit order x, y, z). */
 const CELL_EDGES: readonly (readonly [number, number])[] = [
@@ -370,9 +364,7 @@ function boxBlur3(src: Float32Array, sx: number, sy: number, sz: number): Float3
   return a;
 }
 
-// ==========================================
-// Blocks (greedy-meshed voxel faces)
-// ==========================================
+// ── Blocks (greedy-meshed voxel faces) ─────────────────────────────────────
 
 /** Mesh block brick `(bi, bj, bk)`: the exact voxel faces of `grid`. */
 export function meshBlockBrick(
@@ -494,9 +486,7 @@ export function meshBlockBrick(
   return { positions: positions.take(), normals: normals.take(), indices: indices.take() };
 }
 
-// ==========================================
-// Downsampling
-// ==========================================
+// ── Downsampling ───────────────────────────────────────────────────────────
 
 /**
  * Occupancy grid of `D` full-resolution slices at level-of-detail `lod`: a

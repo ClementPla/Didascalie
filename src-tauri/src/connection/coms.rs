@@ -1,4 +1,3 @@
-// src-tauri/src/connection/coms.rs
 use crate::connection::connection::Connection;
 use crate::connection::types::ComError;
 use std::thread;
@@ -14,7 +13,6 @@ pub fn setup_zmq_receiver(app: AppHandle) -> Result<(), ComError> {
                     loop {
                         if let Err(e) = connection.handle_message().await {
                             eprintln!("Error handling message: {}", e);
-                            // Add delay before retry
                             tokio::time::sleep(Duration::from_secs(1)).await;
                         }
                     }

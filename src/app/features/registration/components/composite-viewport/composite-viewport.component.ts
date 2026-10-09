@@ -1,5 +1,3 @@
-// components/composite-viewport/composite-viewport.component.ts
-
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -151,9 +149,7 @@ export class CompositeViewportComponent
     });
   }
 
-  // ==========================================
-  // Lifecycle
-  // ==========================================
+  // ── Lifecycle ────────────────────────────────────────────────────────────
 
   ngAfterViewInit(): void {
     if (!this.refController() || !this.movingController()) {
@@ -211,9 +207,7 @@ export class CompositeViewportComponent
     this.resizeObs.observe(this.hostEl().nativeElement);
   }
 
-  // ==========================================
-  // Reference canvas
-  // ==========================================
+  // ── Reference canvas ─────────────────────────────────────────────────────
 
   private redrawReference(): void {
     const canvas = this.canvasEl()?.nativeElement;
@@ -261,9 +255,7 @@ export class CompositeViewportComponent
     canvas.style.height = `${h}px`;
   }
 
-  // ==========================================
-  // Mouse handling — pan/zoom only
-  // ==========================================
+  // ── Mouse handling — pan/zoom only ───────────────────────────────────────
 
   onMouseDown(event: MouseEvent): void {
     if (event.button === 1) {
@@ -291,9 +283,7 @@ export class CompositeViewportComponent
     this.refController()?.wheel(event, rect);
   }
 
-  // ==========================================
-  // Template helpers
-  // ==========================================
+  // ── Template helpers ─────────────────────────────────────────────────────
 
   /** Native dimensions of the moving image, used to size the <img> element. */
   get movingNativeWidth(): number {

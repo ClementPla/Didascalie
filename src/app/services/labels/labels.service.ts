@@ -128,13 +128,21 @@ export class LabelsService implements ProjectScoped {
   }
 
   /**
+   * Mask value a stroke writes on the active label: the selected instance id
+   * in an instance project, 1 otherwise.
+   */
+  paintValue(instanceProject: boolean): number {
+    if (!instanceProject) return 1;
+    const instance = this.activeSegInstance?.instance ?? 1;
+    return Math.min(255, Math.max(1, Math.round(instance)));
+  }
+
+  /**
    * Make `label` the active one, together with its instance state.
    *
-   * The single entry point for changing the active label. The label tree, the
-   * keyboard cycle, the instance picker and vector selection all route through
-   * here, so `activeLabel` and `activeSegInstance` cannot drift apart — they
-   * were set as a pair in four separate places, and any new caller that forgot
-   * the second half left the instance picker pointing at the previous label.
+    * The single entry point for changing the active label: the label tree, the
+    * keyboard cycle, the instance picker and vector selection all route through
+    * here, so `activeLabel` and `activeSegInstance` cannot drift apart.
    *
    * `instance` defaults to -1, meaning the label as a whole rather than one of
    * its instances.
@@ -266,10 +274,7 @@ export class LabelsService implements ProjectScoped {
   async setDefinitions(config: ProjectConfig): Promise<void> {
     this.resetAll();
     
-    // Load labels from database (includes IDs)
     const dbLabels = await api.getLabels();
-    console.log('API returned labels:', dbLabels);
-    console.log('Loaded labels from DB:', dbLabels);
 
     // The project flag is checked alongside the per-label one so the palette is
     // right even against a database whose `is_instance` column was written by a
@@ -289,7 +294,6 @@ export class LabelsService implements ProjectScoped {
       });
     }
 
-    // Load classification tasks from config
     for (const task of config.classification_tasks ?? []) {
       this.addClassificationTask(new MulticlassTask(task.name, task.classes));
     }

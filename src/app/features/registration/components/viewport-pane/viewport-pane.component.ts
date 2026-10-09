@@ -3,7 +3,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
-  Input,
   OnChanges,
   OnDestroy,
   SimpleChanges,
@@ -12,7 +11,7 @@ import {
   inject,
   signal,
   input,
-  viewChild
+  viewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { applyTransform, invertHomography, Point2D } from '../../registration.model';
@@ -255,9 +254,7 @@ export class ViewportPaneComponent
     canvas.style.height = `${h}px`;
   }
 
-  // ==========================================
-  // Mouse handling
-  // ==========================================
+  // ── Mouse handling ───────────────────────────────────────────────────────
 
   onMouseDown(event: MouseEvent): void {
     if (event.button === 1) {
@@ -378,9 +375,7 @@ export class ViewportPaneComponent
     return null;
   }
 
-  // ==========================================
-  // Template helpers
-  // ==========================================
+  // ── Template helpers ─────────────────────────────────────────────────────
 
   /** The point on this side for a pair. */
   pointFor(pair: { ref: Point2D; moving: Point2D }): Point2D {

@@ -10,5 +10,4 @@ import { UIStateService } from '../../services/uistate.service';
 })
 export class LoadingComponent {  uiStateService = inject(UIStateService);
 
-
 }

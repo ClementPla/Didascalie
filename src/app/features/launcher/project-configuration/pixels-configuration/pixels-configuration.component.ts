@@ -7,7 +7,6 @@ import { ButtonModule } from 'primeng/button';
 import { SegLabel } from '../../../../core/interface';
 import { getDefaultColor } from '../../../../core/misc/colors';
 
-
 @Component({
     selector: 'app-pixels-configuration',
     imports: [CommonModule, FormsModule, ColorPickerModule, ButtonModule],
@@ -17,11 +16,9 @@ import { getDefaultColor } from '../../../../core/misc/colors';
 export class PixelsConfigurationComponent {
   labelService = inject(LabelsService);
 
-
   deleteSegmentationClass(segLabel: SegLabel) {
     this.labelService.removeSegLabel(segLabel);
   }
-
 
   addSegmentationClass() {
     const color = getDefaultColor(
@@ -35,6 +32,5 @@ export class PixelsConfigurationComponent {
       id: this.labelService.generateNewSegLabelID()
     });
   }
-
 
 }

@@ -18,8 +18,8 @@ import { findExperimentalPostProcess } from '../../../../experimental/registry';
 
 /**
  * Runs the Rust post-process commands and writes their single-channel results
- * into the active label mask. Colour is no longer applied here — it lives in
- * the label palette and is resolved at composite time.
+  * into the active label mask. Colour is resolved at composite time, from the
+  * label palette.
  */
 @Injectable({
   providedIn: 'root',
@@ -33,15 +33,6 @@ export class PostProcessService {
   private projectService = inject(ProjectService);
   private zoomPanService = inject(ZoomPanService);
   private injector = inject(Injector);
-
-  /** Active mask value to write: instance id, or 1 for semantic labels. */
-  private activeValue(): number {
-    if (this.projectService.isInstanceSegmentation()) {
-      const v = this.labelService.activeSegInstance?.instance ?? 1;
-      return Math.min(255, Math.max(1, Math.round(v)));
-    }
-    return 1;
-  }
 
   private imageContext(): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null {
     const canvas = this.imageProcessingService.getCurrentCanvas();
@@ -75,7 +66,7 @@ export class PostProcessService {
     });
 
     const mask = this.canvasManagerService.getActiveMask();
-    if (mask) applyRegionResult(mask, w, new Uint8Array(result), rect, this.activeValue());
+    if (mask) applyRegionResult(mask, w, new Uint8Array(result), rect, this.labelService.paintValue(this.projectService.isInstanceSegmentation()));
   }
 
   async flood_fill_post_process() {
@@ -107,7 +98,7 @@ export class PostProcessService {
     });
 
     const mask = this.canvasManagerService.getActiveMask();
-    if (mask) applyRegionResult(mask, w, new Uint8Array(result), rect, this.activeValue());
+    if (mask) applyRegionResult(mask, w, new Uint8Array(result), rect, this.labelService.paintValue(this.projectService.isInstanceSegmentation()));
   }
 
   /**

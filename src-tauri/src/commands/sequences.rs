@@ -7,9 +7,7 @@ use tauri::State;
 use crate::storage::DbState;
 use crate::utils::error::{AppError, Result};
 
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -33,9 +31,7 @@ pub struct Frame {
     pub is_embedded: bool,
 }
 
-// ==========================================
-// Commands
-// ==========================================
+// ── Commands ───────────────────────────────────────────────────────────────
 
 /// List all sequences with frame counts
 #[tauri::command]
@@ -67,35 +63,6 @@ pub fn list_sequences(db: State<DbState>) -> Result<Vec<Sequence>> {
             .collect();
 
         Ok(sequences)
-    })
-}
-
-/// Get a single sequence by ID
-#[tauri::command]
-pub fn get_sequence(db: State<DbState>, sequence_id: i64) -> Result<Sequence> {
-    db.with_conn(|conn| {
-        let sequence = conn.query_row(
-            "SELECT 
-                s.id, 
-                s.name, 
-                s.sort_order,
-                COUNT(f.id) as frame_count
-             FROM sequences s
-             LEFT JOIN frames f ON f.sequence_id = s.id
-             WHERE s.id = ?1
-             GROUP BY s.id",
-            params![sequence_id],
-            |row| {
-                Ok(Sequence {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    sort_order: row.get(2)?,
-                    frame_count: row.get(3)?,
-                })
-            },
-        ).map_err(|e| AppError::Database(e))?;
-
-        Ok(sequence)
     })
 }
 
@@ -224,145 +191,5 @@ pub fn get_sequence_frames(db: State<DbState>, sequence_id: i64) -> Result<Vec<F
             .collect();
 
         Ok(frames)
-    })
-}
-
-/// Create a new sequence
-#[tauri::command]
-pub fn create_sequence(
-    db: State<DbState>,
-    name: String,
-    sort_order: Option<i32>,
-) -> Result<i64> {
-    db.with_conn(|conn| {
-        let order = sort_order.unwrap_or_else(|| {
-            // Get next sort order
-            conn.query_row(
-                "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM sequences",
-                [],
-                |row| row.get(0),
-            ).unwrap_or(0)
-        });
-
-        conn.execute(
-            "INSERT INTO sequences (name, sort_order) VALUES (?1, ?2)",
-            params![name, order],
-        ).map_err(|e| AppError::Database(e))?;
-
-        Ok(conn.last_insert_rowid())
-    })
-}
-
-/// Rename a sequence
-#[tauri::command]
-pub fn rename_sequence(
-    db: State<DbState>,
-    sequence_id: i64,
-    new_name: String,
-) -> Result<()> {
-    db.with_conn(|conn| {
-        conn.execute(
-            "UPDATE sequences SET name = ?1 WHERE id = ?2",
-            params![new_name, sequence_id],
-        ).map_err(|e| AppError::Database(e))?;
-
-        Ok(())
-    })
-}
-
-/// Delete a sequence and all its frames
-#[tauri::command]
-pub fn delete_sequence(db: State<DbState>, sequence_id: i64) -> Result<()> {
-    db.with_conn(|conn| {
-        // Frames are deleted automatically via ON DELETE CASCADE
-        conn.execute(
-            "DELETE FROM sequences WHERE id = ?1",
-            params![sequence_id],
-        ).map_err(|e| AppError::Database(e))?;
-
-        Ok(())
-    })
-}
-
-/// Reorder sequences
-#[tauri::command]
-pub fn reorder_sequences(
-    db: State<DbState>,
-    sequence_ids: Vec<i64>,
-) -> Result<()> {
-    db.with_conn(|conn| {
-        for (index, id) in sequence_ids.iter().enumerate() {
-            conn.execute(
-                "UPDATE sequences SET sort_order = ?1 WHERE id = ?2",
-                params![index as i32, id],
-            ).map_err(|e| AppError::Database(e))?;
-        }
-
-        Ok(())
-    })
-}
-
-/// Get sequence by name
-#[tauri::command]
-pub fn find_sequence_by_name(
-    db: State<DbState>,
-    name: String,
-) -> Result<Option<Sequence>> {
-    db.with_conn(|conn| {
-        let result = conn.query_row(
-            "SELECT 
-                s.id, 
-                s.name, 
-                s.sort_order,
-                COUNT(f.id) as frame_count
-             FROM sequences s
-             LEFT JOIN frames f ON f.sequence_id = s.id
-             WHERE s.name = ?1
-             GROUP BY s.id",
-            params![name],
-            |row| {
-                Ok(Sequence {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    sort_order: row.get(2)?,
-                    frame_count: row.get(3)?,
-                })
-            },
-        );
-
-        match result {
-            Ok(seq) => Ok(Some(seq)),
-            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-            Err(e) => Err(AppError::Database(e)),
-        }
-    })
-}
-
-/// Move frames between sequences
-#[tauri::command]
-pub fn move_frames_to_sequence(
-    db: State<DbState>,
-    frame_ids: Vec<i64>,
-    target_sequence_id: i64,
-) -> Result<()> {
-    db.with_conn(|conn| {
-        // Get the next frame_index in target sequence
-        let mut next_index: i32 = conn.query_row(
-            "SELECT COALESCE(MAX(frame_index), -1) + 1 FROM frames WHERE sequence_id = ?1",
-            params![target_sequence_id],
-            |row| row.get(0),
-        ).map_err(|e| AppError::Database(e))?;
-
-        // Move each frame
-        for frame_id in frame_ids {
-            conn.execute(
-                "UPDATE frames SET sequence_id = ?1, frame_index = ?2 WHERE id = ?3",
-                params![target_sequence_id, next_index, frame_id],
-            ).map_err(|e| AppError::Database(e))?;
-            
-            next_index += 1;
-        }
-
-        Ok(())
     })
 }

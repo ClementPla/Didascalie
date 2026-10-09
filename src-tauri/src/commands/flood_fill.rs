@@ -96,7 +96,6 @@ pub fn flood_fill_mask(
 
             let neighbor_lab = rgb_to_lab(nr, ng, nb);
 
-            // Use CIEDE2000
             let delta_e = ciede2000(seed_lab, neighbor_lab);
 
             if delta_e <= tolerance {

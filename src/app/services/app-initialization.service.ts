@@ -28,10 +28,8 @@ export class AppInitializationService {
    */
   async initialize(): Promise<void> {
     try {
-      // Initialize Tauri backend event listeners
       await this.tauriEventService.initialize();
 
-      // Set up CLI command handlers
       this.setupCLIHandlers();
 
       console.log('Application initialized successfully');
@@ -59,21 +57,16 @@ export class AppInitializationService {
    */
   private async handleProjectCreation(config: ProjectConfig): Promise<void> {
     try {
-      // Update project service config
       this.projectService.updateConfig(config);
 
-      // Determine project file path
       const projectPath = config.input_folder
         ? `${config.input_folder}/${config.name}.dida`
         : `${config.name}.dida`;
 
-      // Create project
       await this.projectService.create(projectPath);
 
-      // Scan and import images
       await this.projectService.scanFolder();
 
-      // Load sequences
       await this.sequenceService.loadSequences();
 
       console.log('Project created from CLI:', config.name);
@@ -94,7 +87,6 @@ export class AppInitializationService {
         return;
       }
 
-      // If mask data is provided, save it
       if (imageConfig.mask_data && imageConfig.mask_data.length > 0) {
         await this.saveMasksFromCLI(frameId, imageConfig);
       }

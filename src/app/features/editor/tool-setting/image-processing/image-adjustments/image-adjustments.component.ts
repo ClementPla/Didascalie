@@ -1,5 +1,3 @@
-// image-adjustments.component.ts
-
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -94,9 +92,7 @@ export class ImageAdjustmentsComponent implements OnInit, OnDestroy {
     return this.histogram ? this.histogram[key] : null;
   }
 
-  // ==========================================
-  // Actions
-  // ==========================================
+  // ── Actions ──────────────────────────────────────────────────────────────
 
   autoStretch() { this.service.autoStretch(); }
   equalize()    { this.service.equalize(); }

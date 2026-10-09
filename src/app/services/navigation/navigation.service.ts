@@ -48,9 +48,7 @@ export class NavigationService {
   public readonly frameChanged$: Observable<NavigationResult> =
     this.frameChangedSource.asObservable();
 
-  // ==========================================
-  // Primary Navigation API
-  // ==========================================
+  // ── Primary Navigation API ───────────────────────────────────────────────
 
   /**
    * Navigate to next or previous frame.
@@ -59,10 +57,8 @@ export class NavigationService {
     direction: NavigationDirection,
   ): Promise<NavigationResult | null> {
     try {
-      // 1. Save current state safely
       await this.saveIfNeeded();
 
-      // 2. Perform navigation step
       const success =
         direction === 'next'
           ? await this.sequenceService.nextFrame()
@@ -73,10 +69,8 @@ export class NavigationService {
         return null;
       }
 
-      // 3. Load new frame assets
       await this.loadCurrentFrame();
 
-      // 4. Build, dispatch, and return sync data updates
       const result = this.createNavigationResult();
       if (result) {
         await this.emitProgress();
@@ -188,9 +182,7 @@ export class NavigationService {
     }
   }
 
-  // ==========================================
-  // Save & Load Operations
-  // ==========================================
+  // ── Save & Load Operations ───────────────────────────────────────────────
 
   /**
    * Save current annotations automatically if marked dirty.
@@ -270,9 +262,7 @@ export class NavigationService {
     }
   }
 
-  // ==========================================
-  // Progress & State Calculations
-  // ==========================================
+  // ── Progress & State Calculations ────────────────────────────────────────
 
   public async getProgress(): Promise<ProgressInfo | null> {
     const frame = this.sequenceService.currentFrame();
@@ -321,9 +311,7 @@ export class NavigationService {
     return this.sequenceService.currentFrame()?.relativePath ?? null;
   }
 
-  // ==========================================
-  // Internal Helpers
-  // ==========================================
+  // ── Internal Helpers ─────────────────────────────────────────────────────
 
   private createNavigationResult(): NavigationResult | null {
     const frame = this.sequenceService.currentFrame();

@@ -83,7 +83,6 @@ pub async fn ensure_model_cached(
 
     let model_path = models_dir.join(&config.filename);
 
-    // Check if model exists and validate it
     if model_path.exists() {
         println!("Model found at: {:?}", model_path);
 
@@ -99,7 +98,6 @@ pub async fn ensure_model_cached(
                     expected_size,
                     metadata.len()
                 );
-                // Delete corrupted file
                 tokio::fs::remove_file(&model_path)
                     .await
                     .map_err(|e| format!("Failed to remove corrupted file: {}", e))?;
@@ -116,7 +114,6 @@ pub async fn ensure_model_cached(
     println!("Model not found in cache, downloading...");
     download_model(app, config, &model_path).await?;
 
-    // Verify after download
     if let Some(expected_size) = config.expected_size {
         let metadata = tokio::fs::metadata(&model_path)
             .await
@@ -200,7 +197,6 @@ async fn download_model(
         .await
         .map_err(|e| format!("Failed to create file: {}", e))?;
 
-    // Stream download with progress
     let mut downloaded: u64 = 0;
     let mut stream = response.bytes_stream();
     let mut last_progress_log = 0u64;
@@ -241,7 +237,6 @@ async fn download_model(
         .map_err(|e| format!("Failed to flush file: {}", e))?;
     drop(file);
 
-    // Verify download completed
     if downloaded != total_size {
         let _ = tokio::fs::remove_file(&temp_path).await;
         return Err(format!(
@@ -250,7 +245,6 @@ async fn download_model(
         ));
     }
 
-    // Rename temp file to final name
     tokio::fs::rename(&temp_path, output_path)
         .await
         .map_err(|e| format!("Failed to rename file: {}", e))?;

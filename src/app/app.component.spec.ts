@@ -3,16 +3,7 @@ import { provideRouter } from '@angular/router';
 
 import { AppComponent } from './app.component';
 
-/**
- * Smoke test for the app shell.
- *
- * This file used to be the untouched Angular scaffold: it asserted the title
- * was `'Client'` and that an `<h1>` read `Hello, Client`, neither of which was
- * ever true here, and it rendered the component without a router so the shell's
- * `<router-outlet>` threw on a missing `ActivatedRoute`. Two of its three cases
- * had therefore been failing for the whole life of the project, which is a good
- * part of why the suite went unrun.
- */
+/** Smoke test for the app shell. */
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({

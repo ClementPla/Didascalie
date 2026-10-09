@@ -1,4 +1,3 @@
-// src-tauri/src/connection/connection.rs
 use crate::connection::types::{ComError, Command, Response};
 use lazy_static::lazy_static;
 use parking_lot::Mutex; // Switch to parking_lot for better debugging
@@ -25,7 +24,6 @@ pub struct EventHandler {
     pending_events: HashMap<Uuid, oneshot::Sender<EventAck>>,
 }
 
-// Make EVENT_HANDLER static and wrapped in Arc<Mutex>
 lazy_static! {
     static ref EVENT_HANDLER: Arc<Mutex<EventHandler>> = Arc::new(Mutex::new(EventHandler::new()));
 }
@@ -153,7 +151,6 @@ impl Connection {
     }
 
     pub async fn handle_message(&self) -> Result<(), ComError> {
-        // Receive one message
         let msg = match self.socket.recv_bytes(0) {
             Ok(m) => m,
             Err(zmq::Error::EAGAIN) => {
@@ -165,10 +162,8 @@ impl Connection {
             }
         };
 
-        // Process the message
         let response = match serde_json::from_slice::<Command>(&msg) {
             Ok(command) => {
-                // If parse OK, pass to process_command
                 match self.process_command(command).await {
                     Ok(resp) => resp,
                     Err(e) => {
@@ -182,7 +177,6 @@ impl Connection {
                 }
             }
             Err(e) => {
-                // If deserialization fails, still respond
                 eprintln!("JSON parse error: {e}");
                 Response {
                     success: false,
@@ -192,7 +186,6 @@ impl Connection {
             }
         };
 
-        // Send final response (success or error)
         let response_bytes = serde_json::to_vec(&response)?;
         match self.socket.send(response_bytes, 0) {
             Ok(_) => Ok(()),
@@ -203,11 +196,9 @@ impl Connection {
 
 impl Drop for Connection {
     fn drop(&mut self) {
-        // Socket will be automatically closed when dropped
     }
 }
 
-// Tauri command signature
 #[tauri::command]
 pub fn event_processed(id: String, success: bool, error: Option<String>) {
     println!("Starting event_processed for id: {id}");

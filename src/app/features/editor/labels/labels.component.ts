@@ -82,34 +82,27 @@ export class LabelsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ==========================================
-  // Frame Data Loading
-  // ==========================================
+  // ── Frame Data Loading ───────────────────────────────────────────────────
 
   private async loadFrameData(frameId: number): Promise<void> {
-    // Load classifications
     const taskCount = this.labelsService.listClassificationTasks.length;
     await this.classificationService.loadForFrame(frameId, taskCount);
     
     this.classificationChoices = this.classificationService.getMulticlassChoices(frameId);
     this.multilabelChoices = this.classificationService.getMultilabelChoices(frameId);
 
-    // Load text descriptions
     const textData = await api.loadTextDescriptions(frameId);
     this.textContents.clear();
     for (const t of textData) {
       this.textContents.set(t.fieldName, t.content);
     }
     
-    // Sync to labels service text fields
     for (const label of this.labelsService.listTextLabels) {
       label.content = this.textContents.get(label.name) ?? '';
     }
   }
 
-  // ==========================================
-  // Classification Management
-  // ==========================================
+  // ── Classification Management ────────────────────────────────────────────
 
   private get currentFrameId(): number | null {
     return this.sequenceService.currentFrame()?.id ?? null;
@@ -143,9 +136,7 @@ export class LabelsComponent implements OnInit, OnDestroy {
     await this.onMultilabelChange();
   }
 
-  // ==========================================
-  // Text Description Management
-  // ==========================================
+  // ── Text Description Management ──────────────────────────────────────────
 
   public async onTextChange(label: TextLabel): Promise<void> {
     const frameId = this.currentFrameId;
@@ -155,9 +146,7 @@ export class LabelsComponent implements OnInit, OnDestroy {
     await api.saveTextDescription(frameId, label.name, label.content);
   }
 
-  // ==========================================
-  // Label Tree Management (unchanged)
-  // ==========================================
+  // ── Label Tree Management (unchanged) ────────────────────────────────────
 
   public hasChild(node: TreeNode): boolean {
     return !!(node.children && node.children.length > 0);
@@ -190,9 +179,7 @@ export class LabelsComponent implements OnInit, OnDestroy {
     this.labelsService.activate(event.data as SegLabel);
   }
 
-  // ==========================================
-  // Canvas Operations (unchanged)
-  // ==========================================
+  // ── Canvas Operations (unchanged) ────────────────────────────────────────
 
   public clearCanvas(node: TreeNode): void {
     const label = node.data as SegLabel;

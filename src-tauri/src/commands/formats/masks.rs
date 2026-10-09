@@ -1,6 +1,5 @@
-//! Didascalie's native mask output as a first-class format, so the whole export
-//! UI is uniform (no legacy special-case). Individual label masks, a combined
-//! index map, an RGB colormap, and vector-shape JSON — all from the IR.
+//! Didascalie's native mask output: individual label masks, a combined index
+//! map, an RGB colormap and vector-shape JSON, all from the IR.
 
 use std::fs;
 use std::path::Path;
@@ -10,6 +9,7 @@ use serde_json::json;
 
 use super::{bool_opt, get_bool, Capabilities, ExportFormat, OptionSpec, OptionValues, Progress};
 use crate::types::dataset::{Dataset, FrameData};
+use crate::utils::color::parse_hex;
 use crate::utils::error::Result;
 use crate::utils::AppError;
 
@@ -142,10 +142,11 @@ fn combined_index_map(frame: &FrameData) -> Vec<u8> {
 fn colormap_rgb(dataset: &Dataset, frame: &FrameData) -> Vec<u8> {
     let mut rgb = vec![0u8; (frame.width * frame.height * 3) as usize];
     for lm in &frame.label_masks {
-        let (r, g, b) = dataset
+        // Grey for a label that is missing or carries an unreadable colour.
+        let [r, g, b] = dataset
             .label(lm.label_index)
-            .map(|l| parse_hex(&l.color))
-            .unwrap_or((128, 128, 128));
+            .and_then(|l| parse_hex(&l.color).ok())
+            .unwrap_or([128, 128, 128]);
         for (i, &v) in lm.values.iter().enumerate() {
             if v != 0 && i * 3 + 2 < rgb.len() {
                 rgb[i * 3] = r;
@@ -173,16 +174,4 @@ fn save_rgb(pixels: &[u8], w: u32, h: u32, dir: &Path, stem: &str) -> Result<()>
     img.save(dir.join(format!("{stem}.png")))
         .map_err(|e| AppError::Generic(format!("save colormap: {e}")))?;
     Ok(())
-}
-
-fn parse_hex(hex: &str) -> (u8, u8, u8) {
-    let h = hex.trim_start_matches('#');
-    if h.len() >= 6 {
-        let r = u8::from_str_radix(&h[0..2], 16).unwrap_or(128);
-        let g = u8::from_str_radix(&h[2..4], 16).unwrap_or(128);
-        let b = u8::from_str_radix(&h[4..6], 16).unwrap_or(128);
-        (r, g, b)
-    } else {
-        (128, 128, 128)
-    }
 }

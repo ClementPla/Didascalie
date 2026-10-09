@@ -39,10 +39,9 @@ export class QuickAccessMenuComponent {
   private committed = false;
 
   /**
-   * Built once. The previous version called this from the template, so every
-   * change-detection pass handed the wheel a brand-new array and it rebuilt
-   * itself continuously. State that has to stay live is read through the
-   * `active` / `checked` callbacks instead.
+    * Built once, not from the template: a new array on every change-detection
+    * pass makes the wheel rebuild itself. Live state is read through the
+    * `active` / `checked` callbacks.
    */
   readonly menuItems: MenuItem[] = this.buildItems();
 

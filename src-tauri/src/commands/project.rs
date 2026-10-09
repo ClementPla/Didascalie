@@ -37,7 +37,6 @@ pub fn create_project(
     let conn = queries::create_database(Path::new(&path))?;
     queries::insert_project(&conn, &config)?;
     
-    // Sync labels table from config
     queries::sync_labels_from_config(&conn, &config)?;
 
     // A new project has exactly one account, its creator's, so this logs in.

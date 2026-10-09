@@ -66,7 +66,6 @@ pub async fn mask_sam_segment<'a>(
     );
     let mask = image::DynamicImage::ImageLuma8(resized_image);
 
-    // Convert image to data vector
     let mask = mask.to_luma32f();
     let data = mask.into_raw();
 
@@ -115,10 +114,8 @@ pub async fn mask_sam_segment<'a>(
         ndarray::ArrayView2::<f32>::from_shape((shape[0] as usize, shape[1] as usize), data)
             .map_err(|e| format!("Shape error: {}", e))?;
 
-    // Apply threshold
     let binary = output.mapv(|x| (x > threshold) as u8);
 
-    // Resize binary mask to original size
     let binary = image::imageops::resize(
         &image::GrayImage::from_raw(1024, 1024, binary.into_raw_vec_and_offset().0)
             .ok_or("Failed to create gray image")?,

@@ -76,9 +76,7 @@ pub fn load_vector_annotations(
     })
 }
 
-// ============================================================================
-// Geometry + rasterization (used by export)
-// ============================================================================
+// ── Geometry + rasterization (used by export) ──────────────────────────────
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

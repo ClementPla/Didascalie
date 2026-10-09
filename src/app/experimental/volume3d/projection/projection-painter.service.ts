@@ -95,11 +95,9 @@ export class ProjectionPainterService implements ProjectScoped {
   /**
    * @see ProjectScoped
    *
-   * Painting mode is sticky: `setEditing(true)` forces the projection to depth
-   * mode and remembers what to restore. Nothing reset it on a project switch,
-   * so closing a project mid-stroke left `editing` latched true, `modeBefore`
-   * pointing at the old project's display mode, and a half-written stroke
-   * queued for flush against a database that had moved on.
+    * Painting mode is sticky (`setEditing(true)` forces depth mode and remembers
+    * what to restore), so it is dropped with the project, along with any stroke
+    * still queued for flush.
    */
   resetForProject(): void {
     this.setEditing(false);
@@ -165,9 +163,7 @@ export class ProjectionPainterService implements ProjectScoped {
     this.undoRedo.pushExternal(this.undoAction(stroke.version, diffs), this.currentLayers(diffs));
   }
 
-  // ==========================================
-  // Writing
-  // ==========================================
+  // ── Writing ──────────────────────────────────────────────────────────────
 
   private radius(): number {
     return Math.max(0.5, this.editor.lineWidth / 2);
@@ -217,9 +213,7 @@ export class ProjectionPainterService implements ProjectScoped {
     }
   }
 
-  // ==========================================
-  // Propagating changes
-  // ==========================================
+  // ── Propagating changes ──────────────────────────────────────────────────
 
   /**
    * Flush once per burst of pointer events. Scheduled as a task, not an

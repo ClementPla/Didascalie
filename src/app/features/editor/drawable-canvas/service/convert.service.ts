@@ -45,7 +45,6 @@ export class ConvertService {
   private project = inject(ProjectService);
   private io = inject(IOService);
 
-
   // ── Rasterize (vector → raster) ─────────────────────────────────────────────
 
   /**

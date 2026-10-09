@@ -1,5 +1,3 @@
-// image-processing.model.ts
-
 /** Channel selector for adjustments and curves. */
 export type Channel = 'r' | 'g' | 'b' | 'luma';
 export const CHANNELS: Channel[] = ['r', 'g', 'b', 'luma'];
@@ -69,9 +67,7 @@ function isIdentityAdj(a: ChannelAdjustments): boolean {
   return a.curve.every((p, i) => p.x === IDENTITY_CURVE[i].x && p.y === IDENTITY_CURVE[i].y);
 }
 
-// ==========================================
-// LUT
-// ==========================================
+// ── LUT ────────────────────────────────────────────────────────────────────
 
 /**
  * Lookup table for one channel. Index 0..255 → output 0..255.
@@ -91,13 +87,7 @@ export function identityLUT(): ChannelLUT {
   return lut;
 }
 
-export function identityRGBLUT(): RGBLUT {
-  return { r: identityLUT(), g: identityLUT(), b: identityLUT() };
-}
-
-// ==========================================
-// LUT composition
-// ==========================================
+// ── LUT composition ────────────────────────────────────────────────────────
 
 /**
  * Build a single per-channel LUT that bakes brightness, contrast, gamma, and
@@ -177,9 +167,7 @@ export function packRGBLUT(lut: RGBLUT): Uint8Array {
   return packed;
 }
 
-// ==========================================
-// Curve sampling (monotone cubic)
-// ==========================================
+// ── Curve sampling (monotone cubic) ────────────────────────────────────────
 
 /**
  * Sample a sorted, monotone-x curve at every integer x in [0, 255] using
@@ -243,9 +231,7 @@ export function sampleCurve(nodes: CurvePoints): Uint8Array {
   return out;
 }
 
-// ==========================================
-// Histogram
-// ==========================================
+// ── Histogram ──────────────────────────────────────────────────────────────
 
 export interface Histogram {
   /** Per-channel counts of size 256. */
@@ -290,9 +276,7 @@ export function percentile(hist: Uint32Array, total: number, p: number): number 
   return 255;
 }
 
-// ==========================================
-// Auto-stretch & equalize
-// ==========================================
+// ── Auto-stretch & equalize ────────────────────────────────────────────────
 
 /**
  * Compute brightness/contrast values that map the [lo, hi] percentile range
@@ -361,9 +345,7 @@ export function equalizeCurve(hist: Uint32Array, total: number): CurvePoints {
   ];
 }
 
-// ==========================================
-// Utilities
-// ==========================================
+// ── Utilities ──────────────────────────────────────────────────────────────
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;

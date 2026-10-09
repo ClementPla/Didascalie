@@ -169,3 +169,16 @@ pub fn ciede2000(lab1: Lab, lab2: Lab) -> f32 {
 
     delta_e
 }
+
+/// Parse `#rrggbb` (the `#` is optional) into RGB.
+pub fn parse_hex(colour: &str) -> Result<[u8; 3], String> {
+    let hex = colour.trim().trim_start_matches('#');
+    if hex.len() != 6 || !hex.is_ascii() {
+        return Err(format!("“{colour}” is not a #rrggbb colour"));
+    }
+    let channel = |i: usize| {
+        u8::from_str_radix(&hex[i..i + 2], 16)
+            .map_err(|_| format!("“{colour}” is not a #rrggbb colour"))
+    };
+    Ok([channel(0)?, channel(2)?, channel(4)?])
+}

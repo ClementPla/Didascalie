@@ -225,9 +225,7 @@ export class AgreementComponent implements OnInit, OnDestroy {
     void this.loadCases();
   }
 
-  // ==========================================
-  // Qualitative cases
-  // ==========================================
+  // ── Qualitative cases ────────────────────────────────────────────────────
 
   setCaseLabel(labelId: number): void {
     this.caseLabel.set(labelId);

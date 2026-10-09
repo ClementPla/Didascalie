@@ -5,12 +5,9 @@ import { PanelModule } from 'primeng/panel';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { ButtonModule } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
-import { invoke } from '@tauri-apps/api/core';
 
 import { LabelledSwitchComponent } from '../../../shared/generics/labelled-switch/labelled-switch.component';
 
-import { UIStateService } from '../../../services/uistate.service';
-import { ProjectService } from '../../../services/project/project.service';
 import { api } from '../../../lib/api';
 
 export interface ThumbnailSelectionEvent {
@@ -212,9 +209,7 @@ export class GalleryElementComponent
     }
   }
 
-  // ==========================================
-  // Thumbnail Loading
-  // ==========================================
+  // ── Thumbnail Loading ────────────────────────────────────────────────────
 
   private async loadThumbnail(frameId: number): Promise<void> {
     this.isLoading = true;
@@ -243,9 +238,7 @@ export class GalleryElementComponent
     }
   }
 
-  // ==========================================
-  // Hover Preview (for sequences with multiple frames)
-  // ==========================================
+  // ── Hover Preview (for sequences with multiple frames) ───────────────────
 
   public onMouseEnter(): void {
     if (this.previewFrameIds().length <= 1) return;
@@ -302,15 +295,12 @@ export class GalleryElementComponent
     await this.loadThumbnail(this.frameId());
   }
 
-  // ==========================================
-  // User Actions
-  // ==========================================
+  // ── User Actions ─────────────────────────────────────────────────────────
 
   /**
    * Open editor at this sequence.
    */
   public openEditor(): void {
-    // TODO: The 'emit' function requires a mandatory void argument
     this.thumbnailClicked.emit();
   }
 
@@ -336,9 +326,7 @@ export class GalleryElementComponent
     });
   }
 
-  // ==========================================
-  // View Helpers
-  // ==========================================
+  // ── View Helpers ─────────────────────────────────────────────────────────
 
   public get displayTitle(): string {
     return this.title() || `Sequence ${this.id()}`;

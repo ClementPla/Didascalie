@@ -2,7 +2,6 @@ import { Injectable, OnDestroy, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { invoke } from '@tauri-apps/api/core';
 
-// Services
 import { LabelsService } from './labels/labels.service';
 import { SequenceService } from './sequence.service';
 import { CanvasManagerService } from '../features/editor/drawable-canvas/service/canvas-manager.service';
@@ -13,6 +12,7 @@ import { api } from '../lib/api';
 import { NotificationService } from './notification.service';
 import { MaskVolumeService } from './mask-volume.service';
 import { ProjectScoped } from '../core/project-scoped';
+import { base64ToUint8 } from '../core/misc/base64';
 
 /**
  * Loading and saving of a frame's annotations.
@@ -76,9 +76,7 @@ export class IOService implements OnDestroy, ProjectScoped {
     this.destroy$.complete();
   }
 
-  // ==========================================
-  // Public API
-  // ==========================================
+  // ── Public API ───────────────────────────────────────────────────────────
 
   public requestReloadEvent(): void {
     this.requestedReload.next(true);
@@ -311,12 +309,4 @@ export class IOService implements OnDestroy, ProjectScoped {
     });
   }
 
-}
-
-/** Decode a base64 string into raw bytes (uint8 value mask). */
-function base64ToUint8(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-  return out;
 }

@@ -40,7 +40,6 @@ pub fn save_text_description(
     db.with_conn(|conn| {
         let user = queries::current_user_id(conn)?;
         if content.is_empty() {
-            // Delete if content is empty
             conn.execute(
                 "DELETE FROM main.text_descriptions
                  WHERE frame_id = ?1 AND label_name = ?2 AND user_id = ?3",

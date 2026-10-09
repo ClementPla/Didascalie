@@ -1,14 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    // No `tracing_subscriber::fmt::init()` here. It installs a global `log`
-    // logger through the tracing-log bridge, and `tauri_plugin_log` then fails
-    // to install its own — `log::set_boxed_logger` allows exactly one — which
-    // took the whole app down at startup rather than degrading to no file log.
-    //
-    // The plugin owns logging now (see `lib.rs`). `tracing` carries the `log`
-    // feature, so ort's events still surface as log records when no tracing
-    // subscriber is installed, which is now always.
+    // No `tracing_subscriber::fmt::init()` here: it installs a global `log`
+    // logger, and `tauri_plugin_log` (see `lib.rs`) then fails to install its
+    // own (`log::set_boxed_logger` allows exactly one), which takes the app
+    // down at startup. ort's events still surface through tracing's `log`
+    // feature.
     unsafe {
         std::env::set_var(
             "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",

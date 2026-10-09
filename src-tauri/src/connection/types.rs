@@ -1,4 +1,3 @@
-// src-tauri/src/connection/types.rs
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

@@ -279,9 +279,7 @@ fn read_bmp(stream: &mut impl Read) -> Option<Vec<u8>> {
     Some(image)
 }
 
-// ==========================================
-// Decoded frames: cache and runs
-// ==========================================
+// ── Decoded frames: cache and runs ─────────────────────────────────────────
 
 /// A frame of a file: its path and its time in microseconds. Not a frame id:
 /// ids restart in every project, a file's frames do not change with the

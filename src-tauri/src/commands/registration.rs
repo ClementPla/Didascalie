@@ -87,7 +87,6 @@ pub fn save_registration(
             None => "null".to_string(),
         };
 
-        // Upsert the registration row.
         conn.execute(
             "INSERT INTO registrations
                 (sequence_id, reference_frame_id, moving_frame_id, homography, transform_type, modified_at)
@@ -140,7 +139,6 @@ pub fn load_registration(
     moving_frame_id: i64,
 ) -> Result<Option<RegistrationData>> {
     db.with_conn(|conn| {
-        // Look up the registration row.
         let reg_row: Option<(i64, String, String)> = conn
             .query_row(
                 "SELECT id, COALESCE(homography, 'null') as homography, transform_type
@@ -162,7 +160,6 @@ pub fn load_registration(
                 .map_err(|e| AppError::Generic(format!("Bad homography JSON: {}", e)))?
         };
 
-        // Load all pairs for this registration.
         let mut stmt = conn.prepare(
             "SELECT client_uuid, ref_x, ref_y, moving_x, moving_y
              FROM keypoint_pairs

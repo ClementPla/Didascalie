@@ -176,9 +176,7 @@ export class CurveOverlayComponent {
     if (scale > 0) this.unit.set(1 / scale);
   }
 
-  // ==========================================
-  // Placing
-  // ==========================================
+  // ── Placing ──────────────────────────────────────────────────────────────
 
   onBackgroundClick(event: MouseEvent): void {
     // A left drag with the pan tool pans; it does not place a point.
@@ -263,9 +261,7 @@ export class CurveOverlayComponent {
     }
   }
 
-  // ==========================================
-  // Curves
-  // ==========================================
+  // ── Curves ───────────────────────────────────────────────────────────────
 
   onCurveDoubleClick(event: MouseEvent, id: CurveId): void {
     event.stopPropagation();
@@ -276,9 +272,7 @@ export class CurveOverlayComponent {
     this.projection.insertPointNear(id, this.imagePoint(event), HIT * this.unit());
   }
 
-  // ==========================================
-  // Anchors
-  // ==========================================
+  // ── Anchors ──────────────────────────────────────────────────────────────
 
   onAnchorDown(event: PointerEvent, id: CurveId, index: number): void {
     event.stopPropagation();

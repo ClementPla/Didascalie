@@ -1,5 +1,3 @@
-// registration-state.service.ts
-
 import { Injectable, computed, signal } from '@angular/core';
 import {
   CorrespondencePair,
@@ -16,9 +14,7 @@ import {
 import { KeypointPair } from '../../lib/api';
 import { ProjectScoped } from '../../core/project-scoped';
 
-// ==========================================
-// Visualization mode
-// ==========================================
+// ── Visualization mode ─────────────────────────────────────────────────────
 
 export type VisualizationMode = 'side-by-side' | 'overlay' | 'checkerboard';
 
@@ -57,15 +53,11 @@ export interface RegistrationCase {
   pairCount: number;
 }
 
-// ==========================================
-// Transform type selection
-// ==========================================
+// ── Transform type selection ───────────────────────────────────────────────
 
 export type TransformType = 'affine' | 'homography' | 'tps' | 'bspline-grid';
 
-// ==========================================
-// Pair color palette
-// ==========================================
+// ── Pair color palette ─────────────────────────────────────────────────────
 
 const PAIR_COLORS = [
   '#e35d6a',
@@ -84,9 +76,7 @@ export function colorForIndex(i: number): string {
   return PAIR_COLORS[i % PAIR_COLORS.length];
 }
 
-// ==========================================
-// Service
-// ==========================================
+// ── Service ────────────────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
 export class RegistrationStateService implements ProjectScoped {
@@ -198,7 +188,6 @@ export class RegistrationStateService implements ProjectScoped {
     this._hoverPoint.set(null);
   }
 
-  // Drop the old isAwaitingMoving-only signal if you had one, or keep both.
 
   // ── Visualization ────────────────────────────────────────────────────────
   private _vis = signal<VisualizationOptions>({ ...DEFAULT_VIS_OPTIONS });
@@ -231,7 +220,6 @@ export class RegistrationStateService implements ProjectScoped {
     this._movingFrameId.set(frameId);
     this.resetRegistration();
   }
-  // In RegistrationStateService
   loadPairs(pairs: CorrespondencePair[]): void {
     const reg = this._registration();
     if (!reg) return;
@@ -282,9 +270,7 @@ export class RegistrationStateService implements ProjectScoped {
     this._placement.set({ phase: 'idle' });
   }
 
-  // ==========================================
-  // Pair management
-  // ==========================================
+  // ── Pair management ──────────────────────────────────────────────────────
 
   private commitPair(ref: Point2D, moving: Point2D): void {
     const reg = this._registration();
@@ -327,9 +313,7 @@ export class RegistrationStateService implements ProjectScoped {
     this.refit(updated);
   }
 
-  // ==========================================
-  // Solver
-  // ==========================================
+  // ── Solver ───────────────────────────────────────────────────────────────
 
   private refit(reg: FrameRegistration): void {
     let transform: Transform2D = IDENTITY;
@@ -355,9 +339,7 @@ export class RegistrationStateService implements ProjectScoped {
       this._fitSummary.set(null);
     }
   }
-  // ==========================================
-  // Transform type
-  // ==========================================
+  // ── Transform type ───────────────────────────────────────────────────────
 
   setTransformType(t: TransformType): void {
     this._transformType.set(t);
@@ -438,7 +420,6 @@ export class RegistrationStateService implements ProjectScoped {
     this.refit(this._registration()!);
   }
   
-
   /** @see ProjectScoped */
   resetForProject(): void {
     this.reset();

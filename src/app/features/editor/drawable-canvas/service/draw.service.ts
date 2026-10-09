@@ -60,9 +60,7 @@ export class DrawService implements OnDestroy {
     this.destroy$.complete();
   }
 
-  // ==========================================
-  // Core lifecycle
-  // ==========================================
+  // ── Core lifecycle ───────────────────────────────────────────────────────
 
   public startDraw(event: MouseEvent): void {
     this.stateService.reset();
@@ -142,9 +140,7 @@ export class DrawService implements OnDestroy {
     await this.undoRedoService.updateUndoRedo();
   }
 
-  // ==========================================
-  // Context helper
-  // ==========================================
+  // ── Context helper ───────────────────────────────────────────────────────
 
   private createToolContext(): ToolContext {
     return {
@@ -161,9 +157,7 @@ export class DrawService implements OnDestroy {
     };
   }
 
-  // ==========================================
-  // Shared actions
-  // ==========================================
+  // ── Shared actions ───────────────────────────────────────────────────────
 
   /** Swap the label under the stroke to the active label/instance value. */
   public swapMarkers(): void {
@@ -204,11 +198,7 @@ export class DrawService implements OnDestroy {
 
   /** Active mask value written on commit: instance id, or 1 for semantic. */
   public getActiveValue(): number {
-    if (this.projectService.isInstanceSegmentation()) {
-      const v = this.labelService.activeSegInstance?.instance ?? 1;
-      return Math.min(255, Math.max(1, Math.round(v)));
-    }
-    return 1;
+    return this.labelService.paintValue(this.projectService.isInstanceSegmentation());
   }
 
   public clearCanvas(
@@ -227,9 +217,7 @@ export class DrawService implements OnDestroy {
     this.redrawRequest.next(true);
   }
 
-  // ==========================================
-  // Subscriptions
-  // ==========================================
+  // ── Subscriptions ────────────────────────────────────────────────────────
 
   private initializeSubscriptions(): void {
     this.editorService.canvasSumRefresh
@@ -247,8 +235,7 @@ export class DrawService implements OnDestroy {
 
     this.editorService.canvasClear
       .pipe(takeUntil(this.destroy$))
-      // `requestCanvasClear()` defaults to -1, which has always meant "all
-      // labels" in the signature and did nothing until now.
+      // -1 means all labels.
       .subscribe((index) =>
         index >= 0 ? this.clearLabel(index) : this.clearFrame(),
       );
@@ -258,10 +245,7 @@ export class DrawService implements OnDestroy {
    * Erase everything annotated under one label: its raster mask *and* its
    * vector paths.
    *
-   * A label's annotation is both halves, so clearing only the mask left the
-   * paths on screen and looked like the button had not worked. Both go into one
-   * undo group, which also makes the raster clear undoable for the first time —
-   * it previously took no snapshot at all, so a mis-click was unrecoverable.
+    * A label's annotation is both halves, so both go, in one undo group.
    */
   private clearLabel(index: number): void {
     const labelId = this.labelService.listSegmentationLabels[index]?.id;
@@ -301,9 +285,7 @@ export class DrawService implements OnDestroy {
     this.redrawRequest.next(true);
   }
 
-  // ==========================================
-  // Bbox actions
-  // ==========================================
+  // ── Bbox actions ─────────────────────────────────────────────────────────
 
   /** Erase the labelled object(s) under a clicked bounding box. */
   public eraseOnBboxClick(bbox: BboxLabel): void {

@@ -16,6 +16,7 @@ import { api, ScribbleInput, VectorShape, VectorNode } from '../../../../lib/api
 const MAX_TRACED_SHAPES = 64;
 import { VectorEditorService } from './vector-editor.service';
 import { OrchestratorService } from './orchestrator.service';
+import { base64ToUint8 } from '../../../../core/misc/base64';
 
 /**
  * Applies the trained segmentation head to the frame currently open in the
@@ -57,14 +58,8 @@ export class PredictionService {
     );
   }
 
-  /**
-   * Enter the running state.
-   *
-   * Paired with [`endRun`] so the two entry points cannot drift: they did, and
-   * only one of them cleared `stage`, which left the toolbar button reading
-   * "classifying" — the last phase the backend reported — long after the run
-   * had finished. Anything that outlives a single prediction belongs here.
-   */
+  /** Enter the running state. Paired with `endRun`: anything scoped to one
+   *  prediction is reset in these two places only. */
   private beginRun(): void {
     this.running.set(true);
     this.stage.set(null);
@@ -283,10 +278,8 @@ export class PredictionService {
         this.io.markLabelDirty(index);
       }
       this.undoRedo.endGroup();
-      // Marks the composite stale *and* schedules a frame. Setting the flag
-      // alone left the prediction invisible until something else asked for a
-      // repaint — toggling a label, or the next brush stroke. The vector path
-      // never showed the bug because `addShapes` redraws on commit.
+      // Marks the composite stale and schedules a frame; the flag alone would
+      // leave the prediction invisible until the next repaint.
       this.orchestrator.requestRedrawAllCanvas();
 
       const covered = result.masks
@@ -307,14 +300,4 @@ export class PredictionService {
       this.endRun();
     }
   }
-}
-
-/** Decode a base64 mask into the flat uint8 buffer the canvas manager holds. */
-function base64ToUint8(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    out[i] = binary.charCodeAt(i);
-  }
-  return out;
 }

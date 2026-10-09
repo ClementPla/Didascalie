@@ -5,7 +5,6 @@ use crate::storage::{queries, DbState};
 use crate::utils::AppError;
 use crate::utils::error::Result;
 
-
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchClassificationPayload {
@@ -14,8 +13,6 @@ pub struct BatchClassificationPayload {
     pub selected_classes: Vec<String>,
     pub is_multilabel: bool,
 }
-
-
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -42,7 +39,6 @@ pub fn load_classification(
         let config: serde_json::Value = serde_json::from_str(&config_json)
             .map_err(|e| AppError::Generic(format!("Failed to parse config: {}", e)))?;
 
-        // Build task name -> index map
         let mut task_index_map: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
         
         // Multiclass tasks
@@ -61,7 +57,6 @@ pub fn load_classification(
             }
         }
 
-        // Query classifications for this frame
         let mut stmt = conn.prepare(
             "SELECT task_name, selected_classes, is_multilabel
              FROM classifications
@@ -107,7 +102,6 @@ pub fn save_classification(
     db.with_conn(|conn| {
         let user = queries::current_user_id(conn)?;
         if selected_classes.is_empty() {
-            // Delete if no classes selected
             conn.execute(
                 "DELETE FROM main.classifications
                  WHERE frame_id = ?1 AND task_name = ?2 AND user_id = ?3",
@@ -130,8 +124,6 @@ pub fn save_classification(
         Ok(())
     })
 }
-
-
 
 #[tauri::command]
 pub fn save_batch_classifications(
@@ -162,9 +154,7 @@ pub fn save_batch_classifications(
     })
 }
 
-// ==========================================
-// Whole sequences
-// ==========================================
+// ── Whole sequences ────────────────────────────────────────────────────────
 
 /// How the frames of a sequence are classified, by the current user.
 #[derive(Serialize, Debug)]

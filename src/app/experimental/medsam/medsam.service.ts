@@ -64,20 +64,11 @@ export class MedsamService {
     this.featuresExtracted = true;
 
     const mask = this.canvasManagerService.getActiveMask();
-    if (mask) applyResultMask(mask, new Uint8Array(result), this.activeValue());
+    if (mask) applyResultMask(mask, new Uint8Array(result), this.labelService.paintValue(this.projectService.isInstanceSegmentation()));
   }
 
   /** A new image was loaded: the features belong to the previous image. */
   onImageLoaded(): void {
     this.featuresExtracted = false;
-  }
-
-  /** Active mask value to write: instance id, or 1 for semantic labels. */
-  private activeValue(): number {
-    if (this.projectService.isInstanceSegmentation()) {
-      const v = this.labelService.activeSegInstance?.instance ?? 1;
-      return Math.min(255, Math.max(1, Math.round(v)));
-    }
-    return 1;
   }
 }

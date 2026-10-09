@@ -211,9 +211,7 @@ export class ProjectionViewComponent implements OnDestroy {
     this.projection.hoverColumn.set(null);
   }
 
-  // ==========================================
-  // Template actions
-  // ==========================================
+  // ── Template actions ─────────────────────────────────────────────────────
 
   /** The A / B button: finishes an ongoing action on that curve, otherwise
    *  opens its menu. */
@@ -358,9 +356,7 @@ export class ProjectionViewComponent implements OnDestroy {
     this.pan.set({ x: 0, y: 0 });
   }
 
-  // ==========================================
-  // Dragging the current-slice marker
-  // ==========================================
+  // ── Dragging the current-slice marker ────────────────────────────────────
 
   startSliceDrag(event: PointerEvent): void {
     if (event.button !== 0) return;
@@ -416,10 +412,7 @@ export class ProjectionViewComponent implements OnDestroy {
     if (at) this.volume.sliceSelectRequested$.next(at.z);
   }
 
-
-  // ==========================================
-  // Internals
-  // ==========================================
+  // ── Internals ────────────────────────────────────────────────────────────
 
   /**
    * Builds the WebGL renderer, fetching three.js on first use.

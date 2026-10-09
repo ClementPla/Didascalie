@@ -36,13 +36,11 @@ export class UndoRedo<T> {
       return undefined;
     }
 
-    // Pop current state and move to redo
     const currentState = this.undoStack.pop();
     if (currentState) {
       this.redoStack.push(currentState);
     }
 
-    // Return the previous state (now current)
     return this.undoStack.peek();
   }
 

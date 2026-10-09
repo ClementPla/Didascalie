@@ -1,8 +1,7 @@
-import { AfterViewInit, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit, inject } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, NgZone, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
-// PrimeNG
 import { PanelModule } from 'primeng/panel';
 import { DataViewModule } from 'primeng/dataview';
 import { ButtonModule } from 'primeng/button';
@@ -16,7 +15,6 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { SliderModule } from 'primeng/slider';
 import { TooltipModule } from 'primeng/tooltip';
 
-// Services
 import { ProjectService } from '../../services/project/project.service';
 import { SequenceService } from '../../services/sequence.service';
 import { LabelsService } from '../../services/labels/labels.service';
@@ -26,7 +24,6 @@ import { UIStateService } from '../../services/uistate.service';
 import { NotificationService } from '../../services/notification.service';
 import { api } from '../../lib/api';
 
-// Components
 import {
   GalleryElementComponent,
   ThumbnailSelectionEvent,
@@ -168,9 +165,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Initialization
-  // ==========================================
+  // ── Initialization ───────────────────────────────────────────────────────
 
   private initBatchChoices(): void {
     this.batchMulticlassChoices =
@@ -178,9 +173,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     this.batchMultilabelChoices = [];
   }
 
-  // ==========================================
-  // Refresh & Auto-refresh
-  // ==========================================
+  // ── Refresh & Auto-refresh ───────────────────────────────────────────────
 
   async refresh(): Promise<void> {
     this.percentageBeforeRefresh = 0;
@@ -229,9 +222,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Load Gallery Items
-  // ==========================================
+  // ── Load Gallery Items ───────────────────────────────────────────────────
 
   async getItems(): Promise<GalleryItem[]> {
     this.uiState.setLoading(true, 'Loading gallery items...');
@@ -283,9 +274,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     return 'empty';
   }
 
-  // ==========================================
-  // Filtering & Sorting
-  // ==========================================
+  // ── Filtering & Sorting ──────────────────────────────────────────────────
 
   applyFilters(): void {
     let items = [...this.galleryItems];
@@ -359,9 +348,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     );
   }
 
-  // ==========================================
-  // Selection
-  // ==========================================
+  // ── Selection ────────────────────────────────────────────────────────────
 
   handleSelect(event: ThumbnailSelectionEvent): void {
     const { id: sequenceId, selected, isShiftClick } = event;
@@ -407,9 +394,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     this.selectedItems = this.filteredItems.map((item) => item.sequenceId);
   }
 
-  // ==========================================
-  // Navigation
-  // ==========================================
+  // ── Navigation ───────────────────────────────────────────────────────────
 
   async openItem(item: GalleryItem): Promise<void> {
     if (this.sequenceService.sequences().length === 0) {
@@ -454,9 +439,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Batch Annotation
-  // ==========================================
+  // ── Batch Annotation ─────────────────────────────────────────────────────
 
   public setBatchMulticlassChoice(taskIndex: number, value: string): void {
     this.batchMulticlassChoices[taskIndex] = value;
@@ -480,7 +463,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     );
 
     try {
-      // Apply multiclass classifications
       const hasMulticlassChoices = this.batchMulticlassChoices.some(
         (c) => c !== null,
       );
@@ -496,7 +478,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
         }
       }
 
-      // Apply multilabel classifications
       if (this.batchMultilabelChoices.length > 0) {
         const result =
           await this.batchAnnotationService.applyBatchMultilabelToFrames(
@@ -601,9 +582,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     this.batchMultilabelChoices = [];
   }
 
-  // ==========================================
-  // Getters for Template
-  // ==========================================
+  // ── Getters for Template ─────────────────────────────────────────────────
 
   get totalItems(): number {
     return this.galleryItems.length;

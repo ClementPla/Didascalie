@@ -337,15 +337,12 @@ pub fn get_project_config(conn: &Connection) -> Result<ProjectConfig> {
     Ok(serde_json::from_str(&json)?)
 }
 
-
-
 pub fn sync_labels_from_config(conn: &Connection, config: &ProjectConfig) -> Result<()> {
     let labels = match &config.segmentation_labels {
         Some(labels) => labels,
         None => return Ok(()),
     };
 
-    // Upsert each label
     for (i, label) in labels.iter().enumerate() {
         // Derived from the project flag, not from the presence of `shades`.
         // Shades are deterministic and regenerated from the label colour on
@@ -386,10 +383,7 @@ pub fn sync_labels_from_config(conn: &Connection, config: &ProjectConfig) -> Res
     Ok(())
 }
 
-
-
 // ============ Images ============
-
 
 // ============ Annotations ============
 

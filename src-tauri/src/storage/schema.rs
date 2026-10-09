@@ -175,7 +175,6 @@ CREATE TABLE IF NOT EXISTS keypoint_pairs (
     UNIQUE(registration_id, client_uuid)
 );
 
-
 CREATE INDEX IF NOT EXISTS idx_frames_sequence ON frames(sequence_id);
 CREATE INDEX IF NOT EXISTS idx_annotations_frame ON annotations(frame_id);
 CREATE INDEX IF NOT EXISTS idx_vector_annotations_frame ON vector_annotations(frame_id);

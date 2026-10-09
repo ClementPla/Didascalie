@@ -141,9 +141,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  // ==========================================
-  // Lifecycle
-  // ==========================================
+  // ── Lifecycle ────────────────────────────────────────────────────────────
 
   ngAfterViewInit() {
     this.ctxImage = this.imgCanvas().nativeElement.getContext('2d', { alpha: true })!;
@@ -210,9 +208,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       });
   }
 
-  // ==========================================
-  // Viewport sizing
-  // ==========================================
+  // ── Viewport sizing ──────────────────────────────────────────────────────
 
   private setViewportSize(width: number, height: number) {
     if (width === 0 || height === 0) return;
@@ -254,9 +250,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Image loading
-  // ==========================================
+  // ── Image loading ────────────────────────────────────────────────────────
 
   public async loadImage(imageSrc: string, nativeWidth?: number, nativeHeight?: number) {
     try {
@@ -276,9 +270,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Input
-  // ==========================================
+  // ── Input ────────────────────────────────────────────────────────────────
 
   public onMouseMove(data: { event: MouseEvent; coords: Point2D; cursor: Point2D }) {
     if (!this.orchestrator.image) return;
@@ -363,9 +355,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     }, 150);
   }
 
-  // ==========================================
-  // Rendering
-  // ==========================================
+  // ── Rendering ────────────────────────────────────────────────────────────
 
   public async redrawAllCanvas() {
     if (!this.ctxImage || !this.ctxLabel) return;
@@ -537,10 +527,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.orchestrator.applyViewTransform(this.ctxLabel!, this.dpr);
   }
 
-
-  // ==========================================
-  // UI helpers
-  // ==========================================
+  // ── UI helpers ───────────────────────────────────────────────────────────
 
   public getCursorSize(): number {
     // Brush is in image px; convert to viewport CSS px. While drawing, reflect
@@ -573,9 +560,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     };
   }
 
-  // ==========================================
-  // Ruler ticks
-  // ==========================================
+  // ── Ruler ticks ──────────────────────────────────────────────────────────
 
   /**
    * Pick a "nice" tick interval (in image px) so that major ticks land
@@ -623,9 +608,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     };
   }
 
-  // ==========================================
-  // Template getters
-  // ==========================================
+  // ── Template getters ─────────────────────────────────────────────────────
 
   get hasImage(): boolean {
     return this.sequenceService.currentFrameImage() !== null;

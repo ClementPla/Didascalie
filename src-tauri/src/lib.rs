@@ -1,4 +1,3 @@
-// src-tauri/src/lib.rs
 use std::sync::Arc;
 #[cfg(not(target_os = "android"))]
 use crate::dl::feature_extract::FeaturesExtractor;
@@ -136,10 +135,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::images::create_cache_thumbnail,
-            commands::images::create_thumbnail,
-            commands::images::load_image_as_base64,
-            commands::images::process_image_blob,
             commands::segmentation::otsu_segmentation,
             connection::connection::event_processed,
             commands::flood_fill::flood_fill_mask,
@@ -179,16 +174,9 @@ pub fn run() {
             commands::frame::set_frame_reviewed,
             // Sequences commands
             commands::sequences::list_sequences,
-            commands::sequences::get_sequence,
             commands::sequences::get_sequence_frames,
             commands::sequences::get_all_frame_ids_by_sequence,
             commands::sequences::get_gallery_sequences,
-            commands::sequences::create_sequence,
-            commands::sequences::rename_sequence,
-            commands::sequences::delete_sequence,
-            commands::sequences::reorder_sequences,
-            commands::sequences::find_sequence_by_name,
-            commands::sequences::move_frames_to_sequence,
             commands::annotation::save_annotation,
             commands::annotation::load_annotations,
             commands::annotation::clear_sequence_annotations,
@@ -251,11 +239,9 @@ pub fn run() {
             #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_predict_frame,
 
-
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
-    // Start the event loop manually
     app.run(|app_handle, event| match event {
         RunEvent::Exit => {
             // This code executes when the app is closing

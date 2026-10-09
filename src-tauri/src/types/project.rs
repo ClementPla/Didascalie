@@ -36,7 +36,6 @@ pub struct MultilabelConfig {
     pub default: Option<Vec<String>>,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProjectConfig {
     pub name: String,
@@ -45,9 +44,7 @@ pub struct ProjectConfig {
     /// Files smaller than this are embedded even when `images_embedded` is off.
     ///
     /// `serde(default)` because project files written before this field existed
-    /// do not carry it, and they must still open. The TypeScript side declared
-    /// it long before the Rust side did, which made it `undefined` after every
-    /// project open and broke the next folder scan.
+    /// do not carry it, and they must still open.
     ///
     /// `null` is read as the default too: some project files written from
     /// Python carry `"embed_threshold_kb": null`, and refusing the whole
@@ -108,7 +105,6 @@ impl Default for ProjectConfig {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

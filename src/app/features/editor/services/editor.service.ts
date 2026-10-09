@@ -44,9 +44,7 @@ export class EditorService {
   /** Emits the new tool whenever the active tool changes (any source). */
   public readonly toolChanged$ = new Subject<Tool>();
 
-  // ==========================================
-  // Post-processing
-  // ==========================================
+  // ── Post-processing ──────────────────────────────────────────────────────
 
   private readonly _penPostProcess = signal(false);
   get penPostProcess(): boolean { return this._penPostProcess(); }
@@ -76,9 +74,7 @@ export class EditorService {
   get enforceConnectivity(): boolean { return this._enforceConnectivity(); }
   set enforceConnectivity(v: boolean) { this._enforceConnectivity.set(v); }
 
-  // ==========================================
-  // Drawing
-  // ==========================================
+  // ── Drawing ──────────────────────────────────────────────────────────────
 
   private readonly _eraseAll = signal(false);
   get eraseAll(): boolean { return this._eraseAll(); }
@@ -108,9 +104,7 @@ export class EditorService {
   get floodFillTolerance(): number { return this._floodFillTolerance(); }
   set floodFillTolerance(v: number) { this._floodFillTolerance.set(v); }
 
-  // ==========================================
-  // Pressure
-  // ==========================================
+  // ── Pressure ─────────────────────────────────────────────────────────────
 
   /** Scale the brush radius by pen/touch pressure while drawing. */
   private readonly _pressureSensitivity = signal(false);
@@ -146,9 +140,7 @@ export class EditorService {
     return min + (this.pressureGain - min) * this.strokePressure;
   }
 
-  // ==========================================
-  // Bounding boxes
-  // ==========================================
+  // ── Bounding boxes ───────────────────────────────────────────────────────
 
   private readonly _showBoundingBox = signal(false);
   get showBoundingBox(): boolean { return this._showBoundingBox(); }
@@ -162,9 +154,7 @@ export class EditorService {
   get bbxOpacity(): number { return this._bbxOpacity(); }
   set bbxOpacity(v: number) { this._bbxOpacity.set(v); }
 
-  // ==========================================
-  // Image processing / model
-  // ==========================================
+  // ── Image processing / model ─────────────────────────────────────────────
 
   private readonly _useInverse = signal(false);
   get useInverse(): boolean { return this._useInverse(); }
@@ -174,9 +164,7 @@ export class EditorService {
   get useProcessing(): boolean { return this._useProcessing(); }
   set useProcessing(v: boolean) { this._useProcessing.set(v); }
 
-  // ==========================================
-  // Rendering / navigation
-  // ==========================================
+  // ── Rendering / navigation ───────────────────────────────────────────────
 
   // On by default: the compositor self-tests at startup and reports itself
   // unavailable (falling back to CPU) if WebGPU is missing or produces wrong
@@ -189,9 +177,7 @@ export class EditorService {
   get resetZoomAfterNavigation(): boolean { return this._resetZoomAfterNavigation(); }
   set resetZoomAfterNavigation(v: boolean) { this._resetZoomAfterNavigation.set(v); }
 
-  // ==========================================
-  // Active tool
-  // ==========================================
+  // ── Active tool ──────────────────────────────────────────────────────────
 
   private readonly _selectedTool = signal<Tool>(Tools.PEN);
 

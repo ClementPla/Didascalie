@@ -16,7 +16,6 @@ import { SuperpixelService } from './superpixel.service';
 export class SuperpixelSettingsComponent {
   superpixel = inject(SuperpixelService);
 
-
   /** Toggle the superpixel boundary overlay on/off. */
   onToggleOverlay() {
     void this.superpixel.updateOverlay();

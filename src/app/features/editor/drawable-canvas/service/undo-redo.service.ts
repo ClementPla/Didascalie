@@ -132,9 +132,7 @@ export class UndoRedoService implements ProjectScoped {
     return true;
   }
 
-  // ==========================================
-  // Grouped (compound) actions
-  // ==========================================
+  // ── Grouped (compound) actions ───────────────────────────────────────────
 
   /**
    * Begin a compound action: any raster snapshots and vector commits recorded
@@ -157,9 +155,7 @@ export class UndoRedoService implements ProjectScoped {
     this.redoOrder = [];
   }
 
-  // ==========================================
-  // Unified dispatch (raster + vector)
-  // ==========================================
+  // ── Unified dispatch (raster + vector) ───────────────────────────────────
 
   /** Undo the most recent action across both subsystems. */
   async undo(): Promise<void> {

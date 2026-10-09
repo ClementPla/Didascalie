@@ -1,7 +1,5 @@
-
 import { Injectable } from '@angular/core';
 import { api, FrameImage } from '../../lib/api';
-
 
 @Injectable({ providedIn: 'root' })
 export class FrameLoaderService {

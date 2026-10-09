@@ -9,9 +9,7 @@ import {
 } from '../../lib/api';
 import { LabelsService } from '../labels/labels.service';
 import { ProjectLifecycleService } from './project-lifecycle.service';
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   name: '',
@@ -37,9 +35,7 @@ export interface RecentProject {
   last_opened: number;
 }
 
-// ==========================================
-// Service
-// ==========================================
+// ── Service ────────────────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
@@ -53,7 +49,6 @@ export class ProjectService {
   private readonly _isOpen = signal(false);
   private readonly _framesCount = signal(0);
   private readonly _sequencesCount = signal(0);
-  // Add to computed conveniences section
   readonly isTextDescriptionEnabled = computed(
     () => this._config().text_description_enabled,
   );
@@ -94,7 +89,6 @@ export class ProjectService {
 
   setInputFolder(folder: string): void {
     this.updateConfig({ input_folder: folder });
-    // Auto-set project name from folder if empty
     if (!this._config().name) {
       const folderName = folder.split(/[/\\]/).pop() ?? 'Project';
       this.updateConfig({ name: folderName });
@@ -140,24 +134,18 @@ export class ProjectService {
     this.updateConfig({ images_embedded: embedded });
   }
 
-  // Add setter method
   setTextDescriptionEnabled(enabled: boolean): void {
     this.updateConfig({ text_description_enabled: enabled });
   }
 
-  // ==========================================
-  // Project Lifecycle
-  // ==========================================
+  // ── Project Lifecycle ────────────────────────────────────────────────────
 
   /**
    * Create a project, replacing whatever was open.
    *
-   * The close is not optional, for the same reason it is not optional in
-   * {@link open}. Creating used to skip it, so a project created while another
-   * was open inherited that project's config — its scan pattern, its embed
-   * settings, its labels — and every project-scoped service kept the old
-   * project's caches. The visible symptoms were a scan that imported nothing
-   * and, before that, a missing `embedThresholdKb`.
+    * The close is not optional, for the same reason as in {@link open}: without
+    * it the new project inherits the open one's config and every project-scoped
+    * service keeps its caches.
    *
    * The draft is captured first because `close()` resets project-scoped state,
    * and that includes the labels this form just defined. It is then merged over
@@ -180,26 +168,22 @@ export class ProjectService {
     }
 
     // After the project exists, never before: `setDefinitions` reads the labels
-    // back with `api.getLabels()`, and the close above left no database for it
-    // to read — so the label list came back empty and the instance flags with
-    // it.
+    // back from the database.
     await this.labelService.setDefinitions(config);
 
     this._projectPath.set(path);
     this._isOpen.set(true);
 
-    // Add to recent projects
     this.addToRecentProjects(config.name, path);
   }
 
   /**
    * Open a project, replacing whatever was open.
    *
-   * The close is not optional. Opening used to overwrite the config and labels
-   * and nothing else, so a second project inherited the first one's sequences,
-   * masks, undo history, gallery filters and per-frame caches — and because ids
-   * restart at 1 in every project, those caches did not look stale, they read as
-   * the new project's own data.
+    * The close is not optional: without it the second project inherits the
+    * first one's sequences, masks, undo history, gallery filters and per-frame
+    * caches. Ids restart at 1 in every project, so those caches do not look
+    * stale; they read as the new project's own data.
    */
   async open(path: string): Promise<void> {
     await this.close();
@@ -213,9 +197,7 @@ export class ProjectService {
     await this.labelService.setDefinitions(config); // Now async
     this._projectPath.set(path);
     this._isOpen.set(true);
-    // Update counts
     await this.refreshCounts();
-    // Add to recent projects
     this.addToRecentProjects(config.name, path);
   }
 
@@ -230,9 +212,7 @@ export class ProjectService {
     this.reset();
   }
 
-  // ==========================================
-  // Folder Scanning
-  // ==========================================
+  // ── Folder Scanning ──────────────────────────────────────────────────────
 
   async scanFolder(): Promise<ScanResult> {
     const config = this._config();
@@ -250,7 +230,6 @@ export class ProjectService {
       videoFrameStep: this.videoFrameStep(),
     });
 
-    // Update counts after scan
     await this.refreshCounts();
 
     return result;
@@ -267,9 +246,7 @@ export class ProjectService {
     return result;
   }
 
-  // ==========================================
-  // Editing an open project
-  // ==========================================
+  // ── Editing an open project ──────────────────────────────────────────────
 
   /**
    * Apply one configuration change to the open project.
@@ -304,9 +281,7 @@ export class ProjectService {
     this._sequencesCount.set(sequencesCount);
   }
 
-  // ==========================================
-  // Recent Projects (localStorage)
-  // ==========================================
+  // ── Recent Projects (localStorage) ───────────────────────────────────────
 
   getRecentProjects(): RecentProject[] {
     try {
@@ -339,18 +314,14 @@ export class ProjectService {
     const recent = this.getRecentProjects().filter((p) => p.path !== path);
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recent));
   }
-  // ==========================================
-  // Validation
-  // ==========================================
+  // ── Validation ───────────────────────────────────────────────────────────
 
   isConfigValid(): boolean {
     const config = this._config();
     return !!(config.name && config.input_folder);
   }
 
-  // ==========================================
-  // Reset
-  // ==========================================
+  // ── Reset ────────────────────────────────────────────────────────────────
 
   reset(): void {
     this._config.set(DEFAULT_PROJECT_CONFIG);

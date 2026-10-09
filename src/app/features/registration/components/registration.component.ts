@@ -1,4 +1,3 @@
-
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -36,7 +35,7 @@ import {
   RegistrationSidebarComponent,
   FrameOption,
 } from './registration-sidebar/registration-sidebar.component';
-import { emit, emitTo, listen, UnlistenFn } from '@tauri-apps/api/event';
+import { emitTo, listen, UnlistenFn } from '@tauri-apps/api/event';
 
 @Component({
   selector: 'app-registration',
@@ -157,7 +156,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
 
     let lastSync = this.state.vis().syncPanZoom;
     queueMicrotask(() => {
-      // Initial state.
       this.applySyncMode(lastSync);
     });
     let lastScale = 0;
@@ -217,9 +215,7 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // ==========================================
-  // Sequence + frame loading
-  // ==========================================
+  // ── Sequence + frame loading ─────────────────────────────────────────────
 
   private async loadSequence(seqId: number): Promise<void> {
     // Make sure SequenceService has the sequence list cached (used elsewhere).
@@ -294,9 +290,7 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     await this.refreshCases();
   }
 
-  // ==========================================
-  // Registration cases (multiple frame pairs per sequence)
-  // ==========================================
+  // ── Registration cases (multiple frame pairs per sequence) ───────────────
 
   /** Reload the sequence's list of registration cases from the database. */
   private async refreshCases(): Promise<void> {
@@ -462,17 +456,13 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.movingImageUrl.set(img.src);
   }
-  // ==========================================
-  // Sidebar event handlers
-  // ==========================================
+  // ── Sidebar event handlers ───────────────────────────────────────────────
 
   goBack(): void {
     this.uiState.navigateToGallery();
   }
 
-  // ==========================================
-  // Window-level cleanup
-  // ==========================================
+  // ── Window-level cleanup ─────────────────────────────────────────────────
 
   @HostListener('window:mouseup')
   onWindowMouseUp(): void {
@@ -692,7 +682,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
       height: 600,
     });
 
-    // Listen for the popout being closed.
     win.once('tauri://destroyed', () => {
       this.isPoppedOut.set(false);
     });

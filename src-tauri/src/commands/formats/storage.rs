@@ -93,7 +93,6 @@ fn load_frames(
     for row in rows {
         let relative_path = row.relative_path.unwrap_or_else(|| format!("frame_{}", row.id));
 
-        // Masks.
         let mut label_masks = Vec::new();
         for a in queries::load_annotations(conn, row.id)? {
             let Some(&label_index) = index_by_id.get(&a.label_id) else {
@@ -146,7 +145,6 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
     // Imported annotations become the importing user's.
     let user = queries::current_user_id(conn)?;
 
-    // Existing labels by name.
     let mut label_id_by_name: HashMap<String, i64> = HashMap::new();
     {
         let mut stmt = conn.prepare("SELECT id, name FROM labels")?;
@@ -240,7 +238,6 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
             }
         }
 
-        // Classifications.
         for c in &frame.classifications {
             let json = serde_json::to_string(&c.values).unwrap_or_else(|_| "[]".to_string());
             conn.execute(

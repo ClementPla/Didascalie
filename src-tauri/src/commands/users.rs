@@ -22,9 +22,7 @@ use ts_rs::TS;
 use crate::storage::{queries, DbState};
 use crate::utils::error::{AppError, Result};
 
-// ==========================================
-// Types
-// ==========================================
+// ── Types ──────────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -90,9 +88,7 @@ pub struct UserFootprint {
     pub reviewed_frames: usize,
 }
 
-// ==========================================
-// Commands
-// ==========================================
+// ── Commands ───────────────────────────────────────────────────────────────
 
 /// Every account. Callable before logging in: it is what the picker shows.
 #[tauri::command]
@@ -143,9 +139,7 @@ pub fn delete_user(db: State<DbState>, user_id: i64) -> Result<()> {
     db.with_conn(|conn| remove_user(conn, user_id))
 }
 
-// ==========================================
-// Session
-// ==========================================
+// ── Session ────────────────────────────────────────────────────────────────
 
 fn read_user(row: &rusqlite::Row) -> rusqlite::Result<UserInfo> {
     Ok(UserInfo {
@@ -219,9 +213,7 @@ pub fn auto_login(conn: &Connection) -> Result<Option<UserInfo>> {
     }
 }
 
-// ==========================================
-// Accounts
-// ==========================================
+// ── Accounts ───────────────────────────────────────────────────────────────
 
 fn clean_name(name: &str) -> Result<String> {
     let name = name.trim();

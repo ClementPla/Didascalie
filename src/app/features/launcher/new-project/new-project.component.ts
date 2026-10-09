@@ -1,5 +1,3 @@
-// new-project.component.ts
-
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -90,9 +88,7 @@ export class NewProjectComponent implements OnInit {
     this.router.navigate(['/']);
   }
 
-  // ==========================================
-  // Bindings
-  // ==========================================
+  // ── Bindings ─────────────────────────────────────────────────────────────
 
   get projectName(): string {
     return this.projectService.projectName();
@@ -168,9 +164,7 @@ export class NewProjectComponent implements OnInit {
     this.projectService.setInstanceSegmentationEnabled(v);
   }
 
-  // ==========================================
-  // Actions
-  // ==========================================
+  // ── Actions ──────────────────────────────────────────────────────────────
 
   onFolderChange(path: string): void {
     this.inputFolder = path;

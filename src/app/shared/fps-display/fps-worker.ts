@@ -1,4 +1,3 @@
-
 const BUFFER_INDEX = {
   MAIN_THREAD_TIMESTAMP: 0,
   FPS: 1,
@@ -35,7 +34,6 @@ function tick() {
     lastMainThreadTimestamp = mainThreadTimestamp;
   }
 
-  // Update FPS every 100ms
   const elapsed = now - lastFpsUpdate;
   if (elapsed >= 100) {
     const fps = (frameCount * 1000) / elapsed;

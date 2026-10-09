@@ -1,4 +1,3 @@
-
 import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -33,19 +32,15 @@ export class RegistrationToolbarComponent {
   readonly openCompositeClicked = output<void>();
 
   onPrevious(): void {
-    // TODO: The 'emit' function requires a mandatory void argument
     this.previousClicked.emit();
   }
   onNext(): void {
-    // TODO: The 'emit' function requires a mandatory void argument
     this.nextClicked.emit();
   }
   onSave(): void {
-    // TODO: The 'emit' function requires a mandatory void argument
     this.saveClicked.emit();
   }
   onOpenComposite(): void {
-    // TODO: The 'emit' function requires a mandatory void argument
     this.openCompositeClicked.emit();
   }
   readonly state = inject(RegistrationStateService);
@@ -59,7 +54,6 @@ export class RegistrationToolbarComponent {
   // Reactive views, aliased for the template.
   readonly mode = this.state.mode;
   readonly vis = this.state.vis;
-
 
   setMode(mode: VisualizationMode): void {
     this.state.setMode(mode);

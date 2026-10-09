@@ -97,9 +97,7 @@ fn region_from_binary(bin: &[u8], w: u32, h: u32) -> Option<Region> {
         let Some(mut ring) = simplify_ring(contour_ring(c)) else {
             continue;
         };
-        // Cut out the background this contour encloses. A predicted mask produces
-        // ring-shaped structures and interior gaps far more often than a hand
-        // traced one does, and without this a donut came back as a solid disc.
+        // Cut out the background this contour encloses, so a ring stays a ring.
         for hole in contours
             .iter()
             .filter(|hc| hc.border_type == BorderType::Hole && hc.parent == Some(i))
@@ -724,8 +722,7 @@ fn prune_pass(edges: &mut [SkelEdge], w: usize, dt: &[f32]) -> bool {
 /// One pass: pop thinning bubbles — two separate branches joining the *same* pair
 /// of nodes, which is what thinning wraps around a small hole in the region. A
 /// predicted mask is full of them, and neither spur pruning (both ends are
-/// junctions) nor contraction (both nodes are degree 3) can touch one, so the
-/// centerline came back split into parallel arcs.
+/// junctions) nor contraction (both nodes are degree 3) can touch one.
 ///
 /// The longest arc survives and the rest are dropped, but only when they are
 /// short against the disc at the join — so a hole small relative to the band that
@@ -1170,4 +1167,3 @@ mod tests {
         assert!(paths.len() >= 4, "expected >= 4 arms, got {}", paths.len());
     }
 }
-

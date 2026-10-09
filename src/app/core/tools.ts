@@ -160,9 +160,6 @@ export const RASTER_TOOLS = [
  *  keeps its position when tool-specific options appear and disappear. */
 export const NAV_TOOLS = [Tools.PAN];
 
-/** Every raster-canvas tool, pan included — what the quick-access wheel offers. */
-export const ALL_TOOLS = [...NAV_TOOLS, ...RASTER_TOOLS];
-
 /** Vector drawing/selection tools, rendered as a distinct toolbar group. */
 export const VECTOR_TOOLS = [
   Tools.SELECT,
