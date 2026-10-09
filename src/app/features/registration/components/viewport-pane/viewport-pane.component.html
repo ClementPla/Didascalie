@@ -2,10 +2,11 @@
   #host
   class="viewport-pane"
   [style.cursor]="cursorStyle()"
-  (mousedown)="onMouseDown($event)"
-  (mousemove)="onMouseMove($event)"
-  (mouseup)="onMouseUp()"
-  (mouseleave)="onMouseLeave()"
+  (pointerdown)="onMouseDown($event)"
+  (pointermove)="onMouseMove($event)"
+  (pointerup)="onMouseUp($event)"
+  (pointercancel)="onMouseUp($event)"
+  (pointerleave)="onMouseLeave()"
   (wheel)="onWheel($event)"
 >
   <canvas #canvas class="display-canvas"></canvas>

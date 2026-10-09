@@ -4,12 +4,14 @@ use crate::dl::feature_extract::FeaturesExtractor;
 #[cfg(not(target_os = "android"))]
 use crate::dl::model::ModelSessions;
 
-use crate::connection::inference::InferenceClient;   // ← add
+#[cfg(not(target_os = "android"))]
+use crate::connection::inference::InferenceClient;
 use crate::storage::DbState;
 use tauri::{Manager, RunEvent};
 use tokio::sync::Mutex;
 
 mod commands;
+#[cfg(not(target_os = "android"))]
 mod connection;
 
 #[cfg(not(target_os = "android"))]
@@ -123,21 +125,27 @@ pub fn run() {
         .manage(Arc::new(Mutex::new(FeaturesExtractor::new())))
         .manage(ModelSessions::new());
     
+    #[cfg(not(target_os = "android"))]
+    let app = app.manage(InferenceClient::new());
+
     let app = app.manage(DbState::new())
-        .manage(InferenceClient::new())
         .manage(commands::superpixel::SuperpixelState::default())
         .manage(commands::frame::FrameImageCache::default())
         .manage(commands::frame::ThumbnailCache::default())
         .manage(commands::ml::predict::MlState::default())
         .setup(|app| {
-            let port = connection::settings::load_listen_port(app.handle());
-            app.manage(connection::settings::ActiveListenPort(port));
-            connection::coms::setup_zmq_receiver(app.handle().clone(), port)?;
+            #[cfg(not(target_os = "android"))]
+            {
+                let port = connection::settings::load_listen_port(app.handle());
+                app.manage(connection::settings::ActiveListenPort(port));
+                connection::coms::setup_zmq_receiver(app.handle().clone(), port)?;
+            }
             create_main_window(app.handle())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::segmentation::otsu_segmentation,
+            #[cfg(not(target_os = "android"))]
             connection::connection::event_processed,
             commands::flood_fill::flood_fill_mask,
             commands::superpixel::superpixel_refine,
@@ -161,6 +169,9 @@ pub fn run() {
             commands::project_edit::project_edit_impact,
             #[cfg(not(target_os = "android"))]
             commands::project_edit::apply_project_edit,
+            commands::device_files::import_project_file,
+            commands::device_files::take_incoming_project,
+            commands::device_files::export_project_file,
             commands::project::create_project,
             commands::project::open_project,
             commands::project::close_project,
@@ -217,11 +228,17 @@ pub fn run() {
             commands::registration::list_registrations,
             commands::registration::delete_registration,
             // Python bridge (user functions served by `didascalie.com`)
+            #[cfg(not(target_os = "android"))]
             connection::settings::get_listen_port,
+            #[cfg(not(target_os = "android"))]
             connection::settings::set_listen_port,
+            #[cfg(not(target_os = "android"))]
             commands::python::inference_connect,
+            #[cfg(not(target_os = "android"))]
             commands::python::find_keypoints_prefill,
+            #[cfg(not(target_os = "android"))]
             commands::python::python_segment_frame,
+            #[cfg(not(target_os = "android"))]
             commands::python::python_segment_sequence,
             // Segmentation-head lab (encoder download, budget sweep)
             #[cfg(not(target_os = "android"))]
@@ -231,14 +248,18 @@ pub fn run() {
             #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_dataset_summary,
             #[cfg(not(target_os = "android"))]
-            #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_train_model,
             #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_model_status,
+            #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_load_saved_model,
+            #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_forget_model,
+            #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_stop_training,
+            #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_storage_usage,
+            #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_clear_feature_cache,
             #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_predict_frame,
@@ -275,6 +296,7 @@ pub fn run() {
 /// the popup to be a real opener-linked webview, which is what answering
 /// `on_new_window` with a window built from its `features` provides. Anything
 /// but a blank page is refused: nothing navigates a popup elsewhere.
+#[cfg(desktop)]
 fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tauri::webview::NewWindowResponse;
@@ -317,5 +339,20 @@ fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
             }
         })
         .build()?;
+    Ok(())
+}
+
+/// Mobile has one window and nothing to detach into another.
+#[cfg(mobile)]
+fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "main")
+        .cloned()
+        .ok_or_else(|| tauri::Error::WindowNotFound)?;
+    tauri::WebviewWindowBuilder::from_config(app, &config)?.build()?;
     Ok(())
 }

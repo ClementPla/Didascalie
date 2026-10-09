@@ -162,6 +162,7 @@
   <!-- The model is not a drawing tool: it runs over the whole frame and can
        replace what is there. Kept hard right, away from the brushes. -->
   <ng-template pTemplate="end">
+    @if (!isAndroid) {
     <div class="tool-group tool-group--model">
       <span class="tool-group__label">Model</span>
       <p-splitButton
@@ -188,5 +189,6 @@
         ariaLabel="Use strokes as hints"
       ></p-togglebutton>
     </div>
+    }
   </ng-template>
 </p-toolbar>

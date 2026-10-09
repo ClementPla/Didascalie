@@ -1,4 +1,5 @@
-import { Routes } from '@angular/router';
+import { CanActivateFn, Routes } from '@angular/router';
+import { IS_ANDROID } from './core/platform';
 import { GalleryComponent } from './features/gallery/gallery.component';
 import {
   adminGuard,
@@ -10,6 +11,9 @@ import { ExportComponent } from './features/export/export.component';
 import { LauncherComponent } from './features/launcher/launcher.component';
 import { NewProjectComponent } from './features/launcher/new-project/new-project.component';
 import { RegistrationComponent } from './features/registration/components/registration.component';
+/** Views that do not exist in the tablet build. */
+const notOnAndroid: CanActivateFn = () => !IS_ANDROID;
+
 export const routes: Routes = [
   { path: '', component: LauncherComponent },
   { path: 'new', component: NewProjectComponent },
@@ -26,7 +30,7 @@ export const routes: Routes = [
   {
     path: 'export',
     component: ExportComponent,
-    canActivate: [projectStartedGuard],
+    canActivate: [notOnAndroid, projectStartedGuard],
   },
   {
     path: 'registration',

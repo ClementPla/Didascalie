@@ -1,3 +1,4 @@
+import { DOUBLE_TAP_MS, TAP_SLOP } from '../../../core/touch';
 import { Component, Input, ElementRef, OnDestroy, OnChanges, AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, NgZone, computed, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardModule } from 'primeng/card';
@@ -240,7 +241,54 @@ export class GalleryElementComponent
 
   // ── Hover Preview (for sequences with multiple frames) ───────────────────
 
+  // ── Touch ────────────────────────────────────────────────────────────────
+  // A finger has no hover and no reliable double-click: holding it down plays
+  // the preview, and two quick taps open the sequence.
+
+  private touchDownAt: { x: number; y: number } | null = null;
+  private lastTapAt = 0;
+  /** When a finger last touched this card, to tell the mouse events Android
+   *  synthesises after a tap from a real mouse. */
+  private lastTouchAt = 0;
+
+  public onTouchDown(event: PointerEvent): void {
+    if (event.pointerType !== 'touch') return;
+    this.lastTouchAt = performance.now();
+    this.touchDownAt = { x: event.clientX, y: event.clientY };
+    this.startPreviewSoon();
+  }
+
+  public onTouchUp(event: PointerEvent): void {
+    if (event.pointerType !== 'touch') return;
+    const down = this.touchDownAt;
+    this.onTouchCancel(event);
+    if (!down) return;
+    if (Math.hypot(event.clientX - down.x, event.clientY - down.y) > TAP_SLOP) {
+      return; // a scroll, not a tap
+    }
+    const now = performance.now();
+    if (now - this.lastTapAt < DOUBLE_TAP_MS) {
+      this.lastTapAt = 0;
+      this.openEditor();
+    } else {
+      this.lastTapAt = now;
+    }
+  }
+
+  public onTouchCancel(event: PointerEvent): void {
+    if (event.pointerType !== 'touch') return;
+    this.lastTouchAt = performance.now();
+    this.touchDownAt = null;
+    this.onMouseLeave();
+  }
+
   public onMouseEnter(): void {
+    // Ignore the hover Android invents after a tap: it would never end.
+    if (performance.now() - this.lastTouchAt < 1000) return;
+    this.startPreviewSoon();
+  }
+
+  private startPreviewSoon(): void {
     if (this.previewFrameIds().length <= 1) return;
 
     if (this.hoverTimer || this.loopInterval) return; // Already active
@@ -300,7 +348,14 @@ export class GalleryElementComponent
   /**
    * Open editor at this sequence.
    */
+  private lastOpenedAt = 0;
+
   public openEditor(): void {
+    // A double tap can arrive twice: from the taps counted above, and as the
+    // browser's own dblclick.
+    const now = performance.now();
+    if (now - this.lastOpenedAt < 600) return;
+    this.lastOpenedAt = now;
     this.thumbnailClicked.emit();
   }
 

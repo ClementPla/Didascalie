@@ -23,6 +23,7 @@ import { ToolSettingComponent } from './tool-setting/tool-setting.component';
 import { PythonFunctionsComponent } from './python-functions/python-functions.component';
 import { PythonSegmentationService } from './python-functions/python-segmentation.service';
 import { InferenceClientService } from '../../services/inference-client.service';
+import { IS_ANDROID } from '../../core/platform';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
 import { PropagationDialogComponent } from './multi-frames-options/propagation-dialog/propagation-dialog.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
@@ -196,7 +197,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     // Look for the user's Python server for as long as the editor is open, so
     // its functions show up without a connect step. Before the first await, so
     // it is always balanced by ngOnDestroy.
-    this.inferenceClient.startDiscovery();
+    if (!IS_ANDROID) this.inferenceClient.startDiscovery();
     await this.tauriEvents.initialize();
     this.initSubscriptions();
     this.ngZone.runOutsideAngular(() => {
@@ -218,7 +219,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
-    this.inferenceClient.stopDiscovery();
+    if (!IS_ANDROID) this.inferenceClient.stopDiscovery();
     // A volume is large; don't hold it while the editor is closed.
     this.volume.disable();
     window.removeEventListener(

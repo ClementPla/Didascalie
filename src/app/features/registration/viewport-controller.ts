@@ -170,6 +170,27 @@ export class ViewportController {
     }
   }
 
+  /**
+   * One step of a two-finger gesture: pan by (dx, dy) and scale by `factor`
+   * about `pivotViewport`. Applied at once, never eased: the image has to stay
+   * under the fingers.
+   */
+  pinch(
+    pivotViewport: { x: number; y: number },
+    factor: number,
+    dx: number,
+    dy: number,
+  ): void {
+    const pivotNative = this.viewportToNative(pivotViewport);
+    const ns = Math.min(this.maxScale, Math.max(this.minScale, this._scale() * factor));
+    this.targetScale = ns;
+    this.targetOffset = {
+      x: pivotViewport.x + dx - pivotNative.x * ns,
+      y: pivotViewport.y + dy - pivotNative.y * ns,
+    };
+    this.setTransformImmediate(ns, this.targetOffset);
+  }
+
   zoomIn(factor = 1.25):  void { this.zoomAt(this.viewportCenter(), factor); }
   zoomOut(factor = 1.25): void { this.zoomAt(this.viewportCenter(), 1 / factor); }
 

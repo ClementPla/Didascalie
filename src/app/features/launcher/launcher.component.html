@@ -20,11 +20,19 @@
 
   <header class="launcher-header">
     <h1>Didascalie</h1>
-    <p class="tagline">Open a project or start a new one.</p>
+    <p class="tagline">
+      {{
+        isAndroid
+          ? 'Open a project file sent to this tablet.'
+          : 'Open a project or start a new one.'
+      }}
+    </p>
     <div class="version-row">
       @if (update.currentVersion(); as version) {
         <span class="version-label">Version {{ version }}</span>
       }
+      <!-- The tablet build is updated by installing a new one. -->
+      @if (!isAndroid) {
       <p-button
         size="small"
         [text]="true"
@@ -34,6 +42,7 @@
         [loading]="update.checking()"
         (onClick)="checkForUpdates()"
       ></p-button>
+      }
     </div>
   </header>
 
@@ -65,6 +74,17 @@
     </div>
   }
 
+  @if (isAndroid) {
+    <div class="primary-actions">
+      <p-button
+        icon="pi pi-folder-open"
+        label="Open a .dida file"
+        size="large"
+        [loading]="isLoading()"
+        (click)="openFromDevice()"
+      ></p-button>
+    </div>
+  } @else {
   <div class="primary-actions">
     <p-button
       icon="pi pi-plus"
@@ -90,6 +110,7 @@
       (click)="openImportDialog()"
     ></p-button>
   </div>
+  }
 
   @if (recentProjects().length > 0) {
     <section class="recent">
@@ -104,9 +125,13 @@
           >
             <div class="recent-info">
               <div class="recent-name">{{ project.name }}</div>
-              <div class="recent-path" [title]="project.path">
-                {{ formatPath(project.path) }}
-              </div>
+              <!-- On the tablet the path is the application's own copy, which
+                   tells the user nothing. -->
+              @if (!isAndroid) {
+                <div class="recent-path" [title]="project.path">
+                  {{ formatPath(project.path) }}
+                </div>
+              }
             </div>
             @if (project.last_opened) {
               <div class="recent-time">

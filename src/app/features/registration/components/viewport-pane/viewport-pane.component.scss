@@ -13,6 +13,8 @@
   overflow: hidden;
   background: color-mix(in srgb, var(--p-content-background) 90%, #000);
   cursor: crosshair;
+  // Fingers pan and pinch the image; the page itself must not scroll or zoom.
+  touch-action: none;
 }
 
 .display-canvas {

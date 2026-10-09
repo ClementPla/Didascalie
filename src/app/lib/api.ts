@@ -886,6 +886,20 @@ export const api = {
     return invoke('delete_registration', { referenceFrameId, movingFrameId });
   },
 
+  // ── Projects on a device's shared storage (Android) ───────────────────────
+
+  /** Copy a project picked on the device into the application's storage;
+   *  `location` is a path or a `content://` URI. Returns the copy's path. */
+  importProjectFile: (location: string) =>
+    invoke<string>('import_project_file', { location }),
+
+  /** The project the application was opened with, already imported, or null. */
+  takeIncomingProject: () => invoke<string | null>('take_incoming_project'),
+
+  /** Write a copy of the open project, annotations included, to `location`. */
+  exportProjectFile: (location: string) =>
+    invoke<void>('export_project_file', { location }),
+
   /** The remote-control port: the one in use, and the one set for next launch. */
   getListenPort: () =>
     invoke<{ active: number; configured: number }>('get_listen_port'),

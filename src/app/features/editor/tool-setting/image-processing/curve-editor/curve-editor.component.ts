@@ -49,6 +49,8 @@ export class CurveEditorComponent
 
   // Interaction state
   private draggingIndex: number | null = null;
+  /** Hit-radius multiplier for the pointer that last went down. */
+  private touchSlop = 1;
   private dragStart: { x: number; y: number } | null = null;
   private hoverIndex: number | null = null;
   private resizeObserver?: ResizeObserver;
@@ -72,8 +74,9 @@ export class CurveEditorComponent
   }
   ngOnDestroy() {
     this.resizeObserver?.disconnect();
-    window.removeEventListener('mousemove', this.onWindowMouseMove);
-    window.removeEventListener('mouseup', this.onWindowMouseUp);
+    window.removeEventListener('pointermove', this.onWindowMouseMove);
+    window.removeEventListener('pointerup', this.onWindowMouseUp);
+    window.removeEventListener('pointercancel', this.onWindowMouseUp);
   }
 
   ngOnChanges(c: SimpleChanges) {
@@ -118,15 +121,25 @@ export class CurveEditorComponent
 
   // ── Mouse handling ───────────────────────────────────────────────────────
 
-  onMouseDown(event: MouseEvent) {
+  // Pointer events, so mouse, finger and pen all drive the same handlers.
+
+  /** Follow the pointer over the whole window until it is released. */
+  private trackDrag(): void {
+    window.addEventListener('pointermove', this.onWindowMouseMove);
+    window.addEventListener('pointerup', this.onWindowMouseUp);
+    window.addEventListener('pointercancel', this.onWindowMouseUp);
+  }
+
+  onMouseDown(event: PointerEvent) {
+    // A fingertip covers far more than a cursor does.
+    this.touchSlop = event.pointerType === 'touch' ? 2.5 : 1;
     const { offsetX, offsetY } = this.localCoords(event);
     const hit = this.hitTestNode(offsetX, offsetY);
 
     if (hit !== null) {
       this.draggingIndex = hit;
       this.dragStart = { x: offsetX, y: offsetY };
-      window.addEventListener('mousemove', this.onWindowMouseMove);
-      window.addEventListener('mouseup', this.onWindowMouseUp);
+      this.trackDrag();
     } else if (event.button === 0 && this.curve.length < this.maxNodes) {
       const newNode = this.canvasToCurve(offsetX, offsetY);
       const sorted = [...this.curve, newNode].sort((a, b) => a.x - b.x);
@@ -135,8 +148,7 @@ export class CurveEditorComponent
         (p) => p.x === newNode.x && p.y === newNode.y,
       );
       this.dragStart = { x: offsetX, y: offsetY };
-      window.addEventListener('mousemove', this.onWindowMouseMove);
-      window.addEventListener('mouseup', this.onWindowMouseUp);
+      this.trackDrag();
       this.emit();
       this.redraw();
     }
@@ -196,8 +208,9 @@ export class CurveEditorComponent
   private onWindowMouseUp = () => {
     this.draggingIndex = null;
     this.dragStart = null;
-    window.removeEventListener('mousemove', this.onWindowMouseMove);
-    window.removeEventListener('mouseup', this.onWindowMouseUp);
+    window.removeEventListener('pointermove', this.onWindowMouseMove);
+    window.removeEventListener('pointerup', this.onWindowMouseUp);
+    window.removeEventListener('pointercancel', this.onWindowMouseUp);
   };
 
   private localCoords(event: MouseEvent): { offsetX: number; offsetY: number } {
@@ -210,7 +223,8 @@ export class CurveEditorComponent
 
   private hitTestNode(cx: number, cy: number): number | null {
     let best = -1;
-    let bestDist = this.hitRadius * this.hitRadius;
+    const radius = this.hitRadius * this.touchSlop;
+    let bestDist = radius * radius;
     for (let i = 0; i < this.curve.length; i++) {
       const { cx: nx, cy: ny } = this.curveToCanvas(this.curve[i]);
       const dx = nx - cx,

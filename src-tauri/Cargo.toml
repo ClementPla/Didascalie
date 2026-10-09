@@ -50,7 +50,6 @@ rayon = "1.12.0"
 rmp-serde = "1.3.1"
 
 lazy_static = "1.5.0"
-zmq = "0.10.0"
 thiserror = "2.0.18"
 uuid = { version = "1.23.1", features = ["v4"] }
 parking_lot = "0.12.5"
@@ -86,6 +85,10 @@ tauri-plugin-opener = "2.5.5"
 ort = { version = "=2.0.0-rc.10", features = ["directml"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
+# The Python bridge and remote control. libzmq is built from C++ source, which
+# does not cross-compile to Android without its own toolchain work, and neither
+# feature has a use on a tablet.
+zmq = "0.10.0"
 # `commands::ml::encoder` registers providers one at a time and reports which
 # actually took, so extra providers widen the fallback chain rather than
 # forcing a choice. DirectML is *not* here — see the Windows-only block below.

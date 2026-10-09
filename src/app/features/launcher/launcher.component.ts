@@ -15,6 +15,8 @@ import {
 } from '../../services/project/project.service';
 import { ThemeService } from '../../services/theme.service';
 import { UpdateService } from '../../services/update.service';
+import { IS_ANDROID } from '../../core/platform';
+import { api } from '../../lib/api';
 import { LabelledSwitchComponent } from '../../shared/generics/labelled-switch/labelled-switch.component';
 import { ImportDialogComponent } from './import-dialog/import-dialog.component';
 
@@ -35,6 +37,7 @@ import { ImportDialogComponent } from './import-dialog/import-dialog.component';
   styleUrl: './launcher.component.scss',
 })
 export class LauncherComponent implements OnInit {
+  readonly isAndroid = IS_ANDROID;
   private projectService = inject(ProjectService);
   private router = inject(Router);
   private messageService = inject(MessageService);
@@ -47,6 +50,8 @@ export class LauncherComponent implements OnInit {
 
   ngOnInit(): void {
     this.recentProjects.set(this.projectService.getRecentProjects());
+    // The tablet build is updated by installing a new one.
+    if (IS_ANDROID) return;
     // Offer an app update on the first screen if one is available.
     void this.update.checkForUpdates();
   }
@@ -85,6 +90,29 @@ export class LauncherComponent implements OnInit {
     });
     if (!path) return;
     await this.openPath(path as string);
+  }
+
+  /**
+   * Android: pick a project from the device and import it. What the picker
+   * returns is a `content://` URI, not a path SQLite could open, so the file
+   * is copied into the application's storage and the copy is what opens.
+   */
+  async openFromDevice(): Promise<void> {
+    // No extension filter: Android filters by MIME type and has none for .dida.
+    const location = await open({ multiple: false });
+    if (!location) return;
+    this.isLoading.set(true);
+    try {
+      await this.openPath(await api.importProjectFile(location as string));
+    } catch (error) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Could not open project',
+        detail: String(error),
+      });
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
   async openRecent(project: RecentProject): Promise<void> {

@@ -12,6 +12,11 @@
   (mouseup)="onBackgroundMouseUp($event)"
   (wheel)="onBackgroundWheel($event)"
   (contextmenu)="onBackgroundContextMenu($event)"
+  (touchstart)="onBackgroundTouch($event)"
+  (touchmove)="onBackgroundTouch($event)"
+  (touchend)="onBackgroundTouch($event)"
+  (touchcancel)="onBackgroundTouch($event)"
+  style="touch-action: none"
 >
   @for (r of rulings(); track $index) {
     <line
@@ -101,7 +106,7 @@
         (pointerup)="onAnchorUp($event)"
         (contextmenu)="$event.preventDefault()"
       >
-        <title>Drag to move · Delete or right-click to remove</title>
+        <title>Drag to move · Delete, right-click or long press to remove</title>
       </circle>
       @if (first) {
         <text
