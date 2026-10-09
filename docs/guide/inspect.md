@@ -5,7 +5,7 @@ Use it to check labels over a whole sequence. A mask that flickers, drifts or
 disappears for a few frames is easy to miss frame by frame and easy to see at
 15 fps.
 
-The inspector is read-only.
+The inspector does not edit labels. It can mark a sequence as reviewed.
 
 ## Opening it
 
@@ -27,6 +27,7 @@ The inspector is read-only.
 | Next / previous sequence | ++arrow-right++ / ++arrow-left++ |
 | First / last frame | ++home++ / ++end++ |
 | Show only edges | ++ctrl+e++ |
+| Mark the sequence reviewed / not reviewed | ++r++ |
 
 The speed goes from 1 to 60 fps, and **Loop** restarts the sequence at the end.
 
@@ -35,6 +36,8 @@ chosen speed, playback slows down and the actual rate is shown next to the speed
 selector.
 
 Wheel zooms and dragging pans. Double-click a pane to fit the image again.
+Changing sequence fits the new one. Turn the **lock** button on to keep the
+zoom and position from one sequence to the next.
 Frames are loaded as previews of at most 2048 px. To see a large image at native
 resolution, open the frame in the editor.
 
@@ -51,6 +54,20 @@ Only masks are drawn. Vector shapes and keypoints are not shown.
 <!-- SCREENSHOT: the same frame with filled masks and with "Show only edges", side by side. -->
 <!-- SCREENSHOT: close-up of the player bar: timeline, speed, loop, opacity, edges toggle and label chips. -->
 
+## The left panel
+
+The panel lists the labels and every sequence of the project. Click a sequence
+to show it. Drag the panel's right edge to resize it. Double-click the edge to
+return to the default width.
+
+Click the name in a pane's header to copy it to the clipboard.
+
+## Marking a sequence as reviewed
+
+Click the circle in the pane header, or press ++r++, to mark every frame of the
+sequence as reviewed. Click it again to unmark them. With several panes, ++r++
+acts on the focused one.
+
 ## Fixing what you find
 
 Pause on the faulty frame and click the pencil in the pane header. The editor
@@ -63,6 +80,9 @@ subject or two annotators' work.
 
 - In the gallery, select several sequences and click **Inspect side by side**.
 - In the inspector, add one with **Compare with…**.
+- In the sequence list, ++ctrl++-click a sequence, or click the **+** on its
+  row, to add it. Do the same again to remove it. ++shift++-click adds every
+  sequence between the focused one and the one clicked.
 
 Panes play in step, by frame index. A shorter sequence holds its last frame
 while the longer ones continue.

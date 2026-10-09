@@ -36,12 +36,21 @@ export interface RelativeView {
 
 type PaneStatus = 'loading' | 'ready' | 'error';
 
+/** Every frame of a sequence was marked reviewed, or unmarked. */
+export interface ReviewChange {
+  sequenceId: number;
+  frameIds: number[];
+  reviewed: boolean;
+}
+
 /** Preview sizes requested from the backend (longest side, px). A few fixed
  *  steps rather than the exact pane size, so resizing the window does not
  *  throw the cache away at every pixel. */
 const PREVIEW_STEPS = [512, 768, 1024, 1536, 2048];
 /** Margin `ViewportController.fitImage` leaves around a fitted image (CSS px). */
 const FIT_MARGIN = 24;
+/** How long the title says its name was copied. */
+const COPIED_MS = 1500;
 
 /**
  * One sequence in the inspector: a read-only view of its frames with their
@@ -78,6 +87,9 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
   readonly range = input<readonly [number, number] | null>(null);
   readonly focused = input(false);
   readonly closable = input(false);
+  /** Keep the zoom and position when the sequence changes, instead of
+   *  fitting the new one. */
+  readonly keepView = input(false);
 
   readonly focusRequested = output<void>();
   readonly closeRequested = output<void>();
@@ -85,6 +97,8 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
   readonly editRequested = output<number>();
   /** The user zoomed or panned this pane. */
   readonly viewChanged = output<RelativeView>();
+  /** The user marked this sequence reviewed, or unmarked it. */
+  readonly reviewedChanged = output<ReviewChange>();
 
   readonly hostEl = viewChild.required<ElementRef<HTMLDivElement>>('host');
   readonly canvasEl =
@@ -95,6 +109,12 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
   readonly status = signal<PaneStatus>('loading');
   /** The frame to show is still being fetched. */
   readonly waiting = signal(false);
+  /** Every frame of the sequence is marked reviewed. */
+  readonly reviewed = signal(false);
+  /** The reviewed mark is being written. */
+  readonly reviewing = signal(false);
+  /** The name was just copied to the clipboard. */
+  readonly copied = signal(false);
 
   /** This sequence's frame for the panel's index. */
   readonly localIndex = computed(() =>
@@ -138,6 +158,10 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
   private resizeObserver?: ResizeObserver;
   /** The user chose a view: stop refitting the image when the pane resizes. */
   private userMoved = false;
+  /** The view to return to once the sequence being loaded can be laid out
+   *  (see `keepView`). */
+  private keptView: RelativeView | null = null;
+  private copiedTimer?: ReturnType<typeof setTimeout>;
   /** Set while this pane moves its own view for a reason that is not the
    *  user's (fitting, following another pane), so it is not echoed back. */
   private silent = false;
@@ -235,6 +259,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.viewReady = false;
     this.loadToken++;
+    clearTimeout(this.copiedTimer);
     this.resizeObserver?.disconnect();
     for (const remove of this.removeListeners) remove();
     this.controller.onRedrawNeeded = undefined;
@@ -298,6 +323,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     const native = this.nativeSize();
     if (!native) return;
     this.userMoved = false;
+    this.keptView = null;
     this.silent = true;
     this.controller.fitImage(native.width, native.height, false);
     this.silent = false;
@@ -307,13 +333,56 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  // ── Header actions ───────────────────────────────────────────────────────
+
+  async copyName(): Promise<void> {
+    const name = this.name();
+    try {
+      await navigator.clipboard.writeText(name);
+    } catch {
+      // No clipboard permission in this webview: go through a selection.
+      if (!copyThroughSelection(name)) return;
+    }
+    this.copied.set(true);
+    clearTimeout(this.copiedTimer);
+    this.copiedTimer = setTimeout(() => this.copied.set(false), COPIED_MS);
+  }
+
+  /** Mark every frame of the sequence reviewed, or unmark them all. */
+  async toggleReviewed(): Promise<void> {
+    const frames = this.frames();
+    if (frames.length === 0 || this.reviewing()) return;
+    const token = this.loadToken;
+    const change: ReviewChange = {
+      sequenceId: this.sequenceId(),
+      frameIds: frames.map((f) => f.id),
+      reviewed: !this.reviewed(),
+    };
+    this.reviewing.set(true);
+    try {
+      await api.setFramesReviewed(change.frameIds, change.reviewed);
+      // The pane may have moved to another sequence meanwhile.
+      if (token === this.loadToken) this.reviewed.set(change.reviewed);
+      if (this.viewReady) this.reviewedChanged.emit(change);
+    } catch (error) {
+      console.error('Failed to mark the sequence as reviewed:', error);
+    } finally {
+      this.reviewing.set(false);
+    }
+  }
+
   // ── Loading ──────────────────────────────────────────────────────────────
 
   private async loadSequence(id: number): Promise<void> {
     const token = ++this.loadToken;
+    // While a previous sequence is still loading there is no view to read:
+    // the one kept for it carries over.
+    if (!this.keepView()) this.keptView = null;
+    else if (this.userMoved) this.keptView = this.relativeView() ?? this.keptView;
     this.status.set('loading');
     this.shownIndex = null;
     this.userMoved = false;
+    this.reviewed.set(false);
     this.frames.set([]);
     this.clearCanvas();
 
@@ -321,6 +390,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
       const frames = await api.getSequenceFrames(id);
       if (token !== this.loadToken) return;
       this.frames.set(frames);
+      this.reviewed.set(frames.length > 0 && frames.every((f) => f.reviewed));
       this.status.set(frames.length > 0 ? 'ready' : 'error');
     } catch (error) {
       if (token !== this.loadToken) return;
@@ -355,7 +425,12 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     };
     this.cache = cache;
     this.applyRange(this.range());
-    if (!this.userMoved) this.fit();
+    if (this.keptView) {
+      this.applyRelativeView(this.keptView);
+      this.keptView = null;
+    } else if (!this.userMoved) {
+      this.fit();
+    }
     cache.setPlayhead(this.localIndex());
     this.draw();
   }
@@ -490,6 +565,23 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     this.removeListeners.push(() =>
       target.removeEventListener(type, handler, options),
     );
+  }
+}
+
+/** Copy `text` by selecting it in a throwaway field; false when refused. */
+function copyThroughSelection(text: string): boolean {
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.appendChild(field);
+  field.select();
+  try {
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    field.remove();
   }
 }
 

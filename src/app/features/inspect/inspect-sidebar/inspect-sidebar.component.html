@@ -90,14 +90,17 @@
 
     <div class="rows">
       @for (row of rows(); track row.id) {
-        <button
-          type="button"
+        <div
           class="row"
           [class.is-current]="row.id === focusedId()"
           [class.is-shown]="shown().has(row.id)"
-          [attr.aria-current]="row.id === focusedId() ? 'true' : null"
-          (click)="sequenceSelected.emit(row.id)"
         >
+          <button
+            type="button"
+            class="row-main"
+            [attr.aria-current]="row.id === focusedId() ? 'true' : null"
+            (click)="pick(row, $event)"
+          >
           <span class="thumb">
             @if (thumbnails().get(row.thumbnailFrameId); as src) {
               <img [src]="src" alt="" decoding="async" />
@@ -112,7 +115,36 @@
               {{ row.frameCount }} {{ row.frameCount === 1 ? 'frame' : 'frames' }}
             </span>
           </span>
-        </button>
+          </button>
+          <button
+            type="button"
+            class="row-toggle"
+            [class.is-on]="shown().has(row.id)"
+            [attr.aria-pressed]="shown().has(row.id)"
+            [attr.aria-label]="
+              (shown().has(row.id) ? 'Remove ' : 'Add ') +
+              row.name +
+              (shown().has(row.id) ? ' from' : ' to') +
+              ' the comparison'
+            "
+            [disabled]="!canToggle(row.id)"
+            [pTooltip]="
+              shown().has(row.id)
+                ? 'Remove from the comparison (Ctrl+click)'
+                : canAdd()
+                  ? 'Compare side by side (Ctrl+click)'
+                  : 'The comparison is full'
+            "
+            tooltipPosition="right"
+            (click)="sequenceToggled.emit(row.id)"
+          >
+            <i
+              class="pi"
+              [class.pi-check]="shown().has(row.id)"
+              [class.pi-plus]="!shown().has(row.id)"
+            ></i>
+          </button>
+        </div>
       } @empty {
         <p class="none">
           @if (sequences().length === 0) {
