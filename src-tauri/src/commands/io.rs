@@ -6,7 +6,8 @@ use regex::Regex;
 use rusqlite::{ params, OptionalExtension };
 use serde::{ Deserialize, Serialize };
 use sha2::{ Digest, Sha256 };
-use tauri::State;
+use rayon::prelude::*;
+use tauri::{ AppHandle, Manager };
 use std::fmt::Write;
 use crate::storage::DbState;
 use crate::utils::error::{ AppError, Result };
@@ -74,8 +75,25 @@ struct ImageFile {
 /// Behavior depends on `folders_as_sequences`:
 /// - true: Subfolders become sequences with multiple frames, loose images become single-frame sequences
 /// - false: Each image becomes its own single-frame sequence (flat mode)
+/// Run an import away from the main thread, which a plain command would hold
+/// for as long as it lasts: a folder of a few hundred videos takes minutes to
+/// index, and the window would be frozen throughout.
+async fn off_main_thread<T, F>(app: AppHandle, import: F) -> Result<T>
+where
+  F: FnOnce(&DbState) -> Result<T> + Send + 'static,
+  T: Send + 'static,
+{
+  tauri::async_runtime::spawn_blocking(move || import(&app.state::<DbState>()))
+    .await
+    .map_err(|e| AppError::Generic(e.to_string()))?
+}
+
 #[tauri::command]
-pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Result<ScanResult> {
+pub async fn scan_and_import_folder(app: AppHandle, options: ScanOptions) -> Result<ScanResult> {
+  off_main_thread(app, move |db| scan_and_import(db, options)).await
+}
+
+fn scan_and_import(db: &DbState, options: ScanOptions) -> Result<ScanResult> {
   let folder_path = PathBuf::from(&options.folder_path);
   log::info!("[import] scanning {}", folder_path.display());
   if !folder_path.exists() {
@@ -105,12 +123,17 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
   );
   let sequences = group_into_sequences(image_files, options.folders_as_sequences);
   log::info!("[import] grouped into {} sequence(s)", sequences.len());
-  let mut result = import_sequences(&db, sequences, options.embed_images, options.embed_threshold_kb)?;
+  let mut result = import_sequences(db, sequences, options.embed_images, options.embed_threshold_kb)?;
 
   // Videos stay on disk whatever `embed_images` says: see `crate::video`.
+  // Indexed before the connection is taken: that is where the time goes, and
+  // nothing else can use the project while it is held.
+  let videos: Vec<&ImageFile> = videos.iter().collect();
+  let indexes = probe_videos(&videos);
   db.with_conn(|conn| {
-    for video in &videos {
-      match import_video(conn, video, options.video_frame_step) {
+    let tx = conn.unchecked_transaction()?;
+    for (video, index) in videos.iter().zip(indexes) {
+      match import_video(&tx, video, index, options.video_frame_step) {
         Ok(frames) => {
           result.sequences_created += 1;
           result.frames_imported += frames;
@@ -118,6 +141,7 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
         Err(e) => result.errors.push(format!("Failed to import {}: {}", video.relative_path, e)),
       }
     }
+    tx.commit()?;
     Ok(())
   })?;
 
@@ -141,7 +165,11 @@ pub fn scan_and_import_folder(db: State<DbState>, options: ScanOptions) -> Resul
 ///   them apart from the project's, and they always form new sequences.
 ///   A video cannot be embedded, so one found there is reported as an error.
 #[tauri::command]
-pub fn add_images_to_project(db: State<DbState>, options: ScanOptions) -> Result<AddImagesResult> {
+pub async fn add_images_to_project(app: AppHandle, options: ScanOptions) -> Result<AddImagesResult> {
+  off_main_thread(app, move |db| add_images_to_open_project(db, options)).await
+}
+
+fn add_images_to_open_project(db: &DbState, options: ScanOptions) -> Result<AddImagesResult> {
   log::info!("[import] adding images from {}", options.folder_path);
   let regex = Regex::new(&options.input_regex).map_err(|e|
     AppError::Other(format!("Invalid filename pattern: {}", e))
@@ -281,6 +309,7 @@ fn add_images(
     }
   }
 
+  let mut new_videos: Vec<&ImageFile> = Vec::new();
   for video in &videos {
     if !inside {
       result.errors.push(format!(
@@ -300,7 +329,11 @@ fn add_images(
       result.frames_skipped += 1;
       continue;
     }
-    match import_video(&tx, video, options.video_frame_step) {
+    new_videos.push(video);
+  }
+  let indexes = probe_videos(&new_videos);
+  for (video, index) in new_videos.iter().zip(indexes) {
+    match import_video(&tx, video, index, options.video_frame_step) {
       Ok(frames) => {
         result.sequences_created += 1;
         result.frames_imported += frames;
@@ -440,7 +473,7 @@ fn get_sequence_name_from_path(relative_path: &str) -> String {
 }
 /// Import sequences and frames into database
 fn import_sequences(
-  db: &State<DbState>,
+  db: &DbState,
   sequences: HashMap<String, Vec<ImageFile>>,
   embed_images: bool,
   embed_threshold_kb: u32
@@ -533,8 +566,19 @@ fn import_frame(
 ///
 /// Indexing the file is the slow part and happens first, so nothing is written
 /// for a video ffmpeg cannot read.
-fn import_video(conn: &rusqlite::Connection, video: &ImageFile, step: u32) -> Result<usize> {
-  let index = crate::video::probe(&video.absolute_path)?;
+/// Index `videos`, several at a time: each is one pass of ffmpeg over the
+/// whole file, and a project can be made of hundreds.
+fn probe_videos(videos: &[&ImageFile]) -> Vec<Result<crate::video::VideoIndex>> {
+  videos.par_iter().map(|video| crate::video::probe(&video.absolute_path)).collect()
+}
+
+fn import_video(
+  conn: &rusqlite::Connection,
+  video: &ImageFile,
+  index: Result<crate::video::VideoIndex>,
+  step: u32
+) -> Result<usize> {
+  let index = index?;
   log::info!(
     "[import] {}: {} frame(s), {}x{}, {:.3} fps",
     video.relative_path,
