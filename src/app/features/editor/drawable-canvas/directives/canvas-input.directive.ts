@@ -1,3 +1,4 @@
+import { Tools } from '../../../../core/tools';
 import { LONG_PRESS_MS, TAP_SLOP } from '../../../../core/touch';
 import { Directive, HostListener, inject, output } from '@angular/core';
 import { ZoomPanService } from '../service/zoom-pan.service';
@@ -40,6 +41,15 @@ export class CanvasInputDirective {
     event.preventDefault();
     // A finger resting on the canvas: Android reports the long press itself.
     if (this.longPressBlocked) return;
+    // A pen held with its side button reports a right click; when the button
+    // is bound to something else, that is not a request for the picker.
+    if (
+      this.penButtonHeld &&
+      this.editorService.penButtonEnabled &&
+      this.editorService.penButtonAction !== 'picker'
+    ) {
+      return;
+    }
     if (this.longPressAt) this.claimLongPress();
     this.openPicker(event);
   }
@@ -89,7 +99,43 @@ export class CanvasInputDirective {
     this.recordPressure(event);
   }
 
+  @HostListener('pointerup', ['$event'])
+  @HostListener('pointercancel', ['$event'])
+  onPointerUpPen(event: PointerEvent) {
+    if (event.pointerType === 'pen') this.penContact = false;
+  }
+
+  /**
+   * The pen's side button is down.
+   *
+   * Read from pointer events: a stroke arrives as touch events, which carry no
+   * buttons. On Android it can only be read while the pen *hovers*, where the
+   * button shows as bit 1; once the pen touches, bit 1 means contact and the
+   * button is no longer reported (`MainActivity` strips it so that the stroke
+   * is delivered at all). So the value seen just before contact is kept for the
+   * stroke. Bits 2 and 32, a barrel button and an eraser end, are what a
+   * desktop tablet reports, during contact too.
+   */
+  private penButtonHeld = false;
+  /** The pen is on the surface, between its `pointerdown` and `pointerup`. */
+  private penContact = false;
+  /** What the pointer that last went down was: a stroke arrives as touch
+   *  events, which do not tell a finger from a pen. */
+  private lastPointerType = 'mouse';
+  /** The gesture in progress swapped tools (pen button, or a finger panning
+   *  in pen-only mode); the tool is put back when it ends. */
+  private toolSwapped = false;
+
   private recordPressure(event: PointerEvent) {
+    this.lastPointerType = event.pointerType;
+    if (event.pointerType !== 'pen') {
+      this.penButtonHeld = false;
+    } else {
+      if (event.type === 'pointerdown') this.penContact = true;
+      this.penButtonHeld = this.penContact
+        ? this.penButtonHeld || (event.buttons & (2 | 32)) !== 0
+        : (event.buttons & (1 | 2 | 32)) !== 0;
+    }
     if (event.pointerType === 'mouse') {
       // Mouse has no real pressure (constant 0.5 while pressed) — no scaling.
       this.editorService.strokeIsPressure = false;
@@ -228,7 +274,47 @@ export class CanvasInputDirective {
 
   // ── Shared pointer logic ─────────────────────────────────────────────────
 
+  /** The same event as a plain left press, for a pen whose side button made
+   *  it arrive as a right one. */
+  private asLeftPress(event: MouseEvent): MouseEvent {
+    const left = new MouseEvent(event.type, {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      button: 0,
+    });
+    Object.defineProperty(left, 'target', { value: event.target });
+    Object.defineProperty(left, 'currentTarget', { value: event.currentTarget });
+    return left;
+  }
+
   private pointerDown(event: MouseEvent) {
+    if (this.penButtonHeld && this.editorService.penButtonEnabled) {
+      const action = this.editorService.penButtonAction;
+      if (action === 'picker') {
+        this.openPicker(
+          new MouseEvent('contextmenu', {
+            clientX: event.clientX,
+            clientY: event.clientY,
+            button: 2,
+          }),
+        );
+        return;
+      }
+      this.editorService.activateTemporaryTool(
+        action === 'pan' ? Tools.PAN : Tools.ERASER,
+      );
+      this.toolSwapped = true;
+      event = this.asLeftPress(event);
+    } else if (
+      this.editorService.penOnlyDrawing &&
+      this.lastPointerType === 'touch' &&
+      !this.editorService.canPan()
+    ) {
+      // Pen-only drawing: a finger moves the image instead.
+      this.editorService.activateTemporaryTool(Tools.PAN);
+      this.toolSwapped = true;
+    }
+
     // The right button belongs to the label picker (see `onContextMenu`), so it
     // must not start a drag or a stroke. The middle button is the opposite case:
     // holding it is how you pan, so it has to reach the pan branch below.
@@ -293,15 +379,23 @@ export class CanvasInputDirective {
       this.editorService.restoreLastTool();
     }
 
-    this.zoomPanService.endDrag();
-    if (this.editorService.canPan()) return;
+    try {
+      this.zoomPanService.endDrag();
+      if (this.editorService.canPan()) return;
 
-    if (this.editorService.isVectorTool()) {
-      this.vectorEditor.onPointerUp();
-      return;
+      if (this.editorService.isVectorTool()) {
+        this.vectorEditor.onPointerUp();
+        return;
+      }
+
+      await this.drawService.endDraw(event);
+    } finally {
+      // After the stroke is committed, so it ends with the tool it began with.
+      if (this.toolSwapped) {
+        this.toolSwapped = false;
+        this.editorService.restoreLastTool();
+      }
     }
-
-    await this.drawService.endDraw(event);
   }
 
   // ── Pinch (zoom + pan) ───────────────────────────────────────────────────
@@ -332,6 +426,11 @@ export class CanvasInputDirective {
   private cancelActiveStroke() {
     this.zoomPanService.endDrag();
     this.drawService.cancelDraw();
+    // The gesture that borrowed a tool is over, without reaching `pointerUp`.
+    if (this.toolSwapped) {
+      this.toolSwapped = false;
+      this.editorService.restoreLastTool();
+    }
   }
 
   /** Distance between the first two touches (client px). */

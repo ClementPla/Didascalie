@@ -66,6 +66,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Installing: install.md
+  - Android tablets: android.md
   - Quickstart: quickstart.md
   - User guide:
       - Projects and files: guide/projects.md

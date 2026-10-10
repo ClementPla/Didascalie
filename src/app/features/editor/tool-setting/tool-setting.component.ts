@@ -2,7 +2,7 @@ import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { PanelModule } from 'primeng/panel';
 import { AccordionModule } from 'primeng/accordion';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
-import { EditorService } from '../services/editor.service';
+import { EditorService, PenButtonAction } from '../services/editor.service';
 import { FormsModule } from '@angular/forms';
 import { SliderModule } from 'primeng/slider';
 import { ProjectService } from '../../../services/project/project.service';
@@ -48,6 +48,14 @@ export class ToolSettingComponent {
   flags = inject(FeatureFlagsService);
 
   ppOption = PostProcessOption;
+
+  /** What a stroke made with the pen's side button held does instead. */
+  readonly penButtonActions: { label: string; value: PenButtonAction }[] = [
+    { label: 'Off', value: 'none' },
+    { label: 'Eraser', value: 'eraser' },
+    { label: 'Pan', value: 'pan' },
+    { label: 'Labels', value: 'picker' },
+  ];
 
   /** Whether the selected mode goes through the shared invert / smooth /
    *  connectivity refinement, which Otsu and flood fill both do. */

@@ -168,25 +168,65 @@
       </p-accordion-panel>
     }
 
-    @if (editorService.pressureSensitivity) {
+    @if (editorService.touchSettingsOpen) {
       <p-accordion-panel value="2">
-        <p-accordion-header>Pen input</p-accordion-header>
+        <p-accordion-header>Touch &amp; pen</p-accordion-header>
         <p-accordion-content>
           <div class="settings-section">
             <div
-              class="setting-row"
-              pTooltip="How much wider the brush gets at full pen pressure."
+              class="switch-row"
+              pTooltip="Pressing harder draws a wider stroke."
             >
-              <span class="setting-row__label">Max size</span>
-              <p-slider
-                [(ngModel)]="editorService.pressureGain"
-                [min]="1"
-                [max]="10"
-                [step]="0.5"
-              ></p-slider>
-              <span class="setting-row__value setting-row__value--readonly"
-                >&times;{{ editorService.pressureGain | number: '1.1-1' }}</span
+              <label class="switch-row__label" for="touch-pressure"
+                >Pressure sensitivity</label
               >
+              <p-toggleswitch
+                inputId="touch-pressure"
+                [(ngModel)]="editorService.pressureSensitivity"
+              ></p-toggleswitch>
+            </div>
+            @if (editorService.pressureSensitivity) {
+              <div
+                class="setting-row"
+                pTooltip="How much wider the brush gets at full pen pressure."
+              >
+                <span class="setting-row__label">Max size</span>
+                <p-slider
+                  [(ngModel)]="editorService.pressureGain"
+                  [min]="1"
+                  [max]="10"
+                  [step]="0.5"
+                ></p-slider>
+                <span class="setting-row__value setting-row__value--readonly"
+                  >&times;{{ editorService.pressureGain | number: '1.1-1' }}</span
+                >
+              </div>
+            }
+
+            <div
+              class="switch-row"
+              pTooltip="Only the pen draws. A finger pans the image."
+            >
+              <label class="switch-row__label" for="touch-pen-only"
+                >Draw with the pen only</label
+              >
+              <p-toggleswitch
+                inputId="touch-pen-only"
+                [(ngModel)]="editorService.penOnlyDrawing"
+              ></p-toggleswitch>
+            </div>
+
+            <div class="setting-block">
+              <span class="switch-row__label">Pen side button</span>
+              <p-selectButton
+                class="mode-select"
+                [options]="penButtonActions"
+                [(ngModel)]="editorService.penButtonAction"
+                optionLabel="label"
+                optionValue="value"
+                [allowEmpty]="false"
+                aria-label="What a stroke with the pen's side button held does"
+              ></p-selectButton>
             </div>
           </div>
         </p-accordion-content>

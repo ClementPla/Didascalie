@@ -1,4 +1,10 @@
 <app-editor-toolbar></app-editor-toolbar>
+@if (narrowPortrait() && shouldShowLeftPanel) {
+  <app-label-bar
+    class="px-2"
+    (sequenceSelected)="jumpToSequence($event)"
+  ></app-label-bar>
+}
 <div
   class="editor flex flex-1 gap-2 min-h-0 overflow-hidden px-2 relative w-full xl:gap-3"
 >
@@ -8,7 +14,7 @@
   ></app-quick-access-menu>
 
   <!-- Left column: Labels + Sequence navigator -->
-  @if (shouldShowLeftPanel && !labelsCollapsed) {
+  @if (shouldShowLeftPanel && !labelsCollapsed && !narrowPortrait()) {
     <div class="flex flex-col gap-2 max-w-[32rem] min-w-0 overflow-y-auto">
       @if (shouldShowLabels) {
         <app-labels></app-labels>
@@ -24,7 +30,7 @@
   <!-- Center column -->
   <div class="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden relative">
     <!-- Floating panel toggles (overlay the canvas edges; do not push layout) -->
-    @if (shouldShowLeftPanel) {
+    @if (shouldShowLeftPanel && !narrowPortrait()) {
       <button
         pButton
         type="button"
@@ -85,6 +91,41 @@
         <span class="font-semibold truncate">
           {{ currentSequenceName }}
         </span>
+        <!-- A tablet has no arrow keys: the frames are stepped and scrubbed
+             here, without opening anything. -->
+        @if (isAndroid && totalFrames > 1) {
+          <div class="frame-scrubber">
+            <button
+              pButton
+              type="button"
+              icon="pi pi-step-backward"
+              severity="secondary"
+              [text]="true"
+              size="small"
+              aria-label="Previous frame"
+              (click)="stepFrame(-1)"
+            ></button>
+            <p-slider
+              class="frame-scrubber__slider"
+              [ngModel]="currentFrameIndex"
+              (ngModelChange)="scrubToFrame($event)"
+              [min]="0"
+              [max]="totalFrames - 1"
+              [step]="1"
+              ariaLabel="Frame"
+            />
+            <button
+              pButton
+              type="button"
+              icon="pi pi-step-forward"
+              severity="secondary"
+              [text]="true"
+              size="small"
+              aria-label="Next frame"
+              (click)="stepFrame(1)"
+            ></button>
+          </div>
+        }
         <div class="flex flex-shrink-0 gap-4 items-center">
           @if (volume.enabled()) {
             <span
@@ -380,16 +421,17 @@
     </ng-template>
 
     <!-- Touch: touchscreen / stylus pressure -->
+    <!-- One button: the touch and pen options are in the settings panel. -->
     <ng-template [appMenuGroup]="'Touch'">
       <p-togglebutton
-        [(ngModel)]="editorService.pressureSensitivity"
-        onIcon="pi pi-gauge"
-        offIcon="pi pi-gauge"
+        [(ngModel)]="editorService.touchSettingsOpen"
+        onIcon="pi pi-pencil"
+        offIcon="pi pi-pencil"
         [onLabel]="''"
         [offLabel]="''"
-        pTooltip="Pressure scales brush size (touch/stylus; max size in the panel)"
+        pTooltip="Touch and pen options (settings in the panel)"
         tooltipPosition="left"
-        ariaLabel="Pressure sensitivity"
+        ariaLabel="Touch and pen options"
       ></p-togglebutton>
     </ng-template>
   </app-vertical-menu>

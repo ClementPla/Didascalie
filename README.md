@@ -77,7 +77,7 @@ There are several good open-source annotation tools already. Reasons this one mi
 - **Large medical images stay responsive.** Decoding, mask encoding and file I/O run in a compiled Rust backend.
 - **Masks and vector shapes in one tool**, convertible in both directions.
 - **A project is one file.** Sending an annotation task to a collaborator, or getting it back, means sending that file.
-- **Native installers** for Windows, macOS (Intel and Apple Silicon) and Linux.
+- **Native installers** for Windows, macOS (Intel and Apple Silicon) and Linux. An Android tablet build is on the way.
 - **It has been used for real work.** Annotations made with it have gone into published research (the [DNAi study](https://academic.oup.com/nar/article/54/7/gkag335/8657744?searchresult=1)).
 - **It was built with the people who annotate.** Clinicians and researchers from several medical fields have used it on real data throughout development.
 - **It is easy to influence.** A young solo project with no fixed roadmap. See [Contributing](#contributing).
@@ -126,6 +126,10 @@ It requires `numpy` and `Pillow`, plus `pyzmq` and `msgpack` for the Python brid
 Download the installer for your platform from the [Releases page](https://github.com/ClementPla/Didascalie/releases). The application updates itself afterwards.
 
 Training works on the CPU. Using an NVIDIA GPU needs the CUDA Toolkit: see [Installing](https://didascalie.readthedocs.io/install/).
+
+### Android tablets
+
+Didascalie also runs on Android tablets, with finger and pen input: open a `.dida` file sent to the tablet, annotate, and save a copy back. It works, but no APK is published yet, so for now it has to be [built from source](https://didascalie.readthedocs.io/android/). Model-assisted labelling, video projects and the Python bridge are not part of the tablet build.
 
 ### Building from source
 

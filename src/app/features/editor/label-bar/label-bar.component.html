@@ -1,0 +1,118 @@
+<div class="label-bar">
+  <div class="label-bar__row">
+    @if (hasSegmentation) {
+      <p-button
+        [icon]="labels.showAllLabels ? 'pi pi-eye' : 'pi pi-eye-slash'"
+        severity="secondary"
+        [rounded]="true"
+        [text]="true"
+        size="small"
+        [ariaLabel]="labels.showAllLabels ? 'Hide all labels' : 'Show all labels'"
+        (onClick)="toggleAllVisibility()"
+      />
+      <p-slider
+        class="label-bar__opacity"
+        [(ngModel)]="editor.labelOpacity"
+        [min]="0"
+        [max]="1"
+        [step]="0.01"
+        ariaLabel="Label opacity"
+        (onChange)="editor.requestCanvasRedraw()"
+      />
+
+      <div class="label-bar__chips">
+        @for (label of labels.listSegmentationLabels; track label.id) {
+          <div
+            class="chip"
+            [class.chip--active]="label === labels.activeLabel"
+            [class.chip--hidden]="!label.isVisible"
+          >
+            <button
+              type="button"
+              class="chip__eye"
+              [attr.aria-label]="(label.isVisible ? 'Hide ' : 'Show ') + label.label"
+              (click)="toggleVisibility(label)"
+            >
+              <i [class]="label.isVisible ? 'pi pi-eye' : 'pi pi-eye-slash'"></i>
+            </button>
+            <button
+              type="button"
+              class="chip__name"
+              [attr.aria-pressed]="label === labels.activeLabel"
+              (click)="activate(label)"
+            >
+              <span class="chip__swatch" [style.background]="label.color"></span>
+              {{ label.label }}
+            </button>
+          </div>
+        }
+      </div>
+
+      <p-button
+        icon="pi pi-trash"
+        severity="danger"
+        [rounded]="true"
+        [text]="true"
+        size="small"
+        [disabled]="!labels.activeLabel"
+        [ariaLabel]="'Clear ' + (labels.activeLabel?.label ?? 'label') + ' on this frame'"
+        (onClick)="clearActive()"
+      />
+    } @else {
+      <span class="label-bar__spacer"></span>
+    }
+
+    <p-button
+      icon="pi pi-tags"
+      severity="secondary"
+      [outlined]="true"
+      size="small"
+      ariaLabel="All class settings"
+      (onClick)="classesPopover.toggle($event)"
+    />
+    @if (hasSeveralSequences) {
+      <p-button
+        icon="pi pi-list"
+        severity="secondary"
+        [outlined]="true"
+        size="small"
+        ariaLabel="Sequences"
+        (onClick)="sequencesPopover.toggle($event)"
+      />
+    }
+  </div>
+
+  @if (project.isInstanceSegmentation() && labels.activeLabel; as active) {
+    <div class="label-bar__row label-bar__row--instances">
+      <!-- Keyed on the label: the picker scans its label's mask when it is
+           created, so each label gets its own. -->
+      @for (label of [active]; track label.id) {
+        <app-instance-label class="label-bar__instances" [label]="label" [compact]="true" />
+      }
+      <p-togglebutton
+        class="icon-toggle"
+        [(ngModel)]="editor.incrementAfterStroke"
+        onIcon="pi pi-forward"
+        offIcon="pi pi-forward"
+        [onLabel]="''"
+        [offLabel]="''"
+        size="small"
+        ariaLabel="Start a new instance after each stroke"
+      />
+    </div>
+  }
+</div>
+
+<p-popover #classesPopover>
+  <div class="label-bar__popover">
+    <app-labels></app-labels>
+  </div>
+</p-popover>
+
+<p-popover #sequencesPopover>
+  <div class="label-bar__popover">
+    <app-sequence-navigator
+      (sequenceSelected)="sequenceSelected.emit($event); sequencesPopover.hide()"
+    ></app-sequence-navigator>
+  </div>
+</p-popover>

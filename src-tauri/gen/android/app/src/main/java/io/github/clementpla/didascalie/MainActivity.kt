@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
 import android.view.View
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
@@ -36,6 +37,38 @@ class MainActivity : TauriActivity() {
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     receiveProject(intent)
+  }
+
+  // A pen stroke made with the pen's side button held never reaches the page:
+  // the webview takes it as a right-click gesture and reports one context menu
+  // when the pen lifts. The page binds that button itself (eraser, pan…), and
+  // already knows it is held from the hover that precedes the stroke, so the
+  // stroke is passed on as an ordinary one, with the button taken out.
+  override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+    val penButton = MotionEvent.BUTTON_STYLUS_PRIMARY or MotionEvent.BUTTON_SECONDARY
+    val isPen = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
+    if (!isPen || event.buttonState and penButton == 0) {
+      return super.dispatchTouchEvent(event)
+    }
+
+    val count = event.pointerCount
+    val properties = Array(count) { MotionEvent.PointerProperties() }
+    val coords = Array(count) { MotionEvent.PointerCoords() }
+    for (i in 0 until count) {
+      event.getPointerProperties(i, properties[i])
+      event.getPointerCoords(i, coords[i])
+    }
+    val plain = MotionEvent.obtain(
+      event.downTime, event.eventTime, event.action, count, properties, coords,
+      event.metaState, event.buttonState and penButton.inv(),
+      event.xPrecision, event.yPrecision, event.deviceId, event.edgeFlags,
+      event.source, event.flags
+    )
+    try {
+      return super.dispatchTouchEvent(plain)
+    } finally {
+      plain.recycle()
+    }
   }
 
   // "Open with Didascalie" on a .dida file. The file is only reachable through

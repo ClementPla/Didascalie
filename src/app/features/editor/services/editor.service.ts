@@ -29,6 +29,9 @@ import { Tool, Tools, PostProcessOption } from '../../../core/tools';
  * inside a method still counts as a read during change detection, so those
  * calls become reactive too, with no change at their call sites.
  */
+/** What the pen's side button can be bound to. */
+export type PenButtonAction = 'none' | 'eraser' | 'pan' | 'picker';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -110,6 +113,25 @@ export class EditorService {
   private readonly _pressureSensitivity = signal(false);
   get pressureSensitivity(): boolean { return this._pressureSensitivity(); }
   set pressureSensitivity(v: boolean) { this._pressureSensitivity.set(v); }
+
+  /** Only the pen draws; a finger pans instead. */
+  private readonly _penOnlyDrawing = signal(false);
+  get penOnlyDrawing(): boolean { return this._penOnlyDrawing(); }
+  set penOnlyDrawing(v: boolean) { this._penOnlyDrawing.set(v); }
+
+  /** The "Touch & pen" section of the settings panel is open. Its options stay
+   *  in effect when it is closed. */
+  private readonly _touchSettingsOpen = signal(false);
+  get touchSettingsOpen(): boolean { return this._touchSettingsOpen(); }
+  set touchSettingsOpen(v: boolean) { this._touchSettingsOpen.set(v); }
+
+  /** Whether the pen's side button does something while it is held. */
+  get penButtonEnabled(): boolean { return this._penButtonAction() !== 'none'; }
+
+  /** What a stroke made with the pen's side button held does instead. */
+  private readonly _penButtonAction = signal<PenButtonAction>('none');
+  get penButtonAction(): PenButtonAction { return this._penButtonAction(); }
+  set penButtonAction(v: PenButtonAction) { this._penButtonAction.set(v); }
 
   /** Live pointer pressure in [0, 1]. Updated per pointer event by the canvas
    *  input directive, read by the drawing tools and cursor. */
@@ -212,8 +234,13 @@ export class EditorService {
   }
 
   public activatePanMode() {
+    this.activateTemporaryTool(Tools.PAN);
+  }
+
+  /** Switch to `tool` for the length of a gesture; `restoreLastTool` ends it. */
+  public activateTemporaryTool(tool: Tool) {
     this._lastTool = this.selectedTool;
-    this.selectedTool = Tools.PAN;
+    this.selectedTool = tool;
   }
 
   public affectsMultipleLabels(): boolean {

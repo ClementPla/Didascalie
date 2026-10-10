@@ -34,6 +34,8 @@ export class InstanceLabelComponent implements OnInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
 
   readonly label = input.required<SegLabel>();
+  /** One scrolling line of tiles, without the heading and the hint. */
+  readonly compact = input(false);
 
   /** Instance ids currently painted on this label's mask (recomputed lazily). */
   private usedInstances = new Set<number>();

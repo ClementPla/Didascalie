@@ -13,16 +13,9 @@
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:launchMode="singleTask"
-            android:screenOrientation="sensorLandscape"
             android:label="@string/main_activity_title"
             android:name=".MainActivity"
             android:exported="true">
-            <!-- Android 16 ignores an orientation lock on large screens unless
-                 the activity says it is not ready for that. The editor is laid
-                 out for a wide screen. -->
-            <property
-                android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
-                android:value="true" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

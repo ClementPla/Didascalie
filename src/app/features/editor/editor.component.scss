@@ -65,3 +65,23 @@
 .collapse-toggle--right {
   right: 0.4rem;
 }
+
+/* Frame stepper in the status strip (tablet). */
+.frame-scrubber {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 40rem;
+
+  &__slider {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  // The strip is dark in every theme; a themed text button would vanish on it.
+  button.p-button {
+    color: #fff;
+  }
+}

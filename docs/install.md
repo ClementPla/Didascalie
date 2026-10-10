@@ -23,6 +23,11 @@ platform from the [Releases page](https://github.com/ClementPla/Didascalie/relea
 
 Didascalie checks for new releases on start-up and can update itself in place.
 
+## Android tablets
+
+There is no prebuilt APK yet. The application does run on Android tablets when
+built from source: see [Android tablets](android.md).
+
 ## Optional: GPU training
 
 By default, the segmentation head is trained on the CPU. This is slower but needs

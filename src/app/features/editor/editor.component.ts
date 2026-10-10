@@ -23,7 +23,8 @@ import { ToolSettingComponent } from './tool-setting/tool-setting.component';
 import { PythonFunctionsComponent } from './python-functions/python-functions.component';
 import { PythonSegmentationService } from './python-functions/python-segmentation.service';
 import { InferenceClientService } from '../../services/inference-client.service';
-import { IS_ANDROID } from '../../core/platform';
+import { IS_ANDROID, NARROW_PORTRAIT } from '../../core/platform';
+import { LabelBarComponent } from './label-bar/label-bar.component';
 import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
 import { PropagationDialogComponent } from './multi-frames-options/propagation-dialog/propagation-dialog.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
@@ -77,6 +78,7 @@ import { experimentalEditorPanes } from '../../experimental/registry';
     LabelsComponent,
     ToolSettingComponent,
     PythonFunctionsComponent,
+    LabelBarComponent,
     MultiFramesOptionsComponent,
     PropagationDialogComponent,
     QuickAccessMenuComponent,
@@ -107,6 +109,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   propagation = inject(PropagationService);
   private notifications = inject(NotificationService);
   volume = inject(MaskVolumeService);
+  /** A tablet held upright: the labels go in a bar above the canvas. */
+  readonly narrowPortrait = NARROW_PORTRAIT;
+  readonly isAndroid = IS_ANDROID;
   pythonSegmentation = inject(PythonSegmentationService);
   private inferenceClient = inject(InferenceClientService);
 
@@ -427,7 +432,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Move `step` frames within the open sequence, wrapping at either end. */
-  private stepFrame(step: number): void {
+  public stepFrame(step: number): void {
     const total = this.sequenceService.frameCount();
     if (total < 2) return;
     const from = this.sequenceService.currentFrameIndex();
@@ -451,6 +456,12 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
    * requests that arrive mid-load, keep the latest and go there next, so the
    * editor always ends on the slice the drag ended on.
    */
+  /** Go to the frame a slider is being dragged over. Frames are asked for
+   *  faster than they load; the latest request wins (see `goToSlice`). */
+  public scrubToFrame(index: number): void {
+    void this.goToSlice(index);
+  }
+
   private async goToSlice(z: number): Promise<void> {
     if (this.navInFlight) {
       this.pendingSlice = z;
@@ -669,7 +680,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.editorService.penPostProcess ||
       this.editorService.eraserPostProcess ||
       this.editorService.showBoundingBox ||
-      this.editorService.pressureSensitivity
+      this.editorService.touchSettingsOpen
     );
   }
 

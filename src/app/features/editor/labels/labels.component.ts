@@ -72,7 +72,12 @@ export class LabelsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    if (this.labelsService.listSegmentationLabels.length > 0) {
+    // Only when there is none: this panel can also be opened from the label
+    // bar, mid-work, and must not put the first label back.
+    if (
+      !this.labelsService.activeLabel &&
+      this.labelsService.listSegmentationLabels.length > 0
+    ) {
       this.labelsService.activeLabel = this.labelsService.listSegmentationLabels[0];
     }
   }

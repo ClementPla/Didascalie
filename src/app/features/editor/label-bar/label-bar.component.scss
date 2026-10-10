@@ -1,0 +1,100 @@
+:host {
+  display: block;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.label-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius, 6px);
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  &__opacity {
+    flex: 0 0 5rem;
+    margin-inline: 0.4rem;
+  }
+
+  // The labels scroll sideways; the controls on either side stay put.
+  &__chips {
+    display: flex;
+    flex: 1 1 0;
+    gap: 0.4rem;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  &__spacer {
+    flex: 1 1 0;
+  }
+
+  &__instances {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+.chip {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 999px;
+  overflow: hidden;
+
+  &--active {
+    border-color: var(--p-primary-color);
+    background: color-mix(in srgb, var(--p-primary-color) 22%, transparent);
+  }
+
+  &--hidden .chip__name {
+    opacity: 0.45;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  // Sized for a fingertip rather than a cursor.
+  &__eye {
+    padding: 0.45rem 0.35rem 0.45rem 0.7rem;
+    opacity: 0.7;
+  }
+
+  &__name {
+    padding: 0.45rem 0.8rem 0.45rem 0.35rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  &__swatch {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    flex: 0 0 auto;
+  }
+}
+
+.label-bar__popover {
+  width: min(32rem, 90vw);
+  max-height: 70vh;
+  overflow-y: auto;
+}
