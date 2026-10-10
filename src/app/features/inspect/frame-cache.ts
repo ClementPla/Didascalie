@@ -14,19 +14,16 @@ export interface OverlayLabel {
   palette: number[];
 }
 
-/** Frames fetched at once. Each one is a file read, a decode and a composite
- *  on the Rust side, so more than a few only queue up behind each other. */
+/** Frames fetched at once. Each is a read, a decode and a composite on the
+ *  Rust side. */
 const CONCURRENCY = 4;
-/** Never cache fewer frames than this, whatever the budget: playback needs a
- *  little look-ahead to be smooth at all. */
+/** Fewest frames cached, whatever the budget. */
 const MIN_FRAMES = 8;
 /** Share of a sliding window kept ahead of the playhead. */
 const AHEAD_SHARE = 0.75;
 
-/**
- * The size a `width×height` frame is previewed at. Mirrors `preview_dimensions`
- * in `src-tauri/src/commands/inspect.rs`; only used here to estimate memory.
- */
+/** The size a `width×height` frame is previewed at, as `preview_dimensions`
+ *  in `src-tauri/src/commands/inspect.rs`. Used to estimate memory. */
 export function previewDimensions(
   width: number,
   height: number,
@@ -40,16 +37,12 @@ export function previewDimensions(
 }
 
 /**
- * The decoded frames of one sequence around the playhead.
+ * The decoded frames of one sequence around the playhead, fetched ahead of
+ * time. A sequence that fits the memory budget is cached whole; a longer one
+ * keeps a window sliding with the playhead, mostly ahead of it.
  *
- * Playback asks for a frame every few tens of milliseconds, which is faster
- * than one can be read, decoded and composited — so frames are fetched ahead
- * of time. A sequence that fits the memory budget ends up cached whole, and
- * looping it costs nothing; a longer one keeps a window that slides with the
- * playhead, mostly ahead of it.
- *
- * Nothing here is reactive: the owner moves the playhead (`setPlayhead`) and
- * is told when a frame lands (`onFrameReady`).
+ * Not reactive: the owner moves the playhead (`setPlayhead`) and is told when
+ * a frame lands (`onFrameReady`).
  */
 export class SequenceFrameCache {
   /** A frame the owner is waiting for became available. */
@@ -57,8 +50,8 @@ export class SequenceFrameCache {
 
   private readonly cached = new Map<number, InspectFrame>();
   private readonly inflight = new Set<number>();
-  /** Frames that could not be loaded. Not retried, and reported as ready so
-   *  one unreadable file does not stall playback for good. */
+  /** Frames that could not be loaded. Not retried, and reported as ready, so
+   *  that playback does not stall. */
   private readonly failed = new Set<number>();
 
   private playhead = 0;
@@ -69,8 +62,8 @@ export class SequenceFrameCache {
   /** A frame kept regardless of the window: the one currently on screen. */
   private pinned: number | null = null;
   private capacity = MIN_FRAMES;
-  /** Bumped whenever what is cached stops being valid (labels changed,
-   *  cache disposed), so loads started before then are dropped on arrival. */
+  /** Bumped when what is cached stops being valid: loads started before are
+   *  dropped on arrival. */
   private generation = 0;
   private disposed = false;
 
@@ -85,9 +78,7 @@ export class SequenceFrameCache {
     /** Whether playback wraps, i.e. the frames after the last are the first. */
     private loop: boolean,
   ) {
-    // Sized, but not fetching yet: the owner has not said where the playhead
-    // is, and starting at frame 0 would spend every fetch slot on frames it
-    // may not be looking at, with the one it is waiting for queued behind.
+    // Not fetching yet: the owner has not said where the playhead is.
     this.capacity = this.capacityFor(budgetBytes);
     this.last = Math.max(0, frames.length - 1);
   }
@@ -100,7 +91,7 @@ export class SequenceFrameCache {
     return this.cached.get(index);
   }
 
-  /** `index` can be shown now — or never will be (see `failed`). */
+  /** `index` can be shown now, or never will be (see `failed`). */
   isReady(index: number): boolean {
     return this.cached.has(index) || this.failed.has(index);
   }
@@ -122,11 +113,8 @@ export class SequenceFrameCache {
     this.pump();
   }
 
-  /**
-   * Limit playback to the frames `first`..`last` (both included): a loop wraps
-   * from `last` back to `first`, and what lies outside is dropped rather than
-   * buffered — the point of looking at 30 frames of a long video.
-   */
+  /** Limit playback to the frames `first`..`last` (both included). What lies
+   *  outside is dropped. */
   setRange(first: number, last: number): void {
     const end = Math.max(0, this.frames.length - 1);
     const lo = Math.max(0, Math.min(Math.round(first), end));
@@ -193,8 +181,7 @@ export class SequenceFrameCache {
       if (i >= first && i <= last) keep(i);
     };
 
-    // The frame on screen comes first, even when the range excludes it (the
-    // owner moves the playhead into a new range a moment after setting it).
+    // The frame on screen first, even when the range excludes it.
     keep(this.playhead);
     const whole = this.capacity >= span;
     const ahead = whole ? span : Math.floor(this.capacity * AHEAD_SHARE);
@@ -256,8 +243,7 @@ export class SequenceFrameCache {
       console.error(`Failed to load frame ${frameId} for inspection:`, error);
     }
 
-    // Loads from before a `setOverlay` / `dispose` describe a cache that is
-    // gone; their slot in `inflight` was already forgotten with it.
+    // A load from before a `setOverlay` / `dispose`.
     if (generation !== this.generation) {
       if (frame) close(frame);
       return;

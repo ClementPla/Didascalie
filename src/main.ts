@@ -2,8 +2,7 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { appConfig } from './app/app.config';
 import { AppComponent } from './app/app.component';
 
-// Surface unhandled promise rejections (Angular's ErrorHandler only catches
-// errors thrown inside the zone, not bare rejected promises).
+// Angular's ErrorHandler does not catch bare rejected promises.
 window.addEventListener('unhandledrejection', (event) => {
   console.error('[Unhandled rejection]', event.reason);
 });

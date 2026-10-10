@@ -47,7 +47,6 @@ pub async fn mask_sam_segment<'a>(
         let _ = app.emit("features-extraction-completed", {});
     }
 
-    // Convert coarse mask to image, resize to 1024x1024
     let gray_image = image::GrayImage::from_raw(
         width as u32,
         height as u32,
@@ -109,7 +108,7 @@ pub async fn mask_sam_segment<'a>(
         .try_extract_tensor::<f32>()
         .map_err(|e| e.to_string())?;
 
-    // The output is already 2D [1024, 1024], not 4D
+    // The output is 2D, `[1024, 1024]`.
     let output =
         ndarray::ArrayView2::<f32>::from_shape((shape[0] as usize, shape[1] as usize), data)
             .map_err(|e| format!("Shape error: {}", e))?;

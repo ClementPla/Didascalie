@@ -42,24 +42,19 @@ export class GalleryElementComponent
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
 
-  // Frame data
   readonly frameId = input.required<number>();
   readonly title = input('');
   readonly status = input<'empty' | 'annotated' | 'reviewed'>('empty');
   readonly frameCount = input(1);
-  /** Whether the sequence contains at least one keypoint pair (registration). */
+  /** The sequence has at least one keypoint pair. */
   readonly hasKeypoints = input(false);
 
-  // Display options
   readonly id = input.required<number>(); // Sequence ID for selection tracking
   readonly imgSize = input(256);
   @Input() selected = false;
   readonly frameIds = input<number[]>([]);
-  /**
-   * The frames the hover preview cycles through: at most
-   * `MAX_PREVIEW_FRAMES`, spread evenly from the first to the last. A video is
-   * a sequence of thousands of frames, and each one shown is a decode.
-   */
+  /** The frames the hover preview cycles through: at most
+   *  `MAX_PREVIEW_FRAMES`, spread evenly. Each one shown is a decode. */
   readonly previewFrameIds = computed(() => {
     const ids = this.frameIds();
     if (ids.length <= MAX_PREVIEW_FRAMES) return ids;
@@ -69,45 +64,36 @@ export class GalleryElementComponent
       (_, i) => ids[Math.round((i * (ids.length - 1)) / last)],
     );
   });
-  /** Render as a full-width list row instead of a card. */
+  /** A full-width list row instead of a card. */
   readonly listMode = input(false);
-  /** Show the per-row "Reviewed" toggle (list mode only). */
   readonly showReviewedToggle = input(true);
-  /** Tint the row background by status / current selection (list mode only). */
+  /** Tint the row by status and selection (list mode). */
   readonly colorByStatus = input(false);
-  // Events
   readonly thumbnailSelected = output<ThumbnailSelectionEvent>();
   readonly thumbnailClicked = output<void>();
-  /** Play the sequence back in the inspector. */
   readonly inspectClicked = output<void>();
-  /** Open the sequence in the keypoint pairing panel. */
   readonly pairingClicked = output<void>();
   readonly reviewedToggled = output<{
     id: number;
     reviewed: boolean;
 }>();
 
-  // Internal state
   public imagePath = '';
   public isLoading = true;
   public loadError = false;
   public isLooping = false;
 
-  // Derived view state, recomputed only when the inputs it depends on change
-  // (see ngOnChanges) instead of on every change-detection pass. With 64 cards
-  // per page on the CPU-composited Linux webview, re-running these getters each
-  // tick was measurable overhead competing with paint.
+  // Derived view state, recomputed in ngOnChanges, not on every change
+  // detection.
   public statusLabel = 'Not started';
   public statusBadgeClass = 'bg-gray-400';
   public cardStyleClass = '';
   public rowBackground = '';
-  // Hover preview state
   private hoverTimer: ReturnType<typeof setTimeout> | null = null;
   public loopInterval: ReturnType<typeof setInterval> | null = null;
   public currentFrameIndex = 0;
   public isFading = false;
 
-  // Lazy loading
   private observer: IntersectionObserver | null = null;
   private hasLoadedThumbnail = false;
 
@@ -119,7 +105,6 @@ export class GalleryElementComponent
     this.setupIntersectionObserver();
   }
 
-  /** Recompute the status/selection-derived strings the template binds to. */
   private recomputeDerived(): void {
     switch (this.status()) {
       case 'reviewed':
@@ -142,10 +127,8 @@ export class GalleryElementComponent
     this.rowBackground = this.computeRowBackground();
   }
 
-  /**
-   * Status-dependent row tint (list mode): current selection wins (blue),
-   * then reviewed (green), then annotated (orange).
-   */
+  /** Row tint (list mode): selection (blue), then reviewed (green), then
+   *  annotated (orange). */
   private computeRowBackground(): string {
     if (!this.colorByStatus()) return '';
     if (this.selected) return 'rgba(59, 130, 246, 0.22)'; // blue – current
@@ -165,10 +148,8 @@ export class GalleryElementComponent
   }
   private setupIntersectionObserver(): void {
     const root = this.elementRef.nativeElement.closest('.gallery-scroll');
-    // Run the observer outside Angular so scrolling past cards doesn't spin the
-    // change detector on every intersection event. We re-enter the zone only to
-    // actually load a thumbnail, and stop observing after the first hit so an
-    // already-loaded card never fires again.
+    // Observed outside Angular: scrolling past cards must not run change
+    // detection. Observation stops at the first hit.
     this.zone.runOutsideAngular(() => {
       this.observer = new IntersectionObserver(
         (entries) => {
@@ -224,7 +205,7 @@ export class GalleryElementComponent
       console.error('Error loading thumbnail:', error);
       this.loadError = true;
 
-      // Fallback: try loading full image
+      // Fall back to the full image.
       try {
         const fullImage = await api.getFrameImage(frameId);
         this.imagePath = fullImage.imageBase64;
@@ -233,13 +214,10 @@ export class GalleryElementComponent
       }
     } finally {
       this.isLoading = false;
-      // OnPush + async completion: the mutations above won't be picked up
-      // otherwise (the load runs off a zone-external observer / timer).
+      // OnPush, and this runs from outside the zone.
       this.cdr.markForCheck();
     }
   }
-
-  // ── Hover Preview (for sequences with multiple frames) ───────────────────
 
   // ── Touch ────────────────────────────────────────────────────────────────
   // A finger has no hover and no reliable double-click: holding it down plays
@@ -283,7 +261,7 @@ export class GalleryElementComponent
   }
 
   public onMouseEnter(): void {
-    // Ignore the hover Android invents after a tap: it would never end.
+    // The hover Android invents after a tap would never end.
     if (performance.now() - this.lastTouchAt < 1000) return;
     this.startPreviewSoon();
   }
@@ -318,7 +296,7 @@ export class GalleryElementComponent
     if (this.loopInterval) return; // Guard: already looping
 
     this.isLooping = true;
-    // Fired from a timer, not a template event, so nudge the OnPush view.
+    // From a timer: mark the OnPush view.
     this.cdr.markForCheck();
     this.loopInterval = setInterval(() => {
       this.advanceFrame();
@@ -345,29 +323,21 @@ export class GalleryElementComponent
 
   // ── User Actions ─────────────────────────────────────────────────────────
 
-  /**
-   * Open editor at this sequence.
-   */
   private lastOpenedAt = 0;
 
   public openEditor(): void {
-    // A double tap can arrive twice: from the taps counted above, and as the
-    // browser's own dblclick.
+    // A double tap can arrive twice: counted above, and as a dblclick.
     const now = performance.now();
     if (now - this.lastOpenedAt < 600) return;
     this.lastOpenedAt = now;
     this.thumbnailClicked.emit();
   }
 
-  /**
-   * Handle thumbnail selection with optional shift-click for range selection.
-   */
+  /** Select the thumbnail; shift-click selects a range. */
   public select(event: Event): void {
     event.stopPropagation();
 
     this.selected = !this.selected;
-    // Local toggle (not an @Input change), so recompute the selection-derived
-    // classes ourselves and flag the OnPush view for re-check.
     this.recomputeDerived();
     this.cdr.markForCheck();
 
@@ -391,7 +361,6 @@ export class GalleryElementComponent
     return this.status() === 'reviewed';
   }
 
-  /** Emit a request to (un)mark the whole sequence as reviewed. */
   public onReviewedToggle(reviewed: boolean): void {
     this.reviewedToggled.emit({ id: this.id(), reviewed });
   }
@@ -400,7 +369,7 @@ export class GalleryElementComponent
     return this.frameCount() > 1;
   }
 
-  /** Keypoints pair two frames of one sequence, so pairing needs two. */
+  /** Keypoints pair two frames of one sequence. */
   public get canPair(): boolean {
     return this.frameCount() > 1;
   }

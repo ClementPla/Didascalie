@@ -21,7 +21,6 @@ export class ViewportController {
   private _offset = signal<{ x: number; y: number }>({ x: 0, y: 0 });
   private _size   = signal<ViewportSize>({ width: 0, height: 0 });
 
-  /** Current view transform, reactive. */
   readonly transform = computed<ViewTransform>(() => ({
     scale:  this._scale(),
     offset: this._offset(),
@@ -47,9 +46,7 @@ export class ViewportController {
   private prevClient: { x: number; y: number } | null = null;
 
   // ── Callbacks (set by SyncGroup) ───────────────────────────────────────────
-  /** Called whenever this controller's transform changes. */
   onTransformChange?: (t: ViewTransform) => void;
-  /** Redraws the canvas. Set by the component. */
   onRedrawNeeded?: () => void;
 
   // ── Setup ────────────────────────────────────────────────────────────────
@@ -105,10 +102,8 @@ export class ViewportController {
     ctx.setTransform(s * dpr, 0, 0, s * dpr, Math.round(o.x * dpr), Math.round(o.y * dpr));
   }
 
-  /**
-   * Adjusted transform when drawing from a pyramid level instead of native.
-   * The canvas is `level.scale` smaller, so the effective zoom is divided.
-   */
+  /** The transform for drawing from a pyramid level, which is `level.scale`
+   *  smaller than native. */
   applyToContextForLevel(
     ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
     dpr: number,
@@ -170,11 +165,8 @@ export class ViewportController {
     }
   }
 
-  /**
-   * One step of a two-finger gesture: pan by (dx, dy) and scale by `factor`
-   * about `pivotViewport`. Applied at once, never eased: the image has to stay
-   * under the fingers.
-   */
+  /** One step of a two-finger gesture: pan by (dx, dy) and scale by `factor`
+   *  about `pivotViewport`. Not eased. */
   pinch(
     pivotViewport: { x: number; y: number },
     factor: number,
@@ -196,10 +188,7 @@ export class ViewportController {
 
   // ── Fit / reset ──────────────────────────────────────────────────────────
 
-  /**
-   * Fit the image (nativeW × nativeH) inside the current viewport.
-   * Centers it with a small margin.
-   */
+  /** Fit the image inside the viewport, centred, with a small margin. */
   fitImage(nativeW: number, nativeH: number, smooth = true): void {
     const { width, height } = this._size();
     if (width === 0 || height === 0 || nativeW === 0 || nativeH === 0) return;
@@ -230,8 +219,7 @@ export class ViewportController {
   // ── External set (used by SyncGroup) ─────────────────────────────────────
 
   setTransformExternal(t: ViewTransform): void {
-    // Skip the onTransformChange callback to avoid re-broadcast from the
-    // recipient back to the group.
+    // No onTransformChange: the recipient must not broadcast back.
     this._scale.set(t.scale);
     this._offset.set({ ...t.offset });
     this.targetScale  = t.scale;
@@ -241,10 +229,7 @@ export class ViewportController {
 
   // ── Viewbox (for SVG overlay sync) ───────────────────────────────────────
 
-  /**
-   * SVG viewBox in native image space, covering exactly the visible viewport.
-   * Pass directly to SVGElement.setAttribute('viewBox', ...).
-   */
+  /** SVG viewBox in native image space, covering the visible viewport. */
   getSVGViewBox(nativeW: number, nativeH: number): string {
     const s = this._scale(), o = this._offset();
     if (s <= 0) return `0 0 ${nativeW} ${nativeH}`;
@@ -328,11 +313,8 @@ export class SyncGroup {
   toggle(): void { this.active = !this.active; }
   get isSynced(): boolean { return this.active; }
 
-  /**
-   * Broadcast a transform change from `source` to all other controllers.
-   * The re-entrancy guard prevents ping-pong: when controller A's change
-   * updates B, B's setTransformExternal call must not trigger B→A again.
-   */
+  /** Broadcast a transform change from `source` to the other controllers,
+   *  guarded against re-entry. */
   private broadcast(source: ViewportController, t: ViewTransform): void {
     if (!this.active || this.broadcasting) return;
     this.broadcasting = true;
@@ -345,10 +327,7 @@ export class SyncGroup {
     }
   }
 
-  /**
-   * Align all controllers to the given controller's current transform.
-   * Useful when resuming sync after operating independently.
-   */
+  /** Align every controller to `source`'s transform. */
   alignTo(source: ViewportController): void {
     const t = source.transform();
     for (const vc of this.controllers) {

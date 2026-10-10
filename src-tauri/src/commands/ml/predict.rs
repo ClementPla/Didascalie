@@ -1,17 +1,8 @@
 //! Applying a trained head to a single frame.
 //!
-//! The sweep answers "how good would this get?"; this answers "what does it say
-//! about *this* image?" — which is the form that is actually useful while
-//! annotating.
-//!
-//! # The invariant that matters
-//!
-//! A head is only meaningful against the exact feature layout it was trained
-//! on. Inference therefore reuses [`dataset::assemble_stack`] and re-checks the
-//! resulting width against the model's recorded `feature_dim`. A mismatch is a
-//! hard error rather than a best effort: a head applied to differently-ordered
-//! channels still produces confident, entirely wrong masks, and silent
-//! plausibility is the worst failure mode here.
+//! A head is only meaningful against the feature layout it was trained on:
+//! inference reuses [`dataset::assemble_stack`] and refuses a width that
+//! differs from the model's `feature_dim`.
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -27,7 +18,7 @@ use super::filters::FilterBankConfig;
 use super::scribble::Scribbles;
 use super::train::{predict_map, EvalMetrics, Head};
 
-/// A fitted head plus everything needed to rebuild identical features.
+/// A fitted head and what is needed to rebuild identical features.
 pub struct TrainedModel {
     pub head: Head,
     pub feature_dim: usize,
@@ -40,37 +31,18 @@ pub struct TrainedModel {
     pub train_frames: usize,
 }
 
-/// The currently-loaded head, plus a cached encoder session.
-///
-/// In memory only: a head fits in seconds, so persisting it is a convenience
-/// rather than a necessity, and keeping it out of the `.dida` avoids silently
-/// shipping model weights inside a data file.
-///
-/// The encoder is cached because opening a ViT graph costs about as long as a
-/// whole prediction — reloading per frame would dominate interactive latency.
-/// Identifies a cached encoder result. Working size is part of the key because
-/// it changes the image fed to the encoder, and therefore the tokens.
+/// Identifies a cached encoder result. The working size changes the image fed
+/// to the encoder, so it is part of the key.
 pub type FeatureKey = (i64, String, u32);
 
 #[derive(Default)]
 pub struct MlState {
     pub model: Mutex<Option<TrainedModel>>,
     pub encoder: Mutex<Option<(String, EncoderSession)>>,
-    /// Last frame's encoder output, so re-predicting the same frame with
-    /// different scribbles does not re-run the ViT.
-    ///
-    /// Holds the **patch token grid**, not the upsampled volume: tokens are
-    /// ~1 MB where the volume is a couple of hundred, and re-upsampling costs
-    /// almost nothing next to an encoder forward. One entry is enough — the
-    /// interactive loop revisits the same frame repeatedly, and a larger cache
-    /// would trade real memory for a case that rarely occurs.
+    /// Last frame's encoder token grid, so predicting the same frame again with
+    /// other scribbles does not re-run the encoder.
     pub features: Mutex<Option<(FeatureKey, Array3<f32>)>>,
     /// Set by `ml_stop_training` and polled between epochs.
-    ///
-    /// An atomic rather than a channel because the training loop is a plain
-    /// synchronous function on a worker thread: it needs to *check* a flag, not
-    /// await anything, and the stop command must not block behind the mutexes
-    /// the run already holds.
     pub cancel: std::sync::atomic::AtomicBool,
 }
 
@@ -90,7 +62,7 @@ pub struct PredictedMask {
     pub label_id: i64,
     /// Base64 of a native-resolution uint8 mask (1 where predicted).
     pub mask_base64: String,
-    /// Fraction of the frame assigned to this label, for a quick sanity read.
+    /// Fraction of the frame assigned to this label.
     pub coverage: f32,
 }
 
@@ -131,11 +103,8 @@ fn to_working(
     s
 }
 
-/// Run a trained head over one frame and return per-label masks at native size.
-///
-/// `on_stage(stage, done, total)` reports coarse progress. Prediction on a large
-/// frame takes seconds — long enough that a button spinner alone leaves the user
-/// unsure whether anything is happening.
+/// Run a trained head over one frame and return per-label masks at native
+/// size. `on_stage(stage, done, total)` reports progress.
 pub fn predict_frame(
     db: &DbState,
     model: &TrainedModel,
@@ -148,10 +117,8 @@ pub fn predict_frame(
     on_stage("decoding frame", 0, 4);
     let (image, w, h) = dataset::load_working_image(db, frame_id, model.working_size)?;
 
-    // Encoder output is a function of the image alone — scribbles never reach
-    // it — so re-predicting the same frame after adding strokes can reuse it.
-    // This is what makes the scribble/correct loop interactive rather than
-    // paying a full ViT forward per stroke.
+    // The encoder output depends on the image alone, so it is reused when the
+    // same frame is predicted again with other scribbles.
     let key: FeatureKey = (
         frame_id,
         model.encoder_id.clone().unwrap_or_default(),
@@ -191,15 +158,12 @@ pub fn predict_frame(
         ));
     }
 
-    // One pass over the whole map: a convolutional head must see the frame
-    // intact, and chunking by pixel would destroy the very neighbourhood it
-    // exists to use.
+    // One pass over the whole map: the head is convolutional.
     on_stage("classifying", 3, 4);
     let flat: Vec<f32> = feats.iter().copied().collect();
     let classes = predict_map(&model.head, &flat, d, h, w, model.classes);
 
-    // Upscale the class map to native resolution with nearest, for the same
-    // reason masks are downscaled that way: interpolating ids invents classes.
+    // Nearest upscale: interpolating class ids would invent classes.
     let small: Vec<u8> = classes.iter().map(|&c| c.clamp(0, 255) as u8).collect();
     let full = downscale_nearest(&small, w, h, native_w as usize, native_h as usize);
 
@@ -235,7 +199,6 @@ mod tests {
     #[test]
     fn scribble_indices_map_into_the_working_grid() {
         let input = ScribbleInput {
-            // Native 100x100; corners and centre.
             positive: vec![0, 50 * 100 + 50],
             negative: vec![99 * 100 + 99],
         };

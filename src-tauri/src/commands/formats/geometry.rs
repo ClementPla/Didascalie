@@ -1,37 +1,26 @@
-//! Derive object geometry (bounding boxes + polygons) from label value masks.
-//! Object formats (COCO, YOLO) consume these; mask/volume formats (NIfTI) use
-//! the raw masks directly.
+//! Object geometry (bounding boxes, polygons, centrelines) from label masks.
 
 use image::{GrayImage, Luma};
 use imageproc::contours::{find_contours, BorderType};
 use imageproc::region_labelling::{connected_components, Connectivity};
 
-/// One object extracted from a label mask.
 pub struct Region {
     /// Instance id (mask value) for instance labels, else 1.
     pub instance: u8,
     /// x, y, width, height in image pixels.
     pub bbox: [f64; 4],
     pub area: u32,
-    /// Contour rings, image-pixel coordinates. One ring per outer contour, with
-    /// any enclosed holes bridged into it (see [`bridge_hole`]).
+    /// One ring per outer contour, in image pixels, with enclosed holes bridged
+    /// into it (see [`bridge_hole`]).
     pub polygons: Vec<Vec<[f64; 2]>>,
 }
 
-/// Minimum enclosed area (px²) for a hole to be cut out of its region.
-///
-/// A contour traced around a single stray background pixel encloses 4 px²; a 2x2
-/// hole encloses 9. A predicted mask is speckled with one-pixel dropouts that are
-/// noise rather than anatomy, and each one kept would add a bridge corridor to
-/// the ring for no gain.
+/// Minimum enclosed area (px²) for a hole to be cut out of its region:
+/// one-pixel dropouts in a predicted mask are not worth a bridge.
 const MIN_HOLE_AREA: f64 = 8.0;
 
-/// Split a label's value mask into per-object regions.
-///
-/// - `by_instance` (instance segmentation): one region per distinct nonzero
-///   value (the instance id).
-/// - otherwise (semantic): one region per 8-connected component of the
-///   presence, which is the object granularity COCO/YOLO expect.
+/// Split a label's value mask into regions: one per instance id with
+/// `by_instance`, otherwise one per 8-connected component.
 pub fn regions_from_mask(values: &[u8], w: u32, h: u32, by_instance: bool) -> Vec<Region> {
     let (wu, hu) = (w as usize, h as usize);
     if values.len() < wu * hu || w == 0 || h == 0 {
@@ -97,7 +86,7 @@ fn region_from_binary(bin: &[u8], w: u32, h: u32) -> Option<Region> {
         let Some(mut ring) = simplify_ring(contour_ring(c)) else {
             continue;
         };
-        // Cut out the background this contour encloses, so a ring stays a ring.
+        // Cut out the background this contour encloses.
         for hole in contours
             .iter()
             .filter(|hc| hc.border_type == BorderType::Hole && hc.parent == Some(i))
@@ -126,25 +115,20 @@ fn region_from_binary(bin: &[u8], w: u32, h: u32) -> Option<Region> {
     })
 }
 
-/// A traced contour as image-pixel points.
 fn contour_ring(c: &imageproc::contours::Contour<u32>) -> Vec<[f64; 2]> {
     c.points.iter().map(|p| [p.x as f64, p.y as f64]).collect()
 }
 
-/// Simplify a contour ring, or `None` when it cannot form a polygon at all.
-///
-/// Keeps the raw ring when simplification collapses it. Douglas-Peucker at this
-/// tolerance flattens a small component — a 2x2 blob and anything near it — to
-/// fewer than three points, and dropping the result made whole regions disappear
-/// rather than merely lose detail. A region that exists should always produce a
-/// polygon.
+/// Simplify a contour ring, or `None` when it cannot form a polygon. The raw
+/// ring is kept when simplification collapses a small component to fewer than
+/// three points.
 fn simplify_ring(ring: Vec<[f64; 2]>) -> Option<Vec<[f64; 2]>> {
     let simplified = douglas_peucker(&ring, 1.5);
     let out = if simplified.len() >= 3 { simplified } else { ring };
     (out.len() >= 3).then_some(out)
 }
 
-/// Enclosed area of a closed ring (shoelace, unsigned so winding is irrelevant).
+/// Unsigned enclosed area of a closed ring (shoelace).
 fn ring_area(ring: &[[f64; 2]]) -> f64 {
     if ring.len() < 3 {
         return 0.0;
@@ -157,17 +141,10 @@ fn ring_area(ring: &[[f64; 2]]) -> f64 {
     (acc / 2.0).abs()
 }
 
-/// Splice `hole` into `outer` as a single closed ring, joined by a zero-width
-/// corridor between their closest pair of vertices.
-///
-/// Every consumer of these polygons fills by even-odd parity: the editor's SVG
-/// layer through `fill-rule="evenodd"`, this crate's rasterizer through scanline
-/// crossing counts, and pycocotools and the YOLO tooling likewise. Under that
-/// rule the spliced loop cancels and reads as a hole, and the corridor is crossed
-/// twice by any scanline that meets it, so it contributes nothing. That keeps a
-/// holed region a single flat list of points — all `VectorShape.nodes` can hold —
-/// instead of needing sub-paths threaded through storage, rendering,
-/// rasterization and export.
+/// Splice `hole` into `outer` as one closed ring, joined by a zero-width
+/// corridor between their closest vertices. Every consumer fills by even-odd
+/// parity, under which the spliced loop reads as a hole and the corridor
+/// cancels, so a holed region stays a single flat list of points.
 fn bridge_hole(outer: &[[f64; 2]], hole: &[[f64; 2]]) -> Vec<[f64; 2]> {
     let (mut bi, mut bj, mut best) = (0usize, 0usize, f64::MAX);
     for (i, o) in outer.iter().enumerate() {
@@ -190,12 +167,10 @@ fn bridge_hole(outer: &[[f64; 2]], hole: &[[f64; 2]]) -> Vec<[f64; 2]> {
     out
 }
 
-/// Trace the outer contour(s) of the 8-connected, same-value component that
-/// contains the seed pixel `(sx, sy)`. Returns simplified polygon rings in
-/// image-pixel coordinates, or empty when the seed is background / out of range.
-///
-/// Same-value flooding (not just nonzero) keeps two touching instances in an
-/// instance mask separate, matching how the frontend clears the traced pixels.
+/// Trace the outer contours of the 8-connected, same-value component
+/// containing `(sx, sy)`, as simplified rings. Empty when the seed is
+/// background or out of range. Same-value flooding keeps touching instances
+/// separate.
 pub fn component_polygons(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -> Vec<Vec<[f64; 2]>> {
     match flood_same_value_component(values, w, h, sx, sy) {
         Some(bin) => region_from_binary(&bin, w, h)
@@ -206,8 +181,7 @@ pub fn component_polygons(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -> Ve
 }
 
 /// Flood the 8-connected, same-value component containing `(sx, sy)` into a
-/// binary mask (255 = in component). Returns None when the seed is out of range
-/// or background. Same-value flooding keeps touching instances separate.
+/// binary mask (255 = in component).
 fn flood_same_value_component(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -> Option<Vec<u8>> {
     let (wu, hu) = (w as usize, h as usize);
     if values.len() < wu * hu || sx >= w || sy >= h {
@@ -245,36 +219,21 @@ fn flood_same_value_component(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -
 
 // ── Skeletonization (raster component → centerline paths) ───────────────────
 
-/// Absolute floor (px) for the spur test below. It only decides the outcome for
-/// shapes so thin that the radius term is ~0 — a 1px hand-drawn stroke, where
-/// the hairs thinning leaves are a couple of pixels long.
+/// Floor (px) of the spur test, which decides for shapes so thin that the
+/// radius term is about zero.
 const MIN_SPUR_LEN: f64 = 5.0;
-/// How far a branch must run, as a multiple of the maximal inscribed-disc radius
-/// at its base, before it counts as real.
-///
-/// This is the pruning criterion that matters. A spur's length scales with the
-/// *local thickness* of the region — the same boundary roughness that leaves 3px
-/// hairs on a 6px stroke leaves 30px hairs on a 60px blob — so an absolute
-/// threshold cannot work across the shapes this tool is pointed at. Judging a
-/// branch against the disc it hangs off is scale-invariant: a branch that stays
-/// inside its base's disc has not left the parent shape and carries no geometry
-/// the trunk doesn't already have. 1.5 clears the two diagonal arms thinning
-/// leaves at a blunt end (each ≈ one radius) while keeping any side branch
-/// long enough to be resolvable at all.
+/// How far a branch must run, as a multiple of the inscribed-disc radius at
+/// its base, to be kept. A spur's length scales with the local thickness of
+/// the region, so an absolute threshold cannot work across scales.
 const SPUR_RADIUS_FACTOR: f64 = 1.5;
-/// Douglas–Peucker tolerance for skeleton polylines (finer than contour tracing
-/// so curved centerlines stay smooth).
+/// Douglas–Peucker tolerance for skeleton polylines.
 const SKELETON_EPSILON: f64 = 1.0;
-/// Absolute floor (px) for the returned-path test, which otherwise scales with
-/// the local radius the same way spur pruning does. The longest path is always
-/// kept, so a single unbranched fibre can never filter down to nothing.
+/// Floor (px) of the returned-path test. The longest path is always kept.
 const MIN_OUTPUT_LEN: f64 = 8.0;
 
-/// Skeletonize the same-value component under `(sx, sy)` and return its centerline
-/// as one or more open polylines (image-pixel coords). The component is thinned
-/// to a 1px skeleton (Zhang–Suen), then split at endpoints/junctions so each
-/// branch between two such nodes is a separate path. Empty when the seed is
-/// background / out of range.
+/// Centreline of the same-value component under `(sx, sy)`, as open
+/// polylines: Zhang–Suen thinning, then one path per branch between endpoints
+/// and junctions.
 pub fn component_skeleton_paths(
     values: &[u8],
     w: u32,
@@ -288,18 +247,8 @@ pub fn component_skeleton_paths(
     skeleton_of_binary(&bin, w as usize, h as usize)
 }
 
-/// Skeletonize **every** component of `mask` into centerline polylines.
-///
-/// The whole-mask counterpart of [`component_skeleton_paths`], for turning a
-/// predicted mask into editable centerlines in one pass — the skeleton analogue
-/// of [`regions_from_mask`]. Components are skeletonized independently so a
-/// junction is only ever a real branch within one structure, never two objects
-/// that happen to touch diagonally.
-///
-/// `min_area` drops specks below a pixel count, and `max_shapes` caps how many
-/// components are traced (largest first). Both behave as in `vectorize_mask`;
-/// note the cap counts *components*, not returned polylines, since one branched
-/// structure legitimately yields several.
+/// Skeletonize every component of `mask`, each on its own. `min_area` drops
+/// specks; `max_shapes` caps the components traced, largest first.
 pub fn mask_skeleton_paths(
     values: &[u8],
     w: u32,
@@ -334,11 +283,10 @@ pub fn mask_skeleton_paths(
         .collect()
 }
 
-/// Thin one binary component to its centerline polylines. `bin` is nonzero on
-/// the component and zero elsewhere, in image-space row-major order.
+/// Thin one binary component to its centreline polylines.
 fn skeleton_of_binary(bin: &[u8], wu: usize, hu: usize) -> Vec<Vec<[f64; 2]>> {
-    // Work on a 1px-padded grid (1 = fg) so thinning/tracing never touch the
-    // image border; coords are shifted back by 1 when emitting points.
+    // A 1px-padded grid (1 = fg), so thinning and tracing never touch the border;
+    // points are shifted back by 1 when emitted.
     let (pw, ph) = (wu + 2, hu + 2);
     let mut grid = vec![0u8; pw * ph];
     for y in 0..hu {
@@ -349,9 +297,8 @@ fn skeleton_of_binary(bin: &[u8], wu: usize, hu: usize) -> Vec<Vec<[f64; 2]>> {
         }
     }
 
-    // Measured on the *region*, before thinning: every downstream threshold is a
-    // multiple of the local half-width, which is what makes them hold whether the
-    // user drew a hairline or filled an organ.
+    // Measured on the region, before thinning: the thresholds below are multiples
+    // of the local half-width.
     let dt = distance_to_background(&grid, pw, ph);
 
     zhang_suen_thin(&mut grid, pw, ph);
@@ -362,9 +309,7 @@ fn skeleton_of_binary(bin: &[u8], wu: usize, hu: usize) -> Vec<Vec<[f64; 2]>> {
         .filter(|poly| poly.len() >= 2)
         .collect();
 
-    // Drop leftover clutter (the tiny artefact branches raster thinning leaves at
-    // a thick curved band's high-curvature extrema) while always keeping the
-    // longest path, so an unbranched fibre comes back as a single clean line.
+    // Drop leftover short branches, always keeping the longest path.
     let lengths: Vec<f64> = simplified.iter().map(|p| polyline_length_pts(p)).collect();
     let max_len = lengths.iter().copied().fold(0.0, f64::max);
     simplified
@@ -382,19 +327,16 @@ fn keep_threshold(radius: f64) -> f64 {
     MIN_OUTPUT_LEN.max(SPUR_RADIUS_FACTOR * radius)
 }
 
-/// The largest inscribed-disc radius the polyline passes through, in pixels.
-/// Points are image-space; `dt` is on the 1px-padded grid.
+/// The largest inscribed-disc radius the polyline passes through. Points are
+/// in image space; `dt` is on the padded grid.
 fn radius_along(poly: &[[f64; 2]], dt: &[f32], pw: usize) -> f64 {
     poly.iter()
         .map(|p| dt[(p[1] as usize + 1) * pw + (p[0] as usize + 1)] as f64)
         .fold(0.0, f64::max)
 }
 
-/// Distance (px) from each foreground pixel to the nearest background pixel;
-/// background reads 0. Two chamfer passes with (1, √2) steps — an approximation
-/// to the Euclidean transform, good to a few percent, which is ample for a
-/// threshold. Callers pad, so the border is background and the 8-ring of every
-/// visited pixel is in bounds.
+/// Distance (px) from each foreground pixel to the nearest background pixel,
+/// by two chamfer passes with (1, √2) steps. Callers pad the grid.
 fn distance_to_background(img: &[u8], w: usize, h: usize) -> Vec<f32> {
     const FAR: f32 = 1e9;
     const D1: f32 = 1.0;
@@ -430,15 +372,13 @@ fn distance_to_background(img: &[u8], w: usize, h: usize) -> Vec<f32> {
     dt
 }
 
-/// Euclidean length of a polyline given as image-space points.
 fn polyline_length_pts(poly: &[[f64; 2]]) -> f64 {
     poly.windows(2)
         .map(|w| ((w[1][0] - w[0][0]).powi(2) + (w[1][1] - w[0][1]).powi(2)).sqrt())
         .sum()
 }
 
-/// Zhang–Suen thinning. `img`: 1 = foreground, 0 = background; the 1px border is
-/// assumed background (callers pad). Iterates until no pixel is removed.
+/// Zhang–Suen thinning. `img`: 1 = foreground; the 1px border is background.
 fn zhang_suen_thin(img: &mut [u8], w: usize, h: usize) {
     loop {
         let mut changed = false;
@@ -498,7 +438,6 @@ fn zhang_suen_thin(img: &mut [u8], w: usize, h: usize) {
     }
 }
 
-/// The 8-connected foreground neighbours of pixel `idx` on a padded grid.
 fn fg_neighbors(img: &[u8], w: usize, idx: usize) -> Vec<usize> {
     let (x, y) = (idx % w, idx / w);
     let mut out = Vec::with_capacity(8);
@@ -516,7 +455,6 @@ fn fg_neighbors(img: &[u8], w: usize, idx: usize) -> Vec<usize> {
     out
 }
 
-/// True when pixels `a` and `b` are within a 3×3 window of each other.
 fn are_8_adjacent(a: usize, b: usize, w: usize) -> bool {
     if a == b {
         return false;
@@ -526,11 +464,9 @@ fn are_8_adjacent(a: usize, b: usize, w: usize) -> bool {
     (ax - bx).abs() <= 1 && (ay - by).abs() <= 1
 }
 
-/// Crossing number: the count of 0→1 transitions around the ordered 8-ring. This
-/// is the topological branch count and, unlike a raw neighbour count, is immune
-/// to the staircase corners an 8-connected skeleton leaves along slanted lines:
-/// 1 = endpoint, 2 = pass-through pixel, ≥3 = junction. Assumes a padded grid so
-/// the ring is always in bounds.
+/// Crossing number: 0→1 transitions around the ordered 8-ring. 1 = endpoint,
+/// 2 = pass-through, ≥3 = junction. Unlike a neighbour count, it ignores the
+/// staircase corners of a slanted 8-connected line.
 fn crossing_number(img: &[u8], w: usize, idx: usize) -> u32 {
     let (x, y) = (idx % w, idx / w);
     // p2..p9 clockwise from north: N, NE, E, SE, S, SW, W, NW.
@@ -553,15 +489,13 @@ fn crossing_number(img: &[u8], w: usize, idx: usize) -> u32 {
     c
 }
 
-/// A skeleton node is an endpoint (crossing number 1) or a junction (≥ 3);
-/// pass-through pixels (2) and isolated pixels (0) are not nodes.
+/// An endpoint or a junction.
 fn is_skeleton_node(img: &[u8], w: usize, idx: usize) -> bool {
     let cn = crossing_number(img, w, idx);
     cn == 1 || cn >= 3
 }
 
-/// One edge of the skeleton graph: a branch between two nodes `a` and `b`, with
-/// its dense pixel polyline (`pts`, from `a` to `b` inclusive).
+/// A branch between two nodes, with its pixels from `a` to `b` inclusive.
 struct SkelEdge {
     a: usize,
     b: usize,
@@ -569,12 +503,9 @@ struct SkelEdge {
     alive: bool,
 }
 
-/// Trace a 1px skeleton into centerline polylines. The skeleton is turned into a
-/// node/edge graph (nodes = endpoints/junctions by crossing number, edges =
-/// branches between them), which is then simplified so a hand-drawn line doesn't
-/// shatter at every little bump: short spurs are pruned and the degree-2 nodes
-/// they leave behind are contracted, so the trunk stays one path and only real
-/// ≥3-way intersections split it.
+/// Trace a 1px skeleton into centreline polylines: build the node/edge graph,
+/// then simplify it (see [`simplify_graph`]) so that only real intersections
+/// split a path.
 fn trace_skeleton(img: &[u8], w: usize, h: usize, dt: &[f32]) -> Vec<Vec<[f64; 2]>> {
     let pt = |idx: usize| [(idx % w) as f64 - 1.0, (idx / w) as f64 - 1.0];
     let key = |a: usize, b: usize| if a < b { (a, b) } else { (b, a) };
@@ -584,14 +515,10 @@ fn trace_skeleton(img: &[u8], w: usize, h: usize, dt: &[f32]) -> Vec<Vec<[f64; 2
     let mut paths: Vec<Vec<[f64; 2]>> = Vec::new();
     let mut edges: Vec<SkelEdge> = Vec::new();
 
-    // Walk a chain from `start` through neighbour `first` until the next node (or
-    // a dead end / already-walked edge). Next-pixel priority:
-    //   1. a neighbouring *node* (junction/endpoint) — so a walk terminates AT a
-    //      junction instead of cutting the corner diagonally into an adjacent
-    //      arm (the 8-connected pixels around a junction are pass-throughs);
-    //   2. a neighbour *not* adjacent to where we came from — so a staircase's
-    //      diagonal shortcut doesn't spawn a false branch;
-    //   3. any remaining neighbour.
+    // Walk from `start` through `first` to the next node. The next pixel is, in
+    // order: a neighbouring node (so a walk ends at a junction instead of cutting
+    // its corner), a neighbour not adjacent to the previous pixel (so a staircase
+    // does not spawn a branch), any other neighbour.
     let walk = |start: usize, first: usize, visited: &mut std::collections::HashSet<(usize, usize)>| {
         let mut poly = vec![start];
         let (mut prev, mut cur) = (start, first);
@@ -673,11 +600,9 @@ fn degree_map(edges: &[SkelEdge]) -> std::collections::HashMap<usize, usize> {
     deg
 }
 
-/// Simplify the skeleton graph in place. Prune short spurs / junction links and
-/// contract degree-2 nodes, **interleaved** to a fixpoint: pruning an artefact
-/// branch drops a junction to degree 2, which contraction then splices into its
-/// neighbour, which can expose the next artefact — so a curved band's messy
-/// extrema collapse into the through-path instead of fragmenting.
+/// Simplify the skeleton graph in place: prune spurs, pop bubbles and
+/// contract degree-2 nodes, interleaved to a fixpoint, since each step can
+/// expose the next artefact.
 fn simplify_graph(edges: &mut Vec<SkelEdge>, w: usize, dt: &[f32]) {
     loop {
         let pruned = prune_pass(edges, w, dt);
@@ -690,14 +615,9 @@ fn simplify_graph(edges: &mut Vec<SkelEdge>, w: usize, dt: &[f32]) {
     edges.retain(|e| e.alive);
 }
 
-/// One pass: kill leaf spurs — branches ending at a free endpoint that are short
-/// relative to the inscribed disc at the junction they hang off. (Short links
-/// *between* two junctions are left intact so real multi-way junctions, which an
-/// 8-connected skeleton often spreads over 2 pixels, aren't collapsed.)
-///
-/// The base must be a real junction (degree ≥ 3). A branch whose *other* end is
-/// also free is not a spur — it is the trunk, possibly the last thing left after
-/// its siblings were pruned, and deleting it would return nothing at all.
+/// One pass: remove leaf spurs, branches ending at a free endpoint that are
+/// short against the inscribed disc at their base. The base must be a real
+/// junction (degree ≥ 3): a branch free at both ends is the trunk.
 fn prune_pass(edges: &mut [SkelEdge], w: usize, dt: &[f32]) -> bool {
     let deg = degree_map(edges);
     let mut changed = false;
@@ -719,16 +639,9 @@ fn prune_pass(edges: &mut [SkelEdge], w: usize, dt: &[f32]) -> bool {
     changed
 }
 
-/// One pass: pop thinning bubbles — two separate branches joining the *same* pair
-/// of nodes, which is what thinning wraps around a small hole in the region. A
-/// predicted mask is full of them, and neither spur pruning (both ends are
-/// junctions) nor contraction (both nodes are degree 3) can touch one.
-///
-/// The longest arc survives and the rest are dropped, but only when they are
-/// short against the disc at the join — so a hole small relative to the band that
-/// contains it pops, while a genuine ring, whose arcs dwarf its own thickness,
-/// keeps its loop. Both nodes then fall to degree 2 and contraction splices the
-/// trunk back into one path.
+/// One pass: pop thinning bubbles, two branches joining the same pair of
+/// nodes around a small hole. The longest arc survives; the others go only
+/// when short against the disc at the join, so a genuine ring keeps its loop.
 fn collapse_bubbles(edges: &mut [SkelEdge], w: usize, dt: &[f32]) -> bool {
     let mut by_pair: std::collections::HashMap<(usize, usize), Vec<usize>> =
         std::collections::HashMap::new();
@@ -762,7 +675,7 @@ fn collapse_bubbles(edges: &mut [SkelEdge], w: usize, dt: &[f32]) -> bool {
     changed
 }
 
-/// Contract every degree-2 node (to a fixpoint): splice its two branches into one.
+/// Contract every degree-2 node: splice its two branches into one.
 fn contract_pass(edges: &mut Vec<SkelEdge>) -> bool {
     let mut any = false;
     loop {
@@ -772,7 +685,7 @@ fn contract_pass(edges: &mut Vec<SkelEdge>) -> bool {
             .find(|&(_, &d)| d == 2)
             .map(|(&v, _)| v)
             .filter(|&v| {
-                // Skip a lone self-loop (its single edge already gives degree 2).
+                // A lone self-loop also has degree 2: skip it.
                 edges.iter().filter(|e| e.alive && (e.a == v || e.b == v)).count() == 2
             })
         else {
@@ -809,7 +722,7 @@ fn contract_pass(edges: &mut Vec<SkelEdge>) -> bool {
     any
 }
 
-/// Total length (px) of a polyline given as padded-grid pixel indices.
+/// Length (px) of a polyline given as padded-grid pixel indices.
 fn polyline_len(poly: &[usize], w: usize) -> f64 {
     let mut len = 0.0;
     for pair in poly.windows(2) {
@@ -835,8 +748,7 @@ pub fn polygon_bounds(points: &[[f64; 2]]) -> [f64; 4] {
     [minx, miny, maxx - minx, maxy - miny]
 }
 
-/// Douglas–Peucker polyline simplification. Contours are pixel-dense; this trims
-/// collinear runs so exported polygons are compact.
+/// Douglas–Peucker polyline simplification.
 fn douglas_peucker(pts: &[[f64; 2]], epsilon: f64) -> Vec<[f64; 2]> {
     if pts.len() < 3 {
         return pts.to_vec();
@@ -887,9 +799,7 @@ mod tests {
             .fold(0.0, f64::max)
     }
 
-    /// Even-odd point-in-polygon, mirroring the scanline parity that
-    /// `commands::vector::fill_polygon` and the editor's SVG layer both use — so
-    /// these assertions test what the renderers will actually draw.
+    /// Even-odd point-in-polygon, the parity rule the renderers use.
     fn inside_evenodd(ring: &[[f64; 2]], x: f64, y: f64) -> bool {
         let n = ring.len();
         let mut inside = false;
@@ -971,8 +881,6 @@ mod tests {
 
     #[test]
     fn a_one_pixel_dropout_is_not_cut_out() {
-        // A stray missing pixel is prediction noise; cutting it out would add a
-        // bridge corridor to the ring for no visible gain.
         let (w, h) = (32u32, 32u32);
         let mut m = annulus(w, h, 16.0, 16.0, 12.0, 0.0);
         m[(16 * w + 16) as usize] = 0;
@@ -1011,16 +919,14 @@ mod tests {
         }
         let paths = component_skeleton_paths(&values, w, h, 5, 3);
         assert_eq!(paths.len(), 1, "a straight bar is a single branch");
-        // Its centerline spans most of the bar's length (thinning erodes the
-        // thick ends inward by ~2px, so a length-10 bar yields a ~6px line).
+        // Thinning erodes the thick ends inward by about 2px.
         assert!(max_x_span(&paths) >= 5.0, "span was {}", max_x_span(&paths));
     }
 
     #[test]
     fn skeleton_of_slanted_line_stays_one_piece() {
-        // A 1px staircase (a hand-drawn "almost straight" slanted line). Its
-        // corners have 3 raw neighbours but crossing number 2, so it must trace
-        // as a single path — not fragment at every step.
+        // A 1px staircase: its corners have 3 neighbours but crossing number 2, so
+        // it must trace as a single path.
         let (w, h) = (24u32, 10u32);
         let mut values = vec![0u8; (w * h) as usize];
         let mut y = 3u32;
@@ -1037,9 +943,7 @@ mod tests {
 
     #[test]
     fn skeleton_of_line_with_nub_stays_one_piece() {
-        // A straight line with a 1px bump. The bump makes a degree-3 junction,
-        // but pruning the spur + contracting the leftover degree-2 node must
-        // re-join the trunk into a single path.
+        // A straight line with a 1px bump must come back as a single path.
         let (w, h) = (18u32, 9u32);
         let mut values = vec![0u8; (w * h) as usize];
         for x in 1..=15 {
@@ -1053,10 +957,7 @@ mod tests {
 
     #[test]
     fn skeleton_of_wavy_thick_fibre_is_one_path() {
-        // A wavy thick "fibre": centerline y = 20 + 9*sin(x/9), ~7px thick. Raster
-        // thinning leaves messy chunks at the curve extrema; the graph cleanup
-        // must still return a single unbranched centerline (not a pile of
-        // fragments).
+        // A wavy fibre about 7px thick: centreline y = 20 + 9*sin(x/9).
         let (w, h) = (60u32, 40u32);
         let mut values = vec![0u8; (w * h) as usize];
         for xi in 4..=55 {
@@ -1080,10 +981,8 @@ mod tests {
         assert_eq!(paths.len(), 1, "a wavy fibre must trace as one path");
     }
 
-    /// A ~22px-thick bar over `x in 5..=58` on a 64x48 grid. With `bump`, its top
-    /// edge sticks up by 2px every fifth column — ordinary boundary roughness for
-    /// a painted or predicted region. (1px is below the threshold where thinning
-    /// seeds a branch at all; it gets eaten first.)
+    /// A bar about 22px thick over `x in 5..=58` on a 64x48 grid. With `bump`,
+    /// its top edge sticks up by 2px every fifth column.
     fn thick_bar(bump: bool) -> (u32, u32, Vec<u8>) {
         let (w, h) = (64u32, 48u32);
         let mut values = vec![0u8; (w * h) as usize];
@@ -1098,10 +997,8 @@ mod tests {
 
     #[test]
     fn a_rough_thick_bar_is_still_one_line() {
-        // The reported failure. Each bump seeds a branch running from the boundary
-        // in to the medial axis — about half the thickness, ~11px — so the fixed
-        // 5px spur threshold kept every one of them and this came back as *ten*
-        // fragments. Judged against the disc at its base, each is noise.
+        // Each bump seeds a branch about half the thickness long, which a fixed
+        // length threshold would keep.
         let (w, h, values) = thick_bar(true);
         let paths = component_skeleton_paths(&values, w, h, 30, 22);
         assert_eq!(paths.len(), 1, "a rough thick bar must not shatter");
@@ -1110,9 +1007,7 @@ mod tests {
 
     #[test]
     fn roughness_does_not_change_the_result() {
-        // The smooth and rough bars differ only in 1px boundary noise, so they
-        // must skeletonize the same way. This is the scale-invariance the fixed
-        // threshold could not give.
+        // Boundary noise must not change the skeleton.
         let (w, h, smooth) = thick_bar(false);
         let (_, _, rough) = thick_bar(true);
         assert_eq!(
@@ -1123,11 +1018,7 @@ mod tests {
 
     #[test]
     fn a_small_hole_does_not_split_the_centerline() {
-        // Thinning wraps the skeleton around a hole, leaving two parallel arcs
-        // between the same pair of junctions. Spur pruning cannot see them (both
-        // ends are junctions) and contraction cannot either (both are degree 3),
-        // so before `collapse_bubbles` a single dropout in a predicted mask split
-        // the centerline in two.
+        // A single dropout must not split the centreline in two.
         let (w, h, mut values) = thick_bar(false);
         for y in 19..=21u32 {
             for x in 30..=32u32 {
@@ -1140,8 +1031,7 @@ mod tests {
 
     #[test]
     fn a_ring_keeps_its_loop() {
-        // The other side of the bubble rule: an annulus is *made* of a loop, and
-        // its arcs dwarf its own thickness, so it must come back whole.
+        // An annulus is a loop, and must come back whole.
         let (w, h) = (48u32, 48u32);
         let values = annulus(w, h, 24.0, 24.0, 18.0, 13.0);
         let paths = component_skeleton_paths(&values, w, h, 24, 9);
@@ -1152,8 +1042,7 @@ mod tests {
 
     #[test]
     fn skeleton_of_plus_has_four_arms() {
-        // A plus: 1px vertical + horizontal bars crossing at the centre. Arms are
-        // long enough to clear the min-output-length filter.
+        // A plus: 1px bars crossing at the centre.
         let (w, h) = (25u32, 25u32);
         let mut values = vec![0u8; (w * h) as usize];
         let c = 12u32;
@@ -1162,8 +1051,6 @@ mod tests {
             values[(i * w + c) as usize] = 1; // vertical arm
         }
         let paths = component_skeleton_paths(&values, w, h, c, c);
-        // Four arms radiate from the junction (the walk terminates at it rather
-        // than cutting the corner into an adjacent arm).
         assert!(paths.len() >= 4, "expected >= 4 arms, got {}", paths.len());
     }
 }

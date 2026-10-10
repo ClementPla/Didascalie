@@ -6,8 +6,6 @@ import { LabelledSwitchComponent } from '../../shared/generics/labelled-switch/l
 import { FeatureFlagsService } from '../feature-flags.service';
 import { EXPERIMENTAL_FEATURES } from '../registry';
 
-/** Toolbar button + popover with the "Experimental features" master switch
- *  and the list of features it controls. */
 @Component({
   selector: 'app-experimental-settings',
   standalone: true,

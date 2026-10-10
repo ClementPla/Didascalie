@@ -7,7 +7,6 @@ pub enum AppError {
     #[error("Generic error: {0}")]
     Generic(String),
      
-    // Storage errors
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
     
@@ -18,18 +17,15 @@ pub enum AppError {
     #[allow(dead_code)] // reserved for future use
     ProjectAlreadyOpen,
     
-    // IO errors
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     
     #[error("Image error: {0}")]
     Image(#[from] image::ImageError),
     
-    // Serialization
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     
-    // Communication
     #[cfg(not(target_os = "android"))]
     #[error("ZMQ error: {0}")]
     Zmq(#[from] zmq::Error),
@@ -42,11 +38,9 @@ pub enum AppError {
     #[allow(dead_code)] // reserved for future use
     Timeout,
     
-    // Tauri
     #[error("Tauri error: {0}")]
     Tauri(String),
     
-    // Generic
     #[error("{0}")]
     #[allow(dead_code)] // reserved for future use
     Other(String),
@@ -65,7 +59,7 @@ impl From<crate::connection::types::ComError> for AppError {
     }
 }
 
-// For Tauri commands - converts to string
+// Tauri commands return the error as a string.
 impl Serialize for AppError {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where

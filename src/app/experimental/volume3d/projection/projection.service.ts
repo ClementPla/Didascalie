@@ -31,12 +31,9 @@ const MAX_COLUMNS = 4096;
  * The two curves of the projection view and what the view derives from them.
  *
  * The curves are drawn on the slice, in image pixels, and apply to every
- * slice (they are extruded along Z). Column `s` of the projection joins the
- * points at the same normalised arc length on each curve, so the curves need
- * neither the same length nor the same number of control points.
- *
- * Curves are remembered per sequence for the session; they are a viewing aid,
- * not annotations, and are never saved to the project.
+ * slice. Column `s` of the projection joins the points at the same normalised
+ * arc length on each curve. Curves are kept per sequence for the session and
+ * are never saved.
  */
 @Injectable({ providedIn: 'root' })
 export class ProjectionService implements ProjectScoped {
@@ -124,11 +121,10 @@ export class ProjectionService implements ProjectScoped {
   }
 
   /**
-   * Make the curve being picked follow the annotation at `p` (image px) on
-   * the current slice: a vector path within `tolerance` px becomes the curve
-   * as drawn; otherwise a painted component under `p` is reduced to its
-   * centerline (skeleton, longest route). Visible labels only, the active one
-   * first.
+   * Make the curve being picked follow the annotation at `p` (image px) on the
+   * current slice: a vector path within `tolerance` px, otherwise the
+   * centreline of the painted component under `p`. Visible labels only, the
+   * active one first.
    */
   async pickAt(p: Point, tolerance: number): Promise<void> {
     const id = this.picking();
@@ -248,7 +244,7 @@ export class ProjectionService implements ProjectScoped {
     if (this.activeSequence != null) this.bySequence.delete(this.activeSequence);
   }
 
-  /** @see ProjectScoped — sequence ids restart in every project. */
+  /** @see ProjectScoped */
   resetForProject(): void {
     this.bySequence.clear();
     this.activeSequence = null;

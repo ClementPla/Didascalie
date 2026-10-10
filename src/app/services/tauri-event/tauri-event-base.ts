@@ -2,19 +2,14 @@ import { OnDestroy, NgZone, Injectable } from '@angular/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 
-/**
- * Base class for services that handle Tauri events.
- * Provides common functionality for event registration, cleanup, and acknowledgment.
- */
+/** Base class of the services handling Tauri events. */
 @Injectable()
 export abstract class TauriEventBase implements OnDestroy {
   protected unlistenFunctions: UnlistenFn[] = [];
   
   constructor(protected ngZone: NgZone) {}
 
-  /**
-   * Register a simple event listener that runs handler in NgZone
-   */
+  /** Register a listener whose handler runs in NgZone. */
   protected async registerListener<T>(
     eventName: string,
     handler: (payload: T) => void | Promise<void>
@@ -27,9 +22,7 @@ export abstract class TauriEventBase implements OnDestroy {
     this.unlistenFunctions.push(unlisten);
   }
 
-  /**
-   * Register an event listener that sends acknowledgment back to Rust
-   */
+  /** Register a listener that acknowledges back to Rust. */
   protected async registerListenerWithAck<T>(
     eventName: string,
     handler: (data: T) => void | Promise<void>

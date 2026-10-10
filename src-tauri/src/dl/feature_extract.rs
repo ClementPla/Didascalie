@@ -42,11 +42,10 @@ impl FeaturesExtractor {
         let mut data = vec![0.0f32; 3 * plane_size];
         let scale = 1.0 / 255.0;
 
-        // Split into R, G, B planes
         let (r_plane, rest) = data.split_at_mut(plane_size);
         let (g_plane, b_plane) = rest.split_at_mut(plane_size);
 
-        // Process in parallel - note: 4 bytes per pixel (RGBA)
+        // 4 bytes per pixel (RGBA).
         [r_plane, g_plane, b_plane]
             .into_par_iter()
             .enumerate()

@@ -1,5 +1,5 @@
-//! Adapter between the SQLite (`.dida`) store and the canonical [`Dataset`] IR.
-//! Only this module knows the schema; formats never touch the database.
+//! Adapter between the SQLite (`.dida`) store and the [`Dataset`] IR. Only
+//! this module knows the schema.
 
 use std::collections::HashMap;
 
@@ -133,12 +133,10 @@ fn load_frames(
     Ok(frames)
 }
 
-// ── Write side: overlay an imported IR onto the OPEN project ────────────────
+// ── Write side: overlay an imported IR onto the open project ────────────────
 //
-// Frames are matched to the project by filename, so import doesn't need to
-// re-load the images (they're already in the project — the CVAT "import into a
-// task" model). Missing labels are created; shapes go to `vector_annotations`,
-// masks to `annotations` (rle8).
+// Frames are matched to the project's by filename. Missing labels are
+// created; shapes go to `vector_annotations`, masks to `annotations` (rle8).
 
 pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResult> {
     let mut result = ImportResult::default();
@@ -155,7 +153,7 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
         }
     }
 
-    // Map IR label index -> db label id, creating labels that don't exist yet.
+    // IR label index -> db label id, creating missing labels.
     let mut next_sort: i32 = conn
         .query_row("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM labels", [], |r| r.get(0))
         .unwrap_or(0);
@@ -205,7 +203,6 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
         };
         result.frames_matched += 1;
 
-        // Vector shapes -> vector_annotations (append to any existing).
         if !frame.shapes.is_empty() {
             let mut by_label: HashMap<i64, Vec<VectorShape>> = HashMap::new();
             for s in &frame.shapes {
@@ -229,7 +226,6 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
             }
         }
 
-        // Label value masks -> annotations (rle8).
         for lm in &frame.label_masks {
             if let Some(&label_id) = db_label_by_index.get(&lm.label_index) {
                 let encoded = rle::encode8(&lm.values);

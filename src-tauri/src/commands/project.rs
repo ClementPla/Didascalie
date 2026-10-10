@@ -9,27 +9,19 @@ use crate::types::project::ProjectConfig;
 use crate::commands::frame::{FrameImageCache, ThumbnailCache};
 use crate::commands::ml::predict::MlState;
 
-/// Forget everything derived from the project being left.
-///
-/// Frame and label ids restart from 1 in every project, so anything cached
-/// under them is silently wrong for the next one: the gallery showed the
-/// previous project's thumbnails, for instance. Every command that changes the
-/// open database goes through here.
+/// Forget everything derived from the project being left: frame and label
+/// ids restart from 1 in every project. Every command that changes the open
+/// database goes through here.
 fn forget_project(thumbnails: &ThumbnailCache, tiles: &FrameImageCache, ml: &MlState) {
     thumbnails.clear();
     tiles.clear();
-    // A head only means anything against the labels it was fitted to, and the
-    // encoder features belong to one frame of one project.
     *ml.model.lock() = None;
     *ml.features.lock() = None;
 }
 
 /// Where this computer finds the project's image folder: the first of the
-/// paths the project knows it by that is a folder here. When none is, the one
-/// the project was created with, so that what fails to load names it.
-///
-/// A project holds one image folder, but not every computer reaches it by the
-/// same path: a network share is `/mnt/…` on one and `\\server\…` on another.
+/// paths the project knows it by that exists here (a network share has a
+/// different path on each system), or else the one it was created with.
 pub fn resolve_image_folder(config: &ProjectConfig) -> Option<PathBuf> {
     let known = || config.input_folder.iter().chain(&config.input_folder_alternates);
     known()
@@ -38,8 +30,8 @@ pub fn resolve_image_folder(config: &ProjectConfig) -> Option<PathBuf> {
         .or_else(|| known().next().map(PathBuf::from))
 }
 
-/// `folder/relative`, for a path stored by whichever system imported it:
-/// Windows writes `a\b.png`, which is one file name anywhere else.
+/// `folder/relative`, for a path stored by whichever system imported it
+/// (Windows writes `a\b.png`).
 pub fn join_relative(folder: &Path, relative: &str) -> PathBuf {
     if cfg!(windows) {
         folder.join(relative)
@@ -58,8 +50,8 @@ pub struct ImageFolderStatus {
     pub missing: bool,
 }
 
-/// A file the project reads from its image folder, to tell whether a folder
-/// is the right one; None when it reads none.
+/// A file the project reads from its image folder, to check that a folder is
+/// the right one.
 fn sample_image_path(conn: &rusqlite::Connection) -> Result<Option<String>> {
     let mut stmt = conn.prepare(
         "SELECT relative_path FROM videos
@@ -89,11 +81,8 @@ pub fn get_image_folder(db: State<DbState>) -> Result<ImageFolderStatus> {
     image_folder_status(&db)
 }
 
-/// Tell the project where its image folder is on this computer.
-///
-/// The path is added to those the project knows the folder by, not swapped
-/// for them: the file may go back to a computer where the earlier one holds.
-/// Open to every user, since it changes nothing of what the project contains.
+/// Tell the project where its image folder is on this computer. The path is
+/// added to those already known, not swapped for them.
 #[tauri::command]
 pub fn set_image_folder(
     db: State<DbState>,
@@ -178,21 +167,15 @@ pub fn open_project(
     let conn = queries::open_database(Path::new(&path))?;
     let config = queries::get_project_config(&conn)?;
 
-    // Ensure labels table is in sync with config
     queries::sync_labels_from_config(&conn, &config)?;
 
-    // From here on the connection shows one user's annotations. With a single
-    // passwordless account that user is known already; otherwise the frontend
-    // asks who is there before anything else is loaded.
+    // From here on the connection shows one user's annotations.
     queries::install_user_scope(&conn)?;
     crate::commands::users::auto_login(&conn)?;
 
     db.set(conn);
     db.set_image_root(resolve_image_folder(&config));
-    // Restore this project's trained head, if it has one, so predicting works
-    // straight away rather than only after a visit to the model page. Failure is
-    // silent by design — most projects have no model, and one this build cannot
-    // read leaves the user exactly where they were: able to retrain.
+    // Restore the project's trained head, if any.
     crate::commands::ml::commands::ml_load_saved_model(db, ml);
     Ok(config)
 }

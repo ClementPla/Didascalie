@@ -6,26 +6,14 @@ export interface LoadingState {
   message: string;
 }
 
-/**
- * Manages application-level UI state.
- * 
- * Responsibilities:
- * - Loading indicators and messages
- * - Route navigation
- * - UI preferences (thumbnails size, etc.)
- */
+/** Loading indicator, route navigation and UI preferences. */
 @Injectable({
   providedIn: 'root',
 })
 export class UIStateService {
   private router = inject(Router);
 
-  /**
-   * Signals rather than plain fields, because templates read these directly.
-   * Reading a signal in a template marks that view dirty on change; reading a
-    * plain property does not, so a component using OnPush would stop repainting
-    * when this state moved.
-   */
+  /** Signals: templates read these directly, under OnPush. */
   private readonly loadingState = signal<LoadingState>({
     isLoading: false,
     message: '',
@@ -34,7 +22,6 @@ export class UIStateService {
   readonly isLoading = computed(() => this.loadingState().isLoading);
   readonly loadingStatus = computed(() => this.loadingState().message);
 
-  // UI preferences
   readonly thumbnailsSize = signal(128);
   readonly showFpsCounter = signal(false);
 

@@ -13,7 +13,6 @@
     class="absolute left-0 top-0"
   ></app-quick-access-menu>
 
-  <!-- Left column: Labels + Sequence navigator -->
   @if (shouldShowLeftPanel && !labelsCollapsed && !narrowPortrait()) {
     <div class="flex flex-col gap-2 max-w-[32rem] min-w-0 overflow-y-auto">
       @if (shouldShowLabels) {
@@ -27,9 +26,8 @@
     </div>
   }
 
-  <!-- Center column -->
   <div class="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden relative">
-    <!-- Floating panel toggles (overlay the canvas edges; do not push layout) -->
+    <!-- Panel toggles, floating over the canvas edges -->
     @if (shouldShowLeftPanel && !narrowPortrait()) {
       <button
         pButton
@@ -83,7 +81,6 @@
         <ng-container *ngComponentOutlet="pane" />
       }
     </div>
-    <!-- Progress indicator - sticky at bottom -->
     <div
       class="backdrop-blur-sm bg-black/70 bottom-0 left-0 p-2 right-0 sticky z-10"
     >
@@ -91,8 +88,7 @@
         <span class="font-semibold truncate">
           {{ currentSequenceName }}
         </span>
-        <!-- A tablet has no arrow keys: the frames are stepped and scrubbed
-             here, without opening anything. -->
+        <!-- A tablet has no arrow keys. -->
         @if (isAndroid && totalFrames > 1) {
           <div class="frame-scrubber">
             <button
@@ -307,7 +303,6 @@
       ></p-togglebutton>
     </ng-template>
 
-    <!-- Auto: automatic help while drawing -->
     <ng-template [appMenuGroup]="'Auto'">
       <p-togglebutton
         [(ngModel)]="editorService.penPostProcess"
@@ -321,7 +316,6 @@
       ></p-togglebutton>
     </ng-template>
 
-    <!-- Display: what's drawn on top of the image -->
     <ng-template [appMenuGroup]="'Display'">
       <p-togglebutton
         [(ngModel)]="editorService.useProcessing"
@@ -381,7 +375,6 @@
       }
     </ng-template>
 
-    <!-- View: zoom & rendering -->
     <ng-template [appMenuGroup]="'View'">
       <p-togglebutton
         [(ngModel)]="editorService.resetZoomAfterNavigation"
@@ -420,8 +413,7 @@
       }
     </ng-template>
 
-    <!-- Touch: touchscreen / stylus pressure -->
-    <!-- One button: the touch and pen options are in the settings panel. -->
+    <!-- The touch and pen options are in the settings panel. -->
     <ng-template [appMenuGroup]="'Touch'">
       <p-togglebutton
         [(ngModel)]="editorService.touchSettingsOpen"
@@ -436,9 +428,7 @@
     </ng-template>
   </app-vertical-menu>
 
-  <!-- Right column, on demand: the user's Python functions while a server is
-       serving some, and the settings panel (opacity, pressure, adjustments,
-       post-process) while something is toggled. -->
+  <!-- Right column: the user's Python functions and the settings panel. -->
   @if (showRightPanel && !settingsCollapsed) {
     <div
       class="2xl:w-96 flex flex-col gap-4 min-h-0 overflow-y-auto shrink w-80"
@@ -453,10 +443,8 @@
   }
 </div>
 
-<!-- Overlays live outside the row above: inside it each one is a zero-width
-     flex item, and the row's gap is applied around every one of them — which
-     left a wide empty strip between the tool rail and the right panel. -->
-<!-- Frame navigation popover (a picker, not a setting — stays a popover). -->
+<!-- Overlays are outside the row above: inside it, each is a zero-width flex
+     item with the row's gap around it. -->
 <p-popover #frameNavPopover>
   <app-multi-frames-options
     (changeOfFrame)="changedOfFrame($event)"
@@ -469,7 +457,7 @@
   ></app-multi-frames-options>
 </p-popover>
 
-<!-- Kept outside the popover: the popover is destroyed when it loses focus. -->
+<!-- Outside the popover, which is destroyed when it loses focus. -->
 <app-propagation-dialog [(visible)]="propagationVisible" />
 
 <p-dialog

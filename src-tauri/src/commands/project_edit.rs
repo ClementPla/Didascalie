@@ -1,33 +1,18 @@
 //! Editing the configuration of the open project.
 //!
-//! # One edit, one transaction
+//! Definitions live in the JSON `project.config` and in the rows that refer to
+//! it by name or id (`labels`, `classifications`, `text_descriptions`). The
+//! two must agree, so every change is a [`ProjectEdit`], applied by
+//! [`apply_edit`] to both in one transaction; no command writes a whole
+//! `ProjectConfig` back.
 //!
-//! A project's definitions live in two places that must agree: the JSON
-//! `project.config`, and the rows that refer to it by name or id (`labels`,
-//! `classifications.task_name`, the class names inside
-//! `classifications.selected_classes`, `text_descriptions.label_name`). Editing
-//! the config alone is how a rename turns into data loss: the next open syncs
-//! the `labels` table from the config *by name*, sees a label it does not know,
-//! and the annotations stay attached to a label nobody can reach.
+//! Definitions are shared by all users, so an edit reaches everyone's
+//! annotations: every statement names `main.<table>`, not the logged-in user's
+//! view (see `queries::install_user_scope`).
 //!
-//! So every change is a [`ProjectEdit`], applied by [`apply_edit`] to the config
-//! and to the rows that depend on it inside a single transaction. There is no
-//! command that writes a whole `ProjectConfig` back, on purpose.
-//!
-//! # Every user at once
-//!
-//! Definitions are shared by all the project's users, so an edit reaches every
-//! user's annotations: a renamed class is renamed in everyone's answers, a
-//! deleted label takes everyone's masks, and the impact counts say so. That is
-//! why every statement here names `main.<table>` — the unqualified name is the
-//! logged-in user's view of it (see `queries::install_user_scope`).
-//!
-//! # Destructive edits
-//!
-//! Deleting a label, a task, a class or a text field deletes what was annotated
-//! with it, on every frame, and cannot be undone. [`edit_impact`] reports what
-//! an edit would destroy so the frontend can say so before it happens. Nothing
-//! here asks for confirmation: that is the caller's job.
+//! Deleting a label, task, class or text field deletes what was annotated
+//! with it. [`edit_impact`] reports that beforehand; confirming is the
+//! caller's job.
 
 use std::collections::{HashMap, HashSet};
 
@@ -53,11 +38,9 @@ pub enum TaskKind {
     TextDescription,
 }
 
-/// One change to the project's configuration.
-///
-/// Labels are addressed by id, which never changes. Tasks, classes and text
-/// fields have no id — their name is their identity in the stored annotations —
-/// so they are addressed by their current name.
+/// One change to the project's configuration. Labels are addressed by id;
+/// tasks, classes and text fields by their current name, which is their
+/// identity in the stored annotations.
 #[derive(Deserialize, Debug, Clone, TS)]
 #[serde(tag = "type", rename_all = "camelCase")]
 #[ts(export, export_to = "../../src/app/lib/generated/")]
@@ -173,15 +156,11 @@ pub fn apply_project_edit(
 ) -> Result<ProjectConfig> {
     log::info!("[project] edit: {:?}", edit);
     let config = db.with_conn(|conn| {
-        // Definitions are shared by every user, and an edit can erase all of
-        // their work with it.
         crate::commands::users::require_admin(conn)?;
         apply_edit(conn, &edit)
     })?;
 
-    // The stored model went with the label inside the transaction; the copy
-    // already loaded for predicting has to go too, or it keeps returning masks
-    // for a label id that no longer exists.
+    // The model loaded for predicting goes with its label too.
     if let ProjectEdit::DeleteLabel { id } = &edit {
         let mut model = ml.model.lock();
         if model.as_ref().is_some_and(|m| m.label_order.contains(id)) {
@@ -239,11 +218,8 @@ fn count(conn: &Connection, sql: &str, params: impl rusqlite::Params) -> Result<
     Ok(n as usize)
 }
 
-/// Frames whose mask of `label_id` has at least one pixel set.
-///
-/// Not a plain row count: erasing everything a label had on a frame still
-/// leaves its row behind, holding an all-zero mask. Counting those would make
-/// the warning cry wolf on labels that were tried once and wiped.
+/// Frames whose mask of `label_id` has at least one pixel set. An erased
+/// label leaves a row with an all-zero mask, so rows are not counted as is.
 fn frames_with_mask(conn: &Connection, label_id: i64) -> Result<usize> {
     let mut stmt =
         conn.prepare("SELECT encoding, mask_data FROM main.annotations WHERE label_id = ?1")?;
@@ -253,9 +229,8 @@ fn frames_with_mask(conn: &Connection, label_id: i64) -> Result<usize> {
     let mut frames = 0;
     for row in rows {
         let (encoding, data) = row?;
-        // `rle8` is a list of (value, u32 run length) records, so emptiness can
-        // be read without decoding. Legacy encodings are assumed to hold
-        // something: overstating a deletion is the safe direction.
+        // `rle8` is a list of (value, u32 run length) records: emptiness is read
+        // without decoding. Legacy encodings are assumed non-empty.
         let empty = encoding == "rle8" && data.chunks_exact(5).all(|record| record[0] == 0);
         if !empty {
             frames += 1;
@@ -269,9 +244,7 @@ fn saved_model_uses_label(conn: &Connection, label_id: i64) -> Result<bool> {
     let Some((meta, _)) = queries::load_ml_model(conn)? else {
         return Ok(false);
     };
-    // Read as loose JSON: this module has no business knowing the head's
-    // metadata beyond the one list it needs. A model this build cannot read is
-    // treated as using the label, so it is dropped rather than left dangling.
+    // A model this build cannot read is treated as using the label.
     let Ok(meta) = serde_json::from_str::<serde_json::Value>(&meta) else {
         return Ok(true);
     };
@@ -316,8 +289,7 @@ pub fn apply_edit(conn: &Connection, edit: &ProjectEdit) -> Result<ProjectConfig
         ProjectEdit::RecolorLabel { id, color } => {
             let color = clean_color(color)?;
             label_name(&tx, *id)?; // must exist
-            // Colour is applied at composite time from this column and is not in
-            // the mask pixels, so this one row recolours every frame.
+            // Colour is applied at composite time from this column.
             tx.execute("UPDATE labels SET color = ?1 WHERE id = ?2", params![color, id])?;
             write_labels_to_config(&tx, &mut config, None)?;
         }
@@ -332,9 +304,8 @@ pub fn apply_edit(conn: &Connection, edit: &ProjectEdit) -> Result<ProjectConfig
         }
 
         ProjectEdit::ReorderLabels { ids } => {
-            // Position is meaning here: it is the class number in exports and in
-            // a model being trained. A list that drops or repeats a label would
-            // leave two labels sharing a position, so it is refused whole.
+            // Position is the class number in exports and in a trained model: a list
+            // that drops or repeats a label is refused.
             let mut current: Vec<i64> = {
                 let mut stmt = tx.prepare("SELECT id FROM labels")?;
                 let rows = stmt.query_map([], |row| row.get(0))?;
@@ -495,7 +466,7 @@ fn clean_name(name: &str, what: &str) -> Result<String> {
     Ok(name.to_string())
 }
 
-/// `#rrggbb`, lower-cased. The compositor and the exporters parse exactly this.
+/// `#rrggbb`, lower-cased.
 fn clean_color(color: &str) -> Result<String> {
     let color = color.trim();
     let hex = color.strip_prefix('#').unwrap_or("");
@@ -521,8 +492,8 @@ fn ensure_label_name_free(conn: &Connection, name: &str, except: Option<i64>) ->
     }
 }
 
-/// Task names key the `classifications` rows, multiclass and multilabel alike,
-/// so one name cannot serve two tasks.
+/// Task names key the `classifications` rows, multiclass and multilabel
+/// alike.
 fn ensure_task_name_free(config: &ProjectConfig, name: &str) -> Result<()> {
     let multiclass = config.classification_tasks.iter().flatten().any(|t| t.name == name);
     let multilabel = config.multilabel_task.as_ref().is_some_and(|t| t.name == name);
@@ -596,11 +567,8 @@ fn replace_class(classes: &mut Vec<String>, from: &str, to: Option<&str>) {
     }
 }
 
-/// Rebuild `config.segmentation_labels` from the `labels` table.
-///
-/// The table is the source of truth while a project is open, but the config
-/// copy is what `sync_labels_from_config` replays on the next open — matching
-/// by name — so it has to say the same thing or that sync undoes the edit.
+/// Rebuild `config.segmentation_labels` from the `labels` table:
+/// `sync_labels_from_config` replays the config, by name, on the next open.
 /// `renamed` is `(old, new)`, so a renamed label keeps its stored shades.
 fn write_labels_to_config(
     conn: &Connection,
@@ -634,8 +602,7 @@ fn write_labels_to_config(
 // ── Row helpers ────────────────────────────────────────────────────────────
 
 /// Follow a class rename (`to = Some`) or removal (`to = None`) through every
-/// frame classified with `task`. A row left with no class is deleted, which is
-/// how "nothing selected" is stored everywhere else.
+/// frame classified with `task`. A row left with no class is deleted.
 fn rewrite_selected_classes(
     conn: &Connection,
     task: &str,
@@ -672,11 +639,8 @@ fn rewrite_selected_classes(
     Ok(())
 }
 
-/// Drop classifications stored under a name no task currently uses.
-///
-/// Only reachable for a name that is about to be taken. Rows like these come
-/// from project files edited by hand or by an older build; left in place they
-/// would silently become the new task's answers, or collide with a rename.
+/// Drop classifications stored under a name no task uses, before that name is
+/// taken. Such rows come from files edited by hand or by an older build.
 fn forget_orphan_classifications(conn: &Connection, task_name: &str) -> Result<()> {
     conn.execute("DELETE FROM main.classifications WHERE task_name = ?1", params![task_name])?;
     Ok(())
@@ -765,8 +729,7 @@ mod tests {
         .unwrap()
     }
 
-    /// The failure this module exists to prevent: a rename must survive the
-    /// name-based label sync that runs on every open, annotations attached.
+    /// A rename must survive the name-based label sync that runs on every open.
     #[test]
     fn a_renamed_label_keeps_its_annotations_across_a_reopen() {
         let conn = project();

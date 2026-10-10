@@ -1,20 +1,12 @@
 //! The bridge to the user's own Python functions, served by `didascalie.com`.
 //!
-//! Every command here blocks on a socket for as long as the user's function
-//! runs, so each one moves onto the blocking pool rather than stalling an async
-//! worker.
+//! Every command blocks on a socket while the user's function runs, so each
+//! moves onto the blocking pool.
 //!
-//! Segmentation comes in two shapes that deliberately differ in how they land:
-//!
-//! - **One frame** returns the masks to the editor, which applies them to the
-//!   canvas as a single undo step.
-//! - **A sequence** is written straight to the project, like propagation: most
-//!   of its frames are not open, and their masks are far too large to route
-//!   through the webview one by one.
-//!
-//! Both follow one rule for combining with what exists: a layer returned *for a
-//! named label* replaces that label, while a single unnamed mask is painted onto
-//! the active label, keeping what is already there.
+//! Segmenting one frame returns the masks to the editor, which applies them as
+//! one undo step. Segmenting a sequence writes straight to the project, like
+//! propagation. In both, a layer returned for a named label replaces that
+//! label; a single unnamed mask is painted onto the active label.
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -33,8 +25,7 @@ use crate::types::image::MaskEncoding;
 use crate::utils::error::Result;
 use crate::utils::AppError;
 
-/// The peer's own words (a Python exception, a timeout) are the message; a
-/// "Generic error:" prefix in front of them would only be noise in a toast.
+/// The peer's own words (a Python exception, a timeout) are the message.
 fn bridge(e: ComError) -> AppError {
     AppError::Other(e.to_string())
 }
@@ -49,10 +40,8 @@ where
         .map_err(|e| AppError::Generic(e.to_string()))?
 }
 
-/// Ping `host:port` and adopt it as the endpoint if it answers.
-///
-/// `probe` is the background discovery poll: it gives up almost immediately,
-/// since most of the time nothing is listening.
+/// Ping `host:port` and adopt it as the endpoint if it answers. `probe` is
+/// the background discovery poll, which gives up almost at once.
 #[tauri::command]
 pub async fn inference_connect(
     app: AppHandle,
@@ -92,9 +81,8 @@ pub async fn find_keypoints_prefill(
 
 // ── Segmentation ────────────────────────────────────────────────────────────
 
-/// A project label as the editor lists it. Sent by the frontend rather than
-/// read from the database so the order — which a `C×H×W` result is matched
-/// against — is exactly the one the user sees.
+/// A project label as the editor lists it. Sent by the frontend so that the
+/// order, which a `C×H×W` result is matched against, is the one the user sees.
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BridgeLabel {
@@ -127,16 +115,14 @@ impl SegContext {
     }
 }
 
-/// A returned mask, resolved against the project and ready to store.
+/// A returned mask, resolved against the project.
 struct Layer {
     label_id: i64,
-    /// Paint onto what exists (the unnamed, active-label mask) rather than
-    /// replace it.
+    /// Paint onto what exists instead of replacing it.
     additive: bool,
     mask: Vec<u8>,
 }
 
-/// Resolve one wire mask: which label it lands on, and what values it writes.
 fn resolve(wire: WireMask, ctx: &SegContext, width: u32, height: u32) -> Result<Layer> {
     if wire.shape != [height as usize, width as usize] || wire.buf.len() != (width * height) as usize
     {
@@ -163,8 +149,7 @@ fn resolve(wire: WireMask, ctx: &SegContext, width: u32, height: u32) -> Result<
         // A semantic layer only ever holds 1.
         mask.iter_mut().for_each(|v| *v = (*v > 0) as u8);
     } else if wire.binary {
-        // An on/off mask says nothing about instances: onto the active label
-        // it paints the instance the user has selected, like a stroke would.
+        // An on/off mask on the active label paints the selected instance.
         let value = if additive { ctx.active_value.max(1) } else { 1 };
         mask.iter_mut().for_each(|v| *v = if *v > 0 { value } else { 0 });
     }
@@ -203,10 +188,9 @@ pub struct SegmentedFrame {
     pub unknown_labels: Vec<String>,
 }
 
-/// Run a `@register_seg` function on one frame and hand the masks back.
-///
-/// With `send_masks`, the function sees what is *stored* for the frame, so the
-/// caller flushes pending edits first.
+/// Run a `@register_seg` function on one frame and hand the masks back. With
+/// `send_masks`, the function sees what is stored, so the caller flushes
+/// pending edits first.
 #[tauri::command]
 pub async fn python_segment_frame(
     app: AppHandle,
@@ -267,11 +251,7 @@ pub struct SequenceSegReport {
 }
 
 /// Run a `@register_sequence_seg` function over `frame_ids` and store what it
-/// returns.
-///
-/// Not undoable: it writes frames that are not open. Nothing is written unless
-/// every frame came back valid — the rows are collected, already encoded, and
-/// committed in one transaction at the end.
+/// returns, in one transaction. Not undoable.
 #[tauri::command]
 pub async fn python_segment_sequence(
     app: AppHandle,
@@ -283,8 +263,8 @@ pub async fn python_segment_sequence(
     blocking(move || {
         let channel = app.state::<InferenceClient>().channel().map_err(bridge)?;
         let result = segment_sequence(&app, &channel, name, &frame_ids, current_frame_id, &context);
-        // Either way, let Python drop the frames and masks it is holding. On a
-        // fresh channel: after an error the one above cannot send any more.
+        // Let Python drop the frames and masks it holds. On a fresh channel: after
+        // an error the one above cannot send any more.
         if let Ok(end) = app.state::<InferenceClient>().channel() {
             let _ = end.send(&Request::SeqEnd, timeout::PING);
         }
@@ -362,8 +342,8 @@ fn segment_sequence(
     Ok(report)
 }
 
-/// Turn an additive layer into the full mask to store: what is already there,
-/// with the returned pixels painted on top.
+/// The full mask to store for an additive layer: what is there, with the
+/// returned pixels painted on top.
 fn paint_over_stored(
     db: &DbState,
     frame_id: i64,

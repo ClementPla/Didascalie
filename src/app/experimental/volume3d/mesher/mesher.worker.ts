@@ -3,11 +3,10 @@
 /**
  * Meshes the label volumes off the main thread.
  *
- * Holds one occupancy grid per label (downsampled by `lod`) and meshes it in
- * bricks. The initial build runs as background work; an edit (`slab`) diffs
- * the changed grid layers to find the region that actually changed and queues
- * only the bricks around it, ahead of any background work. Work is done in
- * short slices so edits arriving mid-build are picked up promptly.
+ * One occupancy grid per label (downsampled by `lod`), meshed in bricks. The
+ * initial build is background work; an edit (`slab`) diffs the changed grid
+ * layers and queues only the bricks around the change, ahead of it. Work is
+ * done in short slices so edits are picked up promptly.
  */
 
 import { MeshKind, MesherRequest, MesherResponse, MeshUpdate } from './mesher.protocol';

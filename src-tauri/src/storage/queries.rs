@@ -5,17 +5,15 @@ use crate::utils::error::Result;
 use crate::types::project::ProjectConfig;
 use crate::types::image::{AnnotationData, MaskEncoding};
 
-/// Current on-disk schema version. Bump this whenever the schema changes and
-/// add a matching arm in `run_migrations`.
+/// On-disk schema version. Bump it with the schema, and add an arm to
+/// `run_migrations`.
 pub const SCHEMA_VERSION: i64 = 6;
 
-/// The account every project has: created with it, or added to an older
-/// project when it is migrated. See the `users` table in `schema.rs`.
+/// The account every project has. See the `users` table in `schema.rs`.
 pub const DEFAULT_USER_ID: i64 = 1;
 
-/// Common configuration for all connections
 fn configure_connection(conn: &Connection) -> Result<()> {
-    // Use execute_batch for PRAGMAs that return values to avoid the "results returned" error
+    // `execute_batch`: these PRAGMAs return rows.
     conn.execute_batch("
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
@@ -25,15 +23,14 @@ fn configure_connection(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Read SQLite's `user_version` header field (0 on a fresh / pre-versioning DB).
+/// SQLite's `user_version` (0 on a fresh or unversioned database).
 fn user_version(conn: &Connection) -> Result<i64> {
     conn.query_row("PRAGMA user_version;", [], |row| row.get(0))
         .map_err(AppError::Database)
 }
 
-/// Bring a database up to `SCHEMA_VERSION`. Safe to call on fresh, legacy
-/// (unversioned) and already-current databases. Migrating forward only:
-/// a DB stamped with a newer version is refused rather than silently corrupted.
+/// Bring a database up to `SCHEMA_VERSION`. Forward only: a database stamped
+/// with a newer version is refused.
 fn run_migrations(conn: &Connection) -> Result<()> {
     let version = user_version(conn)?;
 
@@ -45,11 +42,8 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )));
     }
 
-    // Always ensure the baseline tables exist, regardless of stored version.
-    // The baseline SCHEMA is entirely `CREATE ... IF NOT EXISTS`, so this is a
-    // no-op when everything is present but backfills tables that were added to
-    // SCHEMA after a project was created (e.g. `registrations` on a project
-    // made before registration existed) without needing a version bump.
+    // The baseline is all `CREATE ... IF NOT EXISTS`: this backfills tables added
+    // to SCHEMA after a project was created, without a version bump.
     conn.execute_batch(super::schema::SCHEMA)
         .map_err(AppError::Database)?;
 
@@ -57,13 +51,11 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         return Ok(());
     }
 
-    // Apply migrations atomically so a partial/interrupted upgrade can't leave
-    // the project in a half-migrated state.
+    // One transaction, so an interrupted upgrade leaves nothing half-migrated.
     let tx = conn.unchecked_transaction().map_err(AppError::Database)?;
     let mut v = version;
 
-    // v0 -> v1: baseline. The baseline SCHEMA was already applied above, so this
-    // only stamps the version (also the adoption path for legacy unversioned DBs).
+    // v0 -> v1: the baseline, applied above. Only stamps the version.
     if v < 1 {
         v = 1;
     }
@@ -75,19 +67,14 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         v = 2;
     }
 
-    // v2 -> v3: uint8-per-label masks. No DDL change — the `annotations`
-    // table is unchanged and its `encoding` column already accepts the new
-    // `rle8` value. Bumping the version only stamps the file so older builds
-    // (which support up to v2) refuse to open it rather than mis-reading the
-    // new encoding. New masks are written as `rle8`; legacy `rle`/`png` rows
-    // stay readable and are upgraded lazily on the next save.
+    // v2 -> v3: uint8-per-label masks (`rle8`). No DDL change: the bump makes
+    // older builds refuse the file instead of misreading the new encoding.
     if v < 3 {
         v = 3;
     }
 
-    // v3 -> v4: user accounts. Every annotation, classification, text and
-    // review now belongs to a user; whatever the project already held goes to
-    // the account created here.
+    // v3 -> v4: user accounts. What the project held goes to the account created
+    // here.
     if v < 4 {
         migrate_to_user_accounts(&tx)?;
         v = 4;
@@ -115,10 +102,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         v = 6;
     }
 
-    // Future migrations go here, one block per version:
-    //   if v < 7 { tx.execute_batch(MIGRATION_V7)?; v = 7; }
-
-    // PRAGMA doesn't accept bound parameters; v is an internal integer.
+    // PRAGMA takes no bound parameters.
     tx.execute_batch(&format!("PRAGMA user_version = {};", v))
         .map_err(AppError::Database)?;
     tx.commit().map_err(AppError::Database)?;
@@ -134,11 +118,9 @@ fn has_column(conn: &Connection, table: &str, column: &str) -> Result<bool> {
     Ok(n > 0)
 }
 
-/// v3 -> v4. Safe on a fresh database, where the baseline already created the
-/// tables in their new shape and only the first account is missing.
+/// v3 -> v4. On a fresh database only the first account is missing.
 fn migrate_to_user_accounts(conn: &Connection) -> Result<()> {
-    // The baseline schema guarantees an account exists. Whatever the project
-    // held before accounts did goes to its first administrator.
+    // What the project held before accounts goes to its first administrator.
     let owner: i64 = conn.query_row(
         "SELECT id FROM users ORDER BY role = 'admin' DESC, id LIMIT 1",
         [],
@@ -165,9 +147,8 @@ fn migrate_to_user_accounts(conn: &Connection) -> Result<()> {
             )?;
             conn.execute_batch(&format!("DROP TABLE {table}_v3;"))?;
         }
-        // Once more for the indexes: each kept its name while its table was
-        // renamed, so `CREATE INDEX IF NOT EXISTS` skipped it above, and it
-        // then went with the dropped table.
+        // Once more for the indexes: each kept its name while its table was renamed,
+        // so it was skipped above and then went with the dropped table.
         conn.execute_batch(super::schema::SCHEMA)?;
     }
 
@@ -186,32 +167,20 @@ fn migrate_to_user_accounts(conn: &Connection) -> Result<()> {
 
 /// Make this connection see one user's annotations only.
 ///
-/// # How
-///
 /// Each per-user table gets a `TEMP` view of the same name, filtered on the
-/// logged-in user. SQLite resolves an unqualified name in `temp` before `main`,
-/// so on this connection `FROM annotations` reads the view. Three consequences,
-/// all intended:
+/// logged-in user; SQLite resolves an unqualified name in `temp` before
+/// `main`. So:
 ///
-/// - **Reads are scoped without knowing it.** Every query in the app — export,
-///   training, propagation, the gallery counts, 3D volumes — returns the current
-///   user's data, including the ones written before accounts existed and the
-///   ones nobody has written yet. There is no per-query `AND user_id = ?` to
-///   forget, and forgetting it is how one grader's masks would end up in
-///   another's export.
-/// - **Writes must say whose.** A view cannot be written to, so `INSERT INTO
-///   annotations` fails loudly. Writers target `main.annotations` and pass
+/// - Reads are scoped without any per-query `AND user_id = ?`.
+/// - A view cannot be written to: writers target `main.<table>` and pass
 ///   [`current_user_id`].
-/// - **`main.<table>` is everyone's.** Used deliberately by the few things that
-///   are about all users at once: project edits, the inter-grader report,
-///   account deletion.
+/// - `main.<table>` is everyone's rows, for project edits, the inter-grader
+///   report and account deletion.
 ///
-/// The views live in the connection, not in the file: nothing here changes what
-/// is stored. Nobody is logged in until [`set_session_user`] says so, and until
-/// then the views are empty and writes are refused.
-///
-/// Must run after the migrations — `CREATE TABLE IF NOT EXISTS annotations`
-/// would see the view and conclude the table exists.
+/// The views live in the connection, not in the file. Until
+/// [`set_session_user`] is called they are empty and writes are refused.
+/// Must run after the migrations, or `CREATE TABLE IF NOT EXISTS annotations`
+/// would take the view for the table.
 pub fn install_user_scope(conn: &Connection) -> Result<()> {
     let mut sql = String::from(
         "CREATE TEMP TABLE IF NOT EXISTS dida_session (
@@ -254,20 +223,13 @@ pub fn session_user(conn: &Connection) -> Result<Option<i64>> {
     Ok(conn.query_row("SELECT user_id FROM temp.dida_session", [], |row| row.get(0))?)
 }
 
-/// Whose rows a write belongs to.
-///
-/// A connection that never had [`install_user_scope`] run on it — a script, a
-/// test — acts as the default account, matching the `DEFAULT 1` on the columns.
-/// In the app every connection is scoped, so there this is the logged-in user,
-/// or an error.
+/// Whose rows a write belongs to: the logged-in user. A connection without
+/// [`install_user_scope`] (a script, a test) acts as the default account.
 pub fn current_user_id(conn: &Connection) -> Result<i64> {
     session_user(conn)?.ok_or_else(|| AppError::Other("Nobody is logged in.".into()))
 }
 
 pub fn create_database(path: &Path) -> Result<Connection> {
-    // Instead of deleting, we use SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE
-    // If you WANT to overwrite, your logic is fine, but usually,
-    // apps should prompt "File exists, overwrite?" in the UI first.
     let conn = Connection::open(path)
         .map_err(|e| AppError::Database(e))?;
 
@@ -293,7 +255,6 @@ pub fn open_database(path: &Path) -> Result<Connection> {
     Ok(conn)
 }
 
-/// Insert project config as JSON
 pub fn insert_project(conn: &Connection, config: &ProjectConfig) -> Result<()> {
     let config_json = serde_json::to_string(config)
         .map_err(|e| AppError::Generic(format!("Failed to serialize config: {}", e)))?;
@@ -306,7 +267,6 @@ pub fn insert_project(conn: &Connection, config: &ProjectConfig) -> Result<()> {
     Ok(())
 }
 
-/// Get total frame count
 pub fn get_frames_count(conn: &Connection) -> Result<i64> {
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM frames",
@@ -317,7 +277,6 @@ pub fn get_frames_count(conn: &Connection) -> Result<i64> {
     Ok(count)
 }
 
-/// Get sequence count
 pub fn get_sequences_count(conn: &Connection) -> Result<i64> {
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM sequences",
@@ -344,13 +303,9 @@ pub fn sync_labels_from_config(conn: &Connection, config: &ProjectConfig) -> Res
     };
 
     for (i, label) in labels.iter().enumerate() {
-        // Derived from the project flag, not from the presence of `shades`.
-        // Shades are deterministic and regenerated from the label colour on
-        // load, so the launcher writes labels with none — which made this come
-        // out false for every project created through the UI. The palette then
-        // mapped every instance id to the label's base colour and instances
-        // were indistinguishable once committed. `shades` is still honoured so
-        // older project files keep their flag.
+        // From the project flag: the launcher writes labels without `shades`, which
+        // are regenerated from the colour on load. `shades` is still honoured for
+        // older files.
         let is_instance = config.instance_segmentation_enabled || label.shades.is_some();
         conn.execute(
             "INSERT INTO labels (name, color, is_instance, sort_order)
@@ -383,8 +338,6 @@ pub fn sync_labels_from_config(conn: &Connection, config: &ProjectConfig) -> Res
     Ok(())
 }
 
-// ============ Images ============
-
 // ============ Annotations ============
 
 pub fn save_annotation(
@@ -403,12 +356,8 @@ pub fn save_annotation(
     Ok(())
 }
 
-/// Erase every annotation the current user made on every frame of
-/// `sequence_id`, returning how many frames actually carried one.
-///
-/// Both tables, because a label's annotation is raster *and* vector; clearing
-/// one alone leaves the frame looking annotated. The count is of frames rather
-/// than deleted rows so the caller can report something a user recognises.
+/// Erase every annotation the current user made on the frames of
+/// `sequence_id`, raster and vector, and return how many frames carried one.
 pub fn clear_sequence_annotations(conn: &Connection, sequence_id: i64) -> Result<usize> {
     let affected: i64 = conn.query_row(
         "SELECT COUNT(*) FROM frames f WHERE f.sequence_id = ?1 \
@@ -432,11 +381,8 @@ pub fn clear_sequence_annotations(conn: &Connection, sequence_id: i64) -> Result
     Ok(affected as usize)
 }
 
-/// Store the fitted head, replacing whatever was there.
-///
-/// `meta` is opaque JSON to this layer: the storage module has no business
-/// knowing a head's architecture, and letting the ML module change its own
-/// metadata without a schema migration is the point of keeping it that way.
+/// Store the fitted head, replacing the previous one. `meta` is opaque JSON
+/// here.
 pub fn save_ml_model(conn: &Connection, meta: &str, weights: &[u8]) -> Result<()> {
     conn.execute(
         "INSERT OR REPLACE INTO ml_models (id, meta, weights, modified_at)
@@ -446,7 +392,7 @@ pub fn save_ml_model(conn: &Connection, meta: &str, weights: &[u8]) -> Result<()
     Ok(())
 }
 
-/// The stored head as `(meta json, weights)`, or None when none was ever saved.
+/// The stored head as `(meta json, weights)`.
 pub fn load_ml_model(conn: &Connection) -> Result<Option<(String, Vec<u8>)>> {
     let mut stmt = conn.prepare("SELECT meta, weights FROM ml_models WHERE id = 1")?;
     let mut rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
@@ -513,7 +459,6 @@ mod tests {
         run_migrations(&conn).unwrap();
         assert_eq!(read_version(&conn), SCHEMA_VERSION);
 
-        // Baseline schema actually created the core tables.
         let n: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN \
@@ -702,8 +647,8 @@ mod tests {
         conn
     }
 
-    /// Backward compatibility: an older project gains what video frames need,
-    /// and its image frames are untouched by it.
+    /// An older project gains what video frames need; its image frames are
+    /// untouched.
     #[test]
     fn an_older_project_gains_the_video_columns() {
         let conn = v3_project();
@@ -729,8 +674,8 @@ mod tests {
         conn.query_row(sql, [], |r| r.get(0)).unwrap()
     }
 
-    /// Backward compatibility: a project from before accounts opens, keeps
-    /// every annotation, and gains one administrator who owns them.
+    /// A project from before accounts keeps every annotation and gains one
+    /// administrator who owns them.
     #[test]
     fn a_project_without_accounts_gains_one_that_owns_everything() {
         let conn = v3_project();
@@ -767,8 +712,8 @@ mod tests {
         );
     }
 
-    /// What the rebuild is for: a second user annotating the same frame and
-    /// label used to violate `UNIQUE(frame_id, label_id)`.
+    /// A second user annotating the same frame and label used to violate
+    /// `UNIQUE(frame_id, label_id)`.
     #[test]
     fn a_migrated_project_accepts_a_second_users_annotation_of_the_same_frame() {
         let conn = v3_project();
@@ -799,8 +744,7 @@ mod tests {
             .unwrap();
         assert!(run_migrations(&conn).is_err());
     }
-    /// Config with one segmentation label and no shades — what the launcher
-    /// produces, since shades are regenerated from the colour on load.
+    /// Config with one segmentation label and no shades, as the launcher writes.
     fn config_with_label(instance: bool) -> ProjectConfig {
         ProjectConfig {
             instance_segmentation_enabled: instance,
@@ -824,9 +768,7 @@ mod tests {
         .unwrap()
     }
 
-    /// The bug this pins: `is_instance` was inferred from `shades.is_some()`, so
-    /// a project created through the launcher — which writes no shades — got
-    /// `false`, and every instance rendered in the label's base colour.
+    /// `is_instance` comes from the project flag, not from `shades.is_some()`.
     #[test]
     fn instance_project_marks_its_labels_as_instances_without_shades() {
         assert!(synced_is_instance(&config_with_label(true)));

@@ -1,5 +1,5 @@
-//! Didascalie's native mask output: individual label masks, a combined index
-//! map, an RGB colormap and vector-shape JSON, all from the IR.
+//! Didascalie's native mask output: per-label masks, a combined index map, an
+//! RGB colormap and vector-shape JSON.
 
 use std::fs;
 use std::path::Path;

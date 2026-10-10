@@ -31,23 +31,14 @@ export class FrameLoaderService {
     }
   }
 
-  /**
-   * Convert a stringified frame id (from a UI select, route param, etc.) and
-   * load it. Returns null if the string isn't a valid integer.
-   *
-   * Provided as a convenience for callers that already keep ids as strings.
-   */
+  /** Load a frame from its id as a string. Null if it is not an integer. */
   async loadAsImageById(frameIdStr: string): Promise<HTMLImageElement | null> {
     const id = parseInt(frameIdStr, 10);
     if (Number.isNaN(id)) return null;
     return this.loadAsImage(id);
   }
 
-  /**
-   * Decode a base64 string (with or without data-URL prefix) into an
-   * HTMLImageElement. Resolves once the image has its natural dimensions
-   * available; rejects if the decode fails.
-   */
+  /** Decode a base64 string, with or without a data-URL prefix, into an image. */
   private decodeBase64(base64: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();

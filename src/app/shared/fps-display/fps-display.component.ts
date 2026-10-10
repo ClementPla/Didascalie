@@ -15,8 +15,7 @@ export class FpsDisplayComponent implements OnInit, OnDestroy {
   stats = inject(RenderStatsService);
 
   ngOnInit() {
-    // The overlay only exists while the counter is shown, so gate the render
-    // probes on its lifecycle: no measurement cost when hidden.
+    // The render probes run only while the counter is shown.
     this.stats.reset();
     this.stats.enabled = true;
     this.service.start();

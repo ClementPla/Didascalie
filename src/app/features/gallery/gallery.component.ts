@@ -47,13 +47,11 @@ interface GalleryItem {
   sequenceName: string;
   frameCount: number;
   thumbnailFrameId: number;
-  /** Fraction of frames reviewed, 0..1. Used for progress sorting. */
+  /** Fraction of frames reviewed, 0..1. */
   progress: number;
-  /** Frames carrying an annotation. Kept so un-reviewing can recompute the
-   *  status without a reload: a sequence that stops being reviewed falls back
-   *  to 'annotated', not to 'empty'. */
+  /** Frames carrying an annotation: a sequence that stops being reviewed falls
+   *  back to 'annotated'. */
   annotatedCount: number;
-  /** True if the sequence contains at least one keypoint pair. */
   hasKeypoints: boolean;
 }
 
@@ -93,26 +91,20 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   private zone = inject(NgZone);
 
-  // View options
   autoRefresh = false;
 
-  // Refresh
   refreshInterval = 3000;
   percentageBeforeRefresh = 0;
   intervalFunction: ReturnType<typeof setInterval> | undefined;
 
-  // Data
   galleryItems: GalleryItem[] = [];
   filteredItems: GalleryItem[] = [];
   selectedItems: number[] = [];
   /** Most sequences the inspector compares at once. */
   readonly maxInspected = MAX_INSPECT_PANES;
 
-  // Filter state
-
   maxFrameCount = 0;
 
-  // Batch annotation state
   batchMulticlassChoices: (string | null)[] = [];
   batchMultilabelChoices: string[] = [];
 
@@ -227,7 +219,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   async getItems(): Promise<GalleryItem[]> {
     this.uiState.setLoading(true, 'Loading gallery items...');
     try {
-      // Two queries total instead of N+1
+      // Two queries in total, not one per sequence.
       const [sequences, frameIdsBySequence] = await Promise.all([
         api.getGallerySequences(),
         api.getAllFrameIdsBySequence(),
@@ -334,7 +326,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     this.applyFilters();
   }
 
-  /** True when any count-affecting filter is active (used for the footer + reset). */
   get hasActiveFilters(): boolean {
     const rangeNarrowed =
       this.galleryService.showAdvancedFilters() &&
@@ -358,7 +349,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // Range selection follows the currently visible/sorted order.
+    // A range follows the visible order.
     if (isShiftClick && this.selectedItems.length > 0) {
       const lastSequenceId = this.selectedItems[this.selectedItems.length - 1];
       const lastIndex = this.filteredItems.findIndex(
@@ -411,15 +402,11 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     this.uiState.navigateToEditor();
   }
 
-  /** Play a sequence back in the inspector. */
   inspectItem(item: GalleryItem): void {
     void this.inspection.open([item.sequenceId]);
   }
 
-  /**
-   * Compare the selected sequences side by side in the inspector, in the
-   * order they are listed (not the order they were ticked).
-   */
+  /** Compare the selected sequences in the inspector, in listed order. */
   inspectSelected(): void {
     const selected = new Set(this.selectedItems);
     const ids = this.filteredItems
@@ -429,7 +416,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     void this.inspection.open(ids.length > 0 ? ids : this.selectedItems);
   }
 
-  /** Open a sequence directly in the keypoint pairing panel. */
   async pairItem(item: GalleryItem): Promise<void> {
     // The pairing panel works on the app's current sequence.
     if (await this.inspection.shareSequence(item.sequenceId)) {
@@ -505,7 +491,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // selectedItems holds sequence IDs, so resolve frame IDs by ID lookup.
     const frameIds = this.getSelectedFrameIds();
     if (frameIds.length === 0) {
       console.error('Failed to extract frame IDs from selected sequences');
@@ -538,10 +523,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  /**
-   * Mark a single sequence (all its frames) reviewed / unreviewed from the
-   * list view. Updates local state immediately to avoid a full reload flicker.
-   */
+  /** Mark a sequence reviewed or not, from the list view. Local state is
+   *  updated without a reload. */
   public async onItemReviewedToggle(event: {
     id: number;
     reviewed: boolean;
@@ -561,9 +544,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
         return;
       }
 
-      // Route through computeStatus rather than assigning a literal: un-reviewing
-      // a sequence that still carries annotations makes it 'annotated', and the
-      // old `: 'empty'` showed it as untouched until the next reload.
       item.progress = event.reviewed ? 1 : 0;
       item.status = this.computeStatus(
         event.reviewed ? item.frameCount : 0,

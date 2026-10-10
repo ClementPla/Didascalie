@@ -23,18 +23,13 @@ mod superpixel;
 mod types;
 mod video;
 
-/// Per-OS webview tuning, applied before the webview is created.
-///
-/// Tauri uses the platform's native webview (WebView2/Chromium on Windows,
-/// WKWebView on macOS, WebKitGTK on Linux), so the same canvas code performs
-/// very differently across platforms. Windows already forces the GPU on via
-/// `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` in main.rs; this covers Linux, where
-/// WebKitGTK defaults are the main lever. Every override is opt-outable so a
-/// user can A/B test the effect on their own hardware.
+/// Per-OS webview tuning, applied before the webview is created. Windows
+/// forces the GPU on in main.rs; this covers Linux (WebKitGTK). Every
+/// override can be opted out of.
 fn configure_webview_env() {
     #[cfg(target_os = "linux")]
     {
-        // Force accelerated compositing on unless the user already decided.
+        // Accelerated compositing, unless the user already decided.
         if std::env::var_os("WEBKIT_FORCE_COMPOSITING_MODE").is_none() {
             // SAFETY: set before any webview/thread is spawned.
             unsafe {
@@ -42,11 +37,10 @@ fn configure_webview_env() {
             }
         }
 
-        // The DMABUF renderer is the fast path but corrupts on some X11 +
-        // proprietary-driver setups, so we disable it there by default. Two
-        // escape hatches: an explicit WEBKIT_DISABLE_DMABUF_RENDERER is never
-        // overridden, and DIDASCALIE_FORCE_DMABUF=1 keeps the fast path on so
-        // the perf cost of disabling it can be measured.
+        // The DMABUF renderer is the fast path but corrupts on some X11 setups with
+        // proprietary drivers, so it is disabled there by default. An explicit
+        // WEBKIT_DISABLE_DMABUF_RENDERER is never overridden, and
+        // DIDASCALIE_FORCE_DMABUF=1 keeps the fast path.
         let raw_force = std::env::var("DIDASCALIE_FORCE_DMABUF").ok();
         let force_dmabuf = raw_force.as_deref() == Some("1");
         let already_set = std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some();
@@ -55,8 +49,6 @@ fn configure_webview_env() {
             && std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "x11";
 
         if force_dmabuf {
-            // Explicit opt-in to the fast path wins, even if something upstream
-            // (a wrapper, the desktop, a prior export) already disabled DMABUF.
             // SAFETY: set before any webview/thread is spawned.
             unsafe {
                 std::env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
@@ -76,7 +68,6 @@ fn configure_webview_env() {
             std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok(),
         );
     }
-    // macOS (WKWebView) exposes no comparable env knobs; nothing to do here.
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -86,22 +77,13 @@ pub fn run() {
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_dialog::init());
 
-    // A release build is `windows_subsystem = "windows"`, so it has no console
-    // and every `println!` in the app goes nowhere. That made the installed
-    // build undiagnosable — the accelerator it chose, whether the feature cache
-    // was reused, why an encoder fell back — all of it visible under
-    // `tauri dev` and invisible to anyone running the shipped app.
-    //
-    // Log to a file as well as stdout so a user can send the record of a run.
-    // Rotates rather than growing without bound; the ML module is chatty.
+    // A release build has no console: log to a rotating file as well as stdout.
     let app = app.plugin(
         tauri_plugin_log::Builder::new()
             .level(log::LevelFilter::Info)
             .max_file_size(5_000_000)
             .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
-            // `clear_targets` first: the builder already defaults to Stdout and
-            // LogDir, and `.target()` appends, so naming them again wrote every
-            // line twice.
+            // `.target()` appends to the defaults, which are these two already.
             .clear_targets()
             .target(tauri_plugin_log::Target::new(
                 tauri_plugin_log::TargetKind::LogDir { file_name: None },
@@ -112,8 +94,7 @@ pub fn run() {
             .build(),
     );
 
-    // Auto-update from GitHub releases (desktop only; the updater/process
-    // plugins don't apply on mobile).
+    // Auto-update from GitHub releases.
     #[cfg(desktop)]
     let app = app
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -177,7 +158,6 @@ pub fn run() {
             commands::project::close_project,
             commands::project::get_image_folder,
             commands::project::set_image_folder,
-            // Frames commands
             commands::project::get_frames_count,
             commands::project::get_sequences_count,
             commands::frame::get_progress,
@@ -187,7 +167,6 @@ pub fn run() {
             commands::frame::get_frame_thumbnail,
             commands::frame::set_frames_reviewed,
             commands::frame::set_frame_reviewed,
-            // Sequences commands
             commands::sequences::list_sequences,
             commands::sequences::get_sequence_frames,
             commands::sequences::get_all_frame_ids_by_sequence,
@@ -209,27 +188,21 @@ pub fn run() {
             commands::skeletonize::skeletonize_mask,
             commands::annotation::list_labels,
             commands::annotation::get_labels,
-            // Classification commands
             commands::classification::save_classification,
             commands::classification::load_classification,
             commands::classification::save_batch_classifications,
             commands::classification::get_sequence_classification,
             commands::classification::save_sequence_classification,
-            // Text Description commands
             commands::text_description::save_text_description,
             commands::text_description::load_text_descriptions,
             commands::text_description::delete_text_description,
-            // Export commands
-            // Pluggable dataset import/export (COCO, YOLO, NIfTI, …)
             commands::dataset_io::list_dataset_formats,
             commands::dataset_io::export_dataset,
             commands::dataset_io::import_dataset,
-            // Registration commands
             commands::registration::save_registration,
             commands::registration::load_registration,
             commands::registration::list_registrations,
             commands::registration::delete_registration,
-            // Python bridge (user functions served by `didascalie.com`)
             #[cfg(not(target_os = "android"))]
             connection::settings::get_listen_port,
             #[cfg(not(target_os = "android"))]
@@ -242,7 +215,6 @@ pub fn run() {
             commands::python::python_segment_frame,
             #[cfg(not(target_os = "android"))]
             commands::python::python_segment_sequence,
-            // Segmentation-head lab (encoder download, budget sweep)
             #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_list_encoders,
             #[cfg(not(target_os = "android"))]
@@ -271,14 +243,10 @@ pub fn run() {
         .expect("error while running tauri application");
     app.run(|app_handle, event| match event {
         RunEvent::Exit => {
-            // This code executes when the app is closing
             println!("Graceful shutdown initiated...");
             
             let db_state = app_handle.state::<DbState>();
             
-            // If your DbState uses a connection pool (like sqlx), 
-            // you should implement a .close() method.
-            // Since shutdown is synchronous here, we use block_on if your close is async.
             tauri::async_runtime::block_on(async {
                 db_state.close(); 
                 println!("Database connections closed safely.");
@@ -288,16 +256,14 @@ pub fn run() {
     });
 }
 
-/// Build the main window from its `tauri.conf.json` entry (marked
-/// `create: false` there so this handler can be attached).
+/// Build the main window from its `tauri.conf.json` entry (`create: false`
+/// there, so this handler can be attached).
 ///
-/// The frontend detaches editor views (3D mode's 3D and projection views) into
-/// their own OS windows with `window.open("about:blank")` and moves their DOM
-/// into it, so the view keeps running in the main window's JavaScript context
-/// — its volume buffers, WebGL state and workers are not copied. That needs
-/// the popup to be a real opener-linked webview, which is what answering
-/// `on_new_window` with a window built from its `features` provides. Anything
-/// but a blank page is refused: nothing navigates a popup elsewhere.
+/// The frontend detaches editor views into their own OS windows with
+/// `window.open("about:blank")` and moves their DOM there, so a view keeps
+/// running in the main window's JavaScript context. That needs an
+/// opener-linked webview, which answering `on_new_window` provides. Anything
+/// but a blank page is refused.
 #[cfg(desktop)]
 fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -344,7 +310,6 @@ fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Mobile has one window and nothing to detach into another.
 #[cfg(mobile)]
 fn create_main_window(app: &tauri::AppHandle) -> tauri::Result<()> {
     let config = app

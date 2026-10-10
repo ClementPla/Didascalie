@@ -19,16 +19,11 @@ import { ProjectionPainterService } from './projection-painter.service';
 /**
  * The editor's drawing pipeline, a second time, for the projection view.
  *
- * The slice canvas owns one instance of each editor service. The projection
- * view provides its own (`provideSurfaceEditing`), bound to the flattened
- * surface instead of a frame, so the same tools, post-processing and input
- * handling run on it unchanged. What differs is at the edges, in the classes
- * below: the masks are sampled from the volume, the image comes from the
- * projection renderer, and a finished stroke is written back to the volume
- * instead of being snapshotted.
- *
- * Tools, labels, undo and saving stay the application's own: one tool rail,
- * one undo timeline.
+ * The view provides its own instances of the editor's services, bound to the
+ * flattened surface instead of a frame, so the same tools, post-processing and
+ * input handling run on it. The classes below are what differs: masks are
+ * sampled from the volume, the image comes from the projection renderer, and
+ * a finished stroke is written back to the volume.
  */
 export function provideSurfaceEditing(): Provider[] {
   return [

@@ -1,38 +1,27 @@
 //! Video files as a source of frames, decoded by an `ffmpeg` executable.
 //!
 //! A video is never unpacked: the project keeps one `frames` row per imported
-//! frame, holding the frame's presentation time, and its pixels are decoded
-//! from the file whenever they are asked for. An annotation is tied to a row,
-//! so what matters above all is that a row always decodes to the *same*
-//! picture. Three things make that hold:
+//! frame, holding its presentation time, and decodes it on demand. An
+//! annotation is tied to a row, so a row must always decode to the same
+//! picture:
 //!
-//! - **Frames are addressed by time, from an index of the file itself.**
-//!   [`probe`] lists every packet's presentation time without decoding. The
-//!   n-th frame is the n-th smallest of them, which stays true with B-frames
-//!   and variable frame rates.
-//! - **Frames are picked by their time, not by where a seek lands.** ffmpeg
-//!   seeks to a keyframe by *decoding* time. A B-frame shown just before a
-//!   keyframe is stored after it, so seeking straight to it lands on that
-//!   keyframe and the frame is skipped: the next one comes out instead. The
-//!   seek therefore aims earlier, by the longest a frame is shown after it is
-//!   decoded (`seek_preroll`, measured on the file), and a `select` filter
-//!   keeps the frames whose time is within a quarter of a frame of the ones
-//!   asked for (`seek_margin`).
-//! - **Containers ffmpeg cannot seek exactly are refused.** MPEG-TS/PS have no
-//!   index, and a packet without a presentation time (MPEG-4 with B-frames in
-//!   AVI) is shown at a time the packet list does not give. Both returned
-//!   wrong frames when tested, so [`EXTENSIONS`] leaves the first out and
-//!   [`probe`] rejects the second.
+//! - Frames are addressed by time, from an index of the file. [`probe`] lists
+//!   every packet's presentation time without decoding; the n-th frame is the
+//!   n-th smallest, B-frames and variable frame rates included.
+//! - Frames are picked by their time, not by where a seek lands. ffmpeg seeks
+//!   to a keyframe by decoding time, and a B-frame shown just before a
+//!   keyframe is stored after it. So the seek aims earlier by `seek_preroll`,
+//!   and a `select` filter keeps the frames within `seek_margin` of the times
+//!   asked for.
+//! - Containers ffmpeg cannot seek exactly are refused: MPEG-TS/PS are not in
+//!   [`EXTENSIONS`], and [`probe`] rejects packets without a presentation
+//!   time.
 //!
-//! Decoding is done in software by the ffmpeg command line, with bit-exact
-//! colour conversion, so the pixels do not depend on the machine's GPU.
+//! Decoding is in software, with bit-exact colour conversion, so the pixels
+//! do not depend on the machine.
 //!
-//! **Cost.** Starting ffmpeg and decoding from the previous keyframe takes a
-//! few tenths of a second; each further frame of the same run takes about ten
-//! milliseconds. So frames read in order (playback, loading a whole sequence)
-//! are decoded in runs, by one process, into a cache: see [`read_run`]. Frames
-//! come out as BMP because, at that rate, compressing them or converting their
-//! colours more carefully costs several times more than decoding them.
+//! Starting ffmpeg is slow and each further frame of a run is fast, so frames
+//! read in order are decoded in runs, into a cache (see [`read_run`]), as BMP.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::ffi::OsString;
@@ -48,23 +37,21 @@ use crate::utils::error::{AppError, Result};
 /// Containers whose frames can be addressed exactly. Lower case, no dot.
 pub const EXTENSIONS: &[&str] = &["mp4", "m4v", "mov", "mkv", "webm", "avi"];
 
-/// Whether `path` is a video this module reads, judging by its extension.
 pub fn is_video(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| EXTENSIONS.contains(&e.to_ascii_lowercase().as_str()))
 }
 
-/// What [`probe`] learns about a video.
 #[derive(Debug, Clone)]
 pub struct VideoIndex {
     /// Presentation time of every frame, in seconds, ascending. Frame `n` of
     /// the video is `times[n]`.
     pub times: Vec<f64>,
     /// Tolerance when matching a decoded frame to a time: a quarter of the
-    /// shortest gap between two frames. See the module documentation.
+    /// shortest gap between two frames.
     pub seek_margin: f64,
-    /// How much earlier than a frame to start decoding to be sure to get it.
+    /// How much earlier than a frame decoding must start to be sure to get it.
     pub seek_preroll: f64,
     /// Average frame rate, for display.
     pub fps: f64,
@@ -90,7 +77,6 @@ fn ffmpeg_path() -> PathBuf {
     PathBuf::from(name)
 }
 
-/// An ffmpeg command taking `args`, with its three streams set up.
 fn ffmpeg_command(args: &[OsString]) -> Command {
     let mut command = Command::new(ffmpeg_path());
     command
@@ -127,7 +113,6 @@ fn last_error_line(stderr: &[u8]) -> String {
     text.lines().last().unwrap_or("unknown error").trim().to_string()
 }
 
-/// Run ffmpeg with `args` and return what it wrote to stdout.
 fn run_ffmpeg(args: &[OsString]) -> Result<Vec<u8>> {
     let output = ffmpeg_command(args).output().map_err(spawn_error)?;
     if !output.status.success() {
@@ -138,9 +123,8 @@ fn run_ffmpeg(args: &[OsString]) -> Result<Vec<u8>> {
 
 /// Index the frames of `path`. Reads the whole file once, without decoding.
 pub fn probe(path: &Path) -> Result<VideoIndex> {
-    // The `framecrc` muxer prints one line per packet with its timestamps. A
-    // stream copy does not decode, and its timestamps are relative to the
-    // start of the file — the same origin `-ss` uses when seeking.
+    // The `framecrc` muxer prints one line per packet with its timestamps,
+    // without decoding, relative to the start of the file like `-ss`.
     let mut args = vec![OsString::from("-i"), path.into()];
     args.extend(["-map", "0:v:0", "-c", "copy", "-f", "framecrc", "-"].map(OsString::from));
     let listing = run_ffmpeg(&args)?;
@@ -158,10 +142,9 @@ pub fn probe(path: &Path) -> Result<VideoIndex> {
     Ok(VideoIndex { times, seek_margin, seek_preroll, fps, width, height })
 }
 
-/// Frame times, seek margin and seek pre-roll from a `framecrc` listing.
-///
-/// The listing has a `#tb 0: num/den` header and then, per packet,
-/// `stream, dts, pts, duration, size, crc` in decoding order.
+/// Frame times, seek margin and seek pre-roll from a `framecrc` listing: a
+/// `#tb 0: num/den` header, then per packet `stream, dts, pts, duration,
+/// size, crc` in decoding order.
 fn parse_packet_times(listing: &str) -> Result<(Vec<f64>, f64, f64)> {
     let mut time_base: Option<f64> = None;
     let mut ticks: Vec<i64> = Vec::new();
@@ -193,8 +176,7 @@ fn parse_packet_times(listing: &str) -> Result<(Vec<f64>, f64, f64)> {
                     .into(),
             ));
         }
-        // Frames before the start of the file are decoder pre-roll: players
-        // never show them and a seek cannot reach them.
+        // Frames before the start of the file are decoder pre-roll.
         if pts >= 0 {
             ticks.push(pts);
         }
@@ -217,8 +199,8 @@ fn parse_packet_times(listing: &str) -> Result<(Vec<f64>, f64, f64)> {
 }
 
 /// Arguments decoding the frames of `path` shown at `times` (seconds,
-/// ascending) to a stream of 24-bit BMP images. `consecutive` says that no
-/// frame of the video lies between them.
+/// ascending) to a stream of 24-bit BMP images. `consecutive`: no frame of
+/// the video lies between them.
 fn frame_args(
     path: &Path,
     times: &[f64],
@@ -226,8 +208,8 @@ fn frame_args(
     seek_margin: f64,
     seek_preroll: f64,
 ) -> Vec<OsString> {
-    // Before `-i`, `-ss` seeks to a keyframe and decodes forward, and the
-    // frames then carry times counted from the seek point.
+    // Before `-i`, `-ss` seeks to a keyframe and decodes forward; frame times
+    // are then counted from the seek point.
     let seek = format!("{:.6}", (times[0] - seek_margin - seek_preroll).max(0.0));
     let origin: f64 = seek.parse().unwrap_or(0.0);
     let select = if consecutive {
@@ -242,10 +224,8 @@ fn frame_args(
 
     let mut args: Vec<OsString> = vec!["-ss".into(), seek.into(), "-i".into(), path.into()];
     args.extend(["-map".into(), "0:v:0".into()]);
-    // The image output wants a constant frame rate, and repeats a frame to
-    // fill a gap in time: between two kept frames, or in a variable frame
-    // rate. Renumbering the kept frames 0, 1, 2… seconds and asking for one
-    // frame per second leaves no gap to fill.
+    // The image output repeats a frame to fill a gap in time. Renumbering the
+    // kept frames 0, 1, 2… seconds at one frame per second leaves no gap.
     args.extend(["-vf".into(), format!("select='{}',setpts=N/TB", select).into()]);
     args.extend(["-r".into(), "1".into()]);
     args.extend(["-frames:v".into(), times.len().to_string().into()]);
@@ -281,9 +261,8 @@ fn read_bmp(stream: &mut impl Read) -> Option<Vec<u8>> {
 
 // ── Decoded frames: cache and runs ─────────────────────────────────────────
 
-/// A frame of a file: its path and its time in microseconds. Not a frame id:
-/// ids restart in every project, a file's frames do not change with the
-/// project that is open.
+/// A frame of a file: its path and its time in microseconds. Not a frame id,
+/// which restarts in every project.
 type FrameKey = (PathBuf, i64);
 
 fn frame_key(path: &Path, time: f64) -> FrameKey {
@@ -296,8 +275,7 @@ struct Frames {
     map: HashMap<FrameKey, Vec<u8>>,
     order: VecDeque<FrameKey>,
     bytes: usize,
-    /// Frames a running ffmpeg is about to deliver. Whoever wants one waits
-    /// for it instead of starting a second process for the same picture.
+    /// Frames a running ffmpeg is about to deliver: wanted ones are waited for.
     pending: HashSet<FrameKey>,
 }
 
@@ -323,8 +301,7 @@ const FRAME_CACHE_BYTES: usize = 512 * 1024 * 1024;
 /// Frames decoded in one go, at most.
 const MAX_RUN_FRAMES: usize = 32;
 /// How far into the video a run may reach, in frames. Frames in between that
-/// the project does not hold are decoded and dropped, which is cheap, but not
-/// free.
+/// the project does not hold are decoded and dropped.
 const MAX_RUN_SPAN: usize = 256;
 
 static FRAMES: Lazy<(Mutex<Frames>, Condvar)> = Lazy::new(Default::default);
@@ -337,9 +314,8 @@ pub struct RunFrame {
     pub video_frame: usize,
 }
 
-/// How many frames of `width`×`height` one run may hold. Bounded so that a
-/// run fits in the cache several times over: frames are evicted oldest first,
-/// and those of a run that does not fit would be gone before being read.
+/// How many frames of `width`×`height` one run may hold, so that a run fits
+/// in the cache several times over.
 pub fn run_length(width: u32, height: u32) -> usize {
     let frame_bytes = (width as usize * height as usize * 3).max(1);
     (FRAME_CACHE_BYTES / 4 / frame_bytes).clamp(1, MAX_RUN_FRAMES)
@@ -350,11 +326,9 @@ pub fn is_cached(path: &Path, time: f64) -> bool {
     FRAMES.0.lock().is_ok_and(|frames| frames.map.contains_key(&frame_key(path, time)))
 }
 
-/// Decode `frame`, as a BMP image, and `ahead` with it.
-///
-/// Returns as soon as `frame` is decoded. The frames of `ahead` (later ones of
-/// the same video, in order) keep being decoded in the background by the same
-/// ffmpeg process and land in the cache, where the next calls find them.
+/// Decode `frame`, as a BMP image, and `ahead` with it. Returns as soon as
+/// `frame` is decoded; the frames of `ahead` keep landing in the cache from
+/// the same ffmpeg process.
 pub fn read_run(
     path: &Path,
     seek_margin: f64,
@@ -373,13 +347,12 @@ pub fn read_run(
         if !frames.pending.contains(&key) {
             break;
         }
-        // Another run is about to deliver it. If that run fails, the frame is
-        // neither cached nor pending afterwards, and this call decodes it.
+        // Another run is about to deliver it. If that run fails, this call decodes
+        // it.
         frames = landed.wait(frames).map_err(|_| AppError::Other("video cache poisoned".into()))?;
     }
 
-    // Nobody is decoding this frame: do, along with whatever of `ahead` is
-    // neither there nor on its way.
+    // Decode it, with whatever of `ahead` is neither cached nor pending.
     let mut members = vec![(frame, key)];
     for next in ahead.iter().take(MAX_RUN_FRAMES - 1) {
         let Some(offset) = next.video_frame.checked_sub(frame.video_frame) else { break };
@@ -413,9 +386,8 @@ pub fn read_run(
     first_rx.recv().unwrap_or_else(|_| Err(AppError::Other("video decoding stopped".into())))
 }
 
-/// The frames a run has yet to deliver. Dropping it — at the end of the run,
-/// or of whatever cut it short — gives up on those left, so that nobody waits
-/// for a frame that will not come.
+/// The frames a run has yet to deliver. Dropping it gives up on those left,
+/// so nobody waits for a frame that will not come.
 struct Expected {
     keys: VecDeque<FrameKey>,
 }
@@ -442,8 +414,7 @@ fn decode_run(
     let (lock, landed) = &*FRAMES;
     let mut child = ffmpeg_command(args).spawn().map_err(spawn_error)?;
     let mut stdout = std::io::BufReader::new(child.stdout.take().expect("stdout is piped"));
-    // Drained on the side: a full stderr pipe would block ffmpeg while this
-    // thread waits for its next image.
+    // Drained on the side: a full stderr pipe would block ffmpeg.
     let stderr = child.stderr.take().map(|mut pipe| {
         std::thread::spawn(move || {
             let mut text = Vec::new();

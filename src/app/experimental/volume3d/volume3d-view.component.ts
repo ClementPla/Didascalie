@@ -36,12 +36,9 @@ import { IS_MOBILE } from '../../core/platform';
 const BRICK = 32;
 
 /**
- * The 3D view beside the editor canvas while 3D mode is on: the label
- * surfaces (meshed in a worker), optional voxel blocks, image planes and a
- * ray-marched rendering of the image.
- *
- * Edits reach it through `MaskVolumeService.edited$`; the changed slices are
- * sent to the mesher, which remeshes only the bricks that changed.
+ * The 3D view: label surfaces (meshed in a worker), optional voxel blocks,
+ * image planes and a ray-marched rendering of the image. Edits arrive through
+ * `MaskVolumeService.edited$` and only the bricks that changed are remeshed.
  */
 @Component({
   selector: 'app-volume3d-view',
@@ -81,8 +78,7 @@ export class Volume3dViewComponent implements OnDestroy {
   private readonly viewportRef = viewChild.required<ElementRef<HTMLDivElement>>('viewport');
 
   private scene: VolumeScene | null = null;
-  /** Set in ngOnDestroy so a scene is not built after teardown — the three.js
-   *  chunk is fetched asynchronously and can land too late. */
+  /** A scene must not be built after teardown: three.js loads asynchronously. */
   private destroyed = false;
   private worker: Worker | null = null;
   private stopObserving: (() => void) | null = null;
@@ -162,8 +158,7 @@ export class Volume3dViewComponent implements OnDestroy {
             ? {
                 x: cursor.x,
                 y: cursor.y,
-                // Tools without a brush (fill, picker…) still get a small
-                // marker: the point is knowing where the cursor is.
+                // Tools without a brush still get a small marker.
                 radius: brush ? radius : 2,
                 color: this.editor.isEraser()
                   ? '#ffffff'
@@ -235,13 +230,8 @@ export class Volume3dViewComponent implements OnDestroy {
 
   // ── Scene ────────────────────────────────────────────────────────────────
 
-  /**
-   * Builds the 3D scene, fetching three.js on first use.
-   *
-   * The import is dynamic so three.js and OrbitControls sit in their own chunk
-   * rather than the initial bundle: this view is behind an experimental flag,
-   * and most sessions never open it.
-   */
+  /** Builds the 3D scene. The import is dynamic, to keep three.js out of the
+   *  initial bundle. */
   private async createScene(): Promise<void> {
     const { VolumeScene } = await import('./volume-scene');
     if (this.destroyed) return;
@@ -349,8 +339,7 @@ export class Volume3dViewComponent implements OnDestroy {
     if (message.type === 'meshes') {
       this.scene?.applyMeshUpdates(message.updates);
     } else {
-      // Progress lands in the template, so re-enter Angular — but only when
-      // the displayed percentage moves.
+      // Re-enter Angular only when the displayed percentage moves.
       const previous = this.meshed();
       const percent = (m: { done: number; total: number } | null) =>
         m ? Math.floor((m.done / m.total) * 100) : -1;

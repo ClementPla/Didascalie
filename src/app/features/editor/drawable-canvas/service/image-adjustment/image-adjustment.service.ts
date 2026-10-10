@@ -22,10 +22,9 @@ import { ImageAdjustmentRenderer } from './image-adjustment.renderer';
 export class ImageAdjustmentService implements OnDestroy {
   private editorService = inject(EditorService);
 
-  // Public state, mutated by the UI.
   public state: AdjustmentState = makeIdentityState();
 
-  // Notifies subscribers when output canvas changes (renderer may run async).
+  // Emits when the output canvas changes: the renderer may run asynchronously.
   public output$ = new BehaviorSubject<HTMLCanvasElement | OffscreenCanvas | null>(null);
   public histogram$ = new BehaviorSubject<Histogram | null>(null);
 
@@ -36,25 +35,23 @@ export class ImageAdjustmentService implements OnDestroy {
   private renderQueued = false;
   private _version = 0;
 
-  /** Increments whenever the adjustment state changes, so downstream caches
-   *  (e.g. the native image tiles) know when to reprocess. */
+  /** Incremented whenever the adjustment state changes. */
   get version(): number {
     return this._version;
   }
 
-  /** True when adjustments are active and processing is on (else show raw). */
+  /** Adjustments are set and processing is on. */
   isActive(): boolean {
     return !isIdentity(this.state) && this.editorService.useProcessing;
   }
 
-  /** The composed RGB LUT to bake into raw pixels, or null at identity /
-   *  processing off (callers draw the source unchanged). */
+  /** The composed RGB LUT, or null when nothing is to be applied. */
   activeLUT(): RGBLUT | null {
     return this.isActive() ? composeRGBLUT(this.state) : null;
   }
 
   constructor() {
-    // Fire and forget; CPU fallback used until ready.
+    // Not awaited: the CPU path is used until it is ready.
     this.renderer.initialize();
   }
 
@@ -73,20 +70,14 @@ export class ImageAdjustmentService implements OnDestroy {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(img, 0, 0);
 
-    // Recompute histogram for the new image (off the main render path).
     queueMicrotask(() => this.recomputeHistogram());
 
-    // Emit either the source (identity) or a rendered version.
     this.scheduleRender();
   }
 
   /**
-   * Returns the canvas to draw on screen. Synchronous: if adjustments are at
-   * identity, the source is returned directly. Otherwise the last rendered
-   * output is returned, and a render is scheduled in the background.
-   *
-   * The orchestrator should subscribe to `output$` to be notified when an
-   * async render completes.
+   * The canvas to draw on screen: the source at identity, otherwise the last
+   * rendered output. `output$` emits when an asynchronous render completes.
    */
   getCurrentCanvas(): HTMLCanvasElement | OffscreenCanvas | null {
     if (!this.sourceCanvas) return null;
@@ -96,13 +87,8 @@ export class ImageAdjustmentService implements OnDestroy {
     return this.output$.value ?? this.sourceCanvas;
   }
 
-  /**
-   * Bake the current adjustments (brightness/contrast/gamma/curves) into
-   * `canvas` in place. No-op when adjustments are at identity or processing is
-   * off. Operates only on the given canvas — the display pyramid keeps its
-   * levels ≤ the WebKit cap, so this stays within the canvas-size limit even for
-   * very large source images (unlike the full-resolution render path).
-   */
+  /** Apply the current adjustments to `canvas` in place (a level of the
+   *  display pyramid). */
   applyCurrentAdjustmentsInPlace(canvas: OffscreenCanvas): void {
     if (isIdentity(this.state) || !this.editorService.useProcessing) return;
     const ctx = canvas.getContext('2d', { willReadFrequently: true }) as
@@ -147,10 +133,8 @@ export class ImageAdjustmentService implements OnDestroy {
 
   // ── Auto operations ──────────────────────────────────────────────────────
 
-  /**
-   * Auto-stretch each channel independently to [loPct, hiPct] percentile
-   * range. Affects brightness/contrast sliders; curves untouched.
-   */
+  /** Stretch each channel to its [loPct, hiPct] percentile range, through the
+   *  brightness and contrast sliders. */
   autoStretch(loPct = 0.05, hiPct = 0.95): void {
     const hist = this.histogram$.value;
     if (!hist) return;
@@ -162,9 +146,7 @@ export class ImageAdjustmentService implements OnDestroy {
     this.scheduleRender();
   }
 
-  /**
-   * Histogram equalization via luma curve. Per-channel adjustments untouched.
-   */
+  /** Histogram equalization, through the luma curve. */
   equalize(): void {
     const hist = this.histogram$.value;
     if (!hist) return;

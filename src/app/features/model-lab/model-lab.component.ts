@@ -46,7 +46,7 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   readonly encoders = signal<EncoderStatus[]>([]);
   readonly summary = signal<DatasetSummary | null>(null);
 
-  /** `null` means "local feature basis only" — the encoder ablation. */
+  /** `null`: the local feature basis only. */
   readonly selectedEncoder = signal<string | null>(null);
   readonly running = signal(false);
   readonly downloading = signal<string | null>(null);
@@ -54,21 +54,10 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   readonly tick = signal<TrainTick | null>(null);
   readonly error = signal<string | null>(null);
 
-  /** What the running job is, so the UI can label it accurately. */
   readonly job = signal<'train' | null>(null);
-  /** Set once stop is requested, so the button reflects the pending state.
-   * The fit finishes its current epoch, so the click is not instant. */
+  /** Stop was requested. The fit finishes its current epoch first. */
   readonly stopping = signal(false);
-  /**
-   * Persist encoder features to app data between runs.
-   *
-   * On unless turned off. It was opt-in at first, on the reasoning that writing
-   * derived image data to disk should be a deliberate choice — but an unticked
-   * box gives no signal, so the visible result was simply that every session
-   * recomputed features it appeared to have already cached. The storage readout
-   * and Clear button below are the honest form of that control: they say what is
-   * on disk and remove it, rather than quietly declining to write.
-   */
+  /** Persist encoder features to app data between runs. On unless turned off. */
   cacheFeatures = (localStorage.getItem('dida.ml.cacheFeatures') ?? '1') === '1';
   readonly storage = signal<StorageUsage | null>(null);
   /** Labels the head will predict. Empty = every label in the project. */
@@ -78,8 +67,6 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   /** Rolling loss history for the current fit, for a sparkline. */
   readonly lossHistory = signal<number[]>([]);
 
-  // Training knobs, deliberately few: these are the ones that change the
-  // answer rather than the aesthetics.
   workingSize = 384;
   patchesPerFrame = 24;
   epochs = 40;
@@ -87,16 +74,10 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   private unlisten: UnlistenFn[] = [];
 
   async ngOnInit(): Promise<void> {
-    // Tauri event callbacks fire outside Angular's zone, so a signal set here
-    // marks the component dirty but nothing ever schedules change detection —
-    // the UI would silently never repaint. `TauriEventBase` exists in this
-    // codebase for the same reason; these listeners need the same treatment.
+    // Tauri event callbacks fire outside Angular's zone.
     this.unlisten.push(
       await listen<MlProgress>('ml-progress', (e) =>
         this.zone.run(() => {
-          // console.log, not console.debug: debug maps to DevTools' Verbose
-          // level, which is hidden by default -- a diagnostic nobody can see
-          // is worse than none, because it reads as "no events arrived".
           console.log('[ml-progress]', e.payload);
           this.progress.set(e.payload);
         }),
@@ -106,8 +87,7 @@ export class ModelLabComponent implements OnInit, OnDestroy {
           console.log('[ml-train-progress]', e.payload);
           const t = e.payload;
           this.tick.set(t);
-          // Reset the trace when a new fit starts, so the sparkline shows this
-          // fit's convergence rather than every fit concatenated.
+          // A new fit starts a new trace.
           this.lossHistory.update((h) =>
             t.epoch <= 1 ? [t.loss] : [...h.slice(-199), t.loss],
           );
@@ -132,8 +112,7 @@ export class ModelLabComponent implements OnInit, OnDestroy {
       this.model.set(await api.mlModelStatus());
       const labels = await api.listLabels();
       this.labels.set(labels);
-      // Default to everything: a first run should train on what is there rather
-      // than silently on nothing.
+      // Every label by default.
       if (!this.selectedLabels().size) {
         this.selectedLabels.set(new Set(labels.map((l) => l.id)));
       }
@@ -154,8 +133,7 @@ export class ModelLabComponent implements OnInit, OnDestroy {
     if (!s) return 'Loading project…';
     if (s.labels === 0) return 'This project defines no segmentation labels.';
     if (s.annotatedFrames < 2) {
-      // Say *why* there are too few. On a project with plenty of annotation but
-      // nothing reviewed, a bare count reads as though the work went missing.
+      // Say why there are too few: annotated frames that are not reviewed.
       if (s.unreviewedFrames > 0)
         return `Only ${s.annotatedFrames} reviewed frame(s). ${s.unreviewedFrames} more are annotated but not reviewed — mark them reviewed in the editor to train on them. At least 2 are needed so one can be held out.`;
       return `Only ${s.annotatedFrames} reviewed frame(s). At least 2 are needed so one can be held out.`;
@@ -217,27 +195,13 @@ export class ModelLabComponent implements OnInit, OnDestroy {
     this.stopping.set(false);
   }
 
-  /**
-   * Ask the backend to stop after the current epoch.
-   *
-   * Not a cancel: the run returns normally with whatever it has trained, so
-   * `trainModel` still stores a usable head and reports its Dice. The button
-   * stays disabled afterwards because the request cannot be taken back.
-   */
-  /** Human-readable size; MB is the right unit here — features run to
-   * hundreds of MB and weights to a few GB. */
   fmtBytes(n: number): string {
     if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
     if (n < 1024 * 1024 * 1024) return `${(n / 1048576).toFixed(0)} MB`;
     return `${(n / 1073741824).toFixed(2)} GB`;
   }
 
-  /**
-   * Remember the choice across restarts.
-   *
-   * Without this the box reset every session, so a user who had already paid to
-   * compute features silently stopped adding to the cache the next time.
-   */
+  /** Remember the choice across restarts. */
   private persistCacheChoice(): boolean {
     localStorage.setItem('dida.ml.cacheFeatures', this.cacheFeatures ? '1' : '0');
     return this.cacheFeatures;
@@ -308,11 +272,8 @@ export class ModelLabComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Overall completion. Feature extraction and training are reported by
-   * different events, so this picks whichever phase is currently live rather
-   * than showing a bar that resets between them.
-   */
+  /** Overall completion, from whichever phase is live: feature extraction and
+   *  training are reported by different events. */
   readonly progressPercent = computed(() => {
     const t = this.tick();
     if (t) {
@@ -327,7 +288,6 @@ export class ModelLabComponent implements OnInit, OnDestroy {
     return Math.round((p.done / p.total) * 100);
   });
 
-  /** Human-readable description of what is happening right now. */
   readonly progressLabel = computed(() => {
     const t = this.tick();
     if (t) {
@@ -342,7 +302,6 @@ export class ModelLabComponent implements OnInit, OnDestroy {
     return this.job() === 'train' ? 'Preparing…' : 'Starting…';
   });
 
-  /** Remaining time for the whole job, from whichever phase is live. */
   readonly etaLabel = computed(() => {
     const ms = this.tick()?.etaMs ?? this.progress()?.etaMs ?? 0;
     if (ms <= 0) return null;
@@ -352,14 +311,12 @@ export class ModelLabComponent implements OnInit, OnDestroy {
     return m < 60 ? `~${m}m ${s % 60}s left` : `~${Math.floor(m / 60)}h ${m % 60}m left`;
   });
 
-  /** Device + workload, so compute placement is never left implicit. */
   readonly deviceLabel = computed(() => {
     const t = this.tick();
     if (!t) return null;
     return `${t.device} · ${t.samples.toLocaleString()} samples × ${t.features} features`;
   });
 
-  /** Sparkline path for the current fit's loss trace. */
   readonly lossPath = computed(() => {
     const h = this.lossHistory();
     if (h.length < 2) return null;

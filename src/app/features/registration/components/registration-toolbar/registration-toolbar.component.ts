@@ -27,7 +27,6 @@ interface ModeOption {
 })
 export class RegistrationToolbarComponent {
   readonly isMobile = IS_MOBILE;
-  // registration-toolbar.component.ts — add
   readonly previousClicked = output<void>();
   readonly nextClicked = output<void>();
   readonly saveClicked = output<void>();
@@ -53,7 +52,6 @@ export class RegistrationToolbarComponent {
     { label: 'Checkerboard', value: 'checkerboard', icon: 'pi pi-th-large' },
   ];
 
-  // Reactive views, aliased for the template.
   readonly mode = this.state.mode;
   readonly vis = this.state.vis;
 
@@ -61,7 +59,6 @@ export class RegistrationToolbarComponent {
     this.state.setMode(mode);
   }
 
-  // Two-way binding shims for sliders / toggles.
   get overlayOpacity(): number {
     return this.vis().overlayOpacity;
   }

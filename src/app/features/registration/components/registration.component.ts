@@ -79,14 +79,11 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly uiState = inject(UIStateService);
   private popoutUnlisten?: UnlistenFn;
   private sequenceLoadPromise: Promise<void> | null = null;
-  /** Guards against overlapping next/previous navigations from rapid presses. */
+  /** One navigation at a time. */
   private navInFlight = false;
-  /**
-   * True while a frame pair is being loaded — between resetting the in-memory
-   * registration to empty and repopulating it from the database. While set,
-   * save() is a no-op so it can't persist (and thus DELETE) the transient
-   * empty state over the stored keypoints.
-   */
+  /** A frame pair is being loaded: the in-memory registration is empty until
+   *  repopulated from the database. `save()` does nothing meanwhile, or it
+   *  would delete the stored keypoints. */
   private registrationLoading = false;
   private broadcastPaused = signal(false);
   isPoppedOut = signal(false);
@@ -111,7 +108,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly globalProgressPercent = computed(() => {
     const total = this.totalSequences();
     if (total === 0) return 0;
-    // Simple version: current position in sequence list.
     return Math.round(((this.currentSequenceIndex() + 1) / total) * 100);
   });
   constructor() {
@@ -139,8 +135,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.loadSequence(seqId);
     }
 
-    // Follow external frame navigation. takeUntilDestroyed prevents
-    // accumulating subscriptions across navigations away/back to this route.
     this.navigation.frameChanged$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
@@ -218,7 +212,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Sequence + frame loading ─────────────────────────────────────────────
 
   private async loadSequence(seqId: number): Promise<void> {
-    // Make sure SequenceService has the sequence list cached (used elsewhere).
     if (this.seqSvc.sequences().length === 0) {
       try {
         await this.seqSvc.loadSequences();
@@ -292,7 +285,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ── Registration cases (multiple frame pairs per sequence) ───────────────
 
-  /** Reload the sequence's list of registration cases from the database. */
   private async refreshCases(): Promise<void> {
     const seqIdStr = this.state.sequenceId();
     if (!seqIdStr) {
@@ -317,7 +309,7 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /** Make an existing case the active pair (saving the current one first). */
+  /** Make an existing case the active pair, saving the current one first. */
   async onSelectCase(c: RegistrationCase): Promise<void> {
     if (this.navInFlight) return;
     if (
@@ -342,10 +334,8 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /**
-   * Start a fresh case: pick the first (reference, moving) frame combination in
-   * the sequence that isn't already a case, and switch to it with empty pairs.
-   */
+  /** Start a case on the first (reference, moving) combination of the sequence
+   *  that is not one already. */
   async onNewCase(): Promise<void> {
     if (this.navInFlight) return;
     const frames = this.frameOptions();
@@ -354,13 +344,12 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     const cases = this.state.cases();
     const currentRef = this.state.referenceFrameId();
     const currentMov = this.state.movingFrameId();
-    // Treat the current (possibly unsaved) active pair as occupied too, so "+"
-    // always lands on a genuinely different pair.
+    // The current pair counts as taken, saved or not.
     const exists = (ref: string, mov: string) =>
       (ref === currentRef && mov === currentMov) ||
       cases.some((c) => c.referenceFrameId === ref && c.movingFrameId === mov);
 
-    // Prefer keeping the current reference; else search all ordered pairs.
+    // Keep the current reference if possible.
     let ref: string | null = null;
     let moving: string | null = null;
     if (currentRef) {
@@ -486,10 +475,7 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   }
   async save(): Promise<boolean> {
     if (this.registrationLoading) {
-      // A frame pair is mid-load: the in-memory registration was reset to
-      // empty and hasn't been repopulated from the DB yet. Saving now would
-      // persist empty pairs, and save_registration replaces (DELETEs) — it
-      // would wipe the stored keypoints. Nothing to persist, treat as success.
+      // See `registrationLoading`.
       return true;
     }
 
@@ -498,7 +484,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     const movIdStr = this.state.movingFrameId();
 
     if (!seqIdStr || !refIdStr || !movIdStr) {
-      // Nothing to save — no registration session in progress.
       return true;
     }
 
@@ -509,9 +494,8 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     const pairs = this.state.pairs();
     const transform = this.state.transform();
 
-    // Don't materialise an empty case: switching to a pair you never annotated
-    // shouldn't create a junk 0-pair registration row. Still allow persisting an
-    // emptied *existing* case (e.g. after "Clear all pairs").
+    // A pair never annotated does not become an empty case. An existing case can
+    // still be saved empty (after "Clear all pairs").
     const isExistingCase = this.state
       .cases()
       .some((c) => c.referenceFrameId === refIdStr && c.movingFrameId === movIdStr);
@@ -535,7 +519,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
 
     try {
       await api.saveRegistration(seqId, data);
-      // Reflect a new/updated case (and its pair count) in the sidebar list.
       await this.refreshCases();
       return true;
     } catch (e) {
@@ -574,8 +557,8 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async navigateNext(): Promise<void> {
-    // Ignore presses while a navigation is already running: overlapping
-    // save→reset→load cycles are what let an empty save clobber the DB.
+    // One navigation at a time: overlapping save, reset and load cycles could
+    // save an empty registration.
     if (this.navInFlight) return;
     this.navInFlight = true;
     try {
@@ -602,7 +585,6 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   async updateFrame() {
     this.broadcastPaused.set(true);
     try {
-      // Wait for the frameChanged$ subscription to finish its loadSequence work.
       if (this.sequenceLoadPromise) {
         await this.sequenceLoadPromise;
       }

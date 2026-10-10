@@ -22,10 +22,7 @@ export class AppInitializationService {
 
   private destroy$ = new Subject<void>();
 
-  /**
-   * Initialize all Tauri event services and set up application-level event handling.
-   * Should be called once during app bootstrap.
-   */
+  /** Start the Tauri event services. Called once at bootstrap. */
   async initialize(): Promise<void> {
     try {
       await this.tauriEventService.initialize();
@@ -39,9 +36,6 @@ export class AppInitializationService {
     }
   }
 
-  /**
-   * Set up handlers for CLI commands received from Tauri backend.
-   */
   private setupCLIHandlers(): void {
     this.cliService.projectCreated$
       .pipe(takeUntil(this.destroy$))
@@ -52,9 +46,6 @@ export class AppInitializationService {
       .subscribe((imageConfig) => this.handleImageLoad(imageConfig));
   }
 
-  /**
-   * Handle project creation from CLI.
-   */
   private async handleProjectCreation(config: ProjectConfig): Promise<void> {
     try {
       this.projectService.updateConfig(config);
@@ -75,9 +66,7 @@ export class AppInitializationService {
     }
   }
 
-  /**
-   * Handle image load from CLI (for annotation via ZMQ).
-   */
+  /** An image sent over ZMQ, to annotate. */
   private async handleImageLoad(imageConfig: ImageFromCLI): Promise<void> {
     try {
       const frameId = await this.findFrameByPath(imageConfig.image_path);
@@ -97,9 +86,6 @@ export class AppInitializationService {
     }
   }
 
-  /**
-   * Find frame by path.
-   */
   private async findFrameByPath(imagePath: string): Promise<number | null> {
     try {
       return await invoke<number | null>('find_frame_by_path', {
@@ -111,9 +97,6 @@ export class AppInitializationService {
     }
   }
 
-  /**
-   * Save masks received from CLI to database.
-   */
   private async saveMasksFromCLI(frameId: number, imageConfig: ImageFromCLI): Promise<void> {
     if (!imageConfig.mask_data) return;
 
@@ -141,9 +124,7 @@ export class AppInitializationService {
     }
   }
 
-  /**
-   * Convert base64 data URL to raw mask data (alpha channel).
-   */
+  /** A base64 data URL as mask data (its alpha channel). */
   private async dataUrlToMaskData(dataUrl: string): Promise<Uint8Array | null> {
     try {
       const response = await fetch(dataUrl);

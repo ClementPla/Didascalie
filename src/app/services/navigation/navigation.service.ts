@@ -24,11 +24,7 @@ export interface NavigationResult {
 
 export type NavigationDirection = 'next' | 'previous';
 
-/**
- * Orchestrates navigation workflows.
- * Coordinates: save → navigate → load → update state.
- * Dual-system compatible: Maintains orchestrator state while exposing lifecycle hooks.
- */
+/** Navigation between frames and sequences: save, navigate, load. */
 @Injectable({
   providedIn: 'root',
 })
@@ -40,19 +36,15 @@ export class NavigationService {
   private readonly progressSource = new Subject<ProgressInfo | null>();
   private readonly frameChangedSource = new Subject<NavigationResult>();
 
-  /** Stream for tracking current position metrics */
   public readonly progress$: Observable<ProgressInfo | null> =
     this.progressSource.asObservable();
 
-  /** Hook for secondary systems (like Image Registration) to react to global navigation changes */
+  /** For other views (registration) to follow navigation. */
   public readonly frameChanged$: Observable<NavigationResult> =
     this.frameChangedSource.asObservable();
 
   // ── Primary Navigation API ───────────────────────────────────────────────
 
-  /**
-   * Navigate to next or previous frame.
-   */
   public async navigate(
     direction: NavigationDirection,
   ): Promise<NavigationResult | null> {
@@ -84,9 +76,6 @@ export class NavigationService {
     }
   }
 
-  /**
-   * Navigate to a specific frame index within current sequence.
-   */
   public async navigateToFrame(
     frameIndex: number,
   ): Promise<NavigationResult | null> {
@@ -108,9 +97,6 @@ export class NavigationService {
     }
   }
 
-  /**
-   * Navigate to a specific sequence context.
-   */
   public async navigateToSequence(
     sequence: Sequence,
   ): Promise<NavigationResult | null> {
@@ -132,9 +118,6 @@ export class NavigationService {
     }
   }
 
-  /**
-   * Navigate to next sequence.
-   */
   public async navigateToNextSequence(): Promise<NavigationResult | null> {
     try {
       await this.saveIfNeeded();
@@ -157,9 +140,6 @@ export class NavigationService {
     }
   }
 
-  /**
-   * Navigate to previous sequence.
-   */
   public async navigateToPrevSequence(): Promise<NavigationResult | null> {
     try {
       await this.saveIfNeeded();
@@ -184,9 +164,6 @@ export class NavigationService {
 
   // ── Save & Load Operations ───────────────────────────────────────────────
 
-  /**
-   * Save current annotations automatically if marked dirty.
-   */
   public async saveIfNeeded(): Promise<boolean> {
     if (!this.sequenceService.currentFrame()) {
       return true;
@@ -203,9 +180,6 @@ export class NavigationService {
     }
   }
 
-  /**
-   * Force save current structural canvas annotations.
-   */
   public async save(): Promise<boolean> {
     if (!this.sequenceService.currentFrame()) {
       return true;
@@ -225,9 +199,6 @@ export class NavigationService {
   public get currentSequenceId(): number | null {
     return this.sequenceService.currentSequence()?.id ?? null;
   }
-  /**
-   * Load current frame data safely into canvas orchestrator matrix.
-   */
   public async loadCurrentFrame(): Promise<void> {
     const frameImage = this.sequenceService.currentFrameImage();
     if (!frameImage) {
@@ -237,18 +208,15 @@ export class NavigationService {
     }
 
     try {
-      // Load raw background image layer into native system canvas orchestrator.
-      // Pass native dims: the image may be a downsampled overview for large frames.
+      // Native dimensions: the image may be a downsampled overview.
       await this.orchestrator.loadImage(
         frameImage.imageBase64,
         frameImage.frame.width,
         frameImage.frame.height,
       );
 
-      // Extract existing annotation vectors from previous save systems
       await this.ioService.load();
 
-      // Initialize snapshot timeline state and schedule drawing tick
       await this.orchestrator.captureInitialHistory();
       this.orchestrator.requestRedraw();
 

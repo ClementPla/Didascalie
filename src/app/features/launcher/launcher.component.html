@@ -125,8 +125,7 @@
           >
             <div class="recent-info">
               <div class="recent-name">{{ project.name }}</div>
-              <!-- On the tablet the path is the application's own copy, which
-                   tells the user nothing. -->
+              <!-- On the tablet the path is the application's own copy. -->
               @if (!isAndroid) {
                 <div class="recent-path" [title]="project.path">
                   {{ formatPath(project.path) }}

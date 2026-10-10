@@ -10,10 +10,7 @@ import {
 
 const STORAGE_KEY = 'didascalie.experimentalFeatures';
 
-/**
- * Master switch for experimental features, persisted across sessions.
- * UI reads the signals; feature code checks `isEnabled` at its entry points.
- */
+/** Master switch for experimental features, persisted across sessions. */
 @Injectable({ providedIn: 'root' })
 export class FeatureFlagsService {
   private injector = inject(Injector);
@@ -23,8 +20,6 @@ export class FeatureFlagsService {
     localStorage.getItem(STORAGE_KEY) === 'true'
   );
 
-  /** Post-process modes to display: the stable ones, plus the experimental
-   *  ones while the experimental switch is on. */
   readonly visiblePostProcessOptions = computed(() =>
     this.experimentalEnabled()
       ? [...postProcessingOptions, ...experimentalPostProcessOptions()]
@@ -32,8 +27,7 @@ export class FeatureFlagsService {
   );
 
   isEnabled(_feature: ExperimentalFeature): boolean {
-    // Single master switch for now; the parameter keeps call sites tagged so
-    // per-feature flags can be introduced later without touching them.
+    // One master switch; the parameter tags call sites for per-feature flags.
     return this.experimentalEnabled();
   }
 
@@ -42,7 +36,6 @@ export class FeatureFlagsService {
     localStorage.setItem(STORAGE_KEY, String(enabled));
     if (enabled) return;
 
-    // Roll back anything experimental that is still visible or selected.
     for (const feature of EXPERIMENTAL_FEATURES) {
       feature.onDisabled?.(this.injector);
     }

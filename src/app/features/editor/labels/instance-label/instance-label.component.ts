@@ -13,11 +13,9 @@ import { DrawService } from '../../drawable-canvas/service/draw.service';
 import { UndoRedoService } from '../../drawable-canvas/service/undo-redo.service';
 
 /**
- * Instance picker for one label. Instance ids are 1-based (the id IS the pixel
- * value, so 0 is reserved for background), and each id maps to a stable,
- * deterministic shade of the label colour. The picker shows only the instances
- * that exist on the current frame plus the currently-selected "next" one, so it
- * grows with use instead of listing a fixed 99.
+ * Instance picker of one label. Ids are 1-based (the id is the pixel value)
+ * and each has a fixed shade of the label colour. Shown: the instances on the
+ * current frame, plus the selected "next" one.
  */
 @Component({
   selector: 'app-instance-label',
@@ -37,15 +35,13 @@ export class InstanceLabelComponent implements OnInit, OnDestroy {
   /** One scrolling line of tiles, without the heading and the hint. */
   readonly compact = input(false);
 
-  /** Instance ids currently painted on this label's mask (recomputed lazily). */
+  /** Instance ids painted on this label's mask. */
   private usedInstances = new Set<number>();
   private readonly destroy$ = new Subject<void>();
 
   ngOnInit(): void {
     this.recomputeUsed();
-    // Refresh the used-instance list when masks change: after a frame loads, a
-    // stroke commits, or an undo/redo restores. Debounced so a burst collapses
-    // into one scan.
+    // Rescan when masks change (frame load, stroke, undo/redo), debounced.
     merge(
       this.ioService.loaded$,
       this.drawService.redrawRequest,
@@ -63,7 +59,6 @@ export class InstanceLabelComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  /** Scan this label's mask for the distinct instance ids in use. */
   private recomputeUsed(): void {
     const index = this.labelService.listSegmentationLabels.indexOf(this.label());
     const mask = index >= 0 ? this.canvasManager.getAllMasks()[index] : undefined;
@@ -77,8 +72,7 @@ export class InstanceLabelComponent implements OnInit, OnDestroy {
     this.usedInstances = used;
   }
 
-  /** Ids to show: painted instances plus the currently-selected one. Empty when
-   *  nothing is painted or selected — the "+" tile is then the only entry. */
+  /** Painted instances plus the selected one. */
   instanceValues(): number[] {
     const ids = new Set(this.usedInstances);
     const active = this.activeInstance();
@@ -87,8 +81,6 @@ export class InstanceLabelComponent implements OnInit, OnDestroy {
   }
 
   private shades(): string[] {
-    // Instance labels get their shades at project load; regenerate once only if
-    // somehow missing (deterministic, so this stays stable).
     const label = this.label();
     if (!label.shades || label.shades.length === 0) {
       label.shades = generate_shades(label.color, 256);
@@ -115,20 +107,15 @@ export class InstanceLabelComponent implements OnInit, OnDestroy {
     this.labelService.activate(this.label(), value, this.shadeFor(value));
   }
 
-  /**
-   * The id the "+" tile will select: one past the highest *painted* instance.
-   * Deliberately ignores the currently-selected (but not-yet-painted) instance,
-   * so clicking "+" repeatedly keeps pointing at the same fresh id instead of
-   * skipping ids and abandoning the one just selected.
-   */
+  /** The id the "+" tile selects: one past the highest painted instance, so
+   *  repeated clicks keep pointing at the same id. */
   nextInstanceId(): number {
     let max = 0;
     for (const v of this.usedInstances) if (v > max) max = v;
     return Math.min(255, max + 1);
   }
 
-  /** Select the next unpainted instance id (activating this label). The next
-   *  stroke then paints a fresh object. Idempotent until that stroke lands. */
+  /** Select the next unpainted instance id, and this label. */
   newInstance(): void {
     this.changeActive(this.nextInstanceId());
   }

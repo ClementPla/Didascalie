@@ -2,13 +2,9 @@ import { ErrorHandler, Injectable, Injector, NgZone, inject } from '@angular/cor
 import { NotificationService } from './notification.service';
 
 /**
- * Catches otherwise-unhandled runtime errors (and, via main.ts, unhandled
- * promise rejections) so they are both logged for diagnostics and surfaced
- * to the user instead of failing silently.
- *
- * Uses the Injector lazily to avoid the circular-DI trap that comes from a
- * provider for ErrorHandler depending on services that are themselves built
- * after the error handler.
+ * Logs unhandled runtime errors (and, via main.ts, unhandled promise
+ * rejections) and shows them to the user. Services are resolved lazily
+ * through the Injector: they are built after the error handler.
  */
 @Injectable()
 export class GlobalErrorHandler implements ErrorHandler {
@@ -16,13 +12,9 @@ export class GlobalErrorHandler implements ErrorHandler {
   private readonly zone = inject(NgZone);
 
   handleError(error: unknown): void {
-    // Always keep the full error in the console for developers.
     console.error('[Unhandled error]', error);
 
-    // Don't surface dev-only framework diagnostics to the user. NG0100
-    // (ExpressionChangedAfterItHasBeenChecked) and friends are thrown only by
-    // the development build's verification pass and never occur in production,
-    // so a toast would be noise rather than an actionable error.
+    // NG0100 and the like are thrown only by the development build.
     if (this.isDevOnlyFrameworkError(error)) {
       return;
     }
@@ -34,7 +26,6 @@ export class GlobalErrorHandler implements ErrorHandler {
           .get(NotificationService)
           .error('Something went wrong', detail);
       } catch {
-        // Notifications not available yet — the console log above still stands.
       }
     });
   }
@@ -51,7 +42,7 @@ export class GlobalErrorHandler implements ErrorHandler {
   private describe(error: unknown): string {
     if (error instanceof Error) return error.message;
     if (typeof error === 'string') return error;
-    // Tauri command rejections often arrive as plain strings/objects.
+    // Tauri command rejections often arrive as plain strings or objects.
     try {
       return JSON.stringify(error);
     } catch {

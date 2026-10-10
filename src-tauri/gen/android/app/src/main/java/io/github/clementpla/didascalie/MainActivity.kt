@@ -16,9 +16,8 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
 
-    // Edge-to-edge is mandatory on recent Android, so the webview would sit
-    // under the status bar, the taskbar and the keyboard. Inset it instead:
-    // the page then lays out in exactly the area the user can see and touch.
+    // Edge-to-edge is mandatory on recent Android: inset the webview so the page
+    // lays out in the area the user can see and touch.
     val content = findViewById<View>(android.R.id.content)
     window.decorView.setBackgroundColor(Color.parseColor("#18181B"))
     ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
@@ -39,11 +38,10 @@ class MainActivity : TauriActivity() {
     receiveProject(intent)
   }
 
-  // A pen stroke made with the pen's side button held never reaches the page:
-  // the webview takes it as a right-click gesture and reports one context menu
-  // when the pen lifts. The page binds that button itself (eraser, pan…), and
-  // already knows it is held from the hover that precedes the stroke, so the
-  // stroke is passed on as an ordinary one, with the button taken out.
+  // The webview takes a pen stroke made with the side button held as a
+  // right-click gesture and never delivers it. The page binds that button
+  // itself and knows it is held from the preceding hover, so the stroke is
+  // passed on with the button taken out.
   override fun dispatchTouchEvent(event: MotionEvent): Boolean {
     val penButton = MotionEvent.BUTTON_STYLUS_PRIMARY or MotionEvent.BUTTON_SECONDARY
     val isPen = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
@@ -71,10 +69,9 @@ class MainActivity : TauriActivity() {
     }
   }
 
-  // "Open with Didascalie" on a .dida file. The file is only reachable through
-  // this intent's URI, and only for a while, so it is copied at once into the
-  // application's storage; the page picks it up from there when it is shown
-  // (`take_incoming_project`).
+  // "Open with Didascalie" on a .dida file. The URI is only readable for a
+  // while, so the file is copied at once into the application's storage, where
+  // the page picks it up (`take_incoming_project`).
   private fun receiveProject(intent: Intent?) {
     val uri = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data ?: return
     try {

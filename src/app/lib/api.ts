@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
-// Generated from the Rust structs by ts-rs; see src-tauri/src/commands/io.rs.
-// Do not hand-write mirrors of an IPC type — that is what broke project creation.
+// Generated from the Rust structs by ts-rs: IPC types are not mirrored by
+// hand.
 import type { ScanOptions } from './generated/ScanOptions';
 import type { ScanResult } from './generated/ScanResult';
 import type { AddImagesResult } from './generated/AddImagesResult';
@@ -106,14 +106,12 @@ export interface ProjectConfig {
   input_regex: string;
   recursive: boolean;
   folders_as_sequences: boolean;
-  // Labels
   segmentation_labels?: LabelConfig[];
   classification_tasks?: MulticlassConfig[];
   multilabel_task?: MultilabelConfig;
   text_fields?: string[];
 }
 
-/** The image folder of the open project, as this computer sees it. */
 export interface ImageFolderStatus {
   /** Null when the project has none (every image is embedded). */
   folder: string | null;
@@ -133,16 +131,14 @@ export interface TextDescriptionData {
   content: string;
 }
 
-/** How the frames of a sequence are classified. See `get_sequence_classification`. */
+/** See `get_sequence_classification`. */
 export interface SequenceClassification {
-  /** Frames in the sequence, classified or not. */
   frameCount: number;
   /** One entry per distinct answer to a task. */
   answers: {
     taskName: string;
     isMultilabel: boolean;
     selectedClasses: string[];
-    /** Frames of the sequence giving this answer. */
     frameCount: number;
   }[];
 }
@@ -179,7 +175,6 @@ export interface FormatChoice {
   label: string;
 }
 
-/** A single self-describing option a format exposes to the UI. */
 export type FormatOption =
   | { type: 'bool'; key: string; label: string; default: boolean }
   | { type: 'enum'; key: string; label: string; choices: FormatChoice[]; default: string }
@@ -241,7 +236,6 @@ export interface RegistrationData {
   pairs: KeypointPair[];
 }
 
-/** Summary of one registration case (frame pair) within a sequence. */
 export interface RegistrationSummary {
   referenceFrameId: number;
   movingFrameId: number;
@@ -251,7 +245,6 @@ export interface RegistrationSummary {
 }
 
 // ── Python bridge ───────────────────────────────────────────────────────────
-// Functions the user registered with `didascalie.com` and serves over ZeroMQ.
 
 export type PythonFunctionKind = 'keypoints' | 'seg' | 'sequence_seg';
 
@@ -272,7 +265,6 @@ export interface PingReply {
   functions: PythonFunction[];
 }
 
-/** The editor state a segmentation function is run against. */
 export interface PythonSegContext {
   /** Project labels in the order the editor lists them. */
   labels: { id: number; name: string; isInstance: boolean }[];
@@ -306,8 +298,7 @@ export interface PythonSequenceReport {
 type WirePair = [[number, number], [number, number]];
 
 // ── Vector annotations ──────────────────────────────────────────────────────
-// A single vector primitive (bezier path / polygon / open polyline). Handles
-// are stored as absolute image-space coordinates; a straight segment is a node
+// Handles are absolute image-space coordinates; a straight segment is a node
 // whose handles equal its anchor.
 export interface VectorNode {
   x: number;
@@ -316,7 +307,7 @@ export interface VectorNode {
   inY: number;
   outX: number;
   outY: number;
-  /** Keep the two handles collinear when edited (smooth) vs. independent (cusp). */
+  /** The two handles stay collinear when edited. */
   smooth: boolean;
 }
 
@@ -329,26 +320,22 @@ export interface VectorShape {
   nodes: VectorNode[];
 }
 
-/** All shapes for one (frame, label), as returned by the backend. */
 export interface VectorAnnotationsWire {
   labelId: number;
   shapes: VectorShape[];
 }
 
-/** How propagated annotations combine with the target's existing ones. */
 export type PropagationMode = 'replace';
 
 export type PropagationSkipReason = 'sizeMismatch' | 'notFound';
 
 export interface PropagationReport {
-  /** Frames actually written. */
   applied: number[];
   skipped: { frameId: number; reason: PropagationSkipReason }[];
 }
 
 // ── Segmentation-head lab ────────────────────────────────────────────────────
 
-/** A downloadable frozen encoder, plus whether its weights are on disk. */
 export interface EncoderStatus {
   id: string;
   name: string;
@@ -364,9 +351,9 @@ export interface EncoderStatus {
 }
 
 export interface DatasetSummary {
-  /** Frames training will use: annotated **and** reviewed. */
+  /** Annotated and reviewed. */
   annotatedFrames: number;
-  /** Annotated but not reviewed, and therefore excluded from training. */
+  /** Annotated but not reviewed, so excluded from training. */
   unreviewedFrames: number;
   labels: number;
   /** Labels plus background. */
@@ -375,13 +362,13 @@ export interface DatasetSummary {
 
 export interface EvalMetrics {
   accuracy: number;
-  /** Mean over classes present in the reference; absent classes are excluded. */
+  /** Mean over the classes present in the reference. */
   meanDice: number;
   perClassDice: number[];
 }
 
 export interface TrainOptions {
-  /** Omit for the local feature basis alone — the encoder ablation. */
+  /** Omit for the local feature basis alone. */
   encoderId?: string | null;
   workingSize?: number;
   patchesPerFrame?: number;
@@ -404,10 +391,7 @@ export interface MlProgress {
   etaMs: number;
 }
 
-/**
- * Payload of `ml-train-progress`, emitted once per epoch. Training dominates
- * wall-clock, so this is what keeps the UI honest during the slow phase.
- */
+/** Payload of `ml-train-progress`, emitted once per epoch. */
 export interface TrainTick {
   budget: number;
   repeat: number;
@@ -417,12 +401,10 @@ export interface TrainTick {
   /** Fit index within a sweep; both 0 for a single training run. */
   point: number;
   points: number;
-  /** Wall-clock of the epoch just finished. */
   epochMs: number;
   elapsedMs: number;
-  /** Projected time left across the whole job, not just this fit. */
+  /** Projected time left across the whole job. */
   etaMs: number;
-  /** Where optimisation actually runs — surfaced so CPU is never implicit. */
   device: string;
   samples: number;
   features: number;
@@ -488,12 +470,11 @@ export const api = {
     invoke<FrameImage>('get_frame_image', {
       frameId: frameId,
     }),
-  /** Display image downsampled server-side to `maxDim`; `frame.width/height`
-   *  stay native. For images too large for the browser to decode directly. */
+  /** Display image downsampled to `maxDim`; `frame.width/height` stay native. */
   getFrameOverview: (frameId: number, maxDim: number) =>
     invoke<FrameImage>('get_frame_overview', { frameId, maxDim }),
-  /** A native-resolution RGBA tile (row-major, `width*height*4` bytes) of a
-   *  frame. Backs the tiled viewer for crisp detail on very large images. */
+  /** A native-resolution RGBA tile of a frame (row-major, `width*height*4`
+   *  bytes). */
   getFrameTile: (
     frameId: number,
     x: number,
@@ -502,32 +483,29 @@ export const api = {
     height: number,
   ) =>
     invoke<ArrayBuffer>('get_frame_tile', { frameId, x, y, width, height }),
-  /**
-   * Erase every annotation on every frame of a sequence, returning how many
-   * frames carried one. Not undoable — it writes straight to the project.
-   */
+  /** Erase every annotation on every frame of a sequence, returning how many
+   *  frames carried one. Not undoable. */
   clearSequenceAnnotations: (sequenceId: number) =>
     invoke<number>('clear_sequence_annotations', { sequenceId }),
 
   /** Every frame's pixels as 8-bit luminance, stacked in `frameIds` order
-   *  (`W*H*D` bytes). Backs the 3D views; all frames must share one size. */
+   *  (`W*H*D` bytes). All frames must share one size. */
   loadSequenceImageVolume: (frameIds: number[]) =>
     invoke<ArrayBuffer>('load_sequence_image_volume', { frameIds }),
-  /** One label's uint8 masks for every frame, stacked in `frameIds` order
-   *  (`W*H*D` bytes); an unannotated frame is a zero slice. */
+  /** One label's masks for every frame, stacked in `frameIds` order (`W*H*D`
+   *  bytes). */
   loadLabelVolume: (frameIds: number[], labelId: number) =>
     invoke<ArrayBuffer>('load_label_volume', { frameIds, labelId }),
 
-  /** A frame's image as *encoded* bytes (JPEG, PNG, …) whose longest side is at
-   *  most `maxDim` (0 = native size). Backs the sequence inspector's playback. */
+  /** A frame's image as encoded bytes, its longest side at most `maxDim`
+   *  (0 = native). */
   getFramePreview: (frameId: number, maxDim: number) =>
     invoke<ArrayBuffer>('get_frame_preview', { frameId, maxDim }),
   /**
-   * A frame's labels composited to RGBA at the same preview size: an 8-byte
-   * header (width, height as little-endian uint32) then `width*height*4`
-   * bytes. `labels` lists what to draw, bottom to top, each with its 256-entry
-   * RGBA palette; `edgesOnly` outlines the regions instead of filling them.
-   * Empty when the frame has nothing to draw.
+   * A frame's labels composited to RGBA at preview size: an 8-byte header
+   * (width, height as little-endian uint32) then `width*height*4` bytes, or
+   * nothing when there is nothing to draw. `labels` lists what to draw, bottom
+   * to top, each with its 256-entry RGBA palette.
    */
   renderLabelOverlay: (
     frameId: number,
@@ -542,8 +520,7 @@ export const api = {
       edgesOnly,
     }),
 
-  /** Close the detached view window titled `title` (`window.close()` from
-   *  the opener leaves these native windows open). */
+  /** Close the detached view window titled `title`. */
   closeDetachedWindow: (title: string) =>
     invoke<void>('close_detached_window', { title }),
 
@@ -556,10 +533,8 @@ export const api = {
     invoke<AnnotationResponse[]>('load_annotations', { frameId }),
 
   saveAnnotation: (frameId: number, labelId: number, maskData: Uint8Array) => {
-    // Send the mask as raw bytes (Rust receives Vec<u8>) instead of a JSON
-    // number array — the latter is pathologically slow/large for big masks.
-    // `.slice().buffer` passes a detached-safe copy so the live label mask is
-    // never at risk if the IPC layer were to transfer (neuter) the buffer.
+    // Raw bytes (Rust receives Vec<u8>), not a JSON number array. A copy, in case
+    // the IPC layer transfers the buffer.
     return invoke<void>('save_annotation', {
       frameId,
       labelId,
@@ -567,23 +542,19 @@ export const api = {
     });
   },
 
-  /** Load every vector shape on a frame, grouped by owning label. */
   loadVectorAnnotations: (frameId: number) =>
     invoke<VectorAnnotationsWire[]>('load_vector_annotations', { frameId }),
 
-  /** Replace all vector shapes for one (frame, label). Empty array clears them. */
+  /** Replace all vector shapes of one (frame, label). */
   saveVectorAnnotations: (
     frameId: number,
     labelId: number,
     shapes: VectorShape[],
   ) => invoke<void>('save_vector_annotations', { frameId, labelId, shapes }),
 
-  /**
-   * Copy one frame's segmentation annotations (raster *and* vector, in one
-   * transaction) onto other frames. `labelIds` restricts the copy; `null`
-   * means every label. Runs entirely in SQLite — no mask crosses the IPC
-   * boundary — and skips targets whose dimensions differ from the source's.
-   */
+  /** Copy one frame's segmentation annotations, raster and vector, onto other
+   *  frames. `labelIds` restricts the copy (`null`: every label). Targets of
+   *  another size are skipped. */
   propagateAnnotations: (
     sourceFrameId: number,
     targetFrameIds: number[],
@@ -597,15 +568,8 @@ export const api = {
       mode,
     }),
 
-  /**
-   * Trace the connected component of a label mask under pixel (x, y) into
-   * simplified outer-contour polygons (image-pixel coords). Empty when the
-   * clicked pixel is background.
-   */
-  /**
-   * Trace every component of a mask into simplified polygons. `minArea` drops
-   * specks, which predicted masks carry and hand-drawn ones do not.
-   */
+  /** Trace every component of a mask into simplified polygons. `minArea` drops
+   *  specks. */
   vectorizeMask: (
     mask: Uint8Array,
     width: number,
@@ -636,11 +600,8 @@ export const api = {
       y,
     }),
 
-  /**
-   * Skeletonize the connected component under (x, y) into open centerline
-   * polylines (image-pixel coords): the component is thinned to a 1px skeleton
-   * and split at endpoints/junctions. Empty when the pixel is background.
-   */
+  /** Skeletonize the component under (x, y) into open centreline polylines.
+   *  Empty when the pixel is background. */
   skeletonizeComponent: (
     mask: Uint8Array,
     width: number,
@@ -656,11 +617,8 @@ export const api = {
       y,
     }),
 
-  /**
-   * Skeletonize every component of a mask into open centerline polylines.
-   * `minArea` drops specks as in `vectorizeMask`; `maxShapes` caps *components*,
-   * not polylines, since one branched structure yields several.
-   */
+  /** Skeletonize every component of a mask. `maxShapes` caps components, not
+   *  polylines. */
   skeletonizeMask: (
     mask: Uint8Array,
     width: number,
@@ -686,7 +644,6 @@ export const api = {
     invoke<ProjectConfig>('open_project', { path }),
 
   getImageFolder: () => invoke<ImageFolderStatus>('get_image_folder'),
-  /** Tell the project where its image folder is on this computer. */
   setImageFolder: (path: string) =>
     invoke<ImageFolderStatus>('set_image_folder', { path }),
 
@@ -700,16 +657,12 @@ export const api = {
   mlTrainModel: (options: TrainOptions) =>
     invoke<TrainSummary>('ml_train_model', { options }),
   mlModelStatus: () => invoke<TrainSummary | null>('ml_model_status'),
-  /**
-   * Restore the head saved in the open project, if any. Null when the project
-   * has no model, or has one this build cannot read — both mean "retrain".
-   */
-  /** Discard the saved model, from both the project file and this session. */
+  /** Discard the saved model, from the project file and this session. */
   mlForgetModel: () => invoke<boolean>('ml_forget_model'),
-  /** Ask the running fit to stop at the next epoch; the head it has is kept. */
+  /** Ask the running fit to stop at the next epoch; its head is kept. */
   mlStopTraining: () => invoke<void>('ml_stop_training'),
   mlStorageUsage: () => invoke<StorageUsage>('ml_storage_usage'),
-  /** Deletes cached features only; downloaded encoder weights are kept. */
+  /** Cached features only; encoder weights are kept. */
   mlClearFeatureCache: () => invoke<number>('ml_clear_feature_cache'),
   mlPredictFrame: (frameId: number, scribbles?: ScribbleInput) =>
     invoke<PredictedFrame>('ml_predict_frame', { frameId, scribbles }),
@@ -718,7 +671,6 @@ export const api = {
     invoke<ScanResult>('scan_and_import_folder', { options }),
 
   // ── User accounts ─────────────────────────────────────────────────────────
-  // Logging in decides whose annotations every other call reads and writes.
 
   listUsers: () => invoke<UserInfo[]>('list_users'),
 
@@ -737,7 +689,6 @@ export const api = {
   updateUser: (userId: number, change: UserChange) =>
     invoke<UserInfo>('update_user', { userId, change }),
 
-  /** What an account has annotated: what deleting it would erase. */
   userFootprint: (userId: number) =>
     invoke<UserFootprint>('user_footprint', { userId }),
 
@@ -747,20 +698,12 @@ export const api = {
   intergraderReport: (basis: FrameBasis) =>
     invoke<AgreementReport>('intergrader_report', { basis }),
 
-  /**
-   * The frames behind one pair's score for one label, least agreement first.
-   * Frames where neither grader drew the label are left out.
-   */
+  /** The frames behind one pair's score for one label, least agreement first. */
   intergraderCases: (a: number, b: number, labelId: number, basis: FrameBasis) =>
     invoke<CaseScore[]>('intergrader_cases', { a, b, labelId, basis }),
 
-  /**
-   * One frame as JPEG bytes, with both graders' regions for a label drawn
-   * over it in the colours of `style`: where they agree, where only `a`
-   * marked, where only `b` did. `style.edgeWidth` above 0 outlines the regions
-   * instead of filling them. `overlay: false` gives the bare image at the same
-   * size.
-   */
+  /** One frame as JPEG bytes, with both graders' regions for a label drawn over
+   *  it as `style` says. `overlay: false` gives the bare image. */
   intergraderCaseImage: (
     frameId: number,
     a: number,
@@ -780,18 +723,14 @@ export const api = {
       style,
     }),
 
-  /** Add a folder's images to the open project, skipping those it has. */
   addImagesToProject: (options: ScanOptions) =>
     invoke<AddImagesResult>('add_images_to_project', { options }),
 
-  /** What `edit` would permanently delete if applied now. */
   projectEditImpact: (edit: ProjectEdit) =>
     invoke<EditImpact>('project_edit_impact', { edit }),
 
-  /**
-   * Change the open project's configuration, together with every stored
-   * annotation that depends on it. Returns the configuration as it now stands.
-   */
+  /** Change the open project's configuration, with every stored annotation
+   *  that depends on it. Returns the new configuration. */
   applyProjectEdit: (edit: ProjectEdit) =>
     invoke<ProjectConfig>('apply_project_edit', { edit }),
 
@@ -803,7 +742,6 @@ export const api = {
 
   getFramesCount: () => invoke<number>('get_frames_count'),
   getSequencesCount: () => invoke<number>('get_sequences_count'),
-  // Single frame
   loadClassification: (frameId: number) =>
     invoke<ClassificationData[]>('load_classification', { frameId }),
 
@@ -828,14 +766,13 @@ export const api = {
   deleteTextDescription: (frameId: number, fieldName: string) =>
     invoke<void>('delete_text_description', { frameId, fieldName }),
 
-  // Whole sequences
   getSequenceClassification: (sequenceId: number) =>
     invoke<SequenceClassification>('get_sequence_classification', {
       sequenceId,
     }),
 
-  /** Give every frame of a sequence the same answer to a task (none selected
-   *  removes it). Resolves to the number of frames in the sequence. */
+  /** Give every frame of a sequence the same answer to a task. Resolves to the
+   *  number of frames. */
   saveSequenceClassification: (
     sequenceId: number,
     taskName: string,
@@ -849,7 +786,6 @@ export const api = {
       isMultilabel,
     }),
 
-  // Batch operations
   saveBatchClassifications: (classifications: BatchClassificationPayload[]) =>
     invoke<void>('save_batch_classifications', { classifications }),
 
@@ -858,10 +794,8 @@ export const api = {
 
   listLabels: () => invoke<LabelId[]>('list_labels'),
 
-  /** Metadata + option schema for every import/export format. */
   listDatasetFormats: () => invoke<DatasetFormat[]>('list_dataset_formats'),
 
-  /** Export the open project in a chosen format. */
   exportDataset: (
     formatId: string,
     outputFolder: string,
@@ -875,7 +809,7 @@ export const api = {
       options,
     }),
 
-  /** Import annotations into the open project (matched by filename). */
+  /** Import annotations into the open project, matched by filename. */
   importDataset: (formatId: string, path: string, options: Record<string, unknown>) =>
     invoke<ImportResult>('import_dataset', { formatId, path, options }),
   saveRegistration(sequenceId: number, data: RegistrationData): Promise<void> {
@@ -889,7 +823,6 @@ export const api = {
     return invoke('load_registration', { referenceFrameId, movingFrameId });
   },
 
-  /** Every registration case (frame pair) stored for a sequence. */
   listRegistrations(sequenceId: number): Promise<RegistrationSummary[]> {
     return invoke('list_registrations', { sequenceId });
   },
@@ -903,15 +836,14 @@ export const api = {
 
   // ── Projects on a device's shared storage (Android) ───────────────────────
 
-  /** Copy a project picked on the device into the application's storage;
-   *  `location` is a path or a `content://` URI. Returns the copy's path. */
+  /** Copy a project picked on the device (a path or a `content://` URI) into
+   *  the application's storage. Returns the copy's path. */
   importProjectFile: (location: string) =>
     invoke<string>('import_project_file', { location }),
 
   /** The project the application was opened with, already imported, or null. */
   takeIncomingProject: () => invoke<string | null>('take_incoming_project'),
 
-  /** Write a copy of the open project, annotations included, to `location`. */
   exportProjectFile: (location: string) =>
     invoke<void>('export_project_file', { location }),
 
@@ -923,12 +855,11 @@ export const api = {
   setListenPort: (port: number) => invoke<void>('set_listen_port', { port }),
 
   /** Ping the Python server and make it the bridge's endpoint. `probe` is the
-   *  background discovery poll, which gives up almost immediately. */
+   *  background discovery poll. */
   inferenceConnect: (host: string, port: number, probe = false) =>
     invoke<PingReply>('inference_connect', { host, port, probe }),
 
-  /** Run a `@register_seg` function on one frame; the masks come back to be
-   *  applied to the canvas. */
+  /** Run a `@register_seg` function on one frame. */
   pythonSegmentFrame: (
     name: string,
     frameId: number,
@@ -942,8 +873,8 @@ export const api = {
       context,
     }),
 
-  /** Run a `@register_sequence_seg` function over `frameIds`. Written straight
-   *  to the project — not undoable. Progress arrives as `python-seg-progress`. */
+  /** Run a `@register_sequence_seg` function over `frameIds`. Not undoable.
+   *  Progress arrives as `python-seg-progress`. */
   pythonSegmentSequence: (
     name: string,
     frameIds: number[],

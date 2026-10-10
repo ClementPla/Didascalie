@@ -1,8 +1,6 @@
-//! The port Didascalie listens on for remote control, as a setting.
-//!
-//! Kept in a file in the app's config directory rather than in the webview's
-//! storage: the socket is bound during startup, before any page exists to ask.
-//! A change therefore applies at the next launch.
+//! The port Didascalie listens on for remote control. Kept in a file of the
+//! app's config directory, since the socket is bound before any page exists;
+//! a change applies at the next launch.
 
 use std::fs;
 use std::path::PathBuf;
@@ -20,14 +18,14 @@ struct Stored {
     listen_port: u16,
 }
 
-/// The port the receiver was started on, for the life of the process.
+/// The port the receiver was started on.
 pub struct ActiveListenPort(pub u16);
 
 fn settings_path(app: &AppHandle) -> Option<PathBuf> {
     Some(app.path().app_config_dir().ok()?.join("connections.json"))
 }
 
-/// The configured port; the default when nothing valid is stored.
+/// The configured port, or the default when nothing valid is stored.
 pub fn load_listen_port(app: &AppHandle) -> u16 {
     settings_path(app)
         .and_then(|path| fs::read_to_string(path).ok())

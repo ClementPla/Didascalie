@@ -110,7 +110,6 @@ export class CompositePopoutComponent implements OnInit, OnDestroy {
           payload.movingImageUrl &&
           payload.movingImageUrl !== this.movingImageUrl()
         ) {
-          // Same frames, but URL refreshed (e.g., re-encoded image).
           this.movingImageUrl.set(payload.movingImageUrl);
         }
 
@@ -122,7 +121,7 @@ export class CompositePopoutComponent implements OnInit, OnDestroy {
     );
     this.tauriUnlisteners.push(stateUnlisten);
 
-    // 3. Keep pan/zoom matrices locked with main viewport interactions
+    // Follow the main viewport's pan and zoom.
     const transformUnlisten = await listen<any>(
       'sync-viewport-transform',
       (event) => {
@@ -132,7 +131,6 @@ export class CompositePopoutComponent implements OnInit, OnDestroy {
     );
     this.tauriUnlisteners.push(transformUnlisten);
 
-    // Tell the main window we are ready to receive data payloads
     await emitTo('main', 'popout-ready');
   }
   private async loadPyramidsForCurrentFrames(): Promise<void> {
@@ -163,7 +161,6 @@ export class CompositePopoutComponent implements OnInit, OnDestroy {
     offset: { x: number; y: number },
   ): void {
     if (typeof scale !== 'number' || !offset) return;
-    // ViewportController exposes setTransformExternal for cross-window/cross-pane sync.
     this.popoutRefController.setTransformExternal({ scale, offset });
     this.popoutMovingController.setTransformExternal({ scale, offset });
   }

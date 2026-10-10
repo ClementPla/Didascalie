@@ -1,19 +1,12 @@
-//
-// Lightweight perf probes surfaced through the FPS overlay. The point is to
-// make the Windows-vs-macOS/Linux gap measurable: which webview engine is
-// running, whether label compositing is on the GPU or CPU path, and how long
-// the two heavy per-interaction operations (full redraw, label composite)
-// actually take.
-//
-// Recording is gated behind `enabled` so the probes cost nothing when the
-// overlay is hidden. The FpsDisplayComponent flips `enabled` on/off with its
-// own lifecycle (it only exists while the counter is shown).
+// Timing probes shown in the FPS overlay: the webview engine, whether labels
+// are composited on the GPU or the CPU, and how long a full redraw and a
+// label composite take. Recording is gated by `enabled`.
 
 import { Injectable } from '@angular/core';
 
 export type CompositeBackend = 'WebGPU' | 'CPU' | '—';
 
-/** Fixed-size rolling window; avg smooths jitter, max surfaces stalls. */
+/** Fixed-size rolling window. */
 class Rolling {
   private buf: number[] = [];
   constructor(private cap = 30) {}
@@ -35,13 +28,11 @@ class Rolling {
 
 @Injectable({ providedIn: 'root' })
 export class RenderStatsService {
-  /** Gate so instrumentation is free when the overlay isn't mounted. */
   public enabled = false;
 
-  /** Which path actually ran on the last label composite. */
+  /** The path the last label composite ran on. */
   public compositeBackend: CompositeBackend = '—';
 
-  /** Best-effort webview identification, resolved once. */
   public readonly webview = detectWebview();
 
   private redraw = new Rolling();
@@ -70,14 +61,10 @@ export class RenderStatsService {
   }
 }
 
-/**
- * Tauri swaps the underlying webview per OS, which is the main reason the same
- * canvas code feels different across platforms. We can't query the engine
- * directly, but the user-agent is a reliable enough proxy.
- */
+/** The webview engine, guessed from the user agent: Tauri uses a different
+ *  one on each OS. */
 function detectWebview(): string {
   const ua = navigator.userAgent;
-  // WebView2 reports as Chrome/Edg; nothing else Chromium ships in Tauri.
   if (/Edg\/|Chrome\//.test(ua)) return 'WebView2 (Chromium)';
   if (/AppleWebKit/.test(ua)) {
     if (/Macintosh|Mac OS X/.test(ua)) return 'WKWebView (macOS)';

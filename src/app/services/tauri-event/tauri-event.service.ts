@@ -23,10 +23,6 @@ export class TauriEventService extends TauriEventBase {
     super(ngZone);
   }
 
-  /**
-   * Initialize all Tauri event listeners.
-   * Call this once from the root component or app initializer.
-   */
   public async initialize(): Promise<void> {
     if (this.initialized) {
       console.warn('TauriEventService already initialized');

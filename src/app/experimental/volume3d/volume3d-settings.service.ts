@@ -88,7 +88,6 @@ export class Volume3dSettingsService {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
       } catch {
-        // Storage unavailable: settings just don't persist.
       }
     });
   }
@@ -116,7 +115,6 @@ function load(): Volume3dSettings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
   } catch {
-    // Unreadable or unavailable: defaults.
   }
   return { ...DEFAULTS };
 }

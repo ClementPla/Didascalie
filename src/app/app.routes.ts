@@ -38,8 +38,6 @@ export const routes: Routes = [
     canActivate: [projectStartedGuard],
   },
   {
-    // Lazy-loaded: the lab is a side quest, and keeping it out of the initial
-    // bundle avoids charging every session for it.
     path: 'model-lab',
     loadComponent: () =>
       import('./features/model-lab/model-lab.component').then(

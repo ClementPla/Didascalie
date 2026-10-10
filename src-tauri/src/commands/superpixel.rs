@@ -3,19 +3,13 @@ use parking_lot::Mutex;
 use tauri::ipc::Response;
 use tauri::State;
 
-/// Managed state holding the cached superpixel map for the current image.
-/// `None` until the first stroke computes it (reset from the frontend when the
-/// image changes, like the SAM `featuresExtracted` flag).
+/// The superpixel map of the current image. `None` until the first stroke
+/// computes it; the frontend resets it when the image changes.
 pub type SuperpixelState = Mutex<Option<SuperpixelMap>>;
 
-/// Refine a brush stroke by snapping it to superpixel boundaries.
-///
-/// On the first stroke for an image the caller passes `compute_map: true` (and
-/// the full `image` buffer) to build and cache the oversegmentation; subsequent
-/// strokes pass `compute_map: false` and reuse the cache.
-///
-/// Returns an RGBA mask (white where included, transparent elsewhere) matching
-/// the flood-fill / otsu command output convention.
+/// Refine a brush stroke by snapping it to superpixel boundaries. The first
+/// stroke on an image passes `compute_map: true` and the full `image`; later
+/// ones reuse the cached map.
 #[tauri::command]
 pub async fn superpixel_refine(
     image: Vec<u8>,
@@ -28,8 +22,7 @@ pub async fn superpixel_refine(
     min_overlap_fraction: f32,
     state: State<'_, SuperpixelState>,
 ) -> Result<Response, String> {
-    // Build (or rebuild) the cached map when requested or when the cached one no
-    // longer matches the image dimensions.
+    // Rebuild when asked, or when the cached map does not match the image size.
     {
         let mut guard = state.lock();
         let needs_compute = compute_map
@@ -55,8 +48,7 @@ pub async fn superpixel_refine(
 
     let mask = map.refine(&brush, similarity_threshold, min_overlap_fraction)?;
 
-    // Single-channel presence mask (255 = included). The frontend writes the
-    // active label / instance value wherever this is nonzero.
+    // Single-channel presence mask (255 = included).
     let output: Vec<u8> = mask
         .iter()
         .map(|&included| if included { 255u8 } else { 0 })
@@ -65,11 +57,7 @@ pub async fn superpixel_refine(
     Ok(Response::new(output))
 }
 
-/// Render the cached superpixel boundaries as an RGBA overlay for display.
-///
-/// Builds (or rebuilds) the map on demand — so the overlay can be toggled on
-/// before the first stroke — then returns a transparent image with only the
-/// superpixel edges drawn.
+/// The superpixel boundaries as an RGBA overlay. Builds the map on demand.
 #[tauri::command]
 pub async fn superpixel_overlay(
     image: Vec<u8>,
@@ -96,6 +84,5 @@ pub async fn superpixel_overlay(
         .as_ref()
         .ok_or("Superpixel map is not available")?;
 
-    // Semi-transparent yellow edges.
     Ok(Response::new(map.boundary_overlay([255, 225, 0, 180])))
 }

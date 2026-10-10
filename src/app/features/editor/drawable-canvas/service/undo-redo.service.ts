@@ -14,32 +14,24 @@ interface LayerUndoRedoState {
 }
 
 /**
- * An action that undoes and redoes itself, recorded in the editor's timeline
- * so Ctrl+Z reaches it in order with every other action. For edits made
- * outside the current frame's layers (e.g. painting in 3D mode's projection
- * view, which writes many slices at once).
+ * An action that undoes and redoes itself, recorded in the editor's timeline.
+ * For edits made outside the current frame's layers (e.g. painting on the
+ * projection view, which writes many slices).
  *
- * `undo` / `redo` apply the change and return the indices of the *current
- * frame's* layers they modified (so their history can follow), or `null`
- * when the action no longer applies — it is then dropped, like a stale
- * vector token.
+ * `undo` / `redo` return the indices of the current frame's layers they
+ * modified, or `null` when the action no longer applies: it is then dropped.
  */
 export interface ExternalAction {
   undo(): number[] | null;
   redo(): number[] | null;
 }
 
-/**
- * One entry in the unified undo timeline. A raster action records exactly which
- * layer(s) it snapshotted, so undo/redo route to those layers' stacks
- * regardless of which layer is active now (or what the current tool mode is).
- * Multi-layer operations simply list every layer they touched.
- */
+/** One entry of the undo timeline. A raster action records which layers it
+ *  snapshotted. */
 type UndoToken =
   | { kind: 'vector' }
   | { kind: 'raster'; layers: number[] }
-  // A single user action that touched both subsystems (e.g. rasterize /
-  // vectorize): undone/redone atomically so one Ctrl+Z reverts the whole thing.
+  // One user action that touched both raster and vector (e.g. rasterize).
   | { kind: 'compound'; tokens: UndoToken[] }
   | { kind: 'external'; action: ExternalAction };
 
@@ -58,19 +50,16 @@ export class UndoRedoService implements ProjectScoped {
     false
   );
 
-  // One history stack per layer. A multi-layer action pushes a snapshot to each
-  // affected layer's stack, so every layer always has a complete history.
+  // One history stack per layer.
   private layerUndoStacks =
     new Map<number, UndoRedo<LayerUndoRedoState>>();
 
-  // Unified action timeline: the interleaved order of raster and vector actions
-  // so a single Ctrl+Z undoes the most recent action regardless of its kind or
-  // which layer it touched.
+  // The interleaved order of raster and vector actions.
   private actionOrder: UndoToken[] = [];
   private redoOrder: UndoToken[] = [];
 
-  // While a group is open, new tokens are buffered instead of appended to the
-  // timeline; endGroup() folds them into one compound token (see beginGroup).
+  // While a group is open, tokens are buffered; `endGroup()` folds them into
+  // one compound token.
   private grouping = false;
   private groupBuffer: UndoToken[] = [];
 
@@ -89,13 +78,11 @@ export class UndoRedoService implements ProjectScoped {
       }
     });
 
-    // Every committed vector action joins the unified timeline.
     this.vectorEditor.committed$.subscribe(() => {
       this.pushToken({ kind: 'vector' });
     });
   }
 
-  /** Append a token to the timeline, or buffer it when a group is open. */
   private pushToken(token: UndoToken): void {
     if (this.grouping) {
       this.groupBuffer.push(token);
@@ -106,9 +93,9 @@ export class UndoRedoService implements ProjectScoped {
   }
 
   /**
-   * Record an action that was just applied outside this service. `layers`
-   * are the current frame's layers it modified: their history is rebased on
-   * the new contents so later raster undos keep the change.
+   * Record an action that was just applied outside this service. `layers` are
+   * the current frame's layers it modified: their history is rebased on the
+   * new contents.
    */
   pushExternal(action: ExternalAction, layers: number[]): void {
     this.rebaseLayers(layers);
@@ -134,11 +121,8 @@ export class UndoRedoService implements ProjectScoped {
 
   // ── Grouped (compound) actions ───────────────────────────────────────────
 
-  /**
-   * Begin a compound action: any raster snapshots and vector commits recorded
-   * until endGroup() collapse into a single timeline entry, so one undo reverts
-   * them together. Used by rasterize/vectorize, which edit both subsystems.
-   */
+  /** Begin a compound action: what is recorded until `endGroup()` becomes one
+   *  timeline entry. */
   beginGroup(): void {
     this.grouping = true;
     this.groupBuffer = [];
@@ -157,7 +141,6 @@ export class UndoRedoService implements ProjectScoped {
 
   // ── Unified dispatch (raster + vector) ───────────────────────────────────
 
-  /** Undo the most recent action across both subsystems. */
   async undo(): Promise<void> {
     while (this.actionOrder.length > 0) {
       const token = this.actionOrder[this.actionOrder.length - 1];
@@ -181,8 +164,6 @@ export class UndoRedoService implements ProjectScoped {
       if (token.kind === 'compound') {
         this.actionOrder.pop();
         this.redoOrder.push(token);
-        // Undo sub-actions in reverse; the subsystems are independent so the
-        // final state is order-independent.
         for (let i = token.tokens.length - 1; i >= 0; i--) {
           const sub = token.tokens[i];
           if (sub.kind === 'vector') this.vectorEditor.undo();
@@ -197,7 +178,6 @@ export class UndoRedoService implements ProjectScoped {
     }
   }
 
-  /** Redo the most recently undone action across both subsystems. */
   async redo(): Promise<void> {
     while (this.redoOrder.length > 0) {
       const token = this.redoOrder[this.redoOrder.length - 1];
@@ -278,25 +258,15 @@ export class UndoRedoService implements ProjectScoped {
     this.redrawRequest.next(true);
   }
 
-  /**
-   * Clear the current frame's undo/redo history (called when a frame loads).
-   * External actions survive: they carry their own data, span frames, and
-   * drop themselves once they no longer apply.
-   */
+  /** Clear the current frame's history (a frame was loaded). External actions
+   *  survive: they span frames and drop themselves when stale. */
   empty() {
     this.layerUndoStacks.clear();
     this.actionOrder = this.actionOrder.filter((t) => t.kind === 'external');
     this.redoOrder = this.redoOrder.filter((t) => t.kind === 'external');
   }
 
-  /**
-   * @see ProjectScoped
-   *
-   * Stacks are keyed by layer index, and those indices are reused by the next
-   * project's labels — so a surviving entry would let Ctrl+Z paste the previous
-   * project's mask into an unrelated layer. Also drops any half-open group,
-   * which would otherwise swallow the new project's first action.
-   */
+  /** @see ProjectScoped */
   resetForProject(): void {
     this.empty();
     this.actionOrder = [];
@@ -305,24 +275,18 @@ export class UndoRedoService implements ProjectScoped {
     this.groupBuffer = [];
   }
 
-  /**
-   * Clear undo/redo history for a specific layer
-   */
   emptyLayer(layerIndex: number) {
     if (this.layerUndoStacks.has(layerIndex)) {
       this.layerUndoStacks.get(layerIndex)!.empty();
     }
   }
 
-  /**
-   * Remove a layer's undo/redo stack (call when deleting a layer)
-   */
   removeLayer(layerIndex: number) {
     this.layerUndoStacks.delete(layerIndex);
   }
 
-  /** The layer indices a raster action snapshots: the active one, or all of
-   *  them for multi-layer operations (erase-all, swap). */
+  /** The layers a raster action snapshots: the active one, or all of them for
+   *  erase-all and swap. */
   private affectedLayers(): number[] {
     if (this.editorService.affectsMultipleLabels()) {
       return this.canvasManagerService.getAllMasks().map((_, i) => i);
@@ -330,19 +294,12 @@ export class UndoRedoService implements ProjectScoped {
     return [this.labelService.getActiveIndex()];
   }
 
-  /**
-   * Record a raster modification: snapshot each affected layer and append the
-   * action to the unified timeline.
-   */
+  /** Record a raster modification. */
   public async updateUndoRedo(): Promise<void> {
     this.snapshotLayers(this.affectedLayers());
   }
 
-  /**
-   * Snapshot an explicit set of layers as one raster action. Used by operations
-   * that know exactly which masks they touched (e.g. rasterize), independent of
-   * the current tool/label. Safe to call inside a group.
-   */
+  /** Snapshot an explicit set of layers as one raster action. */
   public snapshotLayers(layerIndices: number[]): void {
     const masks = this.canvasManagerService.getAllMasks();
     const layers = layerIndices.filter((i) => i >= 0 && masks[i]);
@@ -373,19 +330,14 @@ export class UndoRedoService implements ProjectScoped {
     };
   }
 
-  /**
-   * Capture initial state for all layers (call after loading masks). Every
-   * layer stack starts with a baseline so the first action on it is undoable.
-   */
+  /** Give every layer stack a baseline, so the first action on it can be
+   *  undone. Call after loading masks. */
   public async captureInitialStates(): Promise<void> {
     this.canvasManagerService.getAllMasks().forEach((mask, index) => {
       this.getLayerUndoRedo(index).push({ data: new Uint8Array(mask) });
     });
   }
 
-  /**
-   * Capture initial state for a specific layer (call after loading a single mask)
-   */
   public async captureInitialState(layerIndex: number): Promise<void> {
     const mask = this.canvasManagerService.getAllMasks()[layerIndex];
     if (!mask) {

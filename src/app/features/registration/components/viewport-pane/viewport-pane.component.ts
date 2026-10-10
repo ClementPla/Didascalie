@@ -62,14 +62,13 @@ export class ViewportPaneComponent
   private draggingPairId: string | null = null;
 
   private readonly gesture = new TouchGesture();
-  /** Where a finger went down on empty image, until it turns out to be a tap
-   *  (a point is placed on lift) or a drag (the image pans). */
+  /** Where a finger went down on empty image, until it proves a tap (a point
+   *  is placed on lift) or a drag (the image pans). */
   private pendingTap: { clientX: number; clientY: number; native: Point2D } | null =
     null;
 
   private readonly localHoverPairId = signal<string | null>(null);
 
-  /** Cursor style for the host div. */
   readonly cursorStyle = computed(() =>
     this.localHoverPairId() !== null ? 'grab' : 'crosshair',
   );
@@ -81,19 +80,14 @@ export class ViewportPaneComponent
   readonly transform = this.state.transform;
   readonly colorForIndex = colorForIndex;
   readonly hoveredPairId = this.state.hoveredPairId;
-  /**
-   * 1 / viewport scale. Markers are drawn in this scaled group so their
-   * geometry is expressed in screen pixels — they stay a constant, crisp
-   * on-screen size at any zoom and never bloat over the target pixel.
-   */
+  /** 1 / viewport scale: markers are drawn in a group scaled by this, so their
+   *  size on screen is constant. */
   readonly markerScale = computed(() => {
     const c = this.controller();
     return c ? 1 / Math.max(1e-4, c.scale()) : 1;
   });
-  /**
-   * The pending reference point during the awaiting-moving phase.
-   * Rendered only on the reference pane.
-   */
+  /** The pending reference point while the moving one is awaited. Reference
+   *  pane only. */
   readonly pendingRef = computed(() => {
     const p = this.placement();
     return p.phase === 'awaiting-moving' ? p.pendingRef : null;
@@ -165,14 +159,12 @@ export class ViewportPaneComponent
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // When the pyramid input changes (new frame loaded), fit & redraw.
     const pyramid = this.pyramid();
     if (changes['pyramid'] && pyramid) {
       const { nativeWidth: w, nativeHeight: h } = pyramid;
       const controller = this.controller();
       controller.smooth = Math.max(w, h) < 4096;
-      // Only fit if the controller has been sized — otherwise the fit
-      // math divides by zero and we wait for the ResizeObserver tick.
+      // Fit only once the controller has a size.
       const size = controller.size();
       if (size.width > 0 && size.height > 0) {
         controller.fitImage(w, h, false);
@@ -193,7 +185,6 @@ export class ViewportPaneComponent
       this.state.transform().type === 'homography',
   );
 
-  /** CSS transform string for the warped <img>. */
   readonly warpedTransform = computed(() => {
     if (!this.shouldShowWarped()) return null;
     return buildWarpedImageTransform(
@@ -207,7 +198,6 @@ export class ViewportPaneComponent
     this.shouldShowWarped() ? diagnoseHomography(this.state.transform()) : null,
   );
 
-  /** Whether to actually render the <img> (gates on URL availability + safety). */
   readonly showWarpedImg = computed(
     () =>
       this.shouldShowWarped() &&
@@ -264,16 +254,14 @@ export class ViewportPaneComponent
 
   // ── Mouse handling ───────────────────────────────────────────────────────
 
-  // Pointer events, so mouse, pen and finger share these handlers. Mouse and
-  // pen behave as on desktop. A finger differs in two ways: a point is placed
-  // when it lifts rather than when it lands, so that it can instead pan or be
-  // joined by a second finger; and two fingers pan and pinch.
+  // Pointer events, for mouse, pen and finger. A finger places a point when it
+  // lifts, not when it lands, so that it can pan instead; two fingers pan and
+  // pinch.
 
   onMouseDown(event: PointerEvent): void {
     const touch = event.pointerType === 'touch';
     this.gesture.down(event);
     if (this.gesture.multi) {
-      // A second finger: whatever the first one started is not a tap or a drag.
       this.pendingTap = null;
       this.draggingPairId = null;
       this.controller().endDrag();
@@ -289,7 +277,7 @@ export class ViewportPaneComponent
     }
     if (event.button !== 0) return;
 
-    // Block placement on the moving pane while the warp overlay is showing.
+    // No placement on the moving pane while the warp overlay shows.
     if (this.shouldShowWarped()) return;
     const rect = this.canvasEl().nativeElement.getBoundingClientRect();
     const native = this.controller().clientToNative(
@@ -298,7 +286,6 @@ export class ViewportPaneComponent
       rect,
     );
 
-    // Drag an existing point on this side if the click is close enough.
     const hit = this.hitTestPair(native);
     if (hit) {
       this.draggingPairId = hit;
@@ -312,7 +299,6 @@ export class ViewportPaneComponent
     this.placePoint(native);
   }
 
-  /** Register a click with the placement state machine. */
   private placePoint(native: Point2D): void {
     if (this.side() === 'ref') {
       this.state.placeRefPoint(native);
@@ -342,7 +328,7 @@ export class ViewportPaneComponent
         event.clientY - this.pendingTap.clientY,
       );
       if (moved < TAP_SLOP) return;
-      // Not a tap after all: the finger is dragging the image.
+      // Not a tap: the finger is dragging the image.
       controller.startDrag(this.pendingTap.clientX, this.pendingTap.clientY);
       this.pendingTap = null;
     }
@@ -365,7 +351,6 @@ export class ViewportPaneComponent
       return;
     }
 
-    // Hover detection — runs only when not dragging.
     const rect = this.canvasEl().nativeElement.getBoundingClientRect();
     const native = controller.clientToNative(
       event.clientX,
@@ -402,22 +387,20 @@ export class ViewportPaneComponent
     const hover = this.state.hoverPoint();
     if (!hover) return null;
 
-    // Only show shadow on the OPPOSITE pane from where the mouse is.
+    // The shadow shows on the pane opposite the mouse.
     const side = this.side();
     if (hover.side === side) return null;
 
     const t = this.state.transform();
     if (t.type !== 'homography') return null;
 
-    // Mouse on ref → show shadow on moving (use inverse homography: ref → moving).
-    // Mouse on moving → show shadow on ref (use forward homography: moving → ref).
     if (hover.side === 'ref' && side === 'moving') {
-      // Map ref point to moving via H⁻¹.
+      // ref → moving, through H⁻¹.
       const inv = invertHomography(t);
       if (!inv) return null;
       return applyTransform(inv, hover.pt);
     } else if (hover.side === 'moving' && side === 'ref') {
-      // Map moving point to ref via H.
+      // moving → ref, through H.
       return applyTransform(t, hover.pt);
     }
     return null;
@@ -438,20 +421,16 @@ export class ViewportPaneComponent
 
   // ── Template helpers ─────────────────────────────────────────────────────
 
-  /** The point on this side for a pair. */
   pointFor(pair: { ref: Point2D; moving: Point2D }): Point2D {
     return this.side() === 'ref' ? pair.ref : pair.moving;
   }
 
-  /**
-   * SVG transform placing a marker at a native-pixel point and scaling its
-   * (screen-pixel) geometry by 1/scale so it renders at a constant size.
-   */
+  /** SVG transform placing a marker at a native-pixel point, at a constant
+   *  size on screen. */
   markerTransform(p: Point2D): string {
     return `translate(${p.x} ${p.y}) scale(${this.markerScale()})`;
   }
 
-  /** True if the awaiting-moving placement marker should render. */
   get showPendingRef(): boolean {
     return this.side() === 'ref' && this.pendingRef() !== null;
   }
@@ -459,7 +438,6 @@ export class ViewportPaneComponent
     return this.side() === 'moving' && this.pendingMoving() !== null;
   }
 
-  /** True if the predicted-moving indicator should render. */
   get showPredictedMoving(): boolean {
     return this.side() === 'moving' && this.predictedMoving() !== null;
   }

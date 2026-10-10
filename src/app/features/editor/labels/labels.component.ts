@@ -72,8 +72,8 @@ export class LabelsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Only when there is none: this panel can also be opened from the label
-    // bar, mid-work, and must not put the first label back.
+    // Only when there is none: this panel can also be opened mid-work, from the
+    // label bar.
     if (
       !this.labelsService.activeLabel &&
       this.labelsService.listSegmentationLabels.length > 0
@@ -151,17 +151,13 @@ export class LabelsComponent implements OnInit, OnDestroy {
     await api.saveTextDescription(frameId, label.name, label.content);
   }
 
-  // ── Label Tree Management (unchanged) ────────────────────────────────────
+  // ── Label Tree Management ────────────────────────────────────────────────
 
   public hasChild(node: TreeNode): boolean {
     return !!(node.children && node.children.length > 0);
   }
 
-  /**
-   * The tree node backing the active label, so the tree's selection highlight
-   * always tracks `activeLabel` — whether it changed by click or by Ctrl+Tab.
-   * This is the single source of truth; there is no separate "last clicked".
-   */
+  /** The tree node of the active label. */
   get selectedTreeNode(): TreeNode | null {
     const active = this.labelsService.activeLabel;
     return active ? this.findNode(this.labelsService.getTreeNode(), active) : null;
@@ -184,7 +180,7 @@ export class LabelsComponent implements OnInit, OnDestroy {
     this.labelsService.activate(event.data as SegLabel);
   }
 
-  // ── Canvas Operations (unchanged) ────────────────────────────────────────
+  // ── Canvas Operations ────────────────────────────────────────────────────
 
   public clearCanvas(node: TreeNode): void {
     const label = node.data as SegLabel;

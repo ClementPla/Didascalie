@@ -1,15 +1,9 @@
 //! Whole-sequence reads for the editor's 3D (volume) mode.
 //!
-//! In 3D mode the frontend keeps every frame of a sequence resident as a
-//! `W×H×D` volume (frames stacked along Z, the slowest axis), so scrolling
-//! slices and rebuilding the 3D views never round-trips per frame. These
-//! commands fill that volume in one call each: the frames' pixels as 8-bit
-//! luminance, and one label's masks. Both return raw bytes (`Response`), never
-//! JSON, since a volume is tens to hundreds of MB.
-//!
-//! The caller passes the frame ids in display order, so the Z axis matches the
-//! editor's frame index without a second lookup. Every frame must share the
-//! first frame's size — a volume with ragged slices has no meaning.
+//! The frontend keeps a sequence resident as a `W×H×D` volume, Z being the
+//! frame index. These commands fill it in one call each, as raw bytes: the
+//! frames as 8-bit luminance, and one label's masks. Frame ids come in display
+//! order, and every frame must have the first one's size.
 
 use rayon::prelude::*;
 use rusqlite::{params, OptionalExtension};
@@ -42,22 +36,16 @@ fn volume_dimensions(db: &DbState, frame_ids: &[i64]) -> Result<(u32, u32), Stri
     .map_err(|e| e.to_string())
 }
 
-/// Copy one decoded mask into its slice of the volume.
-///
-/// Both length mismatches are tolerated rather than fatal, because a volume is
-/// assembled from per-frame annotations that were written independently: a mask
-/// shorter than the slice leaves the remainder zero (the buffer starts zeroed),
-/// and a longer one is truncated. Silently, in both directions — a ragged
-/// annotation should not fail a whole sequence load, and the frame dimensions
-/// were already checked by `volume_dimensions`.
+/// Copy one decoded mask into its slice of the volume. A shorter mask leaves
+/// the rest zero and a longer one is truncated, so a ragged annotation does
+/// not fail the whole load.
 fn write_slice(out: &mut [u8], mask: &[u8]) {
     let n = mask.len().min(out.len());
     out[..n].copy_from_slice(&mask[..n]);
 }
 
 /// Every frame's pixels as 8-bit luminance, concatenated in `frame_ids` order
-/// (`W*H*D` bytes). Colour frames are converted to luma; 16-bit ones are
-/// rescaled to 8 bits.
+/// (`W*H*D` bytes).
 #[tauri::command]
 pub async fn load_sequence_image_volume(
     db: State<'_, DbState>,
@@ -66,10 +54,8 @@ pub async fn load_sequence_image_volume(
     let (w, h) = volume_dimensions(&db, &frame_ids)?;
     let slice = (w as usize) * (h as usize);
 
-    // Reading is serialised by the connection lock; decoding is the expensive
-    // part, so gather the encoded bytes first and decode them in parallel. A
-    // few frames at a time: a video frame comes uncompressed, and a whole
-    // sequence of those is several times the volume being built.
+    // Encoded bytes are gathered under the connection lock, then decoded in
+    // parallel, a few frames at a time: a video frame comes uncompressed.
     const BATCH: usize = 16;
     let mut volume = vec![0u8; slice * frame_ids.len()];
     for (ids, slices) in frame_ids.chunks(BATCH).zip(volume.chunks_mut((slice * BATCH).max(1))) {
@@ -104,8 +90,7 @@ pub async fn load_sequence_image_volume(
 }
 
 /// One label's masks for every frame, concatenated in `frame_ids` order
-/// (`W*H*D` bytes, uint8 values as in the editor). A frame with no annotation
-/// for the label contributes a zero slice.
+/// (`W*H*D` bytes). A frame without the label is a zero slice.
 #[tauri::command]
 pub async fn load_label_volume(
     db: State<'_, DbState>,
@@ -155,9 +140,7 @@ mod tests {
     use super::*;
     use rusqlite::Connection;
 
-    /// Just the `frames` columns `get_frame_dimensions` reads — the migration
-    /// helpers are private to `storage::queries`, and a volume's dimension rule
-    /// does not depend on the rest of the schema.
+    /// Just the `frames` columns `get_frame_dimensions` reads.
     fn db_with_frames(frames: &[(i64, u32, u32)]) -> DbState {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(
@@ -184,8 +167,6 @@ mod tests {
 
     #[test]
     fn a_ragged_frame_is_rejected_and_named() {
-        // The whole point of the check: stacking a differently sized slice would
-        // silently shear every voxel after it.
         let db = db_with_frames(&[(1, 8, 4), (2, 8, 5)]);
         let err = volume_dimensions(&db, &[1, 2]).unwrap_err();
         assert!(err.contains('2'), "error should name the offending frame: {err}");
@@ -214,8 +195,6 @@ mod tests {
 
     #[test]
     fn writing_a_slice_does_not_touch_its_neighbours() {
-        // par_chunks_mut hands each slice a disjoint window; prove the helper
-        // stays inside the one it was given.
         let mut volume = vec![0u8; 9];
         {
             let (_, rest) = volume.split_at_mut(3);

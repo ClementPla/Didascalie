@@ -19,8 +19,6 @@
   box-sizing: border-box;
 }
 
-// Task configuration: classification + pixel-level side by side on wide
-// screens so neither pushes the page into an unreachable overflow.
 .task-config-grid {
   display: grid;
   gap: 1.5rem;
@@ -28,7 +26,7 @@
   margin-top: 0.75rem;
 
   @media (min-width: 1000px) {
-    // auto-fit collapses to a single full-width column when only one task is on.
+    // auto-fit: a single column when only one task is on.
     grid-template-columns: repeat(auto-fit, minmax(26rem, 1fr));
   }
 }
@@ -89,7 +87,6 @@
   padding-top: 0.5rem;
 }
 
-// Save-as row
 .save-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -123,7 +120,6 @@
   font-style: italic;
 }
 
-// Input-data options
 .input-options {
   display: flex;
   flex-wrap: wrap;
@@ -138,14 +134,12 @@
   font-size: 0.8rem;
 }
 
-// Task switches
 .task-switches {
   display: flex;
   gap: 1.25rem;
   flex-wrap: wrap;
 }
 
-// Footer
 .page-footer {
   position: sticky;
   bottom: 0;

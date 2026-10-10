@@ -1,15 +1,8 @@
-//! Tauri surface for the segmentation-head lab.
+//! Tauri commands of the segmentation-head lab.
 //!
-//! Long-running work (feature extraction, training, prediction) must be
-//! `#[tauri::command(async)]`. A plain `#[tauri::command]` runs on the **main
-//! thread**, where a multi-minute job freezes the window and starves the event
-//! loop that delivers progress — the bar sits at zero until the job finishes,
-//! which is indistinguishable from a hang.
-//!
-//! The bodies stay synchronous, which keeps `State<DbState>` usable without
-//! fighting `Send` across awaits; the attribute alone moves them off-thread.
-//! Progress is streamed as `ml-progress` / `ml-train-progress` events rather
-//! than returned.
+//! Long-running commands are `#[tauri::command(async)]`: a plain command runs
+//! on the main thread and would freeze the window. Their bodies stay
+//! synchronous; progress goes out as `ml-progress` / `ml-train-progress` events.
 
 use std::sync::atomic::Ordering;
 
@@ -28,7 +21,6 @@ use super::registry;
 use super::scribble::Rng;
 use super::train::{self, Samples, TrainConfig};
 
-/// A catalog entry plus whether its weights are already on disk.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EncoderStatus {
@@ -48,15 +40,13 @@ pub fn ml_list_encoders(app: AppHandle) -> Vec<EncoderStatus> {
         .collect()
 }
 
-/// Fetch an encoder's weights. Progress arrives on the existing
-/// `download-progress` event emitted by the shared model downloader.
+/// Fetch an encoder's weights. Progress arrives on `download-progress`.
 #[tauri::command]
 pub async fn ml_download_encoder(app: AppHandle, encoder_id: String) -> Result<String, String> {
     let spec = registry::find(&encoder_id)
         .ok_or_else(|| format!("unknown encoder '{encoder_id}'"))?;
-    // The graph comes first and its path is what we report back, but every
-    // sidecar has to arrive too: `ort` resolves external weights relative to
-    // the graph, so a partial download opens a graph with no weights in it.
+    // Every sidecar must arrive too: `ort` resolves external weights relative to
+    // the graph.
     let mut graph_path = None;
     for cfg in spec.all_model_configs() {
         let path = ensure_model_cached(&app, &cfg).await?;
@@ -67,19 +57,16 @@ pub async fn ml_download_encoder(app: AppHandle, encoder_id: String) -> Result<S
 }
 
 /// What the project currently offers the trainer.
-// Deliberately *not* `rename_all = "camelCase"`: the frontend reads
-// `annotated_frames` in four places, and renaming the wire field would leave
-// them reading `undefined` rather than failing loudly.
+// Not `rename_all = "camelCase"`: the frontend reads the snake_case fields.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DatasetSummary {
-    /// Frames training will actually use: annotated **and** reviewed.
+    /// Annotated and reviewed.
     pub annotated_frames: usize,
-    /// Annotated but not reviewed, and therefore excluded. Reported so the page
-    /// can explain a low count instead of looking broken.
+    /// Annotated but not reviewed, so excluded.
     pub unreviewed_frames: usize,
     pub labels: usize,
-    /// Classes the head predicts: every label plus background.
+    /// Every label plus background.
     pub classes: usize,
 }
 
@@ -98,21 +85,13 @@ pub fn ml_dataset_summary(db: State<DbState>) -> Result<DatasetSummary, String> 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrainOptions {
-    /// Omit to train on the local feature basis alone — the ablation that says
-    /// whether the encoder is earning its download.
+    /// Omit to train on the local feature basis alone.
     pub encoder_id: Option<String>,
     pub working_size: Option<u32>,
     pub patches_per_frame: Option<usize>,
-    /// Persist encoder features to local app data between runs. Defaults to on;
-    /// the storage readout and Clear button are what bound it.
+    /// Persist encoder features between runs. Defaults to on.
     pub cache_features: Option<bool>,
     /// Labels to train on. Omit for every label in the project.
-    ///
-    /// Each label the head predicts is another output class competing in the
-    /// softmax, and a label the annotator never drew contributes only dilution:
-    /// it can never be the argmax anywhere, but it still takes probability mass
-    /// away from the ones that can. Narrowing to the labels actually being
-    /// worked on is the cheapest way to sharpen a small head.
     pub label_ids: Option<Vec<i64>>,
     pub augment_repeats: Option<usize>,
     pub epochs: Option<usize>,
@@ -128,17 +107,13 @@ struct Progress<'a> {
     stage: &'a str,
     done: usize,
     total: usize,
-    /// Milliseconds spent on the most recent frame — feature extraction is the
-    /// other slow phase, and its per-frame cost is what a user needs in order
-    /// to judge whether the working size is sane.
+    /// Milliseconds spent on the most recent frame.
     last_ms: f32,
     eta_ms: f32,
 }
 
-/// `avg_ms` drives the ETA rather than `last_ms`: per-frame cost varies several
-/// -fold (a training frame runs every augmentation repeat, a validation frame
-/// runs one), so extrapolating from the most recent frame makes the estimate
-/// lurch by 3x between updates and reads as unreliable.
+/// The ETA uses `avg_ms`: per-frame cost varies several-fold between training
+/// and validation frames.
 fn emit_avg(app: &AppHandle, stage: &str, done: usize, total: usize, last_ms: f32, avg_ms: f32) {
     let eta_ms = if done > 0 {
         avg_ms * total.saturating_sub(done) as f32
@@ -157,13 +132,11 @@ fn emit_avg(app: &AppHandle, stage: &str, done: usize, total: usize, last_ms: f3
     );
 }
 
-/// Single-shot progress with no history to average over.
 fn emit(app: &AppHandle, stage: &str, done: usize, total: usize, last_ms: f32) {
     emit_avg(app, stage, done, total, last_ms, last_ms);
 }
 
-/// Everything a fit needs, built once so the sweep and a single training run
-/// cannot disagree about how features or splits were made.
+/// Everything a fit needs, built once for the sweep and a single run alike.
 struct Split {
     per_frame: Vec<Samples>,
     val: Samples,
@@ -173,7 +146,7 @@ struct Split {
     val_frames: usize,
 }
 
-/// Open (or reuse) the encoder a run asks for, caching it in state.
+/// Open (or reuse) the encoder a run asks for.
 fn ensure_encoder(
     app: &AppHandle,
     state: &MlState,
@@ -195,17 +168,10 @@ fn ensure_encoder(
     Ok(())
 }
 
-/// Largest patches-per-frame that keeps the sample table inside a memory budget.
-///
-/// The table is dense `f32`, so it costs
-/// `patches * repeats * frames * (d + 1) * PATCH^2 * 4` bytes — linear in a
-/// number the user sets per *frame*, which makes it easy to ask for gigabytes
-/// without noticing. With an encoder attached `d` is ~410, and a laptop asked
-/// for 24 patches over 20 frames will allocate ~5 GB and freeze.
-///
-/// Budget is a fraction of what is *available*, not of what is installed: the
-/// rest of the app, the webview and the OS all need their share, and a machine
-/// that is already under pressure should train on less rather than tip over.
+/// Largest patches-per-frame that keeps the sample table inside a memory
+/// budget. The table is dense `f32`:
+/// `patches * repeats * frames * (d + 1) * PATCH^2 * 4` bytes. The budget is a
+/// fraction of the memory available, not installed.
 fn patch_budget(requested: usize, frames: usize, repeats: usize, feature_dim: usize) -> usize {
     let mut sys = sysinfo::System::new();
     sys.refresh_memory();
@@ -220,8 +186,8 @@ fn patch_budget(requested: usize, frames: usize, repeats: usize, feature_dim: us
     cap
 }
 
-/// The arithmetic behind [`patch_budget`], split from the hardware probe so it
-/// can be tested. `available` is bytes of free RAM; 0 means "unknown".
+/// The arithmetic of [`patch_budget`]. `available` is bytes of free RAM; 0
+/// means unknown.
 fn cap_for_budget(
     available: u64,
     requested: usize,
@@ -232,17 +198,14 @@ fn cap_for_budget(
     if available == 0 || frames == 0 {
         return requested; // Unknown memory: trust the user rather than guess.
     }
-    // A third leaves room for the training tensors — a batch plus its
-    // activations — and for everything else the app is doing.
+    // A third: the training tensors and the rest of the app need room.
     let budget = available / 3;
     let per_patch = ((feature_dim + 1) * Samples::patch_pixels() * 4) as u64;
     let cost_per_unit = per_patch * (repeats.max(1) * frames) as u64;
     if cost_per_unit == 0 {
         return requested;
     }
-    // Never zero: a machine too small for one patch cannot train at all, and
-    // returning zero would produce a silently empty dataset rather than a slow
-    // one.
+    // Never zero, which would give a silently empty dataset.
     ((budget / cost_per_unit).max(1) as usize).min(requested)
 }
 
@@ -261,8 +224,6 @@ mod budget_tests {
 
     #[test]
     fn a_small_machine_is_capped_below_the_request() {
-        // 4 GB free -> ~1.33 GB budget. One patch per frame at d=410 over 20
-        // frames and 3 repeats already costs ~226 MB.
         let cap = cap_for_budget(4 << 30, 8, 20, 3, 410);
         assert!(cap < 8, "expected a cap below the request, got {cap}");
         assert!(cap >= 1);
@@ -282,8 +243,6 @@ mod budget_tests {
 
     #[test]
     fn a_narrow_feature_stack_affords_more_patches() {
-        // The local basis alone is ~15x narrower than DINOv2; the budget should
-        // reflect that instead of punishing every configuration alike.
         let wide = cap_for_budget(8 << 30, 64, 20, 3, 410);
         let narrow = cap_for_budget(8 << 30, 64, 20, 3, 27);
         assert!(narrow > wide, "narrow={narrow} should exceed wide={wide}");
@@ -302,9 +261,7 @@ fn build_split(
         return Err("this project defines no segmentation labels".into());
     }
     if let Some(wanted) = options.label_ids.as_ref().filter(|w| !w.is_empty()) {
-        // Preserve project order rather than the order the request listed them
-        // in: class index is position + 1, and a head is only meaningful against
-        // the mapping it was fitted with.
+        // Project order, not request order: class index is position + 1.
         order.retain(|id| wanted.contains(id));
         if order.is_empty() {
             return Err("none of the selected labels exist in this project".into());
@@ -330,10 +287,7 @@ fn build_split(
     let n_val = ((shuffled.len() as f32 * val_fraction).round() as usize).clamp(1, shuffled.len() - 1);
     let (val_ids, train_ids) = shuffled.split_at(n_val);
 
-    // Feature width is knowable before a single frame is built: the local basis
-    // is a fixed function of the input channels, and the encoder's width comes
-    // from the catalog. Computing it here means the memory budget is exact
-    // rather than a guess that could still let the machine tip over.
+    // Feature width is known before any frame is built, so the budget is exact.
     let colour_channels = 3; // assume colour: the wider, safer case
     let local_dim = filters::FilterBankConfig::default().output_channels(colour_channels);
     let encoder_dim = options
@@ -359,9 +313,7 @@ fn build_split(
         ..Default::default()
     };
 
-    // Opt-in: caching features writes derived image data to disk, so it stays
-    // the user's choice rather than a silent default.
-    // Always offered for *reading*; writing is gated below by `cache_writes`.
+    // Always read; writing is gated by `cache_writes`.
     let feature_cache = super::cache::cache_dir(app).ok();
 
     ensure_encoder(app, state, &options.encoder_id)?;
@@ -376,13 +328,8 @@ fn build_split(
     let mut done = 0usize;
     let mut spent_ms = 0.0f32;
 
-    // Validation frames are augmentation-free, and carry **no scribbles**.
-    //
-    // Validation frames must stay unconditioned. Simulated strokes are drawn
-    // from a frame's own ground truth, so conditioning a validation frame on
-    // them hands the model strokes derived from the answer it is about to be
-    // scored against, and it can score well by following the strokes rather
-    // than by reading the image. Do not enable scribbles here.
+    // Validation frames carry no augmentation and no scribbles: simulated strokes
+    // come from the ground truth the frame is scored against.
     let val_cfg = DatasetConfig {
         repeats: 1,
         scribble_strokes: 0,
@@ -426,13 +373,8 @@ fn build_split(
         emit_avg(app, "features", done, total, ms, spent_ms / done as f32);
     }
 
-    // Say plainly whether the encoder cache was reused. Without this line a slow
-    // run looks like a cold cache even when every frame hit, and the real cost —
-    // opening the ONNX session, which a fresh process always pays — is invisible.
     let (hits, misses) = super::cache::stats();
     if hits + misses > 0 {
-        // Counts working images as well as encoder tokens — both are cached, and
-        // it is the image half that decides whether a frame pays for a decode.
         log::info!("[ml] cache — {hits} entries reused, {misses} computed");
     }
 
@@ -455,9 +397,6 @@ fn build_split(
 
 fn train_config(options: &TrainOptions) -> TrainConfig {
     TrainConfig {
-        // Fall back to TrainConfig's own defaults rather than repeating them —
-        // these two drifted from it once already, so the head the lab built was
-        // not the head the defaults described.
         hidden: options.hidden.unwrap_or(TrainConfig::default().hidden),
         depth: options.depth.unwrap_or(TrainConfig::default().depth),
         epochs: options.epochs.unwrap_or(40),
@@ -465,7 +404,6 @@ fn train_config(options: &TrainOptions) -> TrainConfig {
     }
 }
 
-/// Forward optimisation ticks to the UI.
 fn emit_train(app: &AppHandle, p: train::TrainProgress) {
     let _ = app.emit(
         "ml-train-progress",
@@ -480,9 +418,7 @@ fn emit_train(app: &AppHandle, p: train::TrainProgress) {
             epoch_ms: p.epoch_ms,
             elapsed_ms: p.elapsed_ms,
             eta_ms: p.eta_ms,
-            // Two different devices are in play and conflating them misleads:
-            // the encoder (ort) and the head (burn) choose independently, so
-            // one can be on the GPU while the other has fallen back to CPU.
+            // The encoder (ort) and the head (burn) choose their device independently.
             device: format!(
                 "head {} · encoder {}",
                 p.device,
@@ -521,15 +457,11 @@ pub struct TrainSummary {
     pub classes: usize,
     pub encoder: Option<String>,
     pub metrics: train::EvalMetrics,
-    /// Where the head was fitted. Reported because backend selection happens
-    /// automatically: a user who expects the GPU and silently got the CPU
-    /// should be able to see that rather than infer it from the run time.
+    /// Where the head was fitted.
     pub device: String,
 }
 
-/// Fit one head on every available training frame and keep it for per-frame
-/// prediction. This is the model the user actually applies; the sweep only
-/// characterises how quality scales.
+/// Fit one head on every training frame and keep it for prediction.
 #[tauri::command(async)]
 pub fn ml_train_model(
     app: AppHandle,
@@ -537,16 +469,11 @@ pub fn ml_train_model(
     state: State<MlState>,
     options: TrainOptions,
 ) -> Result<TrainSummary, String> {
-    // Clear before building the split: a stop requested against a previous run
-    // must not cancel this one before it has trained a single epoch.
+    // A stop requested against a previous run must not cancel this one.
     state.cancel.store(false, Ordering::Relaxed);
     let mut split = build_split(&app, &db, &state, &options)?;
-    // Move each frame's patches into the pooled table and drop it immediately.
-    // Borrowing kept `per_frame` alive alongside a full copy, so peak memory was
-    // twice the dataset — on a laptop that is the difference between training
-    // and swapping to a halt. A single fit has no use for the per-frame split.
-    // Read the count *before* draining: taking the vector empties it, and the
-    // summary below is built afterwards.
+    // Move each frame's patches into the pooled table and drop it, to avoid
+    // holding the dataset twice. Read the count before draining.
     let train_frames = split.per_frame.len();
     let mut all = Samples::new(split.feature_dim);
     for s in std::mem::take(&mut split.per_frame) {
@@ -584,9 +511,7 @@ pub fn ml_train_model(
         train_frames,
     };
 
-    // Persist before publishing, but never fail the run over it: the user has
-    // already paid for the fit, and a model they can use this session is worth
-    // more than an error that discards it because the file was read-only.
+    // A failed save does not fail the run: the model is still usable this session.
     if let Err(e) = store_model(&db, &model, cfg.hidden, cfg.depth) {
         log::warn!("[ml] could not save the model to the project: {e}");
     }
@@ -595,7 +520,6 @@ pub fn ml_train_model(
     Ok(summary)
 }
 
-/// Write a fitted head into the open project.
 fn store_model(
     db: &DbState,
     model: &TrainedModel,
@@ -625,11 +549,8 @@ fn store_model(
     Ok(())
 }
 
-/// Restore the head stored in the open project, if there is one.
-///
-/// Called when a project opens. A miss is not an error — most projects have no
-/// model — and neither is a model this build cannot read: the user retrains,
-/// which is the same position they were in before.
+/// Restore the head stored in the open project, if any. A model this build
+/// cannot read is not an error.
 #[tauri::command]
 pub fn ml_load_saved_model(db: State<DbState>, state: State<MlState>) -> Option<TrainSummary> {
     let stored = db.with_conn(|conn| queries::load_ml_model(conn)).ok()??;
@@ -676,7 +597,7 @@ pub fn ml_load_saved_model(db: State<DbState>, state: State<MlState>) -> Option<
     Some(summary)
 }
 
-/// Discard the saved model, from both the project and this session.
+/// Discard the saved model, from the project and this session.
 #[tauri::command]
 pub fn ml_forget_model(db: State<DbState>, state: State<MlState>) -> Result<bool, String> {
     *state.model.lock() = None;
@@ -684,26 +605,15 @@ pub fn ml_forget_model(db: State<DbState>, state: State<MlState>) -> Result<bool
         .map_err(|e| e.to_string())
 }
 
-/// Ask the running fit to stop at the next epoch boundary.
-///
-/// Deliberately not a kill: the loop finishes its current epoch, scores the
-/// weights it has, and stores them like any completed run. A half-trained head
-/// is a real model — throwing it away would punish the user for choosing to
-/// stop, which is the opposite of what the button is for.
-///
-/// Safe to call when nothing is running; the flag is cleared at the start of
-/// every fit, so a stale request cannot cancel the next one.
+/// Ask the running fit to stop at the next epoch boundary. The weights it has
+/// are scored and stored like any completed run.
 #[tauri::command]
 pub fn ml_stop_training(state: State<MlState>) {
     state.cancel.store(true, Ordering::Relaxed);
     log::info!("[ml] stop requested — finishing the current epoch");
 }
 
-/// Everything Didascalie keeps in local app data, broken down.
-///
-/// Reported as two figures rather than one total: encoder weights run to
-/// hundreds of megabytes each and usually dominate, so a single number would
-/// make clearing the feature cache look like it did nothing.
+/// What Didascalie keeps in local app data: features and encoder weights.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageUsage {
@@ -726,9 +636,7 @@ pub fn ml_storage_usage(app: AppHandle) -> Result<StorageUsage, String> {
     })
 }
 
-/// Delete every cached feature tensor. Downloaded encoder weights are left
-/// alone — re-downloading those is a much bigger cost than recomputing
-/// features, so they are not the same button.
+/// Delete every cached feature tensor. Encoder weights are kept.
 #[tauri::command]
 pub fn ml_clear_feature_cache(app: AppHandle) -> Result<usize, String> {
     let dir = super::cache::cache_dir(&app)?;
@@ -737,7 +645,6 @@ pub fn ml_clear_feature_cache(app: AppHandle) -> Result<usize, String> {
     Ok(n)
 }
 
-/// Whether a head is loaded, and what it was fitted with.
 #[tauri::command]
 pub fn ml_model_status(state: State<MlState>) -> Option<TrainSummary> {
     state.model.lock().as_ref().map(|m| TrainSummary {

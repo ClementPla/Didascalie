@@ -1,13 +1,10 @@
-//! Convert a raster label component into its centerline skeleton for the
-//! editor's "skeletonize" tool. Unlike vectorize (which traces the closed outer
-//! contour), this thins the component to a 1px skeleton and splits it at
-//! endpoints/junctions into open polylines.
+//! Raster label component to centreline polylines, for the "skeletonize"
+//! tool.
 
 use crate::commands::formats::geometry;
 
-/// Skeletonize the connected component of `mask` under pixel `(x, y)` into open
-/// centerline polylines (image-pixel coordinates). Returns an empty list when
-/// the clicked pixel is background.
+/// Skeletonize the component of `mask` under `(x, y)` into open polylines.
+/// Empty when the pixel is background.
 #[tauri::command]
 pub fn skeletonize_component(
     mask: Vec<u8>,
@@ -19,12 +16,8 @@ pub fn skeletonize_component(
     geometry::component_skeleton_paths(&mask, width, height, x, y)
 }
 
-/// Skeletonize **every** component of `mask` into centerline polylines.
-///
-/// The whole-mask counterpart of [`skeletonize_component`], used to apply a
-/// prediction as centerlines rather than filled regions. Mirrors
-/// `vectorize_mask`'s `min_area` / `max_shapes` so the two prediction modes drop
-/// the same noise and cap the same way.
+/// Skeletonize every component of `mask`. `min_area` and `max_shapes` behave
+/// as in `vectorize_mask`.
 #[tauri::command]
 pub fn skeletonize_mask(
     mask: Vec<u8>,

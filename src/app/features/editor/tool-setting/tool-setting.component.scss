@@ -1,11 +1,6 @@
-// The settings column is narrow and dense, so every section uses the same
-// three-column grid as the image-adjustments panel (label | control | value).
-//
-// The panel's own boxes disagreed on horizontal padding: PrimeNG gives
-// .p-panel-header 1.125rem, the global override in styles.scss gives
-// .p-panel-content 0.5rem, and the accordion adds a third value again — so the
-// title, the section headers and the controls each sat on a different left
-// edge. They are pinned to one value here.
+// Every section uses the three-column grid of the image-adjustments panel
+// (label | control | value). PrimeNG pads the panel header, the panel content
+// and the accordion differently: all are pinned to this value.
 
 $gutter: 0.75rem;
 
@@ -37,8 +32,6 @@ $gutter: 0.75rem;
   padding-bottom: 0.25rem;
 }
 
-/* Mutually exclusive post-process modes: one full-width segmented control,
-   each segment sharing the width equally so it reads as a single choice. */
 .mode-select {
   display: block;
   width: 100%;
@@ -61,7 +54,6 @@ $gutter: 0.75rem;
   }
 }
 
-/* Same geometry as .slider-row in the image-adjustments panel. */
 .setting-row {
   display: grid;
   grid-template-columns: 5.5rem 1fr 3.5rem;
@@ -86,7 +78,6 @@ $gutter: 0.75rem;
   color: var(--text-color-secondary, #a0a0a0);
 }
 
-/* Refinement options shared by the stroke-bounded operators. */
 .setting-block {
   display: flex;
   flex-direction: column;

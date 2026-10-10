@@ -22,13 +22,7 @@ import {
   SequenceRunScope,
 } from './python-segmentation.service';
 
-/**
- * The editor's list of Python segmentation functions: one row per registered
- * function, each with its own run button.
- *
- * The host only renders this while {@link PythonSegmentationService.available}
- * is true, so an editor with no Python server behind it shows nothing at all.
- */
+/** The Python segmentation functions, one row each with its run button. */
 @Component({
   selector: 'app-python-functions',
   standalone: true,
@@ -56,7 +50,7 @@ export class PythonFunctionsComponent {
     return `${host}:${port}`;
   });
 
-  /** The sequence function awaiting confirmation; null while the dialog is closed. */
+  /** The sequence function awaiting confirmation. */
   readonly pending = signal<PythonFunction | null>(null);
   readonly scope = signal<SequenceRunScope>('all');
 
@@ -73,7 +67,6 @@ export class PythonFunctionsComponent {
     () => this.sequenceService.currentSequence()?.name ?? '',
   );
 
-  /** Progress of the run in flight, as the dialog words it. */
   readonly progressText = computed(() => {
     const p = this.python.progress();
     if (!p) return 'Starting…';
@@ -87,7 +80,7 @@ export class PythonFunctionsComponent {
     }
   });
 
-  /** Percent done, or null while Python computes and nothing can be measured. */
+  /** Percent done, or null while Python computes. */
   readonly progressValue = computed(() => {
     const p = this.python.progress();
     if (!p || p.stage === 'running' || !p.total) return null;
@@ -101,7 +94,7 @@ export class PythonFunctionsComponent {
     return `Run ${fn.name} on this frame.${prompt} One Ctrl+Z reverts it.`;
   }
 
-  /** Spelled out here because a single returned mask lands on this label. */
+  /** A single returned mask lands on this label. */
   get activeLabelName(): string | null {
     return this.labels.activeLabel?.label ?? null;
   }

@@ -24,7 +24,6 @@ import { TooltipModule } from 'primeng/tooltip';
 import { SplitButtonModule } from 'primeng/splitbutton';
 import { MenuItem } from 'primeng/api';
 
-/** What a prediction leaves behind. */
 type PredictOutput = 'pixels' | 'paths' | 'centerlines';
 
 const OUTPUT_KEY = 'dida.predict.output';
@@ -66,50 +65,35 @@ export class EditorToolbarComponent {
   vectorTools = VECTOR_TOOLS;
   convertTools = CONVERT_TOOLS;
 
-  /** Drives the name shown beside a tool's icon: only the current tool's. */
   isSelected(tool: Tool): boolean {
     return this.editorService.selectedTool === tool;
   }
 
-  /** Name and shortcut, plus the tool's description when it has one — the
-   *  buttons are icon-only unless selected. */
   toolTooltip(tool: Tool): string {
     const head = tool.shortcut ? `${tool.name} · ${tool.shortcut}` : tool.name;
     return tool.description ? `${head} — ${tool.description}` : head;
   }
 
-  // Brush-size slider bounds. The slider is logarithmic so small, commonly-used
-  // sizes get most of the track; the number input still edits lineWidth directly.
+  // The brush-size slider is logarithmic.
   private readonly brushMin = 1;
   private readonly brushMax = 1024;
   private readonly brushSteps = 1000;
 
-  /** Burn the selected shape (or the active label's shapes) into the masks. */
   rasterize(): void {
     this.convertService.rasterize();
   }
 
-  /**
-   * What a prediction produces. Persisted so the toolbar reopens as left.
-   *
-   * The model predicts a raster mask in every case; this only decides how that
-   * mask is read back — pixels, region outlines, or centerlines.
-   */
+  /** How the predicted mask is read back: pixels, outlines or centrelines.
+   *  Persisted. */
   outputMode: PredictOutput =
     (localStorage.getItem(OUTPUT_KEY) as PredictOutput | null) ?? 'pixels';
 
-  /** Feed what the user has already drawn in as conditioning. */
+  /** Use what is already drawn as conditioning. */
   useScribbles = true;
 
-  /**
-   * Output choices for the split button's dropdown; picking one also runs it.
-   *
-   * Built once and never reassigned. `p-splitButton` is `OnPush` and hands this
-   * array straight to a `TieredMenu`, so a getter returning a fresh array on
-   * every change-detection pass rebuilt the overlay continuously and the item
-   * under the cursor was destroyed before its click could land — the menu
-   * looked live and selected nothing.
-   */
+  /** The split button's dropdown; picking an output also runs it. Built once:
+   *  a fresh array on every change detection rebuilds the menu under the
+   *  cursor and swallows the click. */
   readonly outputMenu: MenuItem[] = OUTPUTS.map((o) => ({
     label: o.label,
     icon: o.icon,
@@ -126,12 +110,10 @@ export class EditorToolbarComponent {
     return OUTPUTS.find((o) => o.id === this.outputMode)?.label ?? 'Predict';
   }
 
-  /** Shows the live phase while a prediction runs, the target output otherwise. */
   get predictLabel(): string {
     return this.prediction.stage() ?? this.outputLabel;
   }
 
-  /** Run the trained head on this frame, in the selected output mode. */
   predict(): void {
     switch (this.outputMode) {
       case 'paths':
@@ -145,7 +127,6 @@ export class EditorToolbarComponent {
     }
   }
 
-  /** Slider position [0, brushSteps] mapped logarithmically from lineWidth. */
   get brushSizeSlider(): number {
     const v = Math.min(this.brushMax, Math.max(this.brushMin, this.editorService.lineWidth));
     return Math.round(

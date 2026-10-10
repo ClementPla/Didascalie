@@ -13,8 +13,7 @@
   (keydown.escape)="closeMenu.emit()"
 >
   @for (segment of segments(); track $index; let i = $index) {
-    <!-- Options for the aimed entry, drawn under it so the wedge's own edge
-         stays crisp. -->
+    <!-- Options of the aimed entry, drawn under it. -->
     @if (aimed() === i) {
       @for (child of segment.children; track $index; let j = $index) {
         @let childItem = items()[i].children![j];
@@ -73,8 +72,7 @@
     </g>
   }
 
-  <!-- Hub: dead zone, and where the aimed entry's name is printed. One place
-       for the text instead of a label crammed into every wedge. -->
+  <!-- Hub: dead zone, and where the aimed entry's name is printed. -->
   <circle class="hub" [attr.r]="hubRadius" cx="0" cy="0" />
   <foreignObject
     [attr.x]="-hubRadius"

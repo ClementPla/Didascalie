@@ -5,8 +5,6 @@ import { SliderModule } from 'primeng/slider';
 import { TooltipModule } from 'primeng/tooltip';
 import { MedsamService } from './medsam.service';
 
-/** Settings pane for the MedSAM post-process mode, rendered by the tool
- *  settings panel through the experimental registry. */
 @Component({
   selector: 'app-medsam-settings',
   standalone: true,

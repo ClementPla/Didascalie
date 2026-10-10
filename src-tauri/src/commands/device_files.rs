@@ -1,10 +1,8 @@
 //! Projects coming from, and going back to, the device's shared storage.
 //!
-//! On Android a file the user picks, or opens Didascalie with, is not a path
-//! but a `content://` URI, readable only as a stream. SQLite needs a real,
-//! writable file, so a project is **imported**: copied into the application's
-//! own storage, where it is opened and edited like any other. Getting the work
-//! back out is the reverse copy, to wherever the user chooses.
+//! On Android a picked file is a `content://` URI, readable only as a stream,
+//! and SQLite needs a real file: a project is copied into the application's
+//! storage and opened there.
 
 use std::fs;
 use std::io;
@@ -45,8 +43,7 @@ fn adopt(app: &AppHandle, received: &Path) -> Result<String> {
 
     let projects = data_dir(app)?.join("projects");
     fs::create_dir_all(&projects)?;
-    // The URI gives no dependable file name, and two projects sent a week
-    // apart can share one anyway.
+    // The URI gives no dependable file name.
     let path = projects.join(format!("{}.dida", uuid::Uuid::new_v4()));
     fs::rename(received, &path)?;
     Ok(path.to_string_lossy().into_owned())
@@ -82,8 +79,7 @@ pub fn take_incoming_project(app: AppHandle) -> Result<Option<String>> {
 /// Write a copy of the open project, annotations included, to `location`.
 #[tauri::command]
 pub fn export_project_file(app: AppHandle, db: State<DbState>, location: String) -> Result<()> {
-    // A snapshot rather than the live file, whose latest changes may still be
-    // in the write-ahead log.
+    // A snapshot: the live file's latest changes may still be in the WAL.
     let snapshot = data_dir(&app)?.join("export.part");
     let _ = fs::remove_file(&snapshot);
     db.with_conn(|conn| {

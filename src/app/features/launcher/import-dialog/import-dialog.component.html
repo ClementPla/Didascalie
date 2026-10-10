@@ -16,7 +16,6 @@
         created.
       </p>
 
-      <!-- Target project -->
       <div class="flex flex-col gap-1">
         <label class="text-sm font-medium">Target project</label>
         <div class="flex gap-2 items-center">
@@ -43,7 +42,6 @@
         }
       </div>
 
-      <!-- Format -->
       <div class="flex flex-col gap-1">
         <label class="text-sm font-medium">Format</label>
         <p-select
@@ -58,7 +56,6 @@
         }
       </div>
 
-      <!-- Source -->
       <div class="flex flex-col gap-1">
         <label class="text-sm font-medium">Source</label>
         <div class="flex gap-2 items-center">
@@ -80,7 +77,6 @@
         </div>
       </div>
 
-      <!-- Options -->
       @if (selectedFormat(); as format) {
         @if (format.importOptions.length) {
           <div class="flex flex-col gap-3">

@@ -6,7 +6,6 @@
     <small class="config-empty">No tasks yet — add a multiclass or multilabel task.</small>
   }
 
-  <!-- Multiclass tasks -->
   @for (label of labelService.listClassificationTasks; track $index; let i = $index) {
   <div class="w-full">
     <p-fieldset [toggleable]="true">
@@ -43,9 +42,8 @@
 
         <p-divider class="m-0"></p-divider>
 
-        <!-- Tracked by index, not value: these strings are edited in place via
-             ngModel, and value tracking would recreate the input on every
-             keystroke and drop focus. -->
+        <!-- Tracked by index: these strings are edited in place, and tracking by
+             value would recreate the input at every keystroke. -->
         @for (classLabel of label.classLabels; track $index; let j = $index) {
         <div class="flex gap-2 items-center">
           <input
@@ -70,7 +68,6 @@
   </div>
   }
 
-  <!-- Multilabel task -->
   @if (labelService.multiLabelTask !== null) {
     <div class="flex flex-col gap-2 w-full">
       <p-divider align="left"><b>Multi-label</b></p-divider>
@@ -99,7 +96,6 @@
     </div>
   }
 
-  <!-- Add-task actions -->
   <div class="flex flex-wrap gap-2">
     <p-button
       icon="pi pi-plus"

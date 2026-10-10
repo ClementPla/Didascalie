@@ -13,7 +13,6 @@ export class EraserTool extends BaseTool {
     const ctx = context.canvasManager.getBufferCtx();
     const prev = context.stateService.previousPoint;
 
-    // Draw the "Eraser Path" onto the buffer first (as white/color)
     ctx.globalCompositeOperation = 'source-over';
     ctx.lineCap = 'round';
     ctx.lineWidth =
@@ -28,8 +27,8 @@ export class EraserTool extends BaseTool {
     context.stateService.updatePreviousPoint(point);
     context.stateService.updateCurrentPoint(point);
 
-    // When eraserPostProcess is on we only record the stroke on the buffer; the
-    // connected-component erase runs once in DrawService after the stroke ends.
+    // With `eraserPostProcess`, DrawService erases the touched components when
+    // the stroke ends.
     if (!context.editorService.eraserPostProcess) {
       this.eraseBufferFromTargets(context);
     }
@@ -37,6 +36,5 @@ export class EraserTool extends BaseTool {
   }
 
   async end(context: ToolContext) {
-    // Post-process logic is handled by the DrawService orchestrator
   }
 }

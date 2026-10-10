@@ -12,14 +12,12 @@ export class LineTool extends BaseTool {
   draw(event: MouseEvent, context: ToolContext) {
     if (!this.startPoint) return;
     const currentPoint = context.getCoords(event);
-    // Preview: Start to Current
     context.updatePreviewPoints([this.startPoint, currentPoint]);
   }
 
   async end(context: ToolContext) { // Pass event here
     if (!this.startPoint) return;
 
-    // FIX: Get coordinates directly from the end event
     const endPoint = context.stateService.currentPoint;
     const ctx = context.canvasManager.getBufferCtx();
     

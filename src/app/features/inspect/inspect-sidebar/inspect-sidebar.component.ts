@@ -54,8 +54,7 @@ interface SequenceRow {
   key: string;
   frameCount: number;
   status: SequenceStatus;
-  /** Some frame carries an annotation: what `status` falls back to when the
-   *  sequence stops being reviewed. */
+  /** Some frame carries an annotation. */
   annotated: boolean;
   thumbnailFrameId: number;
 }
@@ -68,16 +67,10 @@ const THUMBNAIL_CONCURRENCY = 4;
 const THUMBNAIL_SIZE = 256;
 
 /**
- * The inspector's left panel: the labels to draw, as on/off chips, the
- * classification of the focused sequence, and every sequence of the project,
- * searchable by name, to pick what the focused pane shows — or, with
- * Ctrl+click, Shift+click or a row's own toggle, what is compared side by
- * side.
- *
- * It owns nothing of the playback: it reports what was clicked and is told
- * what is on screen. Classifying is done here, though: a sequence is
- * classified as a whole, every frame getting the same answer, which neither
- * the panes nor the player have anything to do with.
+ * The inspector's left panel: the labels to draw, the classification of the
+ * focused sequence, and the searchable list of sequences, to pick what the
+ * focused pane shows or what is compared. It reports what was clicked and is
+ * told what is on screen. A sequence is classified here as a whole.
  */
 @Component({
   selector: 'app-inspect-sidebar',
@@ -187,9 +180,7 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
       });
     });
 
-    // Follow the focused sequence (previous/next, another pane focused): turn
-    // to its page — unless a search is narrowing the list, which the user is
-    // then reading.
+    // Turn to the focused sequence's page, unless a search is narrowing the list.
     effect(() => {
       const id = this.focusedId();
       const all = this.sequences();
@@ -247,11 +238,8 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
     this.host.nativeElement.querySelector('.rows')?.scrollTo({ top: 0 });
   }
 
-  /**
-   * A click on a row: plain, it goes to the focused pane; with Ctrl (or ⌘) it
-   * joins or leaves the comparison; with Shift, so does every sequence listed
-   * between the focused one and it.
-   */
+  /** A click on a row: it goes to the focused pane; with Ctrl (or ⌘) it joins
+   *  or leaves the comparison; with Shift, so does the range up to it. */
   pick(row: SequenceRow, event: MouseEvent): void {
     if (event.ctrlKey || event.metaKey) {
       this.sequenceToggled.emit(row.id);
@@ -274,8 +262,7 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Whether a row's toggle can act: the last pane stays, a full comparison
-   *  takes no more. */
+  /** The last pane cannot be removed; a full comparison takes no more. */
   canToggle(id: number): boolean {
     return this.shown().has(id) ? this.shownIds().length > 1 : this.canAdd();
   }
@@ -310,12 +297,8 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
     return this.answers().get(task.name)?.mixed ?? false;
   }
 
-  /**
-   * Answer `task` with `name` on every frame of the focused sequence. A task
-   * taking one class switches to it, or drops it when it was the answer; a
-   * multilabel task adds or removes it. Where frames differed, they all take
-   * the new answer.
-   */
+  /** Answer `task` with `name` on every frame of the focused sequence. A
+   *  one-class task switches to it, or drops it; a multilabel task toggles it. */
   async classify(task: SidebarTask, name: string): Promise<void> {
     const id = this.focusedId();
     if (id === null || this.classifying()) return;

@@ -10,8 +10,7 @@
   height: 100%;
   overflow: hidden;
   border-radius: var(--p-content-border-radius);
-  // Focus is shown by the border, so reserve it on every pane: gaining focus
-  // must not shift the image by a pixel.
+  // Focus is shown by the border, reserved on every pane.
   border: 2px solid transparent;
   background: color-mix(in srgb, var(--p-content-background) 90%, #000);
   cursor: grab;

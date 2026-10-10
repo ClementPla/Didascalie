@@ -21,12 +21,11 @@ function tick() {
   const now = performance.now();
   const mainThreadTimestamp = sharedBuffer[BUFFER_INDEX.MAIN_THREAD_TIMESTAMP];
 
-  // Check if main thread is frozen (no update for > 100ms)
+  // The main thread is frozen: no update for more than 100 ms.
   const timeSinceMainUpdate = now - mainThreadTimestamp;
   const isFrozen = timeSinceMainUpdate > 100;
   sharedBuffer[BUFFER_INDEX.FROZEN] = isFrozen ? 1 : 0;
 
-  // Calculate FPS based on main thread heartbeats
   if (mainThreadTimestamp !== lastMainThreadTimestamp) {
     frameCount++;
     const frameTime = mainThreadTimestamp - lastMainThreadTimestamp;
@@ -41,7 +40,6 @@ function tick() {
     frameCount = 0;
     lastFpsUpdate = now;
 
-    // Post update to main thread (for UI update)
     self.postMessage({
       type: 'metrics',
       fps: sharedBuffer[BUFFER_INDEX.FPS],

@@ -75,11 +75,8 @@ export class StateManagerService implements ProjectScoped {
 
   getBrushSizeOffset(): number {
     if (!this.editorService.isToolWithBrushSize()) return 0;
-    // Match the *actual* drawn radius: in pressure/touch mode the brush is
-    // scaled per point by brushPressureScale(), so the bbox padding must use the
-    // same scaled radius (read live here, identical to the value the tool uses
-    // in the same draw() call) — otherwise wider points fall outside the box and
-    // get clipped on commit.
+    // The radius actually drawn, pressure scaling included, or wider points
+    // would be clipped on commit.
     const radius =
       (this.editorService.lineWidth * this.editorService.brushPressureScale()) / 2;
     return radius + 2;

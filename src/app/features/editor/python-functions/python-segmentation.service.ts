@@ -24,12 +24,9 @@ export interface SequenceRunProgress {
 }
 
 /**
- * Runs the user's Python segmentation functions from the editor.
- *
- * The two kinds land differently on purpose. A frame function's masks are
- * applied to the canvas as one undo step — run, look, Ctrl+Z, tweak the Python,
- * run again. A sequence function writes frames that are not open, so it goes
- * straight to the project behind a confirmation, as propagation does.
+ * Runs the user's Python segmentation functions from the editor. A frame
+ * function's masks are applied to the canvas as one undo step; a sequence
+ * function writes straight to the project, behind a confirmation.
  */
 @Injectable({ providedIn: 'root' })
 export class PythonSegmentationService {
@@ -54,14 +51,13 @@ export class PythonSegmentationService {
       : [],
   );
 
-  /** Whether there is anything to show: no functions, no UI at all. */
   readonly available = computed(
     () =>
       this.frameFunctions().length > 0 || this.sequenceFunctions().length > 0,
   );
 
   /** Name of the function in flight. One at a time: the Python server is
-   *  single-threaded, and two results racing onto one canvas help nobody. */
+   *  single-threaded. */
   readonly running = signal<string | null>(null);
   readonly progress = signal<SequenceRunProgress | null>(null);
 
@@ -96,7 +92,6 @@ export class PythonSegmentationService {
     };
   }
 
-  /** Run a frame function on the open frame and apply what it returns. */
   async runOnFrame(fn: PythonFunction): Promise<void> {
     const frame = this.sequenceService.currentFrame();
     if (!frame || this.running()) return;
@@ -104,8 +99,7 @@ export class PythonSegmentationService {
     this.running.set(fn.name);
     try {
       const context = this.context(fn);
-      // The backend sends what is *stored*; without this the function would be
-      // prompted with the last autosave rather than what is on screen.
+      // The backend sends what is stored.
       if (context.sendMasks) await this.io.saveIfDirty();
 
       const result = await this.inference.track(() =>
@@ -143,7 +137,7 @@ export class PythonSegmentationService {
         return;
       }
 
-      // Snapshot before mutating so the whole run is one undo step.
+      // One undo step for the whole run.
       const masks = this.canvasManager.getAllMasks();
       this.undoRedo.beginGroup();
       this.undoRedo.snapshotLayers(applied.map((l) => l.index));
@@ -176,10 +170,8 @@ export class PythonSegmentationService {
     }
   }
 
-  /**
-   * Run a sequence function and store its masks. Returns whether it completed,
-   * so the confirmation dialog knows to close.
-   */
+  /** Run a sequence function and store its masks. Returns whether it
+   *  completed. */
   async runOnSequence(
     fn: PythonFunction,
     scope: SequenceRunScope,
@@ -190,8 +182,7 @@ export class PythonSegmentationService {
     this.running.set(fn.name);
     this.progress.set(null);
     try {
-      // Always: the result is merged with what is stored, and the open frame
-      // is reloaded from the project afterwards.
+      // The result is merged with what is stored.
       await this.io.saveIfDirty();
 
       const report = await this.inference.track(() =>
@@ -213,8 +204,8 @@ export class PythonSegmentationService {
         return true;
       }
 
-      // Frames changed underneath the UI: refresh what derives from them
-      // (navigator statuses, the 3D volume), then the canvas itself.
+      // Refresh what derives from the frames (navigator, 3D volume), then the
+      // canvas.
       this.propagation.propagated$.next(report.applied);
       this.io.requestReloadEvent();
 

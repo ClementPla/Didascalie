@@ -41,10 +41,7 @@ export class CompositeViewportComponent
   readonly movingController = input.required<ViewportController>();
   readonly refPyramid = input<Pyramid | null>(null);
   readonly movingPyramid = input<Pyramid | null>(null);
-  /**
-   * Source URL of the moving image to render via CSS transform.
-   * Provided by the orchestrator alongside the pyramid.
-   */
+  /** URL of the moving image, rendered through a CSS transform. */
   readonly movingImageUrl = input<string | null>(null);
 
   readonly hostEl = viewChild.required<ElementRef<HTMLDivElement>>('host');
@@ -92,22 +89,17 @@ export class CompositeViewportComponent
     return p.phase === 'awaiting-moving' ? p.pendingRef : null;
   });
 
-  /**
-   * 1 / viewport scale. Keypoint reticles are drawn in a group scaled by this
-   * so their geometry is in screen pixels — constant on-screen size at any
-   * zoom, with the target pixel always visible through the open center.
-   */
+  /** 1 / viewport scale: reticles are drawn in a group scaled by this, so
+   *  their size on screen is constant. */
   readonly markerScale = computed(() => {
     const c = this.refController();
     return c ? 1 / Math.max(1e-4, c.scale()) : 1;
   });
 
-  /** SVG transform placing a screen-pixel-sized marker at a native point. */
   markerTransform(p: { x: number; y: number }): string {
     return `translate(${p.x} ${p.y}) scale(${this.markerScale()})`;
   }
 
-  /** CSS transform string for the warped moving <img>. */
   readonly warpedTransform = computed(() => {
     const t = this.state.transform();
     const refScale = this.refController().scale();
@@ -116,17 +108,17 @@ export class CompositeViewportComponent
     if (t.type === 'homography') {
       return buildWarpedImageTransform(t, refScale, refOffset);
     }
-    // Identity fallback: translate + scale, no homography.
+    // No homography: translate and scale.
     return `translate(${refOffset.x}px, ${refOffset.y}px) scale(${refScale})`;
   });
   readonly showWarped = computed(() => {
     if (this.movingImageUrl() === null) return false;
-    // If we have a homography and it's degenerate, hide rather than show garbage.
+    // A degenerate homography is hidden.
     const t = this.state.transform();
     if (t.type === 'homography' && diagnoseHomography(t) !== null) return false;
     return true;
   });
-  /** Diagnostic: null when safe, string reason when transform is degenerate. */
+  /** Why the transform is degenerate, or null. */
   readonly warpedDiagnostic = computed(() =>
     diagnoseHomography(this.state.transform()),
   );
@@ -140,7 +132,6 @@ export class CompositeViewportComponent
         : '';
   });
 
-  /** Stable id for the checkerboard mask (referenced from SVG). */
   readonly maskId = `checker-mask-${Math.random().toString(36).slice(2, 9)}`;
 
   constructor() {
@@ -154,7 +145,6 @@ export class CompositeViewportComponent
 
   ngAfterViewInit(): void {
     if (!this.refController() || !this.movingController()) {
-      // Re-check inside a short microtask execution deferral if initialization raced ahead
       queueMicrotask(() => {
         if (this.refController() && this.movingController()) {
           this.setupViewportEngine();
@@ -256,11 +246,11 @@ export class CompositeViewportComponent
     canvas.style.height = `${h}px`;
   }
 
-  // ── Mouse handling — pan/zoom only ───────────────────────────────────────
+  // ── Pan and zoom ─────────────────────────────────────────────────────────
 
   private readonly gesture = new TouchGesture();
 
-  // Middle mouse button pans. A finger pans too, and two fingers pan and pinch.
+  // The middle button pans; so does a finger, and two fingers pinch.
   onMouseDown(event: PointerEvent): void {
     const touch = event.pointerType === 'touch';
     this.gesture.down(event);
@@ -312,7 +302,6 @@ export class CompositeViewportComponent
 
   // ── Template helpers ─────────────────────────────────────────────────────
 
-  /** Native dimensions of the moving image, used to size the <img> element. */
   get movingNativeWidth(): number {
     return this.movingPyramid()?.nativeWidth ?? 0;
   }

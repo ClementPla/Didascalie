@@ -70,7 +70,6 @@ export class DrawService implements OnDestroy {
     this.stateService.updateCurrentPoint(coords);
     this.stateService.updatePreviousPoint(coords);
 
-    // Position + clear the stroke buffer window around the stroke start.
     this.canvasManagerService.beginStrokeBuffer(coords);
     this.currentToolContext = this.createToolContext();
 
@@ -87,8 +86,7 @@ export class DrawService implements OnDestroy {
     const imageCoord = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updatePreviousPoint(this.stateService.currentPoint);
     this.stateService.updateCurrentPoint(imageCoord);
-    // Bound both endpoints of the segment at the current radius (see original
-    // note): captures the down position too, which is otherwise never bounded.
+    // Both ends of the segment, so the press position is bounded too.
     this.stateService.updateMinMaxPoints(imageCoord);
     this.stateService.updateMinMaxPoints(this.stateService.previousPoint);
 
@@ -101,7 +99,7 @@ export class DrawService implements OnDestroy {
     tool.draw(event, this.currentToolContext);
   }
 
-  /** Abort an in-progress stroke without committing it (e.g. pinch takeover). */
+  /** Abort the stroke in progress without committing it. */
   public cancelDraw(): void {
     if (!this.stateService.isDrawing) return;
     this.stateService.isDrawing = false;
@@ -159,7 +157,6 @@ export class DrawService implements OnDestroy {
 
   // ── Shared actions ───────────────────────────────────────────────────────
 
-  /** Swap the label under the stroke to the active label/instance value. */
   public swapMarkers(): void {
     const w = this.stateService.width;
     const h = this.stateService.height;
@@ -188,7 +185,7 @@ export class DrawService implements OnDestroy {
     }
   }
 
-  /** Active display colour, used for the live stroke preview only. */
+  /** Colour of the live stroke preview. */
   public getFillColor(): string {
     if (this.projectService.isInstanceSegmentation()) {
       return this.labelService.activeSegInstance?.shade || this.labelService.activeLabel?.color || '#ffffff';
@@ -196,7 +193,7 @@ export class DrawService implements OnDestroy {
     return this.labelService.activeLabel?.color ?? '#ffffff';
   }
 
-  /** Active mask value written on commit: instance id, or 1 for semantic. */
+  /** Mask value written on commit: the instance id, or 1. */
   public getActiveValue(): number {
     return this.labelService.paintValue(this.projectService.isInstanceSegmentation());
   }
@@ -207,10 +204,7 @@ export class DrawService implements OnDestroy {
     ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
   }
 
-  /**
-   * Re-apply label colours to the displayed composite. Since colour lives only
-   * in the palettes now, this rebuilds them and recomposites — no pixel edits.
-   */
+  /** Rebuild the palettes and recomposite. */
   public recolor(): void {
     this.canvasManagerService.rebuildPalettes();
     this.stateService.recomputeCanvasSum = true;
@@ -241,12 +235,7 @@ export class DrawService implements OnDestroy {
       );
   }
 
-  /**
-   * Erase everything annotated under one label: its raster mask *and* its
-   * vector paths.
-   *
-    * A label's annotation is both halves, so both go, in one undo group.
-   */
+  /** Erase one label's raster mask and vector paths, as one undo step. */
   private clearLabel(index: number): void {
     const labelId = this.labelService.listSegmentationLabels[index]?.id;
 
@@ -259,12 +248,7 @@ export class DrawService implements OnDestroy {
     this.finishClear([index]);
   }
 
-  /**
-   * Erase every label on this frame, raster and vector, as one undo step.
-   *
-   * Deliberately one group rather than a loop of `clearLabel`: undoing a
-   * "clear frame" should restore the frame, not require one Ctrl+Z per label.
-   */
+  /** Erase every label on this frame, raster and vector, as one undo step. */
   private clearFrame(): void {
     const indices = this.labelService.listSegmentationLabels.map((_, i) => i);
     if (indices.length === 0) return;
@@ -278,7 +262,6 @@ export class DrawService implements OnDestroy {
     this.finishClear(indices);
   }
 
-  /** Shared tail of a clear: recompute, mark dirty for save, repaint. */
   private finishClear(indices: number[]): void {
     this.stateService.recomputeCanvasSum = true;
     indices.forEach((i) => this.ioService.markLabelDirty(i));
@@ -287,7 +270,6 @@ export class DrawService implements OnDestroy {
 
   // ── Bbox actions ─────────────────────────────────────────────────────────
 
-  /** Erase the labelled object(s) under a clicked bounding box. */
   public eraseOnBboxClick(bbox: BboxLabel): void {
     const w = this.stateService.width;
     const h = this.stateService.height;

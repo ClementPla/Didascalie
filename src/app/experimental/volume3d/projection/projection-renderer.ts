@@ -5,8 +5,6 @@ import { ownerWindow } from '../../../shared/detached-window/detached-window';
 
 export type ProjectionMode = 'max' | 'mean' | 'min' | 'depth';
 
-/** Labels beyond this many are not drawn in the projection (bit-packed). */
-
 export interface ProjectionLabel {
   color: string;
   visible: boolean;
@@ -26,22 +24,17 @@ export interface ProjectionStyle {
  * Renders the projection between the two curves on the GPU.
  *
  * The output is `columns × depth` pixels, one per (arc position, slice): the
- * image is reduced (max / mean / min) along the segment joining the two
- * curves' points for that column, within that slice, at about one sample per
- * pixel of segment length. Labels are reduced with OR over a bit-packed label
- * volume (bit `l` = label `l` present), and the lowest visible label found is
- * tinted over the image.
+ * image is reduced (max / mean / min) along the segment joining the curves'
+ * points for that column. Labels are reduced with OR over a bit-packed label
+ * volume, and the lowest visible one is tinted over the image. The editor's
+ * image adjustments apply as a lookup table, before the intensity window.
  *
- * The editor's image adjustments apply as a lookup table on the reduced value,
- * before the intensity window.
+ * The image and the label bits are 2D array textures, one layer per slice, so
+ * an edit uploads one slice.
  *
- * The image and the label bits are 2D array textures, one layer per slice,
- * so an edit re-uploads only the slice it touched.
- *
- * WebGL draws into an off-screen canvas and each frame is copied onto the
- * visible 2D canvas. Shown directly, the WebGL canvas was not repainted by
- * WebKitGTK inside the zoomed/panned (CSS-transformed) container until it was
- * resized; a 2D canvas repaints reliably, and the output is small.
+ * WebGL draws off-screen and each frame is copied to the visible 2D canvas:
+ * WebKitGTK does not repaint a WebGL canvas inside a CSS-transformed
+ * container.
  */
 export class ProjectionRenderer {
   private readonly renderer: THREE.WebGLRenderer;

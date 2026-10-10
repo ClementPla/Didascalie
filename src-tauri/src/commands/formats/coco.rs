@@ -219,7 +219,7 @@ impl ImportFormat for Coco {
         let v: Value = serde_json::from_str(&text)
             .map_err(|e| AppError::Generic(format!("parse COCO JSON: {e}")))?;
 
-        // Categories → labels (1-based index, remembering the original id).
+        // Categories → labels (1-based, remembering the original id).
         let mut labels = Vec::new();
         let mut index_by_cat: HashMap<i64, u32> = HashMap::new();
         for (i, c) in v["categories"].as_array().into_iter().flatten().enumerate() {
@@ -276,7 +276,7 @@ impl ImportFormat for Coco {
                     }
                 }
             } else if let Some(bbox) = ann["bbox"].as_array() {
-                // No segmentation — keep the box as a rectangle shape.
+                // No segmentation: keep the box as a rectangle shape.
                 if bbox.len() == 4 {
                     let (x, y, w, h) = (
                         bbox[0].as_f64().unwrap_or(0.0),
@@ -328,8 +328,8 @@ fn resolve_json(path: &Path) -> Result<PathBuf> {
     )))
 }
 
-/// COCO `segmentation` is either a list of flat polygons (`[[x,y,...], ...]`) or
-/// RLE (`{counts, size}`). We only decode polygons here.
+/// COCO `segmentation` is a list of flat polygons or RLE. Only polygons are
+/// decoded.
 fn parse_segmentation(seg: &Value) -> Vec<Vec<[f64; 2]>> {
     let Some(arr) = seg.as_array() else {
         return Vec::new();

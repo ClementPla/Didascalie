@@ -107,9 +107,8 @@ export class VectorLayerComponent {
     e.preventDefault();
   }
 
-  // Ctrl/Cmd+A toggles selecting every path (all visible layers); add Shift to
-  // scope it to the active label only. Works from any tool — it switches into
-  // Select mode first so the selection can be moved/duplicated immediately.
+  // Ctrl/Cmd+A toggles selecting every path; with Shift, those of the active
+  // label. From any tool: it switches to Select first.
   @HostListener('window:keydown.control.a', ['$event'])
   @HostListener('window:keydown.meta.a', ['$event'])
   onSelectAll(e: Event): void {
@@ -128,8 +127,8 @@ export class VectorLayerComponent {
     e.preventDefault();
   }
 
-  /** True while a tool that owns an object selection is active (every vector
-   *  tool but Draw shape, whose keys belong to the path being placed). */
+  /** A tool that owns an object selection is active (every vector tool but
+   *  Draw shape). */
   private isSelectionContext(): boolean {
     return (
       this.editorService.isSelectTool() ||

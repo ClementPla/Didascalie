@@ -19,11 +19,8 @@ export class CanvasInputDirective {
   private vectorEditor = inject(VectorEditorService);
   private convertService = inject(ConvertService);
 
-  /**
-   * What a press on this canvas may do: everything (`editor`), the raster
-   * tools only (`raster`: a canvas with no vector layer), or nothing but
-   * moving the view (`view`).
-   */
+  /** What a press may do: everything (`editor`), the raster tools only
+   *  (`raster`: no vector layer), or only move the view (`view`). */
   readonly scope = input<'editor' | 'raster' | 'view'>('editor', {
     alias: 'appCanvasInputScope',
   });
@@ -44,14 +41,12 @@ export class CanvasInputDirective {
 
   // ── Mouse ────────────────────────────────────────────────────────────────
 
-  /** Right-click opens the label picker; the button routing is in `pointerDown`. */
   @HostListener('contextmenu', ['$event'])
   onContextMenu(event: MouseEvent) {
     event.preventDefault();
     // A finger resting on the canvas: Android reports the long press itself.
     if (this.longPressBlocked || this.scope() === 'view') return;
-    // A pen held with its side button reports a right click; when the button
-    // is bound to something else, that is not a request for the picker.
+    // A pen held with its side button reports a right click.
     if (
       this.penButtonHeld &&
       this.editorService.penButtonEnabled &&
@@ -94,9 +89,8 @@ export class CanvasInputDirective {
   }
 
   // ── Pressure ─────────────────────────────────────────────────────────────
-  // Pointer events fire alongside the mouse/touch listeners above; here they
-  // only record pressure (they never start a stroke), so the drawing pipeline
-  // is untouched while the pen tool can scale its radius by pressure.
+  // Pointer events fire alongside the mouse/touch listeners above. Here they
+  // only record pressure and the pen's state; they never start a stroke.
 
   @HostListener('pointerdown', ['$event'])
   onPointerDownPressure(event: PointerEvent) {
@@ -115,24 +109,20 @@ export class CanvasInputDirective {
   }
 
   /**
-   * The pen's side button is down.
-   *
-   * Read from pointer events: a stroke arrives as touch events, which carry no
-   * buttons. On Android it can only be read while the pen *hovers*, where the
-   * button shows as bit 1; once the pen touches, bit 1 means contact and the
-   * button is no longer reported (`MainActivity` strips it so that the stroke
-   * is delivered at all). So the value seen just before contact is kept for the
-   * stroke. Bits 2 and 32, a barrel button and an eraser end, are what a
-   * desktop tablet reports, during contact too.
+   * The pen's side button is down. A stroke arrives as touch events, which
+   * carry no buttons, so this is read from pointer events. On Android only
+   * while the pen hovers (bit 1): once it touches, `MainActivity` strips the
+   * button so that the stroke is delivered. The value seen just before contact
+   * is kept for the stroke. Bits 2 and 32 are a desktop tablet's barrel button
+   * and eraser end.
    */
   private penButtonHeld = false;
   /** The pen is on the surface, between its `pointerdown` and `pointerup`. */
   private penContact = false;
-  /** What the pointer that last went down was: a stroke arrives as touch
-   *  events, which do not tell a finger from a pen. */
+  /** Type of the pointer that last went down: touch events do not tell a
+   *  finger from a pen. */
   private lastPointerType = 'mouse';
-  /** The gesture in progress swapped tools (pen button, or a finger panning
-   *  in pen-only mode); the tool is put back when it ends. */
+  /** The gesture in progress borrowed a tool, to be put back when it ends. */
   private toolSwapped = false;
 
   private recordPressure(event: PointerEvent) {
@@ -146,12 +136,10 @@ export class CanvasInputDirective {
         : (event.buttons & (1 | 2 | 32)) !== 0;
     }
     if (event.pointerType === 'mouse') {
-      // Mouse has no real pressure (constant 0.5 while pressed) — no scaling.
       this.editorService.strokeIsPressure = false;
       this.editorService.strokePressure = 1;
     } else {
-      // Pen/touch: pressure in [0, 1]. Some devices report 0; fall back to a
-      // neutral mid value so the stroke doesn't collapse to nothing.
+      // Some devices report a pressure of 0.
       this.editorService.strokeIsPressure = true;
       this.editorService.strokePressure =
         event.pressure > 0 ? event.pressure : 0.5;
@@ -160,15 +148,13 @@ export class CanvasInputDirective {
 
   // ── Touch ────────────────────────────────────────────────────────────────
 
-  // A long press stands in for the right click, which a finger does not have.
-  // Android's webview raises `contextmenu` for it; the timer below is only a
-  // fallback for a webview that does not, and waits long enough to lose.
+  // A long press stands in for the right click. Android's webview raises
+  // `contextmenu` for it; the timer is a fallback, set to lose.
   private longPressTimer: ReturnType<typeof setTimeout> | null = null;
   private longPressAt: Point2D | null = null;
   /** The press became a long press: ignore that finger until it lifts. */
   private longPressed = false;
-  /** When the picker was last opened, so one press cannot open it twice (some
-   *  webviews also fire `contextmenu` on a long press). */
+  /** When the picker was last opened: one press must not open it twice. */
   private pickerOpenedAt = 0;
   /** A finger is down with a tool that cannot give its press back. */
   private longPressBlocked = false;
@@ -176,8 +162,7 @@ export class CanvasInputDirective {
   private armLongPress(touch: Touch) {
     this.disarmLongPress();
     if (this.scope() === 'view') return;
-    // Only for tools whose press can be taken back: a vector tool has already
-    // placed its node, and the convert tools have already run.
+    // Only for tools whose press can be taken back.
     if (
       this.scope() === 'editor' &&
       (this.editorService.isVectorTool() ||
@@ -197,8 +182,7 @@ export class CanvasInputDirective {
     }, LONG_PRESS_MS + 350);
   }
 
-  /** The press is a long press: drop the stroke it began and ignore the
-   *  finger from here on. */
+  /** The press is a long press: drop its stroke and ignore the finger. */
   private claimLongPress() {
     this.disarmLongPress();
     this.longPressed = true;
@@ -214,8 +198,8 @@ export class CanvasInputDirective {
   private openPicker(event: MouseEvent) {
     const now = performance.now();
     if (now - this.pickerOpenedAt < 800) {
-      // A second report of the same press. It must not reach the document:
-      // the menu takes a `contextmenu` outside itself as a cue to close.
+      // A second report of the same press. Kept from the document: the menu takes
+      // an outside `contextmenu` as a cue to close.
       event.stopPropagation();
       return;
     }
@@ -228,7 +212,7 @@ export class CanvasInputDirective {
     if (event.touches.length >= 2) {
       event.preventDefault();
       this.disarmLongPress();
-      // A first finger may have started a stroke — discard it.
+      // A first finger may have started a stroke: discard it.
       this.cancelActiveStroke();
       this.beginPinch(event);
       return;
@@ -248,8 +232,7 @@ export class CanvasInputDirective {
       return;
     }
 
-    // A finger was lifted mid-pinch: ignore until all fingers are up so we
-    // don't paint an accidental stroke with the remaining finger.
+    // A finger lifted mid-pinch: wait until all are up.
     if (this.pinchActive || this.longPressed) return;
 
     const start = this.longPressAt;
@@ -285,8 +268,7 @@ export class CanvasInputDirective {
 
   // ── Shared pointer logic ─────────────────────────────────────────────────
 
-  /** The same event as a plain left press, for a pen whose side button made
-   *  it arrive as a right one. */
+  /** The same event as a left press. */
   private asLeftPress(event: MouseEvent): MouseEvent {
     const left = new MouseEvent(event.type, {
       clientX: event.clientX,
@@ -335,9 +317,7 @@ export class CanvasInputDirective {
       this.toolSwapped = true;
     }
 
-    // The right button belongs to the label picker (see `onContextMenu`), so it
-    // must not start a drag or a stroke. The middle button is the opposite case:
-    // holding it is how you pan, so it has to reach the pan branch below.
+    // The right button belongs to the label picker; the middle one pans.
     if (event.button === 2) return;
 
     if (event.button === 1) {
@@ -359,7 +339,6 @@ export class CanvasInputDirective {
       return;
     }
 
-    // Vector tools route through the editor service instead of the raster pen.
     if (this.editorService.isVectorTool()) {
       if (event.button === 0) {
         this.vectorEditor.onPointerDown(
@@ -370,7 +349,6 @@ export class CanvasInputDirective {
       return;
     }
 
-    // Vectorize: a left-click traces the clicked component's outer contour.
     if (this.editorService.isVectorizeTool()) {
       if (event.button === 0) {
         void this.convertService.vectorizeAt(
@@ -380,7 +358,6 @@ export class CanvasInputDirective {
       return;
     }
 
-    // Skeletonize: a left-click traces the clicked component's centerline.
     if (this.editorService.isSkeletonizeTool()) {
       if (event.button === 0) {
         void this.convertService.skeletonizeAt(
@@ -390,8 +367,6 @@ export class CanvasInputDirective {
       return;
     }
 
-    // The raster pen is the one branch with no button check of its own — every
-    // vector branch above already guards on `button === 0`.
     if (event.button !== 0) return;
     this.drawService.startDraw(event);
   }
@@ -399,7 +374,7 @@ export class CanvasInputDirective {
   private pointerMove(event: MouseEvent) {
     const coords = this.zoomPanService.getImageCoordinates(event);
     const cursor = this.zoomPanService.getViewportCoordinates(event);
-    // Remember the cursor so keyboard (+/-) zoom can pivot on it.
+    // For keyboard zoom to pivot on.
     this.zoomPanService.lastCursorViewport = cursor;
     this.canvasMove.emit({ event, coords, cursor });
   }
@@ -463,14 +438,12 @@ export class CanvasInputDirective {
     }
   }
 
-  /** Distance between the first two touches (client px). */
   private touchDistance(event: TouchEvent): number {
     const a = event.touches[0];
     const b = event.touches[1];
     return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
   }
 
-  /** Midpoint of the first two touches (client px). */
   private touchMidpoint(event: TouchEvent): Point2D {
     const a = event.touches[0];
     const b = event.touches[1];
@@ -480,8 +453,7 @@ export class CanvasInputDirective {
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   private isTouchEvent(event: MouseEvent | TouchEvent): event is TouchEvent {
-    // Not `instanceof`: the canvas may be in another window, whose events are
-    // built from that window's own classes.
+    // Not `instanceof`: the canvas may be in another window, with its own classes.
     return 'touches' in event;
   }
 

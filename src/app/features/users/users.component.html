@@ -7,7 +7,6 @@
     </p>
   </header>
 
-  <!-- The door: one click per account. -->
   <div class="accounts">
     @for (user of list(); track user.id) {
       <div class="account" [class.account--current]="isCurrent(user)">
@@ -56,7 +55,6 @@
       </div>
     }
 
-    <!-- Registering is the same gesture: a name, and you are in. -->
     <form class="account account--new" (ngSubmit)="register()">
       <span class="account-new-title">
         <i class="pi pi-user-plus" aria-hidden="true"></i> New account
@@ -87,7 +85,6 @@
     </form>
   </div>
 
-  <!-- Management, once inside. -->
   @if (current(); as me) {
     <p-fieldset legend="Manage accounts">
       <div class="manage">
@@ -177,7 +174,6 @@
   }
 </div>
 
-<!-- Set / remove a password -->
 <p-dialog
   [visible]="!!settingPassword()"
   (visibleChange)="!$event && settingPassword.set(null)"
@@ -215,7 +211,6 @@
   </form>
 </p-dialog>
 
-<!-- Delete an account -->
 <p-dialog
   [visible]="!!pendingDelete()"
   (visibleChange)="!$event && pendingDelete.set(null)"

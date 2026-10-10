@@ -7,9 +7,7 @@
   min-height: 0;
   overflow: hidden;
 
-  /* The editor is a workspace, not a document: a drag paints, pans or moves a
-     handle, and must never leave the toolbar, the labels or a curve overlay
-     highlighted in blue. Fields below stay selectable. */
+  /* A drag paints, pans or moves a handle: it must not select text. */
   -webkit-user-select: none;
   user-select: none;
 }
@@ -22,15 +20,8 @@
   user-select: text;
 }
 
-/* Floating tabs that collapse/expand the side panels.
-   Absolutely positioned over the canvas edges so they never
-   reserve a column or push the panels.
-
-   z-index must sit ABOVE the painting brush-cursor (z 1000),
-   otherwise the rotating brush circle covers the tab and there is
-   no system cursor over the canvas to aim with. We also force a
-   real pointer cursor so the tab is clickable even while a
-   brush tool hides the cursor over the canvas. */
+/* Tabs that collapse the side panels, floating over the canvas edges. Above
+   the brush cursor (z 1000), with a real pointer cursor. */
 .collapse-toggle {
   position: absolute;
   top: 50%;
@@ -53,7 +44,6 @@
     transform: translateY(-50%) scale(1.1);
   }
 
-  /* Ensure the inner PrimeNG button also shows the pointer */
   ::ng-deep .p-button,
   &.p-button {
     cursor: pointer;
@@ -80,7 +70,7 @@
     min-width: 0;
   }
 
-  // The strip is dark in every theme; a themed text button would vanish on it.
+  // The strip is dark in every theme.
   button.p-button {
     color: #fff;
   }

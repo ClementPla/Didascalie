@@ -1,10 +1,9 @@
 /**
  * Curve geometry for the projection view. Pure functions.
  *
- * A curve is the smooth spline through its control points: a centripetal
- * Catmull-Rom spline, evaluated as one cubic Bézier per span. Centripetal
- * parameterisation never loops or overshoots between close points, which a
- * user clicking points expects.
+ * A curve is the centripetal Catmull-Rom spline through its control points,
+ * evaluated as one cubic Bézier per span: it never loops or overshoots
+ * between close points.
  */
 
 export interface Point {
@@ -25,9 +24,8 @@ export function splineBeziers(points: readonly Point[]): [Point, Point, Point, P
     const d01 = Math.max(Math.sqrt(dist(p0, p1)), 1e-4);
     const d12 = Math.max(Math.sqrt(dist(p1, p2)), 1e-4);
     const d23 = Math.max(Math.sqrt(dist(p2, p3)), 1e-4);
-    // Tangents at p1 and p2 of the Catmull-Rom segment (Barry–Goldman),
-    // scaled to the [0, 1] span. At the ends there is no outer neighbour:
-    // head straight for the next point instead.
+    // Tangents at p1 and p2 (Barry–Goldman), scaled to the [0, 1] span. At the
+    // ends there is no outer neighbour: head straight for the next point.
     const chord = { x: p2.x - p1.x, y: p2.y - p1.y };
     const m1 = i === 0 ? chord : tangent(p0, p1, p2, d01, d12, d12);
     const m2 = i + 2 >= n ? chord : tangent(p1, p2, p3, d12, d23, d12);
@@ -138,9 +136,9 @@ export function closestSpan(points: readonly Point[], p: Point): { index: number
 }
 
 /**
- * A few control points whose spline follows the polyline `poly`: the
- * polyline simplified (Douglas–Peucker) with a tolerance that grows until at
- * most `maxPoints` remain. Keeps curves taken from annotations editable.
+ * A few control points whose spline follows the polyline `poly`:
+ * Douglas–Peucker with a tolerance that grows until at most `maxPoints`
+ * remain.
  */
 export function controlPointsFor(poly: readonly Point[], maxPoints = 24): Point[] {
   if (poly.length <= 2) return [...poly];
@@ -184,10 +182,9 @@ function distanceToSegment(p: Point, a: Point, b: Point): number {
 }
 
 /**
- * The longest route through a skeleton given as branches (polylines that meet
- * at their endpoints), as one polyline. Side spurs are dropped: this is the
- * main centerline of an elongated structure. Branch ends closer than `snap`
- * pixels count as the same junction.
+ * The longest route through a skeleton given as branches (polylines meeting
+ * at their endpoints), as one polyline. Branch ends closer than `snap` pixels
+ * are the same junction.
  */
 export function longestSkeletonPath(branches: readonly Point[][], snap = 2): Point[] {
   const usable = branches.filter((b) => b.length >= 2);

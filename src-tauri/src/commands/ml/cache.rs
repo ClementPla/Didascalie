@@ -1,27 +1,8 @@
-//! Persistent cache for encoder features, in local app data.
+//! Cache for encoder features, in local app data.
 //!
-//! # Why not in the `.dida`
-//!
-//! Features are derived data, and putting them in the project file would make
-//! them travel to whoever it is shared with — carrying information about images
-//! that were deliberately never embedded — while being invisible and
-//! unclearable once written. App data keeps a cache disposable, which is what a
-//! cache should be.
-//!
-//! # What is cached, and what is not
-//!
-//! Only the **encoder token grid**. It is the expensive part (seconds per frame
-//! against milliseconds for everything else) and it is a pure function of
-//! `(image content, encoder, working size)`. The local filter bank is cheap
-//! since it runs under rayon and would cost ~14 MB per frame to store; scribble
-//! channels vary per repeat by design and must never be cached.
-//!
-//! # Keying on content, not on frame id
-//!
-//! A frame that is re-imported or edited can keep its row id. Keying on the id
-//! alone would then serve features computed from a *different* image — which
-//! does not error, it silently trains on the wrong thing. The key therefore
-//! hashes the working-resolution pixels actually fed to the encoder.
+//! Not in the `.dida`: features are derived data and would travel with the
+//! project. Only the encoder token grid is cached, keyed on the pixels fed to
+//! the encoder: a re-imported frame can keep its id with a different image.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -29,7 +10,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use ndarray::Array3;
 
-/// Hit/miss tally for the current run, reported once when training ends.
 static HITS: AtomicUsize = AtomicUsize::new(0);
 static MISSES: AtomicUsize = AtomicUsize::new(0);
 
@@ -43,20 +23,12 @@ pub fn stats() -> (usize, usize) {
     (HITS.load(Ordering::Relaxed), MISSES.load(Ordering::Relaxed))
 }
 
-/// Magic + version, so a format change cannot be misread as data.
 const MAGIC: &[u8; 8] = b"DIDAFEA1";
 
-/// Namespace for a cached decoded-and-resized working image, as opposed to an
-/// encoder's token grid. Not a valid encoder id, so the two cannot collide.
+/// Namespace for a cached working image. Not a valid encoder id.
 pub const IMAGE_KIND: &str = "image";
 
-/// Hash raw stored bytes.
-///
-/// The point of hashing the *stored* bytes rather than decoded pixels is that
-/// this is the only content identity available **before** paying for a decode.
-/// Keying on the decoded image, as the token cache does, means a hit can never
-/// save the decode that produced the key — which is why a fully warm cache
-/// still cost ~15 s per frame.
+/// Hash the stored bytes: the only content identity available before decoding.
 pub fn hash_bytes(bytes: &[u8]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for &b in bytes {
@@ -67,7 +39,6 @@ pub fn hash_bytes(bytes: &[u8]) -> u64 {
     h.wrapping_mul(0x0100_0000_01b3)
 }
 
-/// Identifies one cached tensor.
 pub struct Key {
     pub encoder_id: String,
     pub working_size: u32,
@@ -75,11 +46,8 @@ pub struct Key {
 }
 
 impl Key {
-    /// Hash the pixels that will be fed to the encoder.
-    ///
-    /// FxHash-style mixing over the raw bits: this guards against stale entries
-    /// after a re-import, not against an adversary, so speed matters more than
-    /// cryptographic strength.
+    /// Hash the pixels that will be fed to the encoder (FxHash-style, not
+    /// cryptographic).
     pub fn new(encoder_id: &str, working_size: u32, image: &Array3<f32>) -> Self {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         for &v in image.iter() {
@@ -97,10 +65,8 @@ impl Key {
         }
     }
 
-    /// A key for content already reduced to a hash.
-    ///
-    /// `kind` namespaces the entry — an encoder id for a token grid, or
-    /// [`IMAGE_KIND`] for a decoded working image — so the two cannot collide.
+    /// A key for content already reduced to a hash. `kind` is an encoder id or
+    /// [`IMAGE_KIND`].
     pub fn raw(kind: &str, working_size: u32, content: u64) -> Self {
         Self {
             encoder_id: kind.to_string(),
@@ -110,8 +76,7 @@ impl Key {
     }
 
     fn file_name(&self) -> String {
-        // The encoder id is a catalog slug, but it reaches a path, so anything
-        // that is not plainly safe is replaced rather than trusted.
+        // The encoder id reaches a path: sanitise it.
         let safe: String = self
             .encoder_id
             .chars()
@@ -121,11 +86,7 @@ impl Key {
     }
 }
 
-/// Read a cached `[d, h, w]` tensor, or `None` on any miss.
-///
-/// Every failure — absent, truncated, wrong magic — is a miss rather than an
-/// error: a corrupt cache entry should cost a recomputation, never a failed
-/// training run.
+/// Read a cached `[d, h, w]` tensor. Any failure is a miss.
 pub fn load(dir: &Path, key: &Key) -> Option<Array3<f32>> {
     let hit = load_inner(dir, key);
     if hit.is_some() {
@@ -159,8 +120,7 @@ fn load_inner(dir: &Path, key: &Key) -> Option<Array3<f32>> {
     Array3::from_shape_vec((d, h, w), data).ok()
 }
 
-/// Write a tensor. Failures are reported but never fatal — a cache that cannot
-/// be written is a slower app, not a broken one.
+/// Write a tensor. Failures are logged, never fatal.
 pub fn store(dir: &Path, key: &Key, value: &Array3<f32>) {
     if let Err(e) = fs::create_dir_all(dir) {
         log::warn!("[ml] feature cache unavailable ({e})");
@@ -175,8 +135,7 @@ pub fn store(dir: &Path, key: &Key, value: &Array3<f32>) {
     for &v in value.iter() {
         out.extend_from_slice(&v.to_le_bytes());
     }
-    // Write beside the target then rename, so an interrupted write cannot
-    // leave a half-file that later reads as a plausible tensor.
+    // Write beside the target, then rename: no half-written file.
     let final_path = dir.join(key.file_name());
     let tmp = dir.join(format!("{}.part", key.file_name()));
     if fs::write(&tmp, &out).and_then(|_| fs::rename(&tmp, &final_path)).is_err() {
@@ -196,7 +155,6 @@ pub fn usage(dir: &Path) -> (u64, usize) {
         .fold((0, 0), |(b, n), m| (b + m.len(), n + 1))
 }
 
-/// Recursive size of a directory tree, for the app's storage readout.
 pub fn dir_size(dir: &Path) -> u64 {
     let Ok(entries) = fs::read_dir(dir) else {
         return 0;
@@ -211,7 +169,6 @@ pub fn dir_size(dir: &Path) -> u64 {
         .sum()
 }
 
-/// Delete every cached tensor. Returns how many files went.
 pub fn clear(dir: &Path) -> usize {
     let Ok(entries) = fs::read_dir(dir) else {
         return 0;
@@ -223,7 +180,6 @@ pub fn clear(dir: &Path) -> usize {
         .count()
 }
 
-/// Where cached features live under the app's cache directory.
 pub fn cache_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     use tauri::Manager;
     let base = app
@@ -233,8 +189,6 @@ pub fn cache_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(base.join("features"))
 }
 
-/// Where downloaded encoder weights live — the other half of the footprint,
-/// and usually the larger one.
 pub fn models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     use tauri::Manager;
     let base = app
@@ -276,8 +230,6 @@ mod tests {
         assert_ne!(base.file_name(), Key::new("b", 512, &v).file_name());
         assert_ne!(base.file_name(), Key::new("a", 256, &v).file_name());
 
-        // Different pixels under the same id must not collide: this is the
-        // stale-after-re-import case the content hash exists to prevent.
         let mut edited = v.clone();
         edited[[0, 0, 0]] += 1.0;
         assert_ne!(base.file_name(), Key::new("a", 512, &edited).file_name());
@@ -285,13 +237,10 @@ mod tests {
 
     #[test]
     fn a_working_image_entry_cannot_collide_with_an_encoder_entry() {
-        // Same frame bytes and working size, different namespace: the decoded
-        // image and the token grid must not overwrite one another.
         let content = hash_bytes(b"some stored png bytes");
         let img = Key::raw(IMAGE_KIND, 384, content);
         let tokens = Key::raw("dinov3-vits16", 384, content);
         assert_ne!(img.file_name(), tokens.file_name());
-        // Working size still separates entries within a namespace.
         assert_ne!(img.file_name(), Key::raw(IMAGE_KIND, 512, content).file_name());
     }
 
@@ -299,7 +248,7 @@ mod tests {
     fn hashing_bytes_separates_content_and_length() {
         assert_ne!(hash_bytes(b"abc"), hash_bytes(b"abd"));
         assert_ne!(hash_bytes(b"abc"), hash_bytes(b"abcabc"));
-        // A prefix must not collide with the whole — length is folded in.
+        // Length is folded in: a prefix must not collide with the whole.
         assert_ne!(hash_bytes(b""), hash_bytes(b"\0"));
         assert_eq!(hash_bytes(b"stable"), hash_bytes(b"stable"), "must be deterministic");
     }
@@ -315,7 +264,7 @@ mod tests {
         fs::write(dir.join(key.file_name()), b"not a tensor at all").unwrap();
         assert!(load(&dir, &key).is_none(), "garbage must miss, not panic");
 
-        // Truncated payload with a valid header is the dangerous case.
+        // Valid header, truncated payload.
         let mut good = MAGIC.to_vec();
         for n in [2u32, 3, 4] {
             good.extend_from_slice(&n.to_le_bytes());

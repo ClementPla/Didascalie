@@ -35,7 +35,6 @@
   user-select: none;
   z-index: 2;
 
-  /* Overlay mode: no mask, full image visible at opacity = overlayOpacity */
   &--overlay {
   }
 }
@@ -81,8 +80,6 @@
 }
 
 .warped-moving--checker-inner {
-  /* same base styles as .warped-moving — they already apply via the
-   * combined class — no extra rules needed. */
 }
 
 .interaction-svg {
@@ -103,9 +100,8 @@
   user-select: none;
 }
 
-// Precision reticle: open-center crosshair + thin ring, drawn in a group
-// scaled to screen pixels (see markerTransform) so it stays a constant,
-// crisp size at any zoom and never hides the target pixel.
+// Reticle: open-centre crosshair and thin ring, in a group scaled to screen
+// pixels (see markerTransform).
 .reticle {
   .reticle-halo {
     fill: none;
@@ -120,7 +116,7 @@
     stroke-linecap: round;
   }
 
-  // Tentative (placed-but-unconfirmed) point: dashed ring, solid crosshair.
+  // Tentative point: dashed ring.
   &.tentative .reticle-ring {
     stroke-dasharray: 3 3.5;
   }

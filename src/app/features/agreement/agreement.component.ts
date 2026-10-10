@@ -35,16 +35,11 @@ interface ComparisonColors {
   b: string;
 }
 
-/**
- * Agreement in a quiet white; disagreement in orange and sky blue, which stay
- * apart under the common colour-vision deficiencies. Good on a colour
- * photograph, less so on greyscale or strongly tinted modalities, which is why
- * they can be changed.
- */
+/** Agreement in white; disagreement in orange and sky blue, which stay apart
+ *  under the common colour-vision deficiencies. */
 const DEFAULT_COLORS: ComparisonColors = { both: '#ffffff', a: '#e69f00', b: '#56b4e9' };
 
-/** How the examples are drawn is a preference of the viewer, kept across
- *  projects and sessions. */
+/** A viewer preference, kept across projects and sessions. */
 const STYLE_KEY = 'didascalie_agreement_style';
 
 interface StoredStyle {
@@ -73,12 +68,8 @@ interface CaseOption extends CaseScore {
 }
 
 /**
- * Inter-grader agreement: how closely the project's users annotated the same
- * frames, pair by pair and overall.
- *
- * The page only lays out what `intergrader_report` computes; the definitions
- * of every statistic, and of which frames count, are documented there
- * (`src-tauri/src/commands/agreement.rs`).
+ * Inter-grader agreement, pair by pair and overall. The statistics are
+ * computed and documented in `src-tauri/src/commands/agreement.rs`.
  */
 @Component({
   selector: 'app-agreement',
@@ -123,8 +114,7 @@ export class AgreementComponent implements OnInit, OnDestroy {
 
   // ── Qualitative cases ─────────────────────────────────────────────────────
   // The frames behind the selected pair's score for one label, drawn with both
-  // graders' regions: a Dice of 0.77 says how much they differ, the pictures
-  // say where.
+  // graders' regions.
 
   /** The label the cases are drawn for. */
   readonly caseLabel = signal<number | null>(null);
@@ -136,11 +126,9 @@ export class AgreementComponent implements OnInit, OnDestroy {
   /** Off shows the bare image, to see what the graders were looking at. */
   readonly showMarks = signal(true);
 
-  // How the regions are drawn. See `DEFAULT_COLORS`.
   private readonly stored = loadStyle();
   readonly colors = signal<ComparisonColors>(this.stored.colors);
-  /** Outline the regions instead of filling them, so what lies under a
-   *  region stays visible. */
+  /** Outline the regions instead of filling them. */
   readonly edgesOnly = signal(this.stored.edgesOnly);
   /** Outline thickness, in pixels of the enlarged case. */
   readonly edgeWidth = signal(this.stored.edgeWidth);
@@ -168,8 +156,7 @@ export class AgreementComponent implements OnInit, OnDestroy {
     () => this.cases().find((c) => c.frameId === this.chosen()) ?? null,
   );
 
-  /** Bumped on every reload so a slow reply for a pair the user has since
-   *  left cannot land on the one now shown. */
+  /** Bumped on every reload, so a late reply for another pair is dropped. */
   private casesToken = 0;
   private viewToken = 0;
   private thumbsToken = 0;
@@ -189,8 +176,8 @@ export class AgreementComponent implements OnInit, OnDestroy {
       const report = await api.intergraderReport(this.basis);
       this.report.set(report);
 
-      // Keep the selected pair if it still exists, else open the first pair
-      // that has something to compare.
+      // Keep the selected pair if it still exists, else the first with something
+      // to compare.
       const current = this.selected();
       if (!current || !this.pair(current[0], current[1])) {
         const first = report.pairs.find((p) => p.frames > 0) ?? report.pairs[0];
@@ -279,8 +266,7 @@ export class AgreementComponent implements OnInit, OnDestroy {
     this.restyle();
   }
 
-  /** Remember the style and redraw every picture with it. Scores do not
-   *  depend on it, so nothing is recomputed. */
+  /** Remember the style and redraw every picture with it. */
   private restyle(): void {
     const style: StoredStyle = {
       colors: this.colors(),
@@ -290,18 +276,13 @@ export class AgreementComponent implements OnInit, OnDestroy {
     try {
       localStorage.setItem(STYLE_KEY, JSON.stringify(style));
     } catch {
-      // A preference that cannot be stored is still applied for this visit.
     }
     void this.loadView();
     void this.loadThumbs();
   }
 
-  /**
-   * The style as the backend takes it, for a picture `size` pixels wide. The
-   * outline width is set for the enlarged case; a thumbnail gets it scaled
-   * down, so its outlines look like the enlarged ones seen from further away
-   * rather than swallowing the picture.
-   */
+  /** The style as the backend takes it, for a picture `size` pixels wide. The
+   *  outline width is that of the enlarged case, scaled down for a thumbnail. */
   private styleFor(size: number): ComparisonStyle {
     const c = this.colors();
     const width = Math.max(1, Math.round((this.edgeWidth() * size) / VIEW_SIZE));
@@ -331,7 +312,6 @@ export class AgreementComponent implements OnInit, OnDestroy {
       this.cases.set(
         cases.map((c) => ({ ...c, caption: `${c.name} — Dice ${c.dice.toFixed(2)}` })),
       );
-      // Disagreement is what one comes here to look at.
       if (cases.length > 0) this.choose(cases[0].frameId);
       await this.loadThumbs();
     } catch (error) {

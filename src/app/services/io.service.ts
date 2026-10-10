@@ -17,20 +17,8 @@ import { base64ToUint8 } from '../core/misc/base64';
 /**
  * Loading and saving of a frame's annotations.
  *
- * # Known layering wart
- *
- * This lives under `services/` because ten call sites treat it as app-global
- * (app startup, project close, propagation), yet it injects three services that
- * belong to the editor's canvas — `CanvasManagerService`, `StateManagerService`
- * and `VectorEditorService` — because the thing it saves *is* the in-memory
- * canvas state. So a global service depends on one page's internals, and
- * neither can move without the other.
- *
- * `PredictionService` had the same shape and was simply moved into
- * `drawable-canvas/service/`, since the editor toolbar was its only consumer.
- * That is not available here. Untangling this one means inverting the
- * dependency — the editor registering its canvas with an interface this service
- * owns — which is worth doing but is not a rename.
+ * A global service that depends on the editor's canvas services, because what
+ * it saves is the in-memory canvas state.
  */
 @Injectable({
   providedIn: 'root',
@@ -45,8 +33,7 @@ export class IOService implements OnDestroy, ProjectScoped {
   private volume = inject(MaskVolumeService);
 
   public requestedReload = new Subject<boolean>();
-  /** Emits after a frame's masks have been loaded into the canvas manager, so
-   *  UI derived from mask contents (e.g. the instance picker) can refresh. */
+  /** A frame's masks were loaded into the canvas manager. */
   public readonly loaded$ = new Subject<void>();
   private destroy$ = new Subject<void>();
   private dirty = false;
@@ -60,12 +47,11 @@ export class IOService implements OnDestroy, ProjectScoped {
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    // Vector edits flow back here so the same dirty flag / autosave covers them.
+    // Vector edits use the same dirty flag and autosave.
     this.vectorEditor.changed$.subscribe(() => this.markDirty());
 
-    // 3D mode. The volume is about to drop its buffers: keep the open frame's
-    // masks as owned copies. It just became resident: move the open frame's
-    // masks (unsaved edits included) into their slice and edit it in place.
+    // 3D mode. Before the volume drops its buffers, the open frame's masks become
+    // owned copies. Once it is resident, they move into their slice.
     this.volume.released$.subscribe(() => this.canvasManagerService.detachMasks());
     this.volume.ready$.subscribe(() => this.adoptVolumeSlice());
   }
@@ -87,11 +73,8 @@ export class IOService implements OnDestroy, ProjectScoped {
     this.scheduleAutosave();
   }
 
-  /**
-   * Record that a label layer's pixels changed, so `save()` only ships the
-   * masks that actually changed. Critical on large images: a full mask is huge
-   * (~136 MB at 8k×17k), so re-sending every label per save froze the UI.
-   */
+  /** Record that a label layer changed, so that `save()` sends only the masks
+   *  that did: a full mask is large. */
   public markLabelDirty(index: number): void {
     if (index >= 0) this.dirtyLabels.add(index);
     const frameId = this.sequenceService.currentFrame()?.id;
@@ -103,13 +86,11 @@ export class IOService implements OnDestroy, ProjectScoped {
     return this.dirty;
   }
 
-  /** (Re)arm the debounced autosave after an edit. */
   private scheduleAutosave(): void {
     this.cancelAutosave();
     this.autosaveTimer = setTimeout(async () => {
       this.autosaveTimer = null;
       if (!this.dirty) return;
-      // Only cue on a real persist — a brief, muted toast that fades quickly.
       if (await this.save()) {
         this.notifications.notify({
           severity: 'secondary',
@@ -127,33 +108,19 @@ export class IOService implements OnDestroy, ProjectScoped {
     }
   }
 
-  /**
-   * Forget everything queued for saving, without writing it.
-   *
-   * For callers that are about to delete the same annotations in the database:
-   * autosave fires several seconds after the last edit, so a pending write
-   * landing after the delete would put the frame straight back.
-   */
+  /** Forget what is queued for saving, without writing it. For callers about
+   *  to delete the same annotations: a pending autosave would restore them. */
   public discardPendingSave(): void {
     this.cancelAutosave();
     this.dirty = false;
     this.dirtyLabels.clear();
   }
 
-  /**
-   * @see ProjectScoped
-   *
-   * Dropping the queued save is the point: a timer armed against the old
-   * project would otherwise fire after the switch and write its masks into
-   * whichever frame is open by then.
-   */
+  /** @see ProjectScoped */
   resetForProject(): void {
     this.discardPendingSave();
   }
 
-  /**
-   * Load annotations for the current frame from SQLite.
-   */
   public async load(): Promise<void> {
     const frame = this.sequenceService.currentFrame();
     if (!frame) {
@@ -161,12 +128,10 @@ export class IOService implements OnDestroy, ProjectScoped {
     }
 
     try {
-      // Until this load completes the canvas holds no frame's masks as such,
-      // so a volume becoming ready meanwhile must not adopt them.
+      // Until this load completes, a volume becoming ready must not adopt the
+      // canvas's masks.
       this.loadedFrameId = null;
 
-      // Vector shapes are independent of the raster masks, so load them even
-      // when a frame has no raster annotations.
       await this.loadVectors(frame.id);
 
       // 3D mode: the masks are already resident as slices of the volume.
@@ -174,9 +139,9 @@ export class IOService implements OnDestroy, ProjectScoped {
       if (slices) {
         this.canvasManagerService.bindMasks(slices);
       } else {
-        // Never clear or overwrite a borrowed slice with another frame's data.
-        // Clear before the IPC so a failed load never leaves the previous
-        // frame's masks showing on this one.
+        // A borrowed slice must not be cleared or overwritten with another frame's
+        // data. Cleared before the IPC: a failed load must not leave the previous
+        // frame's masks showing.
         this.canvasManagerService.detachMasks();
         this.canvasManagerService.clearAllMasks();
         const annotations = await api.loadAnnotations(frame.id);
@@ -206,12 +171,8 @@ export class IOService implements OnDestroy, ProjectScoped {
     }
   }
 
-  /**
-   * The mask volume just became resident. If the canvas still shows the frame
-   * it last loaded, copy its masks into that slice and bind the layers to it.
-   * Mid-navigation (another frame is loading) there is nothing to adopt: the
-   * next `load()` binds the new frame's slice.
-   */
+  /** The mask volume just became resident: if the canvas still shows the frame
+   *  it last loaded, copy its masks into that slice and bind the layers to it. */
   private adoptVolumeSlice(): void {
     const frameId = this.sequenceService.currentFrame()?.id;
     if (frameId == null || frameId !== this.loadedFrameId) return;
@@ -222,7 +183,6 @@ export class IOService implements OnDestroy, ProjectScoped {
     this.canvasManagerService.bindMasks(slices);
   }
 
-  /** Load this frame's vector shapes into the editor (best-effort). */
   private async loadVectors(frameId: number): Promise<void> {
     try {
       const rows = await api.loadVectorAnnotations(frameId);
@@ -233,10 +193,8 @@ export class IOService implements OnDestroy, ProjectScoped {
     }
   }
 
-  /**
-   * Persist vector shapes. Saves once per current label so a label whose shapes
-   * were all removed has its row cleared (empty array deletes server-side).
-   */
+  /** Persist vector shapes, once per label, so that a label left without
+   *  shapes has its row cleared. */
   private async saveVectors(frameId: number): Promise<void> {
     const byLabel = this.vectorEditor.shapesByLabel();
     for (const label of this.labelService.listSegmentationLabels) {
@@ -248,9 +206,6 @@ export class IOService implements OnDestroy, ProjectScoped {
     }
   }
 
-  /**
-   * Save annotations for the current frame to SQLite.
-   */
   public async save(): Promise<boolean> {
     const frame = this.sequenceService.currentFrame();
     if (!frame) {
@@ -260,8 +215,7 @@ export class IOService implements OnDestroy, ProjectScoped {
     try {
       const labels = this.labelService.listSegmentationLabels;
 
-      // Only persist masks that changed since the last save — a full mask is
-      // huge on large images, so re-sending untouched labels froze the UI.
+      // Only the masks that changed since the last save.
       const dirty = [...this.dirtyLabels];
       this.dirtyLabels.clear();
       for (const i of dirty) {
@@ -284,9 +238,6 @@ export class IOService implements OnDestroy, ProjectScoped {
     }
   }
 
-  /**
-   * Save if there are unsaved changes.
-   */
   public async saveIfDirty(): Promise<boolean> {
     if (this.dirty) {
       return this.save();
@@ -294,9 +245,6 @@ export class IOService implements OnDestroy, ProjectScoped {
     return true;
   }
 
-  /**
-   * Delete annotation for a specific label on current frame.
-   */
   public async deleteAnnotation(labelId: number): Promise<void> {
     const frame = this.sequenceService.currentFrame();
     if (!frame) {

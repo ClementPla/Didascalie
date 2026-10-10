@@ -1,36 +1,20 @@
 /**
- * Brick-wise surface extraction from a binary occupancy grid.
+ * Brick-wise surface extraction from a binary occupancy grid. Pure functions.
  *
- * Pure functions, no DOM: they run in the mesher worker (and in tests).
+ * Voxel `(x, y, z)` is centred on the integer point `(x, y, z)`; outside the
+ * grid is empty, so surfaces close at the border. Output is in grid units.
  *
- * # Coordinates
+ * The grid is split into `B³` bricks meshed independently. Each owns a
+ * disjoint set of output primitives and reads the neighbours it needs, so the
+ * union of the bricks is a mesh of the whole grid, without seams; border
+ * vertices are computed identically by both bricks.
  *
- * Voxel `(x, y, z)` of an `nx×ny×nz` grid is centred on the integer point
- * `(x, y, z)`; everything outside the grid reads as empty, so surfaces close at
- * the volume's border. Output positions are in these grid units — the renderer
- * scales them to voxels / physical spacing.
+ * Smooth surface: surface nets, one vertex per cell (2×2×2 voxels) whose
+ * corners disagree and one quad per grid edge whose ends disagree. Positions
+ * and normals come from a 3×3×3 box-blurred occupancy (iso-level 0.5).
  *
- * # Bricks
- *
- * The grid is split into `B³` bricks meshed independently, so an edit only
- * remeshes the bricks around it. Each brick owns a disjoint set of output
- * primitives (edges for the smooth surface, voxels for blocks) and reads
- * whatever neighbours it needs, so the union of all bricks equals a mesh of the
- * whole grid: no seams, no duplicated faces. Vertices on a brick border are
- * computed identically by both bricks (same inputs, same arithmetic), which
- * keeps shading continuous across the border.
- *
- * # Smooth surface
- *
- * Surface nets: one vertex per cell (2×2×2 voxels) whose corners disagree, one
- * quad per grid edge whose ends disagree. Vertex positions come from a 3×3×3
- * box-blurred copy of the occupancy (iso-level 0.5), which rounds off the
- * voxel staircase; normals are the blurred field's gradient.
- *
- * # Blocks
- *
- * The exact voxels: every face between a filled and an empty voxel, merged into
- * rectangles per plane (greedy meshing).
+ * Blocks: every face between a filled and an empty voxel, greedy-merged into
+ * rectangles per plane.
  */
 
 export interface Grid {
@@ -168,9 +152,7 @@ const CELL_EDGES: readonly (readonly [number, number])[] = [
   [0, 4], [1, 5], [2, 6], [3, 7], // along z
 ];
 
-/**
- * Mesh surface brick `(bi, bj, bk)` of `grid` with brick size `B`.
- */
+/** Mesh surface brick `(bi, bj, bk)` of `grid` with brick size `B`. */
 export function meshSurfaceBrick(
   grid: Grid,
   B: number,
@@ -211,8 +193,7 @@ export function meshSurfaceBrick(
       }
     }
   }
-  // Nothing filled near this brick: no surface. (Fully filled is also
-  // surface-free, but that case falls out of the cell test below.)
+  // Nothing filled near this brick: no surface.
   if (filled === 0) return EMPTY_MESH;
 
   const field = boxBlur3(occ, sx, sy, sz);

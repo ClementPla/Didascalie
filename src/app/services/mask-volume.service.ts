@@ -16,40 +16,28 @@ export interface SliceEdit {
   label: number;
 }
 
-/** Slices larger than this on either side use the tiled large-image path,
- *  which never holds a full-resolution frame in memory. */
+/** Slices larger than this on either side use the tiled large-image path. */
 const MAX_SLICE_SIDE = 4096;
 /** Upper bound on the resident volume: the label volumes, the image volume,
- *  and one more volume's worth for the 3D views (the projection's packed
- *  labels). */
+ *  and one more for the 3D views. */
 const MAX_VOLUME_BYTES = 1.5 * 1024 ** 3;
 
 /**
  * The open sequence as a `W×H×D` voxel volume, for the editor's 3D mode.
  *
- * # Storage
- *
  * One contiguous `Uint8Array` per segmentation label, Z (the frame index)
- * being the slowest axis, so slice `z` of a label is the byte range
- * `[z*W*H, (z+1)*W*H)`. The 2D editor does not copy slices in and out: while
- * the volume is ready, `IOService.load()` points the canvas manager's label
- * layers at `subarray` views of the current slice (`slicesFor`). Every tool,
- * the compositor and undo therefore write straight into the volume, and
- * changing frame costs no IPC.
+ * being the slowest axis: slice `z` is the byte range `[z*W*H, (z+1)*W*H)`.
+ * While the volume is ready, `IOService.load()` points the canvas manager's
+ * label layers at `subarray` views of the current slice (`slicesFor`), so
+ * tools, compositor and undo write straight into the volume. Saving is
+ * unchanged: the current frame's masks are the slice views.
  *
- * Persistence is unchanged: the editor still saves the current frame before it
- * navigates, and that frame's masks *are* the slice views.
+ * While `enabled`, the volume follows the open sequence: a new one releases
+ * the old volume (`released$`) and loads the new (`ready$`, then
+ * `imageReady`). Writes that bypass the editor must call `reload()`.
  *
- * # Lifecycle
- *
- * While `enabled`, the volume follows the open sequence: a new sequence
- * releases the old volume (`released$`, so the canvas manager can take owned
- * copies first) and loads the new one (`ready$` when the masks are resident;
- * the image volume follows and flips `imageReady`). Writes that bypass the
- * editor — propagation, clearing the sequence — must call `reload()`.
- *
- * This service deliberately imports neither `IOService` nor the canvas
- * manager; they react to its events, which keeps the dependency one-way.
+ * This service imports neither `IOService` nor the canvas manager: they
+ * react to its events.
  */
 @Injectable({ providedIn: 'root' })
 export class MaskVolumeService implements ProjectScoped {
@@ -96,17 +84,11 @@ export class MaskVolumeService implements ProjectScoped {
   private loadedKey: string | null = null;
   /** Invalidates in-flight loads when a newer one starts or the mode ends. */
   private loadToken = 0;
-  /**
-   * Saves that landed while the volume was loading, keyed `frameId:labelId`.
-   * The load may have read those rows before the save, so they are replayed
-   * over the loaded data.
-   */
+  /** Saves that landed while the volume was loading, keyed `frameId:labelId`,
+   *  replayed over the loaded data. */
   private readonly pendingSlices = new Map<string, Uint8Array>();
-  /**
-   * Slices changed in the volume directly (not through the open frame's
-   * layers), keyed `z:labelIndex`: they are persisted by `saveDirty()`, which
-   * `IOService.save()` calls.
-   */
+  /** Slices changed in the volume directly, keyed `z:labelIndex`. Persisted by
+   *  `saveDirty()`, which `IOService.save()` calls. */
   private readonly dirtySlices = new Set<string>();
 
   constructor() {
@@ -115,8 +97,7 @@ export class MaskVolumeService implements ProjectScoped {
       const frames = this.sequences.frames();
       untracked(() => {
         if (!on) return;
-        // `frames` is re-emitted for unrelated changes (e.g. the reviewed
-        // flag), so compare the frame list itself.
+        // `frames` is re-emitted for unrelated changes: compare the list itself.
         if (frameKey(frames) === this.loadedKey) return;
         void this.load(frames);
       });
@@ -146,10 +127,8 @@ export class MaskVolumeService implements ProjectScoped {
     void this.load(this.sequences.frames());
   }
 
-  /**
-   * Why `frames` cannot be opened as a volume with `labelCount` labels, or
-   * null when it can.
-   */
+  /** Why `frames` cannot be opened as a volume with `labelCount` labels, or
+   *  null. */
   ineligibility(frames: readonly Frame[], labelCount: number): string | null {
     if (frames.length < 2) return '3D mode needs a sequence of at least two frames.';
     if (labelCount === 0) return '3D mode needs at least one segmentation label.';
@@ -168,11 +147,8 @@ export class MaskVolumeService implements ProjectScoped {
     return null;
   }
 
-  /**
-   * The label layers of `frameId` as views into the volume, in the current
-   * label order — or null when the volume is not ready, does not hold that
-   * frame, or was built for a different label list.
-   */
+  /** The label layers of `frameId` as views into the volume, or null when the
+   *  volume is not ready, lacks that frame, or was built for other labels. */
   slicesFor(frameId: number): Uint8Array[] | null {
     if (this.status() !== 'ready' || !this.matchesLabels()) return null;
     const z = this.frameIds.indexOf(frameId);
@@ -186,11 +162,8 @@ export class MaskVolumeService implements ProjectScoped {
     return this.masks.some((m) => m.buffer === mask.buffer);
   }
 
-  /**
-   * A frame's mask was just persisted. Keeps the volume in step with saves it
-   * did not see: a frame saved while the volume was loading, or a mask that
-   * was not bound to the volume.
-   */
+  /** A frame's mask was just persisted: keep the volume in step with a save
+   *  it did not see. */
   syncSaved(frameId: number, labelId: number, mask: Uint8Array): void {
     if (this.status() === 'loading') {
       this.pendingSlices.set(`${frameId}:${labelId}`, mask.slice());
@@ -240,13 +213,12 @@ export class MaskVolumeService implements ProjectScoped {
     if (z >= 0) this.edited$.next({ z, label });
   }
 
-  /** @see ProjectScoped — the preference survives, the data does not. */
+  /** @see ProjectScoped */
   resetForProject(): void {
     this.loadToken++;
     this.loadedKey = null;
     this.pendingSlices.clear();
-    // The project was saved on close; by now the connection may point at the
-    // next project, where these frame ids mean other frames.
+    // These frame ids mean other frames in the next project.
     this.dirtySlices.clear();
     this.release();
     this.error.set(null);
@@ -306,7 +278,7 @@ export class MaskVolumeService implements ProjectScoped {
       return;
     }
 
-    // The 2D editor only needs the masks; the image volume backs the 3D views.
+    // The image volume is only for the 3D views.
     try {
       const image = await api.loadSequenceImageVolume(frameIds);
       if (token !== this.loadToken) return;
@@ -319,7 +291,7 @@ export class MaskVolumeService implements ProjectScoped {
   }
 
   private release(): void {
-    // Never drop edits: slices written directly are saved from copies.
+    // Slices written directly are saved from copies.
     if (this.dirtySlices.size > 0) {
       const jobs = this.takeDirty();
       void (async () => {

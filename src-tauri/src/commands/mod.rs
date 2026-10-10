@@ -22,8 +22,7 @@ pub mod registration;
 pub mod python;
 pub mod skeletonize;
 pub mod propagation;
-/// Scribble-conditioned segmentation head + learning-curve experiment.
-/// Shares the non-Android gate with `dl`: it depends on `ort` and `burn`.
+/// Scribble-conditioned segmentation head. Depends on `ort` and `burn`.
 #[cfg(not(target_os = "android"))]
 pub mod ml;
 #[cfg(target_os = "android")]

@@ -6,9 +6,7 @@
   min-height: 0;
 }
 
-/* ============================================================
-   DataView fills the available height; only the grid scrolls
-   ============================================================ */
+/* DataView fills the available height; only the grid scrolls. */
 ::ng-deep .gallery-dataview {
   display: flex;
   flex-direction: column;
@@ -35,9 +33,7 @@
   background: transparent;
 }
 
-/* ============================================================
-   Toolbar
-   ============================================================ */
+/* Toolbar */
 .gallery-toolbar {
   display: flex;
   flex-direction: column;
@@ -56,7 +52,6 @@
   flex: 1 1 auto;
 }
 
-/* Search field grows but stays bounded */
 .search-field {
   flex: 1 1 220px;
   max-width: 340px;
@@ -70,7 +65,6 @@
   min-width: 11rem;
 }
 
-/* Thumbnail-size slider cluster */
 .size-control {
   display: flex;
   align-items: center;
@@ -82,16 +76,13 @@
   width: 8rem;
 }
 
-/* Auto-refresh knob + refresh button kept together */
 .refresh-group {
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 
-/* ============================================================
-   Advanced filter row
-   ============================================================ */
+/* Advanced filter row */
 .advanced-row {
   padding: 0.55rem 0.75rem;
   border-radius: 8px;
@@ -113,9 +104,7 @@
   min-width: 5rem;
 }
 
-/* ============================================================
-   Selection bar
-   ============================================================ */
+/* Selection bar */
 .selection-bar {
   display: flex;
   align-items: center;
@@ -135,9 +124,7 @@
   opacity: 0.85;
 }
 
-/* ============================================================
-   Status dots (status filter)
-   ============================================================ */
+/* Status dots */
 .status-dot {
   width: 0.6rem;
   height: 0.6rem;
@@ -156,9 +143,7 @@
   background: var(--p-green-500, #22c55e);
 }
 
-/* ============================================================
-   Grid scroll area
-   ============================================================ */
+/* Grid scroll area */
 .gallery-scroll {
   gap: 0.25rem;
   scrollbar-gutter: stable;
@@ -174,9 +159,7 @@
   background: rgba(128, 128, 128, 0.6);
 }
 
-/* ============================================================
-   Empty state
-   ============================================================ */
+/* Empty state */
 .gallery-empty {
   display: flex;
   flex-direction: column;
@@ -195,9 +178,7 @@
   margin: 0;
 }
 
-/* ============================================================
-   Footer
-   ============================================================ */
+/* Footer */
 .gallery-footer {
   display: flex;
   justify-content: space-between;

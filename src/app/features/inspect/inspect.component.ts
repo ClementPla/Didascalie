@@ -58,13 +58,11 @@ interface LegendLabel {
 
 /**
  * The "Inspect sequence" panel: plays sequences back like videos, labels on
- * top, to review them without the editor's tools.
+ * top.
  *
- * One clock (`frame`) drives every pane, so sequences compared side by side
- * stay on the same frame index; a shorter one holds its last frame. The clock
- * only advances once every pane has the next frame decoded: when the disk or
- * the decoder cannot keep up, playback slows down rather than skipping frames
- * or letting the panes drift apart.
+ * One clock (`frame`) drives every pane; a shorter sequence holds its last
+ * frame. The clock advances only once every pane has the next frame decoded,
+ * so slow decoding slows playback instead of skipping frames.
  */
 @Component({
   selector: 'app-inspect',
@@ -114,10 +112,7 @@ export class InspectComponent implements OnInit, OnDestroy {
   readonly length = computed(() =>
     Math.max(1, ...this.panes().map((p) => p.frameCount())),
   );
-  /**
-   * The frames playback runs over, first and last included: the whole
-   * timeline, narrowed by the range the user set (see `InspectionService`).
-   */
+  /** The frames playback runs over, first and last included. */
   readonly range = computed<readonly [number, number]>(() => {
     const end = this.length() - 1;
     const first = Math.min(Math.max(this.inspection.rangeStart() ?? 0, 0), end);
@@ -129,11 +124,8 @@ export class InspectComponent implements OnInit, OnDestroy {
       this.inspection.rangeStart() !== null ||
       this.inspection.rangeEnd() !== null,
   );
-  /**
-   * What the panes buffer: the range as the user set it, not clamped to the
-   * timeline. Each pane clamps to its own sequence, and the timeline's length
-   * is not known while they load.
-   */
+  /** What the panes buffer: the range as the user set it. Each pane clamps it
+   *  to its own sequence. */
   readonly paneRange = computed<readonly [number, number] | null>(() =>
     this.hasRange()
       ? [
@@ -195,10 +187,8 @@ export class InspectComponent implements OnInit, OnDestroy {
   private rateWindowFrames = 0;
 
   constructor() {
-    // A sequence was swapped for a shorter one, or the range moved: stay on
-    // the frames being played. Waits for every pane to know its length, so a
-    // frame to open on is not clamped against sequences that have not loaded
-    // yet.
+    // A sequence was swapped for a shorter one, or the range moved: stay on the
+    // frames being played. Waits for every pane to know its length.
     effect(() => {
       const panes = this.panes();
       if (panes.length === 0) return;
@@ -212,8 +202,7 @@ export class InspectComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
-    // The inspector reads the project, not the editor's canvas: an edit still
-    // waiting for its autosave would otherwise be missing from playback.
+    // The inspector reads the project, not the editor's canvas.
     await this.io.saveIfDirty();
     if (this.sequences.sequences().length === 0) {
       await this.sequences.loadSequences();
@@ -261,12 +250,9 @@ export class InspectComponent implements OnInit, OnDestroy {
     this.pause();
   }
 
-  /**
-   * Decide what to show on arrival. Sequences sent through
-   * `InspectionService.open()` are shown as asked. Otherwise the panel comes
-   * back as it was left — except that its focused pane follows the app's
-   * current sequence, which may have moved in the editor meanwhile.
-   */
+  /** What to show on arrival: the sequences sent through
+   *  `InspectionService.open()`, or the panel as it was left, with its focused
+   *  pane on the app's current sequence. */
   private resolveSequences(): void {
     const known = new Set(this.sequences.sequences().map((s) => s.id));
     const requested = this.inspection.takeRequest();
@@ -309,8 +295,7 @@ export class InspectComponent implements OnInit, OnDestroy {
     this.lastAdvance = now;
     this.rateWindowStart = now;
     this.rateWindowFrames = 0;
-    // One callback per display refresh: keep it out of change detection.
-    // Advancing writes `frame`, and that alone repaints what depends on it.
+    // One callback per display refresh, outside change detection.
     this.zone.runOutsideAngular(() => {
       this.rafId = requestAnimationFrame(this.tick);
     });
@@ -341,8 +326,7 @@ export class InspectComponent implements OnInit, OnDestroy {
     }
     this.buffering.set(false);
 
-    // Keep the cadence when on time; after a stall, restart it from now
-    // instead of rushing through frames to catch up.
+    // After a stall, the cadence restarts from now.
     this.lastAdvance =
       now - this.lastAdvance > 2 * interval ? now : this.lastAdvance + interval;
     this.frame.set(next);
@@ -426,10 +410,8 @@ export class InspectComponent implements OnInit, OnDestroy {
     if (target !== null) this.showInFocused(target);
   }
 
-  /**
-   * Show a sequence picked in the list: in the focused pane — or, when another
-   * pane already shows it, by focusing that one.
-   */
+  /** Show a sequence picked in the list in the focused pane, or focus the pane
+   *  already showing it. */
   selectSequence(id: number): void {
     const at = this.sequenceIds().indexOf(id);
     if (at >= 0) this.focusPane(at);
@@ -442,16 +424,14 @@ export class InspectComponent implements OnInit, OnDestroy {
     this.sequenceIds.update((ids) =>
       ids.map((id, i) => (i === focused ? target : id)),
     );
-    // Alone, a new sequence is a new video: start it from the beginning. In a
-    // comparison the other panes define the position, so keep it.
+    // Alone, a new sequence starts from the beginning. In a comparison, the
+    // other panes define the position.
     if (!this.multiple()) this.frame.set(this.inspection.rangeStart() ?? 0);
     this.shareFocused();
   }
 
-  /**
-   * The sequence `delta` away from the focused pane's in project order,
-   * skipping those other panes already show; null at either end.
-   */
+  /** The sequence `delta` away from the focused pane's in project order,
+   *  skipping those other panes show; null at either end. */
   private sequenceAfterFocused(delta: number): number | null {
     const all = this.sequences.sequences();
     const ids = this.sequenceIds();
@@ -483,7 +463,6 @@ export class InspectComponent implements OnInit, OnDestroy {
   }
 
   addPane(sequenceId: number | null): void {
-    // Clear the picker whatever happens: it is a menu, not a value.
     this.sequenceToAdd.set(sequenceId);
     queueMicrotask(() => this.sequenceToAdd.set(null));
     if (sequenceId !== null) this.addSequences([sequenceId]);
@@ -513,8 +492,6 @@ export class InspectComponent implements OnInit, OnDestroy {
     void this.panes()[this.inspection.focused()]?.toggleReviewed();
   }
 
-  /** A pane marked its sequence reviewed, or unmarked it: tell who else
-   *  shows that. */
   onReviewedChanged(change: ReviewChange): void {
     this.sidebar()?.setReviewed(change.sequenceId, change.reviewed);
     this.sequences.noteFramesReviewed(change.frameIds, change.reviewed);
@@ -591,11 +568,8 @@ export class InspectComponent implements OnInit, OnDestroy {
 
   // ── Keyboard ─────────────────────────────────────────────────────────────
 
-  /**
-   * Same layout as the editor: ↑/↓ move between frames, ←/→ between
-   * sequences, Ctrl+E shows only the labels' edges. Space plays and pauses,
-   * R marks the focused sequence reviewed.
-   */
+  /** ↑/↓ move between frames, ←/→ between sequences, Ctrl+E shows only the
+   *  labels' edges, Space plays and pauses, R marks the sequence reviewed. */
   @HostListener('window:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
     if (!this.ready() || this.sequenceIds().length === 0) return;
@@ -611,9 +585,7 @@ export class InspectComponent implements OnInit, OnDestroy {
       }
       return;
     }
-    // Leave a key to the focused control when that control uses it: typing
-    // and pickers take everything, sliders the navigation keys, and Space on
-    // a button presses it.
+    // A key the focused control uses is left to it.
     const target = event.target instanceof Element ? event.target : null;
     const isSpace = event.key === ' ';
     if (

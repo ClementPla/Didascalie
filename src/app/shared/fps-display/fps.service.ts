@@ -87,7 +87,7 @@ export class FpsWorkerService {
   }
 
   private startFallback() {
-    // Simple fallback without worker
+    // Without a worker.
     let frameCount = 0;
     let lastTime = performance.now();
     let lastFrameTime = performance.now();

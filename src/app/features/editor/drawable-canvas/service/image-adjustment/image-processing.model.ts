@@ -1,22 +1,19 @@
-/** Channel selector for adjustments and curves. */
 export type Channel = 'r' | 'g' | 'b' | 'luma';
 export const CHANNELS: Channel[] = ['r', 'g', 'b', 'luma'];
 
-/** A single curve node: input intensity → output intensity, both in [0, 255]. */
+/** Input intensity → output intensity, both in [0, 255]. */
 export interface CurveNode {
   x: number;
   y: number;
 }
 
-/** Per-channel curve, 4 nodes by default (shadow, low-mid, high-mid, highlight). */
 export type CurvePoints = CurveNode[];
 
 /**
- * Adjustment state. All values are user-facing units:
  * - brightness: [-100, +100], 0 = identity
- * - contrast:   [-100, +100], 0 = identity (mapped to a multiplier in LUT build)
+ * - contrast:   [-100, +100], 0 = identity
  * - gamma:      [0.1, 3.0], 1.0 = identity
- * - curves:     monotone array of CurveNodes per channel
+ * - curve:      monotone array of CurveNodes
  */
 export interface ChannelAdjustments {
   brightness: number;
@@ -69,10 +66,7 @@ function isIdentityAdj(a: ChannelAdjustments): boolean {
 
 // ── LUT ────────────────────────────────────────────────────────────────────
 
-/**
- * Lookup table for one channel. Index 0..255 → output 0..255.
- * Stored as Uint8Array for compact GPU upload and cheap CPU indexing.
- */
+/** Index 0..255 → output 0..255. */
 export type ChannelLUT = Uint8Array;
 
 export interface RGBLUT {
@@ -90,18 +84,12 @@ export function identityLUT(): ChannelLUT {
 // ── LUT composition ────────────────────────────────────────────────────────
 
 /**
- * Build a single per-channel LUT that bakes brightness, contrast, gamma, and
- * curve for one channel. Returns a 256-entry Uint8Array.
- *
- * Order of operations (matches typical image-editor pipelines):
- *   1. brightness (additive)
- *   2. contrast   (multiplicative around 128)
- *   3. gamma      (power)
- *   4. curve      (final remap)
+ * One channel's LUT: brightness (additive), contrast (around 128), gamma,
+ * then curve.
  */
 export function buildChannelLUT(adj: ChannelAdjustments): ChannelLUT {
   const lut = new Uint8Array(256);
-  // contrast slider [-100,+100] → multiplier [~0, ~4] via the standard formula
+  // Slider [-100, +100] → multiplier, by the usual formula.
   const c = (259 * (adj.contrast + 255)) / (255 * (259 - adj.contrast));
   const b = adj.brightness * 2.55;   // [-100,+100] → [-255,+255]
   const invGamma = 1.0 / Math.max(0.01, adj.gamma);
@@ -120,15 +108,9 @@ export function buildChannelLUT(adj: ChannelAdjustments): ChannelLUT {
 }
 
 /**
- * Compose per-channel LUTs and the luma LUT into final R, G, B LUTs.
- * The luma LUT is applied *after* per-channel LUTs, using the standard
- * Rec. 709 luma weights. This is a simplification: applying a luma curve
- * to each channel independently preserves chroma reasonably well for
- * mild adjustments and avoids a full RGB→YCbCr→RGB roundtrip.
- *
- * For users who want true luma-only adjustment (no chroma shift), the curves
- * panel exposes the luma channel and the per-channel R/G/B remain identity;
- * we then apply the luma LUT identically to all three channels here.
+ * Compose the per-channel LUTs and the luma LUT into R, G, B LUTs. The luma
+ * LUT is applied after, identically to the three channels: a simplification
+ * that avoids an RGB→YCbCr→RGB round trip.
  */
 export function composeRGBLUT(state: AdjustmentState): RGBLUT {
   const r = buildChannelLUT(state.r);
@@ -136,7 +118,6 @@ export function composeRGBLUT(state: AdjustmentState): RGBLUT {
   const b = buildChannelLUT(state.b);
   const luma = buildChannelLUT(state.luma);
 
-  // Apply luma LUT on top of each per-channel LUT.
   const out: RGBLUT = {
     r: new Uint8Array(256),
     g: new Uint8Array(256),
@@ -150,11 +131,7 @@ export function composeRGBLUT(state: AdjustmentState): RGBLUT {
   return out;
 }
 
-/**
- * Pack RGB LUTs into a single Uint8Array of 256*4 bytes for GPU upload.
- * Layout: [r0,g0,b0,255, r1,g1,b1,255, ...]
- * Alpha is 255 (the shader passes through alpha unchanged).
- */
+/** Pack the LUTs into 256*4 bytes: `[r0,g0,b0,255, r1,g1,b1,255, ...]`. */
 export function packRGBLUT(lut: RGBLUT): Uint8Array {
   const packed = new Uint8Array(256 * 4);
   for (let i = 0; i < 256; i++) {
@@ -170,16 +147,12 @@ export function packRGBLUT(lut: RGBLUT): Uint8Array {
 // ── Curve sampling (monotone cubic) ────────────────────────────────────────
 
 /**
- * Sample a sorted, monotone-x curve at every integer x in [0, 255] using
- * monotone cubic interpolation (Fritsch–Carlson). Returns 256 output values.
- *
- * Monotone cubic avoids overshoot at sharp curve nodes, which matters for
- * 8-bit clamping — overshooting linear interpolation would produce visible
- * banding when the result is rounded.
+ * Sample a curve at every integer x in [0, 255] by monotone cubic
+ * interpolation (Fritsch–Carlson), which does not overshoot.
  */
 export function sampleCurve(nodes: CurvePoints): Uint8Array {
   const pts = [...nodes].sort((a, b) => a.x - b.x);
-  // Deduplicate adjacent identical x (would zero a divisor)
+  // Adjacent nodes with the same x would zero a divisor.
   for (let i = 1; i < pts.length; i++) {
     if (pts[i].x <= pts[i - 1].x) pts[i].x = pts[i - 1].x + 1;
   }
@@ -234,13 +207,11 @@ export function sampleCurve(nodes: CurvePoints): Uint8Array {
 // ── Histogram ──────────────────────────────────────────────────────────────
 
 export interface Histogram {
-  /** Per-channel counts of size 256. */
   r: Uint32Array;
   g: Uint32Array;
   b: Uint32Array;
-  /** Luma counts using Rec. 709 weights. */
+  /** Rec. 709 luma. */
   luma: Uint32Array;
-  /** Total pixel count. */
   total: number;
 }
 
@@ -255,17 +226,13 @@ export function computeHistogram(imageData: ImageData): Histogram {
   for (let i = 0; i < data.length; i += 4) {
     const R = data[i], G = data[i + 1], B = data[i + 2];
     r[R]++; g[G]++; b[B]++;
-    // Rec. 709 luma, integer math
     const Y = (R * 54 + G * 183 + B * 19) >> 8;
     luma[Y]++;
   }
   return { r, g, b, luma, total };
 }
 
-/**
- * Percentile lookup. Returns the smallest intensity v such that the CDF up
- * to v is >= p (p in [0, 1]).
- */
+/** The smallest intensity whose CDF reaches `p` (in [0, 1]). */
 export function percentile(hist: Uint32Array, total: number, p: number): number {
   const target = total * p;
   let cum = 0;
@@ -279,16 +246,8 @@ export function percentile(hist: Uint32Array, total: number, p: number): number 
 // ── Auto-stretch & equalize ────────────────────────────────────────────────
 
 /**
- * Compute brightness/contrast values that map the [lo, hi] percentile range
- * of the channel histogram to [0, 255]. Returns the user-facing slider values
- * (brightness ∈ [-100,+100], contrast ∈ [-100,+100]) that would achieve it.
- *
- * Derivation: we want output = (input - lo) * (255 / (hi - lo)).
- * Our LUT applies brightness as +b then contrast as c*(v - 128) + 128
- * with c = (259*(contrast+255))/(255*(259-contrast)).
- * Setting brightness = -lo, contrast such that c = 255/(hi-lo) and inverting:
- *   contrast = 255 * (259*c - 259) / (259*c + 255)
- * yields the slider value. We solve numerically below for clarity.
+ * Brightness and contrast slider values mapping the [lo, hi] percentile range
+ * of a channel to [0, 255].
  */
 export function autoStretchAdjustment(
   hist: Uint32Array,
@@ -300,15 +259,11 @@ export function autoStretchAdjustment(
   const hi = percentile(hist, total, hiPct);
   if (hi <= lo) return { brightness: 0, contrast: 0 };
 
-  // Desired multiplier c and offset such that v' = c * (v - lo)
-  // We approximate using our own brightness+contrast model:
-  //   step 1: shift center of [lo,hi] to 128 → brightness = 128 - (lo+hi)/2
-  //   step 2: stretch by 255/(hi-lo) → solve for contrast slider
+  // Shift the centre of [lo, hi] to 128, then stretch by 255 / (hi - lo).
   const center = (lo + hi) / 2;
   const brightnessRaw = 128 - center;                    // in 0..255 units
   const cTarget = 255 / (hi - lo);                       // desired multiplier
-  // Invert c = (259*(s+255))/(255*(259-s)):
-  //   s = 255*(259*c - 259) / (259*c + 255)
+  // Invert c = (259*(s+255)) / (255*(259-s)).
   const s = (255 * (259 * cTarget - 259)) / (259 * cTarget + 255);
 
   return {
@@ -317,18 +272,12 @@ export function autoStretchAdjustment(
   };
 }
 
-/**
- * Build a curve that equalizes the given histogram. Returns a 4-node
- * approximation (placed at evenly-spaced input percentiles) suitable for
- * loading into the curves UI. For exact equalization, the resulting LUT is
- * stored directly; the 4 nodes are just a visual representation.
- */
+/** A 4-node curve approximating the equalization of the histogram. */
 export function equalizeCurve(hist: Uint32Array, total: number): CurvePoints {
-  // Full CDF
   const cdf = new Uint32Array(256);
   let cum = 0;
   for (let i = 0; i < 256; i++) { cum += hist[i]; cdf[i] = cum; }
-  // First non-zero CDF (skips empty bins at the low end)
+  // First non-zero CDF value.
   let cdfMin = 0;
   for (let i = 0; i < 256; i++) if (cdf[i] !== 0) { cdfMin = cdf[i]; break; }
   const denom = Math.max(1, total - cdfMin);
@@ -336,7 +285,6 @@ export function equalizeCurve(hist: Uint32Array, total: number): CurvePoints {
   const remap = (i: number) =>
     clamp255i(Math.round(((cdf[i] - cdfMin) / denom) * 255));
 
-  // Sample 4 nodes at 0, 85, 170, 255
   return [
     { x: 0,   y: remap(0)   },
     { x: 85,  y: remap(85)  },

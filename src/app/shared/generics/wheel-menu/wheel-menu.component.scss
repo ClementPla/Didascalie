@@ -1,10 +1,6 @@
-// Colours come from PrimeNG's semantic tokens, which follow the dark-mode
-// selector and the preset. The surface.700–950 palette steps are fixed
-// values and would ignore the theme.
-//
-// Aiming is resolved from the pointer's angle and distance in the component,
-// so nothing in the SVG takes pointer events; the <svg> itself handles the
-// click. Per-path hit testing would cap targeting at the wheel's own bounds.
+// Colours are PrimeNG's semantic tokens, which follow the theme. Nothing in
+// the SVG takes pointer events: aiming is resolved in the component from the
+// pointer's angle and distance.
 .wheel {
   display: block;
   overflow: visible;
@@ -27,7 +23,6 @@
       stroke 90ms linear;
   }
 
-  // The tool already in effect, so the wheel opens showing where you are.
   &__wedge--current {
     stroke: var(--p-primary-color);
     stroke-width: 2.5;
@@ -66,10 +61,8 @@
     transition: fill 90ms linear;
   }
 
-  // A set toggle is outlined rather than filled. `--p-highlight-background`
-  // would be the natural token, but in the dark scheme it is a semi-transparent
-  // color-mix — as an SVG fill that lets the image under the wheel show
-  // through, so the state would read differently over every picture.
+  // A set toggle is outlined, not filled: `--p-highlight-background` is
+  // semi-transparent in the dark scheme and would let the image show through.
   &--on &__wedge {
     stroke: var(--p-primary-color);
     stroke-width: 2.5;

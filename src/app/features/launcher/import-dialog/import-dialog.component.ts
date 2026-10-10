@@ -26,11 +26,9 @@ import {
 import { api, DatasetFormat, ImportResult } from '../../../lib/api';
 
 /**
- * Import annotations into a project, launched from the opening page. Import
- * writes into an open project (frames matched by filename), so the dialog opens
- * the chosen target project first, runs the import, then lands in the gallery.
- * Format list and per-format options come from the backend registry, so new
- * formats appear here with no UI changes.
+ * Import annotations into a project. The target project is opened first,
+ * since import writes into the open project, matching frames by filename.
+ * The formats and their options come from the backend registry.
  */
 @Component({
   selector: 'app-import-dialog',
@@ -48,7 +46,6 @@ import { api, DatasetFormat, ImportResult } from '../../../lib/api';
   templateUrl: './import-dialog.component.html',
 })
 export class ImportDialogComponent implements OnInit {
-  /** Two-way visibility, driven by the launcher. */
   readonly visible = model(false);
 
   private readonly project = inject(ProjectService);
@@ -118,14 +115,13 @@ export class ImportDialogComponent implements OnInit {
     this.error = null;
     this.result = null;
     try {
-      // Import writes into the open project, so open the target first.
       await this.project.open(this.targetPath);
       this.result = await api.importDataset(
         format.id,
         this.sourcePath,
         this.importOptionValues,
       );
-      // Reload so labels created during import appear in the editor.
+      // Reopen, for the labels the import created.
       await this.project.open(this.targetPath);
       this.visible.set(false);
       this.router.navigate(['/gallery']);

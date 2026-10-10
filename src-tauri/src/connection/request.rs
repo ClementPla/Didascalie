@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-// The types below are the ZMQ wire format shared with `didascalie.com` on the
-// Python side. Field names have to match what that peer sends and expects.
+// The ZMQ wire format shared with `didascalie.com` on the Python side: field
+// names must match.
 
 #[derive(Serialize)]
 pub struct ImagePayload {
@@ -20,8 +20,7 @@ impl ImagePayload {
     }
 }
 
-/// Current masks by label name. Labels with nothing drawn are left out; the
-/// peer fills them with zeros.
+/// Current masks by label name. Labels with nothing drawn are left out.
 pub type MaskPayloads = BTreeMap<String, ImagePayload>;
 
 #[derive(Serialize)]
@@ -44,9 +43,8 @@ pub enum Request {
         #[serde(skip_serializing_if = "Option::is_none")]
         masks: Option<MaskPayloads>,
     },
-    // A sequence goes over as one message per frame, so a long video never has
-    // to fit in a single one: begin, a frame at a time, run, then one result
-    // per frame.
+    // A sequence goes over as one message per frame: begin, the frames, run,
+    // then one result per frame.
     SeqBegin {
         name: String,
         n_frames: usize,
@@ -67,8 +65,8 @@ pub enum Request {
     SeqEnd,
 }
 
-/// What every reply carries; decoded first so a failure never has to match
-/// the shape of the success reply.
+/// What every reply carries. Decoded first, so a failure need not match the
+/// shape of the success reply.
 #[derive(Debug, Deserialize)]
 pub struct Status {
     pub ok: bool,
@@ -76,7 +74,6 @@ pub struct Status {
     pub error: Option<String>,
 }
 
-/// A function registered on the Python side.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionInfo {
     pub name: String,
@@ -93,14 +90,13 @@ pub struct FunctionInfo {
 pub struct PingReply {
     pub ok: bool,
     pub protocol_version: u32,
-    /// Keypoint function names (all a protocol-1 peer reports).
+    /// Keypoint function names: all a protocol-1 peer reports.
     pub registered: Vec<String>,
     #[serde(default)]
     pub functions: Vec<FunctionInfo>,
 }
 
 impl PingReply {
-    /// A protocol-1 peer only knows keypoint functions and lists them by name.
     pub fn with_legacy_functions(mut self) -> Self {
         if self.functions.is_empty() {
             self.functions = self
@@ -123,7 +119,6 @@ pub struct FindKeypointsReply {
     pub pairs: Vec<[[f64; 2]; 2]>,
 }
 
-/// One returned layer for one frame.
 #[derive(Debug, Deserialize)]
 pub struct WireMask {
     /// `None` targets the label active in the editor.
@@ -131,8 +126,7 @@ pub struct WireMask {
     #[serde(with = "serde_bytes")]
     pub buf: Vec<u8>,
     pub shape: Vec<usize>,
-    /// The values only mean on/off (a bool or thresholded mask), as opposed
-    /// to instance ids.
+    /// The values only mean on/off, not instance ids.
     #[serde(default)]
     pub binary: bool,
 }

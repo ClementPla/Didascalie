@@ -63,11 +63,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
   title = 'Didascalie';
 
-  /** Published user documentation. Kept here rather than in a template literal
-   *  so the one place to change it is obvious. */
   private static readonly DOCS_URL = 'https://didascalie.readthedocs.io/';
 
-  /** Open the documentation in the user's browser, not in a webview. */
   async openDocumentation(): Promise<void> {
     try {
       await openUrl(AppComponent.DOCS_URL);
@@ -88,7 +85,6 @@ export class AppComponent implements OnInit, OnDestroy {
       document.addEventListener('visibilitychange', this.onVisibilityChange);
       void this.openIncomingProject();
     }
-    // Render app-wide notifications through a single global toast.
     this.notificationService.toast$
       .pipe(takeUntil(this.destroy$))
       .subscribe((n) =>
@@ -113,10 +109,7 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Persist unsaved annotations before the window actually closes, so quitting
-   * never silently discards work. No-op outside Tauri (e.g. browser dev).
-   */
+  /** Save unsaved annotations before the window closes. */
   private async setupCloseGuard(): Promise<void> {
     try {
       const appWindow = getCurrentWindow();
@@ -131,14 +124,13 @@ export class AppComponent implements OnInit, OnDestroy {
         await appWindow.destroy();
       });
     } catch {
-      // Not running under Tauri — nothing to guard.
+      // Not running under Tauri.
     }
   }
 
   /**
-   * Android has no "window is closing" moment: an app sent to the background
-   * can be killed without notice. So leaving the foreground saves, and coming
-   * back checks whether the app was reopened with a project file.
+   * Android has no "window is closing" moment: leaving the foreground saves,
+   * and coming back checks whether the app was reopened with a project file.
    */
   private readonly onVisibilityChange = (): void => {
     if (document.hidden) {
@@ -192,8 +184,7 @@ export class AppComponent implements OnInit, OnDestroy {
     return this.projectService.isOpen();
   }
 
-  /** A project is open and someone is logged in: the working pages have
-   *  annotations to show. Until then only the account picker is reachable. */
+  /** A project is open and someone is logged in. */
   public canWork(): boolean {
     return this.projectService.isOpen() && this.userService.current() !== null;
   }

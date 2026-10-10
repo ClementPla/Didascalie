@@ -29,12 +29,6 @@ export class SVGElementsComponent implements OnInit, OnDestroy {
   vectorEditor = inject(VectorEditorService);
 
   formattedPoints = '';
-  /**
-   * Stroke width for line/lasso previews, expressed in *image* px since
-   * the SVG viewBox is in image space. Computed from `editorService.lineWidth`
-   * and (for visual-only strokes) inverse view scale, but we just use raw
-   * image-px values here — viewBox scaling handles the rest.
-   */
   readonly svg = viewChild<ElementRef<SVGSVGElement>>('svg');
 
   private destroy$ = new Subject<void>();
@@ -52,11 +46,7 @@ export class SVGElementsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  /**
-   * Set the SVG viewBox in image-space coordinates. Called by the parent
-   * component on every redraw. The SVG element itself fills the viewport
-   * via CSS; the viewBox controls how image-space contents map to viewport px.
-   */
+  /** Set the SVG viewBox, in image coordinates. */
   setViewBox(viewbox: Rect) {
     const svg = this.svg();
     if (!svg) return;
@@ -122,9 +112,7 @@ export class SVGElementsComponent implements OnInit, OnDestroy {
     switch (this.editorService.selectedTool) {
       case Tools.LASSO_ERASER:
       case Tools.LASSO:
-        // Stroke widths are in image px because the SVG viewBox is image-space.
-        // A "2px-looking" outline at zoom 1 is 2 image px; it scales with zoom
-        // as the image does. Keep small for thin outlines.
+        // In image px: the viewBox is in image space.
         return { 'stroke-width': '2', 'stroke-dasharray': '10' };
       case Tools.LINE:
         return {

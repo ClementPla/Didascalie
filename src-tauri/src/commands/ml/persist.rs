@@ -1,22 +1,8 @@
 //! Save and restore a fitted head inside the project file.
 //!
-//! # Why the `.dida` and not app data
-//!
-//! A head's output channels mean nothing on their own — class `i + 1` is
-//! `label_order[i]`, a list of ids that only exist in one project. Storing the
-//! weights next to the labels that give them meaning keeps the two from drifting
-//! apart, and means a project that is copied or shared arrives with the model
-//! trained on it. The feature cache made the opposite call for the opposite
-//! reason: it is bulk derived image data, disposable, and carries information
-//! about images the project deliberately never embedded. A few hundred KB of
-//! weights fitted to the user's own annotations is a different thing.
-//!
-//! # Portability across backends
-//!
-//! Weights are recorded at full precision and reloaded onto whichever backend
-//! this machine selects *now*. A head fitted on CUDA therefore still opens on a
-//! machine with no GPU, which matters because the same project travels between
-//! them.
+//! In the `.dida`, not in app data: class `i + 1` is `label_order[i]`, ids
+//! that only exist in one project. Weights are recorded at full precision and
+//! reloaded onto whichever backend this machine selects.
 
 use burn::module::Module;
 use burn::record::{BinBytesRecorder, FullPrecisionSettings, Recorder};
@@ -27,16 +13,11 @@ use super::backend::{CpuInfer, Selection};
 use super::backend::GpuInfer;
 use super::train::{EvalMetrics, Head, SegHead};
 
-/// Everything needed to rebuild a head, minus the weights themselves.
+/// Everything needed to rebuild a head, minus the weights. Stored as JSON
+/// beside the weight blob.
 ///
-/// Stored as JSON beside the weight blob rather than as columns: it is read and
-/// written whole, and a shape that can grow without a migration is worth more
-/// here than queryability.
-///
-/// Deliberately **not** `rename_all = "camelCase"`, unlike the types that cross
-/// the Tauri boundary: these names are the keys in `ml_models.meta` inside every
-/// `.dida`, so renaming them orphans every model already trained. This type does
-/// not reach the frontend — `TrainSummary` does — so there is nothing to unify.
+/// Not `rename_all = "camelCase"`: these names are the keys in
+/// `ml_models.meta` of every existing `.dida`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelMeta {
     pub feature_dim: usize,
@@ -44,8 +25,7 @@ pub struct ModelMeta {
     pub label_order: Vec<i64>,
     pub encoder_id: Option<String>,
     pub working_size: u32,
-    /// Head geometry — needed to allocate the module before loading weights
-    /// into it, since the record carries tensors but not the architecture.
+    /// Head geometry: the record carries tensors, not the architecture.
     pub hidden: usize,
     pub depth: usize,
     pub accuracy: f32,
@@ -53,7 +33,7 @@ pub struct ModelMeta {
     #[serde(default)]
     pub per_class_dice: Vec<f32>,
     pub train_frames: usize,
-    /// Where it was fitted. Informational — it reloads wherever it lands.
+    /// Where it was fitted. Informational.
     #[serde(default)]
     pub trained_on: String,
 }
@@ -72,7 +52,6 @@ fn recorder() -> BinBytesRecorder<FullPrecisionSettings> {
     BinBytesRecorder::<FullPrecisionSettings>::default()
 }
 
-/// Serialise a head's weights.
 pub fn encode_head(head: &Head) -> Result<Vec<u8>, String> {
     let r = recorder();
     match head {
@@ -83,13 +62,9 @@ pub fn encode_head(head: &Head) -> Result<Vec<u8>, String> {
     .map_err(|e| format!("cannot serialise the head: {e}"))
 }
 
-/// Rebuild a head from weights, on whichever backend this machine selects now.
-///
-/// The recorder happily loads a record whose tensors are the wrong shape for the
-/// module it is loading into — the stored weights simply win. That would give a
-/// head whose real geometry disagrees with the `feature_dim` the predictor
-/// validates incoming features against, so the parameter count is compared
-/// before and after loading and a disagreement is refused.
+/// Rebuild a head from weights. The recorder loads a record whose tensors
+/// have the wrong shape without complaint, so the parameter count is compared
+/// before and after loading.
 pub fn decode_head(bytes: Vec<u8>, meta: &ModelMeta) -> Result<Head, String> {
     let r = recorder();
     match Selection::detect() {
@@ -162,8 +137,7 @@ mod tests {
         }
     }
 
-    /// The point of persistence: the reloaded head must predict what the saved
-    /// one predicted, not merely load without error.
+    /// The reloaded head must predict what the saved one predicted.
     #[test]
     fn a_saved_head_predicts_identically_after_reload() {
         let m = meta(6, 3);
@@ -208,8 +182,7 @@ mod tests {
         let head = Head::Cpu(SegHead::<CpuInfer>::with_depth(6, 8, 2, 3, &device));
         let bytes = encode_head(&head).unwrap();
 
-        // Same blob, metadata claiming a wider feature stack: loading must fail
-        // rather than produce a head that silently predicts nonsense.
+        // Same blob, metadata claiming a wider feature stack: loading must fail.
         let mut wrong = m.clone();
         wrong.feature_dim = 32;
         assert!(

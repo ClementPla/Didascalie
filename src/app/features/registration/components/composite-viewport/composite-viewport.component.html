@@ -8,10 +8,9 @@
   (pointerleave)="onMouseLeave()"
   (wheel)="onWheel($event)"
 >
-  <!-- Reference image: canvas (bottom layer) -->
   <canvas #canvas class="display-canvas"></canvas>
 
-  <!-- Warped moving image: one element, mode-styled via class -->
+  <!-- Warped moving image -->
  @if (showWarped()) {
   @switch (mode()) {
     @case ('overlay') {
@@ -27,7 +26,7 @@
       />
     }
     @case ('checkerboard') {
-      <!-- Wrapper is viewport-fixed and owns the checkerboard mask. -->
+      <!-- The wrapper is viewport-fixed and owns the checkerboard mask. -->
       <div
         class="warped-checker-window"
         [style.--checker-tile-px]="vis().checkerTileSize + 'px'"

@@ -5,7 +5,6 @@ export class PenTool extends BaseTool {
   
   start(event: MouseEvent, context: ToolContext) {
     const point = context.getCoords(event);
-    // Initialize the previous point for smooth line drawing
     context.stateService.updatePreviousPoint(point);
     context.stateService.updateCurrentPoint(point);
   }
@@ -15,8 +14,7 @@ export class PenTool extends BaseTool {
     const ctx = context.canvasManager.getBufferCtx();
     const prev = context.stateService.previousPoint;
 
-    // Drawing settings. Radius scales with pen/touch pressure (no-op on mouse
-    // or when pressure sensitivity is off).
+    // The radius scales with pen pressure.
     ctx.globalCompositeOperation = 'source-over';
     ctx.lineCap = 'round';
     ctx.lineWidth =
@@ -26,7 +24,7 @@ export class PenTool extends BaseTool {
 
     ctx.beginPath();
     
-    // Logic: If mouse hasn't moved much, draw a dot; otherwise draw a line
+    // A point that did not move is drawn as a dot.
     if (prev.x === point.x && prev.y === point.y) {
        ctx.moveTo(prev.x, prev.y);
        ctx.lineTo(point.x + 0.1, point.y + 0.1); 
@@ -40,7 +38,6 @@ export class PenTool extends BaseTool {
     context.stateService.updatePreviousPoint(point);
     context.stateService.updateCurrentPoint(point);
     
-    // Trigger a "single draw" update for performance (optional)
     context.singleDrawRequest(ctx);
   }
 

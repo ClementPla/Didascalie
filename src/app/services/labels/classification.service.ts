@@ -6,7 +6,6 @@ import { ProjectScoped } from '../../core/project-scoped';
   providedIn: 'root',
 })
 export class ClassificationService implements ProjectScoped {
-  // In-memory cache per frame
   private multiclassCache = new Map<number, (string | null)[]>();
   private multilabelCache = new Map<number, string[]>();
 
@@ -26,7 +25,6 @@ export class ClassificationService implements ProjectScoped {
     }
   }
 
-  // Getters
   getMulticlassChoices(frameId: number): (string | null)[] {
     return this.multiclassCache.get(frameId) ?? [];
   }
@@ -35,7 +33,7 @@ export class ClassificationService implements ProjectScoped {
     return this.multilabelCache.get(frameId) ?? [];
   }
 
-  // Setters (in-memory only)
+  // Setters (in memory only)
   setMulticlassChoice(frameId: number, taskIndex: number, value: string | null): void {
     const choices = this.multiclassCache.get(frameId);
     if (choices) {
@@ -51,7 +49,6 @@ export class ClassificationService implements ProjectScoped {
     this.multilabelCache.set(frameId, [...values]);
   }
 
-  // Persistence
   async saveMulticlass(frameId: number, taskName: string, value: string | null): Promise<void> {
     await api.saveClassification(frameId, taskName, value ? [value] : [], false);
   }

@@ -1,7 +1,5 @@
-// The shell puts route components into a row flex container that is
-// `overflow: hidden`, so the page must claim the row and own its own
-// scrolling — otherwise it occupies only its intrinsic width and taller
-// content is simply clipped with no scrollbar.
+// The shell's row is `overflow: hidden`: the page takes the row and scrolls
+// by itself.
 :host {
   display: block;
   flex: 1 1 auto;
@@ -13,8 +11,6 @@
 }
 
 .lab {
-  // Wide enough for the curve table and chart to breathe on a large monitor,
-  // still centred rather than stretched edge-to-edge on an ultrawide.
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
@@ -22,16 +18,10 @@
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
-  // Fill exactly one viewport so the page does not scroll at a normal window
-  // size; the host keeps overflow-y:auto, so a short window still scrolls
-  // rather than clipping.
   min-height: 100%;
 }
 
-// Two columns on wide screens so setup and results sit side by side instead of
-// stacking into a page-long scroll. Named `lab-grid`, not `grid`: the chart's
-// SVG gridlines already use `.grid`, and a bare `.grid` rule would style them
-// as a CSS grid container.
+// Named `lab-grid`: the chart's SVG gridlines already use `.grid`.
 .lab-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -47,7 +37,6 @@
   }
 }
 
-// Below this the two-column rows stack rather than overflow.
 @media (max-width: 720px) {
   .lab {
     padding: 1rem 0.85rem 3rem;
@@ -122,7 +111,6 @@
   }
 }
 
-// Encoder picker rows
 .enc {
   display: flex;
   flex-direction: column;
@@ -149,7 +137,7 @@
       transparent
     );
   }
-  // Not downloaded yet: dimmed, but the Download button stays usable.
+  // Not downloaded yet: dimmed, with the Download button still usable.
   &:disabled {
     opacity: 0.75;
     cursor: default;
@@ -231,10 +219,7 @@
   flex-wrap: wrap;
 }
 
-// Percentage and phase as plain text above the bar, so progress is legible
-// even if the bar itself fails to render or blends into the theme.
-// Pinned to the top of the scroll area: during a run this is what the user is
-// watching, and it must not slide away when results push the page down.
+// Pinned to the top of the scroll area during a run.
 .prog {
   position: sticky;
   top: 0;
@@ -243,7 +228,6 @@
   border-radius: 10px;
   border: 1px solid var(--p-content-border-color, #33333b);
   background: var(--p-content-background, #16161a);
-  // Opaque, or content scrolling underneath shows through.
   backdrop-filter: blur(6px);
 }
 
@@ -290,8 +274,7 @@
   }
 }
 
-// Loss trace for the current fit: a falling line is the signal that the run
-// is healthy, not merely still alive.
+// Loss trace of the current fit.
 .spark {
   width: 240px;
   height: 34px;
@@ -353,8 +336,7 @@
 }
 
 // ── Density pass ─────────────────────────────────────────────────────────────
-// The page is meant to fit one viewport. These override the roomier defaults
-// above rather than replacing them, so the intent of each block stays readable.
+// Overrides of the defaults above, for the page to fit one viewport.
 
 .lab-head h1 {
   font-size: 1.15rem;
@@ -368,9 +350,7 @@
   font-size: 1.25rem;
 }
 
-// The encoder list is the tallest element on the page and grows with the
-// catalog, so it scrolls within its card instead of pushing everything else
-// off-screen.
+// The encoder list scrolls within its card.
 .enc {
   padding: 0.5rem 0.65rem;
   margin-top: 0.4rem;
@@ -413,7 +393,6 @@
   height: 26px;
 }
 
-// Cards carry their own padding; trim it so four of them fit vertically.
 :host ::ng-deep .lab-card .p-card-body {
   padding: 0.75rem 0.9rem;
 }
@@ -423,8 +402,6 @@
 }
 
 // ── Layout ───────────────────────────────────────────────────────────────────
-// Each column stacks independently, so a tall card does not stretch the
-// matching row in the other column.
 .lab-grid > .col {
   display: flex;
   flex-direction: column;
@@ -433,8 +410,6 @@
 }
 
 // ── Label chips ──────────────────────────────────────────────────────────────
-// Chips rather than a checkbox column: labels are short, there can be many, and
-// they read as a set of toggles instead of a form.
 .chips {
   display: flex;
   flex-wrap: wrap;

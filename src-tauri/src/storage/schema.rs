@@ -205,9 +205,7 @@ CREATE TABLE IF NOT EXISTS ml_models (
 );
 "#;
 
-/// v1 -> v2: vector annotations (bezier paths / polygons / polylines).
-/// `CREATE ... IF NOT EXISTS`, so it's a no-op on fresh databases that already
-/// got the table from the baseline SCHEMA.
+/// v1 -> v2: vector annotations. A no-op on a fresh database.
 pub const MIGRATION_V2: &str = r#"
 CREATE TABLE IF NOT EXISTS vector_annotations (
     id INTEGER PRIMARY KEY,
@@ -221,31 +219,26 @@ CREATE INDEX IF NOT EXISTS idx_vector_annotations_frame
     ON vector_annotations(frame_id);
 "#;
 
-/// v4 -> v5: frames decoded from video files. The `videos` table comes from the
-/// baseline SCHEMA; these are the columns it could not add to an existing
-/// `frames` table. Not run on a database whose `frames` already has them.
+/// v4 -> v5: frames decoded from video files. The columns the baseline could
+/// not add to an existing `frames` table.
 pub const MIGRATION_V5_FRAME_COLUMNS: &str = r#"
 ALTER TABLE frames ADD COLUMN video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE;
 ALTER TABLE frames ADD COLUMN video_frame INTEGER;
 ALTER TABLE frames ADD COLUMN video_time REAL;
 "#;
 
-/// v5 -> v6: `videos.seek_preroll`. v5 was never released, but projects made
-/// while it was being developed exist; their videos get the default, which is
-/// longer than needed and so only slower. Not run when the column is there.
+/// v5 -> v6: `videos.seek_preroll`. Videos of projects made under v5 get the
+/// default, which is longer than needed.
 pub const MIGRATION_V6_SEEK_PREROLL: &str =
     "ALTER TABLE videos ADD COLUMN seek_preroll REAL NOT NULL DEFAULT 1.0;";
 
 /// The index finding a video's frames in order. Apart from the baseline
-/// indexes because those are created before the migrations run, when an older
-/// project's `frames` has no such columns yet.
+/// indexes, which are created before an older `frames` has these columns.
 pub const VIDEO_FRAMES_INDEX: &str =
     "CREATE INDEX IF NOT EXISTS idx_frames_video_frame ON frames(video_id, video_frame);";
 
-/// The per-user tables as they were up to v3, each paired with the columns it
-/// carried then. v4 rebuilds them: SQLite cannot widen a `UNIQUE` constraint in
-/// place, and `UNIQUE(frame_id, label_id)` is exactly what has to change for
-/// two users to annotate the same frame.
+/// The per-user tables as they were up to v3, with their columns. v4 rebuilds
+/// them: SQLite cannot widen a `UNIQUE` constraint in place.
 pub const V3_PER_USER_TABLES: &[(&str, &str)] = &[
     ("annotations", "id, frame_id, label_id, encoding, mask_data, modified_at"),
     ("vector_annotations", "id, frame_id, label_id, shapes, modified_at"),
@@ -254,7 +247,7 @@ pub const V3_PER_USER_TABLES: &[(&str, &str)] = &[
 ];
 
 /// The tables shadowed per user while a project is open, with the columns the
-/// shadowing view exposes. See `queries::install_user_scope`.
+/// view exposes. See `queries::install_user_scope`.
 pub const USER_SCOPED_TABLES: &[(&str, &str)] = &[
     ("annotations", "id, frame_id, label_id, user_id, encoding, mask_data, modified_at"),
     ("vector_annotations", "id, frame_id, label_id, user_id, shapes, modified_at"),

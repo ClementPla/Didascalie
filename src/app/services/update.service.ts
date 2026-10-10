@@ -3,21 +3,18 @@ import { getVersion } from '@tauri-apps/api/app';
 import { check, Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 
-/**
- * Desktop auto-update against the app's GitHub releases (via the Tauri updater
- * plugin). The launcher checks once on load and offers the update if one is
- * available. No-ops outside the Tauri runtime (e.g. `ng serve` in a browser).
- */
+/** Desktop auto-update from the app's GitHub releases (Tauri updater
+ *  plugin). Does nothing outside the Tauri runtime. */
 @Injectable({ providedIn: 'root' })
 export class UpdateService {
   private readonly _available = signal<Update | null>(null);
-  /** The pending update, or null when none / not yet checked. */
+  /** The pending update, or null. */
   readonly available = this._available.asReadonly();
   readonly checking = signal(false);
   readonly installing = signal(false);
   /** Download progress 0..100 while installing. */
   readonly progress = signal(0);
-  /** The running app version (e.g. "0.5.3"), or null in a plain browser. */
+  /** The running app version, or null in a plain browser. */
   readonly currentVersion = signal<string | null>(null);
 
   constructor() {
@@ -28,7 +25,6 @@ export class UpdateService {
     return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
   }
 
-  /** Read the installed app version from the Tauri runtime (once, on startup). */
   private async loadCurrentVersion(): Promise<void> {
     if (!this.inTauri) return;
     try {
@@ -42,8 +38,7 @@ export class UpdateService {
     return this._available()?.version ?? null;
   }
 
-  /** Query the release channel once. Safe to call anywhere — silent no-op in a
-   *  plain browser, and errors (offline, etc.) are swallowed. */
+  /** Query the release channel. Errors (offline…) are swallowed. */
   async checkForUpdates(): Promise<void> {
     if (!this.inTauri || this.checking()) return;
     this.checking.set(true);
@@ -57,7 +52,7 @@ export class UpdateService {
     }
   }
 
-  /** Download + install the pending update, then relaunch into the new version. */
+  /** Download and install the pending update, then relaunch. */
   async installAndRestart(): Promise<void> {
     const update = this._available();
     if (!update || this.installing()) return;
@@ -87,7 +82,6 @@ export class UpdateService {
     }
   }
 
-  /** Dismiss the offer for this session. */
   dismiss(): void {
     this._available.set(null);
   }

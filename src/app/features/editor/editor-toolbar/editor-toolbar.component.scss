@@ -1,10 +1,7 @@
 :host ::ng-deep .p-toolbar {
-  // No vertical padding (the row is already min-height'd), but the first and
-  // last groups must not sit flush against the window edges.
   padding: 0 0.75rem;
 }
 
-// `start` holds the whole row now, so it has to be allowed to take the width.
 :host ::ng-deep .p-toolbar-start {
   flex: 1 1 auto;
   min-width: 0;
@@ -20,8 +17,7 @@
   flex-wrap: nowrap;
   gap: 0.75rem;
   min-width: 0;
-  // Scroll rather than wrap: a second line changes the toolbar's height and
-  // pushes the canvas down, which is the jump this layout is avoiding.
+  // Scroll, not wrap: a second line would push the canvas down.
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -32,7 +28,6 @@
   gap: 0.4rem;
   flex: 0 0 auto;
 
-  // Divider before every group but the first (navigation).
   & + & {
     padding-left: 0.75rem;
     border-left: 1px solid
@@ -49,8 +44,7 @@
   }
 }
 
-// Material Symbols default to 24px, well above the PrimeIcons sitting beside
-// them in the same buttons.
+// Material Symbols default to 24px.
 .ms-icon {
   font-size: 1.15rem;
   line-height: 1;
@@ -65,8 +59,6 @@
     white-space: nowrap;
   }
 
-  // Tools that are a combination of two others (lasso eraser) badge the second
-  // icon over the bottom-right of the first.
   &__icon {
     position: relative;
     display: inline-flex;
@@ -88,8 +80,6 @@
   width: 8.5rem;
   flex: 0 0 auto;
 
-  // Reserved even when the current tool has no brush, so nothing to its right
-  // moves when the tool changes.
   &--idle {
     visibility: hidden;
     pointer-events: none;

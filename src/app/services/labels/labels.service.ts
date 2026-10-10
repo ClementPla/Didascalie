@@ -23,8 +23,7 @@ export class LabelsService implements ProjectScoped {
   private _treeNode: TreeNode[] | null = null;
 
   private _activeLabel: SegLabel | null = null;
-  /** Emits when the active segmentation label changes (by reference). Lets the
-   *  vector editor continue a path across a mid-trace label switch. */
+  /** The active segmentation label changed. */
   readonly activeLabelChanged$ = new Subject<SegLabel | null>();
 
   get activeLabel(): SegLabel | null {
@@ -117,7 +116,6 @@ export class LabelsService implements ProjectScoped {
     }
   }
   removeSegLabel(SegLabel: SegLabel) {
-    // Check if current active label is the one being removed
     if (this.activeLabel && this.activeLabel.label === SegLabel.label) {
       this.activeLabel = null;
     }
@@ -127,10 +125,8 @@ export class LabelsService implements ProjectScoped {
     this._treeNode = constructLabelTreeNode(this.listSegmentationLabels);
   }
 
-  /**
-   * Mask value a stroke writes on the active label: the selected instance id
-   * in an instance project, 1 otherwise.
-   */
+  /** Mask value a stroke writes on the active label: the selected instance id
+   *  in an instance project, 1 otherwise. */
   paintValue(instanceProject: boolean): number {
     if (!instanceProject) return 1;
     const instance = this.activeSegInstance?.instance ?? 1;
@@ -138,21 +134,14 @@ export class LabelsService implements ProjectScoped {
   }
 
   /**
-   * Make `label` the active one, together with its instance state.
-   *
-    * The single entry point for changing the active label: the label tree, the
-    * keyboard cycle, the instance picker and vector selection all route through
-    * here, so `activeLabel` and `activeSegInstance` cannot drift apart.
-   *
-   * `instance` defaults to -1, meaning the label as a whole rather than one of
-   * its instances.
+   * Make `label` the active one, with its instance state. Every change of
+   * active label goes through here. `instance` -1 is the label as a whole.
    */
   activate(label: SegLabel, instance = -1, shade = label.color): void {
     this.activeLabel = label;
     this.activeSegInstance = { label, instance, shade, id: label.id };
   }
 
-  /** Activate the label carrying `id`, if the project still has one. */
   activateById(id: number): void {
     const label = this.listSegmentationLabels.find((l) => l.id === id);
     if (label) this.activate(label);
@@ -165,7 +154,6 @@ export class LabelsService implements ProjectScoped {
     if (n === 0) return;
     const from = this.getActiveIndex();
     if (from < 0) {
-      // Nothing active yet — enter the list from whichever end `step` implies.
       this.activate(labels[step > 0 ? 0 : n - 1]);
       return;
     }
@@ -212,8 +200,7 @@ export class LabelsService implements ProjectScoped {
       );
     } else {
       let current_instance = this.activeSegInstance.instance;
-      // Instance ids are the pixel value, so they must stay >= 1 (0 = empty).
-      // Wrap back to 1, never 0, so ids never collide at paint time.
+      // Instance ids are pixel values: wrap back to 1, never 0.
       if (current_instance >= this.activeLabel.shades!.length - 1) {
         current_instance = 0;
       }
@@ -239,8 +226,7 @@ export class LabelsService implements ProjectScoped {
   }
 
   private generateShades(baseColor: string, count = 256): string[] {
-    // One deterministic shade per possible instance id (pixel value 1..255), so
-    // an instance always displays the same colour. Index 0 is unused (0 = bg).
+    // One shade per instance id (1..255). Index 0 is unused.
     return generate_shades(baseColor, count);
   }
   getDefinitions(): Pick<
@@ -276,9 +262,8 @@ export class LabelsService implements ProjectScoped {
     
     const dbLabels = await api.getLabels();
 
-    // The project flag is checked alongside the per-label one so the palette is
-    // right even against a database whose `is_instance` column was written by a
-    // build that derived it from the presence of `shades`.
+    // The project flag too: older builds derived `is_instance` from the presence
+    // of `shades`.
     const instanceProject = config.instance_segmentation_enabled === true;
 
     for (const label of dbLabels) {

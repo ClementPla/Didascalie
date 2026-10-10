@@ -188,10 +188,8 @@
   <router-outlet></router-outlet>
 </main>
 
-<!-- App-wide notifications -->
 <p-toast position="bottom-right"></p-toast>
 
-<!-- Blocking critical-error screen (non-recoverable failures) -->
 @if (notificationService.criticalError(); as message) {
   <div class="critical-error">
     <div class="critical-error__panel">

@@ -4,13 +4,9 @@ use ndarray::Array2;
 use std::collections::VecDeque;
 use tauri::ipc::Response;
 
-/// Flood fill from the last clicked pixel, bounded by the stroke's bounding box.
-///
-/// `inverse`, `opening`, `kernel_size` and `connectedness` mirror
-/// `otsu_segmentation`: both are stroke-bounded selection operators, so they
-/// share one set of refinement controls in the tool settings panel. `inverse`
-/// takes the complement of the fill within the region, which is how you click
-/// a uniform background to select the object sitting on it.
+/// Flood fill from the last clicked pixel, bounded by the stroke's bounding
+/// box. Shares its refinement options with `otsu_segmentation`; `inverse`
+/// takes the complement of the fill within the region.
 #[tauri::command]
 pub fn flood_fill_mask(
     image: Vec<u8>,
@@ -113,7 +109,6 @@ pub fn flood_fill_mask(
         elapsed.as_secs_f64() * 1000.0
     );
 
-    // Refine exactly as the Otsu mode does, so the two share their controls.
     let mut selection = Array2::from_shape_fn((height, width), |(y, x)| {
         let filled = output_mask[y * width + x];
         if inverse { !filled } else { filled }
@@ -122,8 +117,7 @@ pub fn flood_fill_mask(
         selection = morpho_mask(&selection, opening, connectedness, kernel_size);
     }
 
-    // Single-channel presence mask (255 = selected), row-major. The frontend
-    // writes the active label / instance value wherever this is nonzero.
+    // Single-channel presence mask (255 = selected), row-major.
     let output_data: Vec<u8> = selection
         .iter()
         .map(|&on| if on { 255u8 } else { 0 })

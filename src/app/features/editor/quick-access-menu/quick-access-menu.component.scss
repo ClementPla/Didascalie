@@ -1,9 +1,5 @@
-// Centred on the point the wheel was opened at, so the pointer starts in the
-// dead zone and every entry is the same flick away.
-//
-// `fixed`, not `absolute`: the position handed in is the pointer's clientX/Y,
-// which is viewport space. Anchored to the editor pane instead, the wheel
-// opened offset from the cursor by however far the pane sits from the top-left.
+// Centred on the point it was opened at. `fixed`: that point is the
+// pointer's clientX/Y, in viewport space.
 .quick-access {
   position: fixed;
   z-index: 50;

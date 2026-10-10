@@ -1,12 +1,8 @@
 import { RGBLUT, packRGBLUT } from './image-processing.model';
 
 /**
- * Applies an RGB LUT to a source canvas, producing an output canvas.
- * Prefers WebGPU; falls back to CPU.
- *
- * The renderer is stateless from the caller's perspective: pass a source
- * and a LUT, get a canvas. Internally it caches GPU resources keyed on
- * (width, height) to avoid per-frame allocation.
+ * Applies an RGB LUT to a source canvas. WebGPU when available, CPU
+ * otherwise. GPU resources are cached per image size.
  */
 export class ImageAdjustmentRenderer {
   private device: GPUDevice | null = null;
@@ -14,7 +10,6 @@ export class ImageAdjustmentRenderer {
   private initialized = false;
   private initFailed = false;
 
-  // Cached GPU resources, re-created when image size changes.
   private cachedWidth = 0;
   private cachedHeight = 0;
   private inputTexture: GPUTexture | null = null;
@@ -22,7 +17,6 @@ export class ImageAdjustmentRenderer {
   private lutTexture: GPUTexture | null = null;
   private uniformBuffer: GPUBuffer | null = null;
 
-  /** Output canvas (reused). */
   private outputCanvas: OffscreenCanvas | HTMLCanvasElement | null = null;
   private outputCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
@@ -60,11 +54,7 @@ export class ImageAdjustmentRenderer {
     this.cachedHeight = 0;
   }
 
-  /**
-   * Render `source` through `lut` into a canvas the caller can draw from.
-   * Same canvas instance is returned across calls; do not retain past the
-   * next call.
-   */
+  /** Render `source` through `lut`. The same canvas is returned by every call. */
   async render(source: HTMLCanvasElement, lut: RGBLUT): Promise<HTMLCanvasElement | OffscreenCanvas> {
     this.ensureOutputCanvas(source.width, source.height);
     if (this.initialized && this.device) {
@@ -145,7 +135,6 @@ export class ImageAdjustmentRenderer {
     const w = source.width, h = source.height;
     this.prepareGPUResources(w, h);
 
-    // Upload source and LUT
     this.device!.queue.copyExternalImageToTexture(
       { source }, { texture: this.inputTexture! }, { width: w, height: h }
     );
@@ -174,9 +163,8 @@ export class ImageAdjustmentRenderer {
     pass.dispatchWorkgroups(Math.ceil(w / 8), Math.ceil(h / 8));
     pass.end();
 
-    // Copy GPU result to a staging buffer, read back, paint to the output canvas.
-    // We could ImageBitmap-blit, but copyTextureToBuffer + ImageData is simpler
-    // and works uniformly on OffscreenCanvas and HTMLCanvasElement.
+    // Read the result back through a staging buffer and paint it to the output
+    // canvas.
     const bytesPerRow = Math.ceil((w * 4) / 256) * 256;
     const staging = this.device!.createBuffer({
       size: bytesPerRow * h,
@@ -217,7 +205,6 @@ export class ImageAdjustmentRenderer {
       d[i]     = lr[d[i]];
       d[i + 1] = lg[d[i + 1]];
       d[i + 2] = lb[d[i + 2]];
-      // alpha untouched
     }
     this.outputCtx!.putImageData(img, 0, 0);
     return this.outputCanvas!;
@@ -228,7 +215,6 @@ export class ImageAdjustmentRenderer {
   private ensureOutputCanvas(width: number, height: number): void {
     if (this.outputCanvas && this.outputCanvas.width === width && this.outputCanvas.height === height) return;
 
-    // OffscreenCanvas if available, HTMLCanvasElement otherwise.
     if (typeof OffscreenCanvas !== 'undefined') {
       this.outputCanvas = new OffscreenCanvas(width, height);
     } else {

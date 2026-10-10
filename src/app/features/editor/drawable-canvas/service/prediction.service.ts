@@ -11,23 +11,15 @@ import { UndoRedoService } from './undo-redo.service';
 
 import { api, ScribbleInput, VectorShape, VectorNode } from '../../../../lib/api';
 
-/** Upper bound on traced shapes. A fragmented prediction can otherwise drop
- *  hundreds of specks into the editor, each needing manual deletion. */
+/** Upper bound on traced shapes. */
 const MAX_TRACED_SHAPES = 64;
 import { VectorEditorService } from './vector-editor.service';
 import { OrchestratorService } from './orchestrator.service';
 import { base64ToUint8 } from '../../../../core/misc/base64';
 
 /**
- * Applies the trained segmentation head to the frame currently open in the
- * editor.
- *
- * # Why this is undoable rather than confirmed
- *
- * A prediction overwrites every label layer, which would otherwise discard work
- * silently. Rather than interrupt with a dialog on each run — the point is to
- * predict, correct, predict again — the whole replacement is pushed as one undo
- * group, so a single Ctrl+Z restores exactly what was there before.
+ * Applies the trained segmentation head to the frame open in the editor. A
+ * prediction overwrites every label layer, as one undo group.
  */
 @Injectable({ providedIn: 'root' })
 export class PredictionService {
@@ -48,9 +40,7 @@ export class PredictionService {
   readonly stage = signal<string | null>(null);
 
   constructor() {
-    // Prediction on a large frame takes seconds; a bare spinner leaves the user
-    // guessing. Tauri callbacks fire outside Angular's zone, so this must be
-    // wrapped or the signal updates without ever repainting.
+    // Tauri callbacks fire outside Angular's zone.
     void listen<{ stage: string }>('ml-progress', (e) =>
       this.zone.run(() => {
         if (this.running()) this.stage.set(e.payload.stage);
@@ -58,30 +48,21 @@ export class PredictionService {
     );
   }
 
-  /** Enter the running state. Paired with `endRun`: anything scoped to one
-   *  prediction is reset in these two places only. */
   private beginRun(): void {
     this.running.set(true);
     this.stage.set(null);
     this.lastError.set(null);
   }
 
-  /** Leave the running state, clearing anything scoped to one prediction. */
   private endRun(): void {
     this.running.set(false);
     this.stage.set(null);
   }
 
   /**
-   * Turn what the user has already drawn into scribble conditioning.
-   *
-   * The head's conditioning is binary, so the mapping is: pixels of the
-   * **active** label are positive, pixels of any **other** label are negative.
-   * That reads naturally in the editor — mark some of the thing you want, mark
-   * some of what you don't — and needs no separate scribble tool.
-   *
-   * Returns `undefined` when nothing is drawn, which the backend treats as an
-   * unconditioned prediction rather than as an error.
+   * What the user has drawn, as scribble conditioning: pixels of the active
+   * label are positive, pixels of any other label negative. `undefined` when
+   * nothing is drawn.
    */
   private deriveScribbles(): ScribbleInput | undefined {
     const labels = this.labelService.listSegmentationLabels;
@@ -104,20 +85,8 @@ export class PredictionService {
     return { positive, negative };
   }
 
-  /**
-   * Predict the open frame and load the result into the label layers.
-   *
-   * @param useScribbles condition on the current annotation. Turning this off
-   * shows what the model does unaided.
-   */
-  /**
-   * Turn a traced polygon into an editable path.
-   *
-   * Corner nodes (handles coincident with the anchor), not smoothed curves: the
-   * points come from a pixel contour, so inventing tangents would imply a
-   * precision the mask does not have and would pull the outline off the
-   * boundary the model actually predicted. The user can smooth what they want.
-   */
+  /** A traced polygon as an editable path, with corner nodes: the points come
+   *  from a pixel contour, and tangents would imply a precision it lacks. */
   private polygonToShape(
     poly: number[][],
     labelId: number,
@@ -136,34 +105,23 @@ export class PredictionService {
       id: crypto.randomUUID(),
       labelId,
       closed,
-      // An open centerline has no interior to fill; filling one would paint the
-      // chord between its endpoints.
+      // An open centreline is not filled.
       filled: closed,
       nodes,
     };
   }
 
   /**
-   * Apply a prediction as vector shapes rather than painted pixels.
-   *
-   * The model still predicts a raster mask — this vectorises its output. That
-   * keeps the dense training signal the head needs while giving back something
-   * the node editor can actually adjust.
-   *
-   * `regions` traces each blob's outline into a closed, filled shape.
-   * `centerlines` thins each blob to its 1px skeleton and returns open paths —
-   * the right output when the structure is a curve rather than an area (a
-   * vessel, a nerve, a fibre, a crack), where an outline says nothing useful and
-   * the thing you actually want to measure is the path down the middle.
+   * Apply a prediction as vector shapes: the predicted mask is vectorized.
+   * `regions` traces each blob's outline into a closed, filled shape;
+   * `centerlines` thins each blob to its skeleton and returns open paths.
    */
   private async predictAsShapes(
     useScribbles: boolean,
     mode: 'regions' | 'centerlines',
   ): Promise<void> {
     const frame = this.sequenceService.currentFrame();
-    // Re-entry guard: a prediction takes seconds, and a second click would run
-    // a concurrent one that overwrites the first's result and leaves `running`
-    // cleared while work is still in flight.
+    // A second click must not start a concurrent prediction.
     if (!frame || this.running()) return;
 
     this.beginRun();
@@ -207,13 +165,9 @@ export class PredictionService {
         return;
       }
 
-      // addShapes commits its own undo entry, so the whole set reverts at once.
       this.vectorEditor.addShapes(shapes);
-      // Say when the cap bit. Silently keeping the largest 64 of 300 blobs
-      // would look like the model missed things it actually found. Only
-      // meaningful for regions: skeletonizeMask caps *components*, and one
-      // branched structure yields several polylines, so the shape count here
-      // says nothing about whether the cap was reached.
+      // Say when the cap was reached. Regions only: `skeletonizeMask` caps
+      // components, and one of them can yield several polylines.
       const capped = mode === 'regions' && shapes.length >= MAX_TRACED_SHAPES;
       const noun = mode === 'regions' ? 'shape' : 'centerline';
       this.notifications.notify({
@@ -233,12 +187,10 @@ export class PredictionService {
     }
   }
 
-  /** Predict, then trace each region's outline into an editable closed path. */
   async predictCurrentFrameAsVectors(useScribbles = true): Promise<void> {
     return this.predictAsShapes(useScribbles, 'regions');
   }
 
-  /** Predict, then reduce each region to its centerline as an open path. */
   async predictCurrentFrameAsSkeletons(useScribbles = true): Promise<void> {
     return this.predictAsShapes(useScribbles, 'centerlines');
   }
@@ -270,7 +222,7 @@ export class PredictionService {
         return;
       }
 
-      // Snapshot before mutating so the whole replacement is one undo step.
+      // One undo step for the whole replacement.
       this.undoRedo.beginGroup();
       this.undoRedo.snapshotLayers(touched);
       for (const { index, mask } of applied) {
@@ -278,8 +230,6 @@ export class PredictionService {
         this.io.markLabelDirty(index);
       }
       this.undoRedo.endGroup();
-      // Marks the composite stale and schedules a frame; the flag alone would
-      // leave the prediction invisible until the next repaint.
       this.orchestrator.requestRedrawAllCanvas();
 
       const covered = result.masks

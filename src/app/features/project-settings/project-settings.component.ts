@@ -45,13 +45,9 @@ function plural(n: number, noun: string): string {
 
 /**
  * Edit the configuration of the open project: its name, images, labels and
- * tasks.
- *
- * Every control applies its change immediately — there is no draft and no Save
- * button. A change is one `ProjectEdit`, written to the project file in a
- * single transaction, so the page never holds a state the file does not. The
- * exception is a deletion that would erase annotations: that one stops at a
- * dialog spelling out what will be lost, and needs an explicit acknowledgment.
+ * tasks. Every control applies its change at once, as one `ProjectEdit`
+ * written in a single transaction. A deletion that would erase annotations
+ * first shows what will be lost and asks for an acknowledgment.
  */
 @Component({
   selector: 'app-project-settings',
@@ -86,23 +82,21 @@ export class ProjectSettingsComponent {
     () => this.project.imageFolder()?.folder ?? this.config().input_folder,
   );
 
-  /** True while an edit is being written. Only buttons react to it: disabling
-   *  a text field would throw the focus out of the one the user just tabbed
-   *  into, since leaving a field is what commits it. */
+  /** An edit is being written. Only buttons react to it: disabling a text
+   *  field would throw the focus out of it. */
   readonly busy = signal(false);
 
-  /** Edits run one after the other, in the order they were made. Tabbing out
-   *  of one field straight into a click must apply both, not drop the second. */
+  /** Edits run one after the other, in the order they were made. */
   private queue: Promise<unknown> = Promise.resolve();
 
   // ── Labels ────────────────────────────────────────────────────────────────
 
-  /** Snapshot of the label list. `LabelsService` keeps a plain array that it
-   *  replaces after every edit, so the page re-reads it rather than binding. */
+  /** Snapshot of the label list, which `LabelsService` replaces after every
+   *  edit. */
   readonly labels = signal<SegLabel[]>([...this.labelsService.listSegmentationLabels]);
 
-  /** Colours picked but not yet written, by label id (committed when the
-   *  picker closes, so dragging through the palette is one edit, not fifty). */
+  /** Colours picked but not yet written, by label id. Committed when the
+   *  picker closes. */
   private readonly draftColors = new Map<number, string>();
 
   // ── Tasks ─────────────────────────────────────────────────────────────────
@@ -145,12 +139,8 @@ export class ProjectSettingsComponent {
   readonly adding = signal(false);
   readonly lastImport = signal<AddImagesResult | null>(null);
 
-  /**
-   * Whether the chosen folder lies outside the project's image folder, in
-   * which case its images can only be embedded. A plain path comparison: the
-   * backend makes the real decision (it resolves symlinks), this only decides
-   * what the page says beforehand.
-   */
+  /** Whether the chosen folder lies outside the project's image folder, in
+   *  which case its images are embedded. Only for display: the backend decides. */
   readonly addFolderIsOutside = computed(() => {
     const folder = this.addFolder();
     if (!folder) return false;
@@ -188,8 +178,7 @@ export class ProjectSettingsComponent {
     if (name !== label.label) {
       await this.run({ type: 'renameLabel', id: label.id, name });
     }
-    // On a refused rename the list is unchanged, so the binding would not put
-    // the old name back by itself.
+    // A refused rename leaves the list unchanged: put the old name back.
     input.value = this.labels().find((l) => l.id === label.id)?.label ?? name;
   }
 
@@ -197,8 +186,7 @@ export class ProjectSettingsComponent {
     if (event.previousIndex === event.currentIndex) return;
     const labels = [...this.labels()];
     moveItemInArray(labels, event.previousIndex, event.currentIndex);
-    // Shown at once so the row stays where it was dropped; `run` re-reads the
-    // real list afterwards, which puts it back if the edit was refused.
+    // Shown at once; `run` re-reads the real list afterwards.
     this.labels.set(labels);
     await this.run({ type: 'reorderLabels', ids: labels.map((l) => l.id) });
   }
@@ -377,14 +365,14 @@ export class ProjectSettingsComponent {
 
   // ── Internals ────────────────────────────────────────────────────────────
 
-  /** Apply one edit. Returns whether it went through; a failure is reported. */
+  /** Apply one edit. Returns whether it went through. */
   private run(edit: ProjectEdit): Promise<boolean> {
     const result = this.queue.then(() => this.execute(edit));
     this.queue = result;
     return result;
   }
 
-  /** Never rejects, so one failed edit does not poison the queue. */
+  /** Never rejects: one failed edit must not break the queue. */
   private async execute(edit: ProjectEdit): Promise<boolean> {
     this.busy.set(true);
     try {
@@ -399,20 +387,13 @@ export class ProjectSettingsComponent {
     }
   }
 
-  /**
-   * Apply a deletion, asking first when it would erase annotations.
-   *
-   * Deleting something nothing was ever annotated with loses nothing and can
-   * be recreated in a click, so it goes straight through: a confirmation on
-   * every delete is how people learn to click through the one that matters.
-   */
+  /** Apply a deletion, asking first when it would erase annotations. */
   private async runDestructive(
     edit: ProjectEdit,
     title: string,
     describe: (impact: EditImpact) => (string | false)[],
   ): Promise<void> {
-    // Let edits already under way land first, so the count is of what is
-    // really there.
+    // Edits under way land first, so that the count is right.
     await this.queue;
     if (this.pending()) return;
 

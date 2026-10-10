@@ -15,7 +15,6 @@ export const EXPERIMENTAL_FEATURES: ExperimentalFeatureDescriptor[] = [
   VOLUME3D_FEATURE,
 ];
 
-/** Post-process options contributed by experimental features (registry order). */
 export function experimentalPostProcessOptions(): PostProcessOption[] {
   return EXPERIMENTAL_FEATURES.flatMap((f) => f.postProcess ?? []).map(
     (p) => p.option
@@ -36,25 +35,20 @@ export function findExperimentalPostProcess(
   return null;
 }
 
-/** Panes experimental features add beside the editor canvas (registry order). */
 export function experimentalEditorPanes(): Type<unknown>[] {
   return EXPERIMENTAL_FEATURES.flatMap((f) => f.editorPanes ?? []);
 }
 
-/** Overlays experimental features stack over the editor canvas. */
 export function experimentalCanvasOverlays(): Type<unknown>[] {
   return EXPERIMENTAL_FEATURES.flatMap((f) => f.canvasOverlays ?? []);
 }
 
-/** Notify features that a new image was loaded (invalidate cached maps, etc.). */
 export function notifyExperimentalImageLoaded(injector: Injector): void {
   for (const feature of EXPERIMENTAL_FEATURES) {
     feature.onImageLoaded?.(injector);
   }
 }
 
-/** Overlays experimental features currently want drawn on the canvas.
- *  Callers gate on the experimental flag before drawing. */
 export function collectExperimentalOverlays(
   injector: Injector
 ): CanvasImageSource[] {

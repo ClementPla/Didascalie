@@ -33,7 +33,6 @@ pub struct Frame {
 
 // ── Commands ───────────────────────────────────────────────────────────────
 
-/// List all sequences with frame counts
 #[tauri::command]
 pub fn list_sequences(db: State<DbState>) -> Result<Vec<Sequence>> {
     db.with_conn(|conn| {
@@ -74,12 +73,10 @@ pub struct GallerySequence {
     pub sort_order: i64,
     pub frame_count: i64,
     pub reviewed_count: i64,
-    /// Number of frames that have at least one annotation (raster mask or vector
-    /// shape). Drives the "in progress" status independent of review.
+    /// Frames with at least one annotation (raster mask or vector shape).
     pub annotated_count: i64,
     pub first_frame_id: Option<i64>,
-    /// True if any registration in this sequence has at least one keypoint pair,
-    /// regardless of which frame pair it belongs to.
+    /// Any registration of this sequence has at least one keypoint pair.
     pub has_keypoints: bool,
 }
 
@@ -154,7 +151,6 @@ pub fn get_all_frame_ids_by_sequence(db: State<DbState>) -> Result<HashMap<i64, 
     })
 }
 
-/// Get all frames for a sequence
 #[tauri::command]
 pub fn get_sequence_frames(db: State<DbState>, sequence_id: i64) -> Result<Vec<Frame>> {
     db.with_conn(|conn| {

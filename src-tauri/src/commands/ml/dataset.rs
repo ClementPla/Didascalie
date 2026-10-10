@@ -1,26 +1,10 @@
-//! Bridge from a `.dida` project to trainable sample tables.
+//! From a `.dida` project to trainable sample tables.
 //!
-//! Per annotated frame: decode the image, rasterise its labels into a dense
-//! class map, build the feature stack (local basis ⊕ optional encoder ⊕
-//! scribble distances), and sample pixels.
-//!
-//! # Augmentation
-//!
-//! No geometric augmentation yet. The convolutional head has spatial extent,
-//! so flips and rotations would add training signal; that is the next lever
-//! if accuracy plateaus.
-//!
-//! What augments today:
-//!
-//! * **Appearance jitter** (gamma / gain / bias) — genuinely moves feature
-//!   values, and is the realistic nuisance across scanners and acquisitions.
-//! * **Scribble resampling** — every repeat re-simulates strokes, so the head
-//!   sees many conditionings of the same anatomy instead of memorising one.
-//!
-//! Encoder features are computed once per frame and reused across repeats: the
-//! encoder forward pass dominates runtime, and modest photometric jitter
-//! perturbs ViT features far less than it perturbs the local basis. This is an
-//! approximation, and the one to revisit if augmentation looks ineffective.
+//! Per annotated frame: decode the image, rasterise its labels into a class
+//! map, build the feature stack (local basis ⊕ optional encoder ⊕ scribble
+//! distances), and sample patches. Augmentation is appearance jitter and
+//! scribble resampling; encoder features are computed once per frame and
+//! reused across repeats.
 
 use ndarray::{Array3, Axis};
 
@@ -36,46 +20,22 @@ use super::train::{Samples, PATCH};
 #[derive(Debug, Clone)]
 pub struct DatasetConfig {
     /// Longest side the frame is resampled to before feature extraction.
-    /// Bounds cost per frame independently of acquisition size.
     pub working_size: u32,
-    /// Patches sampled per frame per repeat.
-    ///
-    /// Counted in patches, not pixels: a pixel budget rounds down to one crop
-    /// per frame, which starves training of any small structure.
-    ///
-    /// Kept deliberately modest because this number is expensive twice over.
-    /// Every patch is materialised as dense `f32`, so the sample table costs
-    /// `patches * repeats * frames * d * 2304 * 4` bytes — with an encoder
-    /// attached `d` is ~410, and a value of 24 over 20 frames reaches 5 GB and
-    /// starts paging. It also sets the epoch length, so it multiplies training
-    /// time linearly. Raise it when a structure is genuinely hard; the local
-    /// basis alone (`d` ~26) affords far more of them than an encoder does.
+    /// Patches sampled per frame per repeat. Each is stored as dense `f32`, so
+    /// memory and epoch length grow linearly with it.
     pub patches_per_frame: usize,
-    /// Share of patches centred on an annotated pixel rather than placed at
-    /// random. Without this, minority classes never reach the loss.
+    /// Share of patches centred on an annotated pixel, so minority classes reach
+    /// the loss.
     pub foreground_fraction: f32,
-    /// Number of augmented passes over each frame (1 = no augmentation).
+    /// Augmented passes over each frame (1 = no augmentation).
     pub repeats: usize,
     pub scribble_strokes: usize,
     pub stroke_len: usize,
-    /// Probability that a repeat is built with *no* strokes at all.
-    ///
-    /// Training only ever with scribbles teaches the head to depend on them,
-    /// and then prediction without any produces a constant channel it has
-    /// never seen — a distribution shift that shows up as blank masks. Dropping
-    /// them for a share of repeats forces the head to work unaided and makes
-    /// scribbles a genuine refinement rather than a requirement.
+    /// Probability that a repeat is built with no strokes, so the head also
+    /// works without scribbles.
     pub scribble_dropout: f32,
     /// Whether newly computed encoder features may be written to the cache.
-    ///
-    /// Only *writing* is ever gated — that is the act that puts derived image
-    /// data on disk. Reading entries that already exist is always allowed: it
-    /// costs nothing and reveals nothing new, and gating both behind one flag
-    /// meant a fresh session recomputed features it had already paid for.
-    ///
-    /// The UI now defaults this on (users cannot tell an unticked box from a
-    /// broken cache), but it stays `false` here: a `DatasetConfig` built
-    /// directly, as tests do, should not write to the user's disk unasked.
+    /// Reading existing entries is always allowed.
     pub cache_writes: bool,
 }
 
@@ -94,23 +54,10 @@ impl Default for DatasetConfig {
     }
 }
 
-/// Frames that carry at least one annotation **and** have been reviewed.
-///
-/// Reviewed, not merely annotated: a frame in progress is a frame whose labels
-/// are wrong somewhere, and a small head fitted on a handful of images has no
-/// redundancy to average that away — one half-drawn structure teaches it that
-/// the structure ends there. Review is the point at which the annotator asserts
-/// the frame is correct, which is exactly the guarantee training needs. It also
-/// matches export, which has always defaulted to reviewed-only.
-///
-/// A review is per user (`frame_reviews`), as are the annotations: training
-/// uses what the logged-in user drew and signed off. Marking a sequence
-/// reviewed records it for every frame of that sequence, so filtering here is
-/// what "use reviewed sequences" means in practice.
+/// Frames with at least one annotation that the logged-in user has reviewed.
 pub fn annotated_frame_ids(db: &DbState) -> Result<Vec<i64>, String> {
     db.with_conn(|conn| {
-        // Both annotation tables: a frame drawn only with the path tool is
-        // annotated, and checking just `annotations` would exclude it entirely.
+        // Both annotation tables: a frame may hold vector paths only.
         let mut stmt = conn.prepare(
             "SELECT f.id FROM frames f \
              WHERE EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id) \
@@ -125,11 +72,7 @@ pub fn annotated_frame_ids(db: &DbState) -> Result<Vec<i64>, String> {
     .map_err(|e| format!("failed to list reviewed annotated frames: {e}"))
 }
 
-/// Frames that are annotated but not yet reviewed, so the UI can say what it is
-/// leaving out.
-///
-/// Without this the model page would report "2 annotated frames" on a project
-/// with forty, and the only way to discover why would be to read the source.
+/// Frames annotated but not yet reviewed, for the UI to report.
 pub fn annotated_unreviewed_count(db: &DbState) -> Result<usize, String> {
     db.with_conn(|conn| {
         let n: i64 = conn.query_row(
@@ -157,10 +100,8 @@ pub fn label_order(db: &DbState) -> Result<Vec<i64>, String> {
     .map_err(|e| format!("failed to list labels: {e}"))
 }
 
-/// Nearest-neighbour downscale of a label mask.
-///
-/// Nearest, not averaged: interpolating class ids would invent labels that
-/// never existed (the mean of class 1 and 3 is class 2).
+/// Nearest-neighbour downscale of a label mask: averaging class ids would
+/// invent labels.
 pub fn downscale_nearest(src: &[u8], sw: usize, sh: usize, dw: usize, dh: usize) -> Vec<u8> {
     let mut out = vec![0u8; dw * dh];
     if sw == 0 || sh == 0 || dw == 0 || dh == 0 {
@@ -178,11 +119,8 @@ pub fn downscale_nearest(src: &[u8], sw: usize, sh: usize, dw: usize, dh: usize)
     out
 }
 
-/// Rasterise a frame's vector shapes into per-label masks at working size.
-///
-/// Rasterised at native resolution and then downscaled, matching how painted
-/// annotations are handled, so the two representations land on exactly the same
-/// grid and a label drawn either way trains identically.
+/// Rasterise a frame's vector shapes into per-label masks: at native
+/// resolution, then downscaled, like painted annotations.
 fn vector_masks(
     db: &DbState,
     frame_id: i64,
@@ -202,8 +140,7 @@ fn vector_masks(
 
     let mut out = Vec::new();
     for (label_id, json) in rows {
-        // A frame whose shapes fail to parse should not sink a whole training
-        // run: skip it the way an unreadable mask would be skipped.
+        // Shapes that fail to parse are skipped, like an unreadable mask.
         let Ok(shapes) = serde_json::from_str::<Vec<crate::commands::vector::VectorShape>>(&json)
         else {
             log::warn!("[ml] frame {frame_id}: unreadable vector shapes for label {label_id}, skipped");
@@ -225,10 +162,6 @@ fn vector_masks(
 }
 
 /// Union vector coverage into the painted masks, per label.
-///
-/// Union rather than replace: a label can legitimately carry both a painted
-/// region and a drawn path, and dropping either would quietly discard work the
-/// annotator did.
 fn merge_masks(
     mut painted: Vec<(i64, Vec<u8>)>,
     vectors: Vec<(i64, Vec<u8>)>,
@@ -246,11 +179,8 @@ fn merge_masks(
     painted
 }
 
-/// Flatten per-label masks into one dense class map (0 = background).
-///
-/// Overlaps resolve to the earliest label in project order, matching the
-/// painter's order the editor shows, so the training target agrees with what
-/// the annotator sees.
+/// Flatten per-label masks into one class map (0 = background). Overlaps go
+/// to the earliest label in project order, as in the editor.
 pub fn combine_masks(masks: &[(i64, Vec<u8>)], order: &[i64], n_px: usize) -> Vec<i32> {
     let mut out = vec![0i32; n_px];
     for (pos, label_id) in order.iter().enumerate() {
@@ -275,22 +205,9 @@ pub fn jitter(image: &Array3<f32>, rng: &mut Rng) -> Array3<f32> {
     image.mapv(|v| (v.clamp(0.0, 1.0).powf(gamma) * gain + bias).clamp(0.0, 1.0))
 }
 
-/// Draw `n_patches` patches into a sample table. Patches rather than pixels,
-/// because the head is convolutional and needs neighbours.
-///
-/// # Class balance applies to sampling only
-///
-/// Crop origins are biased towards foreground. For a structure covering ~1% of
-/// a frame, uniform crops put a positive pixel in front of the loss so rarely
-/// that the head converges to all-background and stays there.
-///
-/// The bias is confined to *which crops are drawn*. Loss weighting and metrics
-/// are untouched, so held-out Dice is still measured on unbalanced frames and
-/// remains comparable to what the model will meet at inference. Do not extend
-/// the balancing into either of those.
-///
-/// A frame smaller than one patch is skipped rather than padded — padding would
-/// feed the head invented context it will never see at inference.
+/// Draw `n_patches` patches into a sample table. Crop origins are biased
+/// towards foreground; loss weighting and metrics are not. A frame smaller
+/// than one patch is skipped.
 pub fn sample_patches(
     features: &Array3<f32>,
     labels: &[i32],
@@ -305,12 +222,7 @@ pub fn sample_patches(
     }
     let n_patches = n_patches.max(1);
 
-    // Where the annotator actually drew. Uniform sampling alone is hopeless for
-    // small structures: a target covering ~1% of a frame means most
-    // random crops contain no positive pixel at all and the head converges to
-    // "always background" — a correct answer to that data, and a useless model.
-    // Biasing a share of crops to centre on a labelled pixel is what puts the
-    // minority class in front of the loss often enough to be learned.
+    // Labelled pixels, to centre a share of the crops on.
     let foreground: Vec<usize> = labels
         .iter()
         .enumerate()
@@ -326,9 +238,7 @@ pub fn sample_patches(
     let mut fbuf = vec![0.0f32; d * Samples::patch_pixels()];
     let mut lbuf = vec![0i32; Samples::patch_pixels()];
     for k in 0..n_patches {
-        // Centre on a labelled pixel, clamped so the patch stays inside the
-        // frame. Clamping biases towards edges for structures near a border,
-        // which is preferable to discarding those examples entirely.
+        // Centre on a labelled pixel, clamped so the patch stays inside the frame.
         let (oy, ox) = if k < want_fg {
             let p = foreground[rng.below(foreground.len())];
             let (py, px) = (p / w, p % w);
@@ -356,8 +266,8 @@ pub fn sample_patches(
     }
 }
 
-/// Decode raw frame bytes into `[C, H, W]` in `[0, 1]`, preserving whether the
-/// source was single-channel.
+/// Decode frame bytes into `[C, H, W]` in `[0, 1]`, keeping a single channel
+/// single.
 fn decode_image(bytes: &[u8]) -> Result<Array3<f32>, String> {
     let img = image::load_from_memory(bytes).map_err(|e| format!("decode failed: {e}"))?;
     let is_gray = matches!(
@@ -389,7 +299,6 @@ fn decode_image(bytes: &[u8]) -> Result<Array3<f32>, String> {
     }
 }
 
-/// Working-resolution size preserving aspect ratio.
 fn working_dims(w: usize, h: usize, longest: u32) -> (usize, usize) {
     let longest = longest.max(16) as usize;
     if w >= h {
@@ -403,7 +312,6 @@ fn working_dims(w: usize, h: usize, longest: u32) -> (usize, usize) {
     }
 }
 
-/// Stack feature sources into one `[D, H, W]` volume.
 fn stack(parts: Vec<Array3<f32>>, h: usize, w: usize) -> Array3<f32> {
     let d: usize = parts.iter().map(|p| p.shape()[0]).sum();
     let mut out = Array3::<f32>::zeros((d, h, w));
@@ -418,12 +326,9 @@ fn stack(parts: Vec<Array3<f32>>, h: usize, w: usize) -> Array3<f32> {
     out
 }
 
-/// Assemble the feature volume for one frame: local basis, then optional
-/// encoder channels, then the scribble distances.
-///
-/// **This is the single definition of channel order.** Training and inference
-/// both go through it, because a head trained on one ordering and applied to
-/// another fails silently — the numbers stay plausible while meaning nothing.
+/// Assemble the feature volume for one frame: local basis, optional encoder
+/// channels, scribble distances. The single definition of channel order, for
+/// training and inference.
 pub fn assemble_stack(
     image: &Array3<f32>,
     encoder_part: Option<&Array3<f32>>,
@@ -452,7 +357,6 @@ pub fn assemble_stack(
 }
 
 /// Decode a frame and resample it to working resolution.
-/// Shared by training and inference so both see the same pixels.
 pub fn load_working_image(
     db: &DbState,
     frame_id: i64,
@@ -466,18 +370,9 @@ pub fn load_working_image(
     Ok((resize_bilinear(&image, h, w), w, h))
 }
 
-/// The working image, from cache when possible.
-///
-/// Decoding a full-resolution acquisition and resampling it is pure overhead on
-/// every run after the first — the result is a deterministic function of the
-/// stored bytes and the working size. Keying on a hash of those *bytes* is what
-/// makes the lookup possible without decoding first; the token cache keys on the
-/// decoded pixels and so could never skip this step, which is why a cache
-/// reporting 100% hits still spent ~15 s a frame.
-///
-/// Stored at full `f32` precision rather than quantised back to `u8`. Requantising
-/// would make a cached run disagree with an uncached one in the low bits of every
-/// filter response, and a cache that changes results is worse than a slow one.
+/// The working image, from cache when possible. Keyed on a hash of the stored
+/// bytes, so a hit skips the decode; stored as `f32`, so a cached run gives the
+/// same numbers as an uncached one.
 fn working_image(
     db: &DbState,
     frame_id: i64,
@@ -506,20 +401,16 @@ fn working_image(
     Ok((resized, w, h))
 }
 
-/// Build the sample table for one annotated frame.
 pub fn build_frame_samples(
     db: &DbState,
     frame_id: i64,
     order: &[i64],
     cfg: &DatasetConfig,
     encoder: Option<&mut EncoderSession>,
-    // Directory for the persistent encoder-feature cache; None skips it.
+    // Directory of the encoder-feature cache; None skips it.
     feature_cache: Option<&std::path::Path>,
     rng: &mut Rng,
 ) -> Result<Samples, String> {
-    // Phase timings. A single per-frame total cannot distinguish "the decode is
-    // slow" from "the filter bank is slow", and guessing between them has
-    // already cost more than measuring would have.
     let t_image = std::time::Instant::now();
     let (image, w, h) = working_image(db, frame_id, cfg, feature_cache)?;
     let ms_image = t_image.elapsed().as_secs_f32() * 1000.0;
@@ -546,20 +437,14 @@ pub fn build_frame_samples(
             (a.label_id, small)
         })
         .collect();
-    // Vector shapes are annotations too. Without this a frame labelled with the
-    // path tool trains nothing at all — silently, since it still looks
-    // annotated everywhere else in the app.
     let masks = merge_masks(masks, vector_masks(db, frame_id, native_w, native_h, w, h)?);
     let labels = combine_masks(&masks, order, w * h);
     let ms_labels = t_labels.elapsed().as_secs_f32() * 1000.0;
 
     let t_encoder = std::time::Instant::now();
-    // Encoder features once per frame (see module note on reuse).
     let encoder_part = match encoder {
         Some(enc) => {
-            // Cache the token grid, not the upsampled volume: tokens are about
-            // a megabyte where the volume is hundreds, and re-upsampling costs
-            // nothing beside a ViT forward.
+            // Cache the token grid, not the upsampled volume, which is far larger.
             let key = feature_cache
                 .map(|_| cache::Key::new(enc.encoder_id(), cfg.working_size, &image));
             let cached = match (feature_cache, &key) {
@@ -587,8 +472,7 @@ pub fn build_frame_samples(
 
     let n_classes_present = labels.iter().filter(|&&c| c > 0).count();
     if n_classes_present == 0 {
-        // Nothing annotated at working resolution — a tiny structure can vanish
-        // under downscaling. Skip rather than train on an all-background frame.
+        // A tiny structure can vanish under downscaling: skip the frame.
         return Ok(Samples::new(0));
     }
 
@@ -603,8 +487,6 @@ pub fn build_frame_samples(
         } else {
             jitter(&image, rng)
         };
-        // Drop the strokes entirely for a share of repeats so the head is
-        // trained to stand on its own — see `scribble_dropout`.
         let unaided = cfg.scribble_dropout > 0.0 && rng.unit() < cfg.scribble_dropout;
         let s = if unaided || cfg.scribble_strokes == 0 {
             Scribbles::empty(w, h)
@@ -628,8 +510,7 @@ pub fn build_frame_samples(
         ms_sample += t_sample.elapsed().as_secs_f32() * 1000.0;
     }
 
-    // `stack` and `sample` are summed over repeats, so they carry the x3 that a
-    // default run pays; the others happen once per frame.
+    // `stack` and `sample` are summed over repeats; the others are per frame.
     log::info!(
         "[ml] frame {frame_id} phases — image {ms_image:.0} ms, labels {ms_labels:.0} ms, \
          encoder {ms_encoder:.0} ms, stack {ms_stack:.0} ms, sample {ms_sample:.0} ms \
@@ -661,8 +542,6 @@ mod tests {
             if reviewed {
                 conn.execute("INSERT INTO frame_reviews (frame_id) VALUES (?1)", [id]).unwrap();
             }
-            // `color` is NOT NULL, and `annotations.label_id` is a foreign key —
-            // a silently skipped label here fails the annotation insert instead.
             conn.execute(
                 "INSERT OR IGNORE INTO labels (id, name, color) VALUES (?1, ?1, '#ffffff')",
                 [id],
@@ -699,16 +578,13 @@ mod tests {
 
     #[test]
     fn a_reviewed_frame_drawn_only_with_paths_still_counts() {
-        // Vector-only annotation was invisible to training once before; the
-        // reviewed filter must not quietly reintroduce that.
         let db = project_with(&[(1, true), (2, true)], &[2]);
         assert_eq!(annotated_frame_ids(&db).unwrap(), vec![1, 2]);
     }
 
     #[test]
     fn a_reviewed_but_unannotated_frame_is_not_training_data() {
-        // Reviewing an empty frame asserts "nothing here", which is not the
-        // same as supervision — including it would train on a blank mask.
+        // A reviewed frame with no annotation is not supervision.
         let db = project_with(&[(1, true)], &[]);
         db.with_conn(|c| {
             c.execute("DELETE FROM annotations", []).unwrap();
@@ -728,14 +604,12 @@ mod tests {
 
     #[test]
     fn combine_respects_label_order_on_overlap() {
-        // Two labels overlapping on pixel 0; the earlier one in project order
-        // must win, matching what the editor renders.
+        // Two labels overlap on pixel 0: the earlier in project order wins.
         let masks = vec![(7i64, vec![1u8, 0, 1]), (9i64, vec![1u8, 1, 0])];
         let order = vec![7i64, 9];
         let out = combine_masks(&masks, &order, 3);
         assert_eq!(out, vec![1, 2, 1]);
 
-        // Reversing project order flips the winner.
         let out = combine_masks(&masks, &vec![9i64, 7], 3);
         assert_eq!(out, vec![1, 1, 2]);
     }
@@ -780,8 +654,7 @@ mod tests {
 
     #[test]
     fn sampled_patches_keep_features_and_labels_aligned() {
-        // Channel 0 encodes the flat pixel index, so a patch can be checked
-        // against the labels it should have been cut from.
+        // Channel 0 holds the flat pixel index, to check a patch against its labels.
         let (d, h, w) = (2usize, PATCH + 6, PATCH + 9);
         let feats = Array3::from_shape_fn((d, h, w), |(c, y, x)| {
             if c == 0 { (y * w + x) as f32 } else { 0.0 }
@@ -808,16 +681,11 @@ mod tests {
         }
     }
 
-    /// The regression behind "every prediction is background".
-    ///
-    /// A tiny structure in a large frame is almost never hit by a uniform crop,
-    /// so without foreground bias the sampler returns patches whose labels are
-    /// entirely zero and the head has nothing to learn from.
+    /// A tiny structure in a large frame must still be sampled.
     #[test]
     fn foreground_bias_finds_a_small_structure_that_uniform_sampling_misses() {
         let (w, h) = (200usize, 200usize);
         let feats = Array3::<f32>::zeros((2, h, w));
-        // A 6x6 blob — 0.09% of the frame, the small-structure regime.
         let mut labels = vec![0i32; w * h];
         for y in 100..106 {
             for x in 100..106 {
@@ -851,14 +719,13 @@ mod tests {
         let feats = Array3::<f32>::zeros((2, 60, 60));
         let labels = vec![0i32; 60 * 60];
         let mut out = Samples::new(2);
-        // Must not divide by zero or loop forever on an empty foreground set.
+        // Empty foreground set.
         sample_patches(&feats, &labels, 4, 1.0, &mut Rng::new(9), &mut out);
         assert_eq!(out.n, 4);
     }
 
     #[test]
     fn vector_coverage_unions_into_painted_masks() {
-        // Same label drawn both ways: neither contribution may be lost.
         let painted = vec![(7i64, vec![1u8, 0, 0, 0])];
         let vectors = vec![(7i64, vec![0u8, 1, 0, 0])];
         let merged = merge_masks(painted, vectors);
@@ -875,8 +742,6 @@ mod tests {
 
     #[test]
     fn merging_a_vector_only_label_reaches_the_class_map() {
-        // The end-to-end point of the fix: a label with no painted mask at all
-        // must still produce a non-background class.
         let merged = merge_masks(Vec::new(), vec![(5i64, vec![0u8, 1, 1, 0])]);
         let classes = combine_masks(&merged, &[5], 4);
         assert_eq!(classes, vec![0, 1, 1, 0], "vector-only label must train");
@@ -884,15 +749,12 @@ mod tests {
 
     #[test]
     fn sampling_skips_frames_smaller_than_a_patch() {
-        // Padding would feed the head context that cannot occur at inference,
-        // so an undersized frame yields nothing rather than a padded patch.
         let feats = Array3::<f32>::zeros((2, PATCH - 1, PATCH - 1));
         let labels = vec![0i32; (PATCH - 1) * (PATCH - 1)];
         let mut out = Samples::new(2);
         sample_patches(&feats, &labels, 4, 0.0, &mut Rng::new(1), &mut out);
         assert_eq!(out.n, 0);
 
-        // A truncated label buffer is also refused.
         let big = Array3::<f32>::zeros((2, PATCH, PATCH));
         let mut out = Samples::new(2);
         sample_patches(&big, &[0, 1], 4, 0.0, &mut Rng::new(1), &mut out);

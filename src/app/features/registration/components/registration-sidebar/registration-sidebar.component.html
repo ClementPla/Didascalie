@@ -15,8 +15,7 @@
   </div>
 
   @if (!collapsed()) {
-    <!-- Registration cases: a sequence can hold many (reference, moving) pairs,
-         and a frame may appear in several of them. -->
+    <!-- Registration cases -->
     <div class="cases-section sidebar-section">
       <div class="pairs-header">
         <h3>
@@ -74,7 +73,6 @@
 
     <p-divider></p-divider>
 
-    <!-- Frame pickers -->
     <div class="sidebar-section">
       <h3>Frames</h3>
 
@@ -123,7 +121,6 @@
           styleClass="w-full"
         ></p-button>
 
-        <!-- Connection status chip -->
         <small
           class="status-line"
           [ngClass]="'status-' + inferenceStatus().kind"
@@ -136,7 +133,6 @@
               Connecting...
             }
             @case ("connected") {
-              <!-- Include a dropdown for selecting the function using p-listbox -->
               <p-listbox
                 [(ngModel)]="selectedFunctionName"
                 [options]="existingFunctions()"
@@ -159,7 +155,6 @@
       </div>
     }
 
-    <!-- Port config dialog (only rendered when open) -->
     @if (portDialogOpen()) {
       <app-inference-port-dialog
         (configured)="onConfigureConnection($event.host, $event.port)"
@@ -168,7 +163,6 @@
     }
     <p-divider></p-divider>
 
-    <!-- Pairs -->
     <div class="pairs-section sidebar-section">
       <div class="pairs-header">
         <h3>
@@ -252,7 +246,6 @@
 
     <p-divider></p-divider>
 
-    <!-- Fit summary -->
     @if (fitSummary(); as s) {
       <div class="sidebar-section">
         <h3>Fit</h3>

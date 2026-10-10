@@ -24,15 +24,13 @@ import {
 } from '../vector/vector.model';
 
 /**
- * Bridges the raster (uint8 masks) and vector (SVG shapes) subsystems:
+ * Between raster masks and vector shapes:
  *
- * - **rasterize**: burn vector shapes into their label's mask, then remove the
- *   shapes (a true convert).
- * - **vectorize**: trace one connected component of a label mask into a closed
- *   filled shape, then clear those pixels.
+ * - rasterize: burn shapes into their label's mask, then remove them;
+ * - vectorize: trace a connected component of a mask into a shape, then clear
+ *   its pixels.
  *
- * Both are single undoable actions: the raster snapshot and the vector commit
- * are wrapped in one compound entry via UndoRedoService.beginGroup/endGroup.
+ * Each is one undo step (`UndoRedoService.beginGroup` / `endGroup`).
  */
 @Injectable({ providedIn: 'root' })
 export class ConvertService {
@@ -48,10 +46,9 @@ export class ConvertService {
   // ── Rasterize (vector → raster) ─────────────────────────────────────────────
 
   /**
-   * Burn shapes into the label masks and delete them. Rasterizes the selected
-   * shape if one is selected, otherwise every shape of the active label.
-   * Closed+filled shapes fill their interior; others are stroked at the current
-   * brush width.
+   * Burn shapes into the label masks and delete them: the selected ones, or
+   * every shape of the active label. Closed and filled shapes are filled;
+   * others are stroked at the brush width.
    */
   rasterize(): void {
     const shapes = this.shapesToRasterize();
@@ -65,8 +62,7 @@ export class ConvertService {
 
     const touched = new Set<number>();
     const burned: string[] = [];
-    // Per-layer running instance id so multiple shapes on an instance label get
-    // distinct ids (semantic labels always write 1).
+    // A running instance id per layer, so each shape gets its own.
     const nextId = new Map<number, number>();
 
     for (const shape of shapes) {
@@ -92,7 +88,6 @@ export class ConvertService {
       burned.push(shape.id);
     }
 
-    // Leave the scratch buffer clean so it can't bleed into a later stroke.
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w, h);
@@ -109,9 +104,6 @@ export class ConvertService {
   }
 
   private shapesToRasterize(): VectorShape[] {
-    // Rasterize every selected path (across labels — each burns into its own
-    // label's mask). With nothing selected, fall back to the active label's
-    // shapes so the toolbar button still does the expected thing.
     const selected = this.vectorEditor.selectedShapes();
     if (selected.length > 0) return selected;
     const activeId = this.labels.activeLabel?.id;
@@ -119,10 +111,8 @@ export class ConvertService {
     return this.vectorEditor.shapes().filter((s) => s.labelId === activeId);
   }
 
-  /**
-   * Rasterize one shape onto the scratch buffer (white on transparent) and
-   * return the clamped bbox of the affected pixels, or null if it collapses.
-   */
+  /** Rasterize one shape onto the stroke buffer and return the bbox of the
+   *  affected pixels, or null. */
   private burnShape(
     ctx: OffscreenCanvasRenderingContext2D,
     shape: VectorShape,
@@ -141,10 +131,8 @@ export class ConvertService {
     let pad: number;
     if (filled) {
       ctx.fillStyle = '#ffffff';
-      // 'evenodd', not the Canvas default 'nonzero': a traced region carries its
-      // holes as loops spliced into the same ring (see `bridge_hole` in the Rust
-      // geometry module), and nonzero winding would fill them back in. Matches
-      // the vector layer's `fill-rule="evenodd"`, so what burns is what is drawn.
+      // 'evenodd': a traced region carries its holes as loops spliced into the same
+      // ring (see `bridge_hole` in the Rust geometry module).
       ctx.fill(path, 'evenodd');
       pad = 1;
     } else {
@@ -177,11 +165,8 @@ export class ConvertService {
 
   // ── Vectorize (raster → vector) ─────────────────────────────────────────────
 
-  /**
-   * Trace the connected component of the active label's mask under `pixel` into
-   * a closed filled shape, then clear those pixels. No-op when the click lands
-   * on background.
-   */
+  /** Trace the component of the active label under `pixel` into a closed
+   *  filled shape, then clear its pixels. */
   async vectorizeAt(pixel: Pt): Promise<void> {
     const w = this.state.width;
     const h = this.state.height;
@@ -201,7 +186,7 @@ export class ConvertService {
       console.error('vectorize failed:', error);
       return;
     }
-    // The mask may have changed while awaiting; re-check the seed pixel.
+    // The mask may have changed while awaiting.
     if (polygons.length === 0 || mask[y * w + x] === 0) return;
 
     const shapes = polygons
@@ -231,11 +216,8 @@ export class ConvertService {
 
   // ── Skeletonize (raster → open centerline paths) ────────────────────────────
 
-  /**
-   * Thin the connected component of the active label's mask under `pixel` into
-   * its 1px skeleton, split at endpoints/junctions, and add each branch as an
-   * open path; then clear those pixels. No-op on background.
-   */
+  /** Thin the component of the active label under `pixel` to its skeleton, add
+   *  each branch as an open path, then clear its pixels. */
   async skeletonizeAt(pixel: Pt): Promise<void> {
     const w = this.state.width;
     const h = this.state.height;
@@ -255,7 +237,7 @@ export class ConvertService {
       console.error('skeletonize failed:', error);
       return;
     }
-    // The mask may have changed while awaiting; re-check the seed pixel.
+    // The mask may have changed while awaiting.
     if (polylines.length === 0 || mask[y * w + x] === 0) return;
 
     const shapes = polylines
@@ -285,7 +267,6 @@ export class ConvertService {
 
   // ── Shared ──────────────────────────────────────────────────────────────────
 
-  /** Recompute the composite, redraw the display, and mark the frame dirty. */
   private refresh(): void {
     this.state.recomputeCanvasSum = true;
     this.canvasManager.requestRedraw.next(true);

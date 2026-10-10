@@ -17,11 +17,8 @@ import { InferenceClientService } from '../../services/inference-client.service'
 
 const LOCAL_HOSTS = ['127.0.0.1', 'localhost', '::1'];
 
-/**
- * Toolbar button + popover holding the application's two network settings:
- * where to find the user's Python server, and which port the application
- * itself listens on.
- */
+/** The two network settings: where the user's Python server is, and the port
+ *  the application listens on. */
 @Component({
   selector: 'app-connection-settings',
   standalone: true,
@@ -40,8 +37,7 @@ const LOCAL_HOSTS = ['127.0.0.1', 'localhost', '::1'];
 export class ConnectionSettingsComponent {
   readonly inference = inject(InferenceClientService);
 
-  // Drafts, committed by the buttons: typing a port digit by digit must not
-  // retarget the bridge at every keystroke.
+  // Drafts, committed by the buttons.
   readonly host = signal('');
   readonly port = signal(0);
   readonly listenPort = signal(0);
@@ -80,17 +76,15 @@ export class ConnectionSettingsComponent {
     return active !== null && configured !== null && active !== configured;
   });
 
-  /** Both ends on one local port cannot work: whichever starts second fails. */
+  /** Both ends cannot use one local port. */
   readonly clash = computed(
     () =>
       LOCAL_HOSTS.includes(this.host().trim()) &&
       this.port() === this.listenPort(),
   );
 
-  /** Refresh the drafts from what is in effect, each time the popover opens. */
   async onShow(): Promise<void> {
-    // Keeps the status line live while the popover is open, wherever in the
-    // application that is.
+    // Keeps the status line live while the popover is open.
     this.inference.startDiscovery();
     const { host, port } = this.inference.endpoint();
     this.host.set(host);
@@ -114,7 +108,6 @@ export class ConnectionSettingsComponent {
     try {
       await this.inference.connect(this.host().trim(), this.port());
     } catch {
-      // Not an error to act on: the status line says the server is not there.
     }
   }
 

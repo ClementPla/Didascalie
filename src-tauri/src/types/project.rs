@@ -1,17 +1,9 @@
 //! Project configuration, as stored in the `.dida` file.
 //!
-//! # These field names are an on-disk format, not an API
-//!
-//! Every type here is serialised whole into the `project.config` column by
-//! `queries::insert_project` and read back by `get_project_config`. The field
-//! names *are* the stored keys, so `#[serde(rename_all = "camelCase")]` — which
-//! the types crossing the Tauri boundary otherwise use — would make every
-//! project created before the change unreadable, silently: serde would find no
-//! `input_folder` and fail the whole config.
-//!
-//! They reach the frontend too, which is why the casing looks inconsistent next
-//! to `commands::*`. It is not an oversight. If these ever need to change,
-//! it takes a schema migration that rewrites stored config, not an attribute.
+//! Every type here is serialised whole into the `project.config` column: the
+//! field names are the stored keys. No `rename_all = "camelCase"`, which would
+//! make existing projects unreadable; renaming a field takes a schema
+//! migration.
 
 use serde::{Deserialize, Serialize};
 
@@ -40,38 +32,27 @@ pub struct MultilabelConfig {
 pub struct ProjectConfig {
     pub name: String,
     pub input_folder: Option<String>,      // None if images embedded
-    /// Where else the image folder has been found: the same folder as
-    /// `input_folder`, under the path another computer reaches it by (a
-    /// network share mounted on Linux and on Windows, say). Whichever of them
-    /// exists on the computer opening the project is the one read from; see
+    /// Other paths the image folder is reached by, from other computers. See
     /// `commands::project::resolve_image_folder`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub input_folder_alternates: Vec<String>,
     pub images_embedded: bool,
     /// Files smaller than this are embedded even when `images_embedded` is off.
-    ///
-    /// `serde(default)` because project files written before this field existed
-    /// do not carry it, and they must still open.
-    ///
-    /// `null` is read as the default too: some project files written from
-    /// Python carry `"embed_threshold_kb": null`, and refusing the whole
-    /// project over an import setting helps nobody.
+    /// Missing or `null` (as some files written from Python have it) reads as
+    /// the default.
     #[serde(
         default = "default_embed_threshold_kb",
         deserialize_with = "embed_threshold_kb_or_default"
     )]
     pub embed_threshold_kb: u32,
     
-    // Task types
     pub segmentation_enabled: bool,
     pub classification_enabled: bool,
     pub instance_segmentation_enabled: bool,
     pub text_description_enabled: bool,
     
-    // Input settings
     pub input_regex: String,
     pub recursive: bool,
-    // Labels
     pub segmentation_labels: Option<Vec<LabelConfig>>,
     pub classification_tasks: Option<Vec<MulticlassConfig>>,
     pub multilabel_task: Option<MultilabelConfig>,

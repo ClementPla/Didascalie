@@ -1,11 +1,5 @@
-/* A gallery item is a click target, not prose. Without this, click-dragging or
-   shift-clicking across items to build a batch selection also drags a text
-   selection through their titles and badges, painting them in the browser's
-   selection blue — which reads as a rendering fault rather than as selected
-   text. One rule on the host covers both the card and the list-row layout.
-
-   The -webkit- prefix is not legacy padding here: the macOS build runs on
-   WKWebView, not Chromium. */
+/* Selecting items by dragging or shift-clicking must not select their text.
+   The -webkit- prefix is for WKWebView (macOS). */
 :host {
   -webkit-user-select: none;
   user-select: none;
@@ -17,17 +11,13 @@
   border-radius: 8px;
   overflow: hidden;
 
-  /* Let the webview skip layout/paint for cards scrolled out of view. The
-     intrinsic-size hint keeps the scrollbar stable; `auto` reuses each card's
-     last painted size once it's been seen. Big win on the CPU-composited Linux
-     webview; a harmless no-op where content-visibility isn't supported. */
+  /* Skip layout and paint for cards out of view. The intrinsic-size hint keeps
+     the scrollbar stable. */
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
 
-  /* Scope the transition to the two properties that actually change on hover.
-     The previous `transition-all` animated every property and, combined with a
-     hover scale over a large image, caused a repaint storm as the cursor swept
-     across cards while scrolling. */
+  /* Only the two properties that change on hover: `transition-all` over a
+     scaled image repaints heavily. */
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
@@ -35,12 +25,11 @@
   &:hover {
     transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    /* Promote to its own layer only while hovered, not permanently for all 64. */
+    /* Its own layer only while hovered. */
     will-change: transform;
   }
 }
 
-/* List-row layout */
 .gallery-row {
   padding: 0.5rem 0.75rem;
   border-radius: 8px;

@@ -52,7 +52,6 @@ export class LauncherComponent implements OnInit {
     this.recentProjects.set(this.projectService.getRecentProjects());
     // The tablet build is updated by installing a new one.
     if (IS_ANDROID) return;
-    // Offer an app update on the first screen if one is available.
     void this.update.checkForUpdates();
   }
 
@@ -60,10 +59,7 @@ export class LauncherComponent implements OnInit {
     this.router.navigate(['/new']);
   }
 
-  /**
-   * Manually check the release channel. If an update is found the banner
-   * appears (via `update.available()`); otherwise confirm we're up to date.
-   */
+  /** Check the release channel, and say so when already up to date. */
   async checkForUpdates(): Promise<void> {
     await this.update.checkForUpdates();
     if (!this.update.available()) {
@@ -92,13 +88,10 @@ export class LauncherComponent implements OnInit {
     await this.openPath(path as string);
   }
 
-  /**
-   * Android: pick a project from the device and import it. What the picker
-   * returns is a `content://` URI, not a path SQLite could open, so the file
-   * is copied into the application's storage and the copy is what opens.
-   */
+  /** Android: pick a project from the device. The picker returns a
+   *  `content://` URI, so the file is copied into the application's storage. */
   async openFromDevice(): Promise<void> {
-    // No extension filter: Android filters by MIME type and has none for .dida.
+    // No extension filter: Android filters by MIME type, and .dida has none.
     const location = await open({ multiple: false });
     if (!location) return;
     this.isLoading.set(true);
@@ -136,7 +129,6 @@ export class LauncherComponent implements OnInit {
         summary: 'Could not open project',
         detail: String(error),
       });
-      // Stale entry; remove it.
       this.projectService.removeFromRecentProjects(path);
       this.recentProjects.set(this.projectService.getRecentProjects());
     } finally {
@@ -144,18 +136,13 @@ export class LauncherComponent implements OnInit {
     }
   }
 
-  /**
-   * Format a path for display: trim to a readable length, keep the meaningful
-   * tail (the filename and its parent directory).
-   */
+  /** A path shortened to its tail. */
   formatPath(path: string): string {
     const max = 60;
     if (path.length <= max) return path;
-    // Keep the last 60 chars, prefix with ellipsis at the front.
     return '…' + path.slice(-(max - 1));
   }
 
-  /** Friendly relative time. Avoids a date library for one place. */
   relativeTime(iso: string | number | Date): string {
     const d =
       typeof iso === 'string' || typeof iso === 'number' ? new Date(iso) : iso;

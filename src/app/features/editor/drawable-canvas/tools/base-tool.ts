@@ -7,10 +7,8 @@ import {
 } from '../../../../core/misc/label-ops';
 
 export abstract class BaseTool {
-  /**
-   * Read back the stroke buffer over its bounding box. Returns the RGBA region
-   * and its integer rect, or null when the stroke is empty/off-image.
-   */
+  /** The stroke buffer over the stroke's bounding box, as RGBA with its integer
+   *  rect, or null when the stroke is empty. */
   protected readStrokeRegion(
     context: ToolContext
   ): { region: Uint8ClampedArray; rect: Rect } | null {
@@ -23,7 +21,6 @@ export abstract class BaseTool {
     return { region, rect };
   }
 
-  /** Commit the current stroke into the active label mask. */
   protected commitBufferToActive(context: ToolContext) {
     const read = this.readStrokeRegion(context);
     const mask = context.canvasManager.getActiveMask();
@@ -31,7 +28,6 @@ export abstract class BaseTool {
     commitStroke(mask, context.stateService.width, read.region, read.rect, context.value);
   }
 
-  /** Erase the current stroke's covered pixels from the active or all masks. */
   protected eraseBufferFromTargets(context: ToolContext) {
     const read = this.readStrokeRegion(context);
     if (!read) return;

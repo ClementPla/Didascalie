@@ -29,12 +29,9 @@ interface PendingDelete {
 }
 
 /**
- * Accounts: pick who is annotating, register, and manage accounts.
- *
- * The page has two jobs that share one list. Before anyone is logged in it is
- * the door: one button per account, one click to enter (plus a password when
- * the account has one). Once logged in it is also where an account is renamed,
- * protected, promoted or deleted — the latter two by administrators only.
+ * Accounts: pick who is annotating, register, and manage accounts. Before
+ * anyone is logged in the page is the account picker; once logged in,
+ * accounts are also renamed, protected, promoted or deleted here.
  */
 @Component({
   selector: 'app-users',
@@ -65,7 +62,6 @@ export class UsersComponent implements OnInit {
 
   // ── Signing in ────────────────────────────────────────────────────────────
 
-  /** The account whose password is being asked for, if any. */
   readonly asking = signal<number | null>(null);
   password = '';
   readonly loginError = signal<string | null>(null);

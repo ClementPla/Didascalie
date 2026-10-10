@@ -31,21 +31,16 @@ const TITLES: Record<VolumeViewId, string> = {
 
 /**
  * The column beside the editor canvas while 3D mode is on: the 3D view above
- * the projection view. The left edge resizes the column (its button folds it
- * to a rail), the bar between the views moves the split, and either view can
- * collapse to its header.
+ * the projection view, both resizable and collapsible.
  *
- * Each view can also leave the column (see `VolumeLayoutService`): maximized
- * over the whole editor area, or detached into its own window. A detached
- * view's DOM is moved into the window (`detachElement`) and comes back when
- * the window closes; the component itself never leaves this template.
+ * A view can also be maximized over the editor area or detached into its own
+ * window (see `VolumeLayoutService`). A detached view's DOM is moved into the
+ * window (`detachElement`) and comes back when it closes.
  */
 @Component({
   selector: 'app-volume-panel',
   standalone: true,
   imports: [ButtonModule, TooltipModule, Volume3dViewComponent, ProjectionViewComponent],
-  // The views (two WebGL contexts and a mesher worker) exist only while 3D
-  // mode is on.
   template: `
     @if (volume.enabled()) {
       @if (layout.panelCollapsed()) {
@@ -111,9 +106,8 @@ const TITLES: Record<VolumeViewId, string> = {
     }
   `,
   styles: `
-    /* Over the whole editor area: the canvas column is the nearest
-       positioned ancestor while a view is maximized (see the host's
-       'relative' binding). */
+    /* The canvas column is the nearest positioned ancestor while a view is
+    maximized. */
     .volume-maximized {
       position: absolute;
       inset: 0;
@@ -174,7 +168,6 @@ export class VolumePanelComponent implements OnDestroy {
     // Detach / re-dock views as their mode changes.
     effect(() => {
       const modes = this.layout.modes();
-      // The views exist only once 3D mode is on.
       const ready = !!this.view3dHost() && !!this.projectionHost();
       untracked(() => {
         if (ready) {
@@ -298,7 +291,6 @@ function readWidth(): number {
     const stored = Number(localStorage.getItem(WIDTH_KEY));
     if (stored >= MIN_WIDTH) return stored;
   } catch {
-    // Storage unavailable: default width.
   }
   return Math.round(Math.min(560, window.innerWidth * 0.35));
 }
@@ -307,6 +299,5 @@ function writeWidth(width: number): void {
   try {
     localStorage.setItem(WIDTH_KEY, String(width));
   } catch {
-    // Not persisted; harmless.
   }
 }

@@ -20,21 +20,18 @@ interface Rect {
 }
 
 /**
- * Serves native-resolution image tiles for the zoomed-in region of very large
- * images (whose full bitmap the browser can't decode). Tiles are fetched from
- * Rust (`get_frame_tile`), decoded to `ImageBitmap`s and cached (LRU). The
- * editor draws them over the downsampled overview backdrop, so detail sharpens
- * where you're looking. Tiles are only fetched when zoomed in enough that the
- * visible region spans few tiles — zoomed out, the overview is enough.
+ * Native-resolution tiles for the zoomed-in region of very large images.
+ * Tiles are fetched from Rust (`get_frame_tile`), decoded to `ImageBitmap`s
+ * and cached (LRU), and drawn over the downsampled backdrop. Only when zoomed
+ * in enough that the visible region spans few tiles.
  */
 @Injectable({ providedIn: 'root' })
 export class TiledImageService implements ProjectScoped {
   private static readonly TILE = 1024;
-  /** Above this many visible tiles we're too zoomed out — skip, use overview. */
+  /** Above this many visible tiles, the backdrop is enough. */
   private static readonly MAX_VISIBLE = 24;
   private static readonly MAX_CACHE = 64;
 
-  /** Emits when a requested tile finishes loading, so the view can redraw. */
   readonly tileLoaded$ = new Subject<void>();
 
   private frameId: number | null = null;
@@ -45,13 +42,11 @@ export class TiledImageService implements ProjectScoped {
   private readonly order: string[] = []; // LRU key order (oldest first)
   private readonly inflight = new Set<string>();
 
-  // Image-adjustment LUT baked into tiles for display, cached so it isn't
-  // recomputed every frame. Reset whenever the adjustment version changes.
+  // Tiles with the image-adjustment LUT applied, for one adjustment version.
   private readonly processedCache = new Map<string, OffscreenCanvas>();
   private readonly processedOrder: string[] = [];
   private processedVersion = -1;
 
-  /** Point at a frame's native pixels. Clears tiles when the frame changes. */
   setFrame(frameId: number, nativeW: number, nativeH: number): void {
     if (this.frameId === frameId && this.nativeW === nativeW && this.nativeH === nativeH) {
       return;
@@ -62,13 +57,7 @@ export class TiledImageService implements ProjectScoped {
     this.nativeH = nativeH;
   }
 
-  /**
-   * @see ProjectScoped
-   *
-   * Tiles are cached against a frame id, and ids restart at 1 in every project,
-   * so a surviving tile is not merely stale — it is another project's pixels
-   * under a key the new project will ask for.
-   */
+  /** @see ProjectScoped */
   resetForProject(): void {
     this.clear();
   }
@@ -83,11 +72,9 @@ export class TiledImageService implements ProjectScoped {
   }
 
   /**
-   * Ready native tiles covering the image-space `rect`, fetching any missing
-   * visible ones in the background. Returns [] when too zoomed out to bother.
-   * When `lut` is set (image adjustments active), tiles are returned with the
-   * adjustment baked in (cached per `version`) so they match the pyramid
-   * backdrop; when null they're returned raw.
+   * The ready native tiles covering the image-space `rect`; missing ones are
+   * fetched in the background. Empty when too zoomed out. With `lut`, tiles
+   * carry the image adjustments.
    */
   tilesFor(
     rect: Rect,
@@ -105,7 +92,6 @@ export class TiledImageService implements ProjectScoped {
     if (c1 < c0 || r1 < r0) return [];
     if ((c1 - c0 + 1) * (r1 - r0 + 1) > TiledImageService.MAX_VISIBLE) return [];
 
-    // Drop stale processed tiles when the adjustment changed.
     if (lut && version !== this.processedVersion) {
       this.clearProcessed();
       this.processedVersion = version;
@@ -128,8 +114,6 @@ export class TiledImageService implements ProjectScoped {
     return ready;
   }
 
-  /** A copy of the raw tile with the adjustment LUT applied, cached per key
-   *  (the cache is cleared when the adjustment version changes). */
   private processedTile(key: string, raw: ImageBitmap, lut: RGBLUT): OffscreenCanvas {
     const cached = this.processedCache.get(key);
     if (cached) {

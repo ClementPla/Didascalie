@@ -33,36 +33,33 @@ import {
 import { VectorHistory } from '../vector/vector-history';
 import { ProjectScoped } from '../../../../core/project-scoped';
 
-/** Screen-pixel pick radius for nodes/handles/paths and the close-path target. */
+/** Pick radius, in screen px. */
 const HIT_PX = 9;
 
-/** Image-px offset applied to pasted/duplicated shapes so the copy is visible. */
+/** Offset of pasted and duplicated shapes, in image px. */
 const PASTE_OFFSET = 12;
 
-/** Screen-pixel distance from the gizmo's pivot to its rotation knob. */
+/** Distance from the gizmo's pivot to its rotation knob, in screen px. */
 const GIZMO_ARM_PX = 38;
 
 /** Rotation step while Shift is held. */
 const ROTATE_SNAP = Math.PI / 12;
 
-/** Screen-pixel size under which a Box/Ellipse drag counts as a plain click. */
+/** Below this size, in screen px, a Box/Ellipse drag is a click. */
 const MIN_SHAPE_PX = 3;
 
 type HandleSide = 'in' | 'out';
 
-/** Modifier state of a pointer event. */
 export interface SelectMods {
-  /** Shift: additive marquee / add-to-selection; square or circle while
-   *  dragging out a shape; 15° steps while rotating. */
+  /** Shift: add to the selection; square or circle while dragging out a
+   *  shape; 15° steps while rotating. */
   shift: boolean;
-  /** Ctrl/Cmd: toggle a shape's membership; drag a shape out from its center. */
+  /** Ctrl/Cmd: toggle a shape's selection; drag a shape out from its centre. */
   toggle: boolean;
 }
 
-/**
- * The move/rotate gizmo drawn over the selection (image space). Dragging the
- * pivot moves the selection, dragging the knob rotates it around the pivot.
- */
+/** The gizmo drawn over the selection (image space): drag the pivot to move,
+ *  the knob to rotate. */
 export interface VectorGizmo {
   pivot: Pt;
   knob: Pt;
@@ -71,7 +68,6 @@ export interface VectorGizmo {
   rotating: boolean;
 }
 
-/** A shape's bounding box for the overlay (label colour resolved at render). */
 export interface VectorBoundingBox {
   shapeId: string;
   labelId: number;
@@ -79,12 +75,9 @@ export interface VectorBoundingBox {
 }
 
 /**
- * Owns the vector shapes for the current frame plus the Pen (create) and Node
- * (edit/select) interaction state machines. The drawable-canvas routes pointer
- * input here when a vector tool is active; the vector layer renders the state.
- *
- * No dependency on IOService: it emits `changed$` after a committed mutation and
- * IOService subscribes to mark the frame dirty (one-directional, no DI cycle).
+ * The vector shapes of the current frame, and the state machines of the
+ * vector tools. Emits `changed$` after a committed mutation; IOService
+ * subscribes to it (this service does not depend on IOService).
  */
 @Injectable({ providedIn: 'root' })
 export class VectorEditorService implements ProjectScoped {
@@ -105,22 +98,19 @@ export class VectorEditorService implements ProjectScoped {
   readonly hover = this._hover.asReadonly();
 
   // ── Selection ─────────────────────────────────────────────────────────────
-  // Object-level selection is a set of shape ids (Select tool: one or many).
-  // Node-level editing (Node tool) only applies when exactly one is selected.
+  // A set of shape ids. Node editing applies when exactly one is selected.
   private readonly _selectedIds = signal<string[]>([]);
   readonly selectedIds = this._selectedIds.asReadonly();
   private readonly _selectedNode = signal<number | null>(null);
   readonly selectedNodeIndex = this._selectedNode.asReadonly();
 
-  /** The single selected shape, or null when zero/many are selected. Keeps the
-   *  Node tool and properties panel single-shape (unchanged behavior). */
+  /** The single selected shape, or null when zero or several are. */
   readonly selectedShape = computed(() => {
     const ids = this._selectedIds();
     if (ids.length !== 1) return null;
     return this._shapes().find((s) => s.id === ids[0]) ?? null;
   });
 
-  /** Every currently selected shape (Select tool group operations). */
   readonly selectedShapes = computed(() => {
     const set = new Set(this._selectedIds());
     return this._shapes().filter((s) => set.has(s.id));
@@ -130,8 +120,7 @@ export class VectorEditorService implements ProjectScoped {
   private readonly _marquee = signal<Bounds | null>(null);
   readonly marquee = this._marquee.asReadonly();
 
-  /** One bounding box per shape, for the bbox overlay. Recomputes only when the
-   *  shapes change; label visibility/colour are resolved at render time. */
+  /** One bounding box per shape, for the overlay. */
   readonly boundingBoxes = computed<VectorBoundingBox[]>(() => {
     const boxes: VectorBoundingBox[] = [];
     for (const shape of this._shapes()) {
@@ -141,15 +130,12 @@ export class VectorEditorService implements ProjectScoped {
     return boxes;
   });
 
-  /** Fires whenever the shapes change in a way that should be saved (commit,
-   *  undo and redo) — IOService subscribes to mark the frame dirty. */
+  /** The shapes changed in a way to be saved (commit, undo, redo). */
   readonly changed$ = new Subject<void>();
-  /** Fires only on a NEW committed action (not undo/redo) — the unified history
-   *  coordinator subscribes to record a 'vector' entry in the action order. */
+  /** A new action was committed (not undo/redo), to be recorded in the
+   *  editor's undo timeline. */
   readonly committed$ = new Subject<void>();
 
-  // Vector-only undo/redo history (snapshots of the shapes array), isolated in
-  // its own testable unit; this service just applies restored snapshots.
   private readonly history = new VectorHistory();
 
   // ── Transient drag state (plain fields, not reactive) ─────────────────────
@@ -176,8 +162,7 @@ export class VectorEditorService implements ProjectScoped {
     ellipse: boolean;
   } | null = null;
   // Gizmo knob: rotating the selection around a pivot fixed at drag start.
-  // `base` holds the shapes as they were, so each move rotates from scratch
-  // instead of accumulating rounding error.
+  // `base` holds the shapes as they were: each move rotates from scratch.
   private rotateDrag: {
     pivot: Pt;
     startAngle: number;
@@ -196,16 +181,14 @@ export class VectorEditorService implements ProjectScoped {
   /** Pivot + angle of the rotation in progress, for the gizmo. */
   private readonly _rotation = signal<{ pivot: Pt; angle: number } | null>(null);
 
-  // Cross-frame copy buffer. Deliberately NOT reset by setShapes()/clear() so a
-  // shape copied on one frame can be pasted onto another frame or sequence.
+  // Not reset by setShapes()/clear(): a shape copied on one frame can be pasted
+  // on another.
   private clipboard: VectorShape[] = [];
 
   constructor() {
-    // Leaving Path mode auto-validates the in-progress draft, so switching to
-    // the Node tool (toolbar or keyboard) doesn't strand an uncommitted path.
-    // A transient pan (space/middle-click) is excluded so it doesn't finalize.
+    // Leaving Path mode commits the draft. A transient pan does not.
     this.editor.toolChanged$.subscribe((tool) => {
-      // A half-dragged box is not worth keeping; drop it rather than commit it.
+      // A half-dragged box is dropped.
       if (this.shapeDrag) {
         this.shapeDrag = null;
         this._draft.set(null);
@@ -216,17 +199,13 @@ export class VectorEditorService implements ProjectScoped {
       }
     });
 
-    // Switching label mid-trace: finish the current path and start a new one
-    // from its last point on the new label, so the trace stays continuous.
     this.labels.activeLabelChanged$.subscribe(() => this.continueDraftOnLabelChange());
   }
 
   /**
-   * When the active label changes while a Pen draft is in progress, finalize the
-   * current path on the old label and seed a new draft from its last point on
-   * the new label (both stay open) — e.g. tracing fibers and switching fibre
-   * type without breaking continuity. A draft too short to be a path is just
-   * retargeted to the new label.
+   * The active label changed while a Pen draft is in progress: commit the
+   * current path on the old label and start a new draft from its last point on
+   * the new one. A draft too short to be a path is retargeted.
    */
   private continueDraftOnLabelChange(): void {
     const draft = this._draft();
@@ -270,11 +249,8 @@ export class VectorEditorService implements ProjectScoped {
   /**
    * @see ProjectScoped
    *
-   * Also empties the clipboard, which `clear()` deliberately preserves so a
-   * shape can be copied in one frame and pasted in another. That only holds
-   * *within* a project: a copied shape carries a `labelId`, and ids restart
-   * from 1 in every project, so pasting across a switch would silently attach
-   * the shape to whatever label happened to take that id.
+   * Also empties the clipboard: a copied shape carries a `labelId`, which
+   * means another label in the next project.
    */
   resetForProject(): void {
     this.clear();
@@ -297,15 +273,9 @@ export class VectorEditorService implements ProjectScoped {
     this.rotateDrag = null;
     this.stretchDrag = null;
     this._rotation.set(null);
-    // NB: clipboard is intentionally preserved across frames (cross-frame paste).
   }
 
-  /**
-   * Drop every shape belonging to `labelId`, as one undoable action.
-   *
-   * The counterpart to clearing a label's raster mask: a label's annotation is
-   * both, so clearing one and leaving the other behind is never what was meant.
-   */
+  /** Drop every shape of `labelId`, as one undoable action. */
   deleteShapesForLabel(labelId: number): void {
     const ids = this._shapes()
       .filter((s) => s.labelId === labelId)
@@ -313,13 +283,8 @@ export class VectorEditorService implements ProjectScoped {
     this.deleteShapesByIds(ids);
   }
 
-  /**
-   * Drop every shape on the frame, as one undoable action.
-   *
-   * Distinct from [`clear`], which resets the editor when a different frame is
-   * loaded and discards the history with it. This is an edit the user asked for
-   * and must be undoable.
-   */
+  /** Drop every shape on the frame, as one undoable action. Unlike `clear`,
+   *  which resets the editor when another frame is loaded. */
   deleteAllShapes(): void {
     this.deleteShapesByIds(this._shapes().map((s) => s.id));
   }
@@ -375,16 +340,13 @@ export class VectorEditorService implements ProjectScoped {
   }
 
   /**
-   * Double-click. With the Select tool, entering a path opens it for node
-   * editing (select it + switch to the Node tool). With the Node tool: on a
-   * node, toggle its smoothness (generating handles for a corner that has
-   * none); on a path, insert a new node at the click position.
+   * Select tool: open the path for node editing. Node tool: on a node, toggle
+   * its smoothness; on a path, insert a node.
    */
   onDoubleClick(p: Pt): void {
     if (this.editor.isPathTool()) {
-      // Double-click finishes the current open path. The double-click's second
-      // press placed a duplicate node at the same spot; drop it so the path ends
-      // cleanly at the click point.
+      // Double-click finishes the open path. Its second press placed a duplicate
+      // node: drop it.
       const draft = this._draft();
       if (draft && draft.nodes.length >= 2) {
         const n = draft.nodes;
@@ -436,7 +398,6 @@ export class VectorEditorService implements ProjectScoped {
 
   // ── Keyboard ──────────────────────────────────────────────────────────────
 
-  /** Finish the current draft as an open path. */
   finishDraft(): void {
     if (this._draft()) this.finalizeDraft(false);
   }
@@ -469,10 +430,8 @@ export class VectorEditorService implements ProjectScoped {
     this.marqueeDrag = null;
   }
 
-  /**
-   * Delete the current selection. With several shapes selected, remove them all;
-   * with one, delete its targeted node (Node tool) or the whole shape.
-   */
+  /** Delete the selection: every shape when several are selected; with one,
+   *  its targeted node (Node tool) or the shape. */
   deleteSelection(): void {
     if (this._draft()) return;
     const ids = this._selectedIds();
@@ -494,20 +453,18 @@ export class VectorEditorService implements ProjectScoped {
     if (shape) this.deleteShape(shape.id);
   }
 
-  /** Reassign the selected shape to a different label layer (the vector
-   *  equivalent of swapping a raster region to another label). */
+  /** Move the selected shape to another label. */
   moveSelectedToLabel(labelId: number): void {
     if (this.labels.listSegmentationLabels.some((l) => l.id === labelId)) {
       this.mutateSelected((s) => ({ ...s, labelId }));
     }
   }
 
-  /** Delete a shape by id (e.g. an erase-on-click on its bounding box). */
   deleteShapeById(id: string): void {
     if (this._shapes().some((s) => s.id === id)) this.deleteShape(id);
   }
 
-  /** Remove several shapes in a single committed action (e.g. rasterize). */
+  /** Remove several shapes as one committed action. */
   deleteShapesByIds(ids: string[]): void {
     if (ids.length === 0) return;
     const remove = new Set(ids);
@@ -518,8 +475,7 @@ export class VectorEditorService implements ProjectScoped {
     this.commit();
   }
 
-  /** Append shapes in a single committed action (e.g. vectorize). Selects the
-   *  first added shape so it can be tweaked immediately with the Node tool. */
+  /** Append shapes as one committed action, and select the first. */
   addShapes(shapes: VectorShape[]): void {
     if (shapes.length === 0) return;
     this._shapes.update((list) => [...list, ...shapes]);
@@ -554,7 +510,7 @@ export class VectorEditorService implements ProjectScoped {
       return;
     }
 
-    // Click the first node (with ≥2 nodes placed) closes the path.
+    // A click on the first node closes the path.
     if (draft.nodes.length >= 2 && distance(p, draft.nodes[0]) < this.tol()) {
       this.finalizeDraft(true);
       return;
@@ -570,7 +526,7 @@ export class VectorEditorService implements ProjectScoped {
     if (!draft) return;
 
     if (this.pointerDown && this.penHandleNode !== null) {
-      // Dragging out from a just-placed node sets a symmetric smooth handle.
+      // Dragging out from a node just placed sets a symmetric smooth handle.
       const i = this.penHandleNode;
       const nodes = draft.nodes.map((nd, idx) =>
         idx === i ? this.withSmoothHandle(nd, p) : nd,
@@ -596,7 +552,6 @@ export class VectorEditorService implements ProjectScoped {
     const draft = this._draft();
     if (!draft) return;
 
-    // A path needs at least two nodes to be meaningful.
     if (draft.nodes.length < 2) {
       this._draft.set(null);
       this._hover.set(null);
@@ -615,8 +570,6 @@ export class VectorEditorService implements ProjectScoped {
     this.penHandleNode = null;
     this.commit();
 
-    // Select the new shape; optionally hand off to the Node tool for tweaking
-    // (skipped when finalizing because the user already switched tools).
     this.selectOnly(shape.id);
     if (handoffToNode) this.editor.selectTool(Tools.NODE);
   }
@@ -626,10 +579,10 @@ export class VectorEditorService implements ProjectScoped {
   private nodeDown(p: Pt): void {
     const tol = this.tol();
     const current = this.selectedShape();
-    // A hidden shape can't be seen, so don't let its nodes be grabbed.
+    // The nodes of a hidden shape cannot be grabbed.
     const sel = current && this.isLabelVisible(current.labelId) ? current : null;
 
-    // Prefer grabbing the selected shape's handles, then its anchors.
+    // The selected shape's handles first, then its anchors.
     if (sel) {
       for (let i = 0; i < sel.nodes.length; i++) {
         const nd = sel.nodes[i];
@@ -659,7 +612,6 @@ export class VectorEditorService implements ProjectScoped {
       }
     }
 
-    // Otherwise pick the closest shape whose outline is within tolerance.
     const hit = this.pickShape(p, tol);
     this.selectOnly(hit?.id ?? null);
   }
@@ -741,12 +693,11 @@ export class VectorEditorService implements ProjectScoped {
         if (mods.shift) this.addToSelection(hit.id);
         else this.selectOnly(hit.id);
       }
-      // Arm a group move over the current selection.
       this.groupDrag = { last: p, moved: false, clickedId: hit.id, wasSelected: already };
       return;
     }
 
-    // Empty canvas: begin a marquee (clearing first unless additive).
+    // Empty canvas: begin a marquee.
     const base = mods.shift ? [...this._selectedIds()] : [];
     if (!mods.shift) this._selectedIds.set([]);
     this._selectedNode.set(null);
@@ -780,13 +731,12 @@ export class VectorEditorService implements ProjectScoped {
       if (this.groupDrag.moved) {
         this.commit(); // one undoable step for the whole move
       } else if (this.groupDrag.wasSelected && this._selectedIds().length > 1) {
-        // A plain click on an already-multiselected shape collapses to just it.
+        // A plain click on a shape of a multi-selection selects it alone.
         this.selectOnly(this.groupDrag.clickedId);
       }
       this.groupDrag = null;
     } else if (this.marqueeDrag) {
       const rect = this._marquee();
-      // Only a real drag box-selects; a click (no move) just deselected above.
       if (rect && this.marqueeDrag.moved) {
         this.applyMarquee(rect, this.marqueeDrag.base, this.marqueeDrag.additive);
       }
@@ -795,7 +745,8 @@ export class VectorEditorService implements ProjectScoped {
     }
   }
 
-  /** Topmost visible shape under p: a closed body hit wins, else nearest outline. */
+  /** Topmost visible shape under p: a closed body first, else the nearest
+   *  outline. */
   private pickSelectable(p: Pt, tol: number): VectorShape | null {
     const shapes = this._shapes();
     let best: VectorShape | null = null;
@@ -813,7 +764,7 @@ export class VectorEditorService implements ProjectScoped {
     return best;
   }
 
-  /** Translate every selected shape by (dx, dy) in image space (live, no commit). */
+  /** Translate every selected shape, without committing. */
   private translateSelection(dx: number, dy: number): void {
     const ids = new Set(this._selectedIds());
     if (ids.size === 0) return;
@@ -822,7 +773,7 @@ export class VectorEditorService implements ProjectScoped {
     );
   }
 
-  /** Select shapes whose bbox intersects the marquee (union with base if additive). */
+  /** Select the shapes whose bbox intersects the marquee. */
   private applyMarquee(rect: Bounds, base: string[], additive: boolean): void {
     const ids = new Set<string>(additive ? base : []);
     for (const s of this._shapes()) {
@@ -854,7 +805,6 @@ export class VectorEditorService implements ProjectScoped {
     let dx = p.x - o.x;
     let dy = p.y - o.y;
     if (mods.shift) {
-      // Square / circle: both sides follow the longer one.
       const side = Math.max(Math.abs(dx), Math.abs(dy));
       dx = dx < 0 ? -side : side;
       dy = dy < 0 ? -side : side;
@@ -880,8 +830,7 @@ export class VectorEditorService implements ProjectScoped {
     const bounds = draft ? shapeBounds(draft) : null;
     const min = MIN_SHAPE_PX / Math.max(1e-6, this.zoomPan.scale);
     if (!draft || !bounds || bounds.width < min || bounds.height < min) {
-      // A click rather than a drag: pick what is under it, so the gizmo can be
-      // moved to another shape without leaving the tool.
+      // A click, not a drag: select what is under it.
       this.selectOnly(this.pickSelectable(drag.origin, this.tol())?.id ?? null);
       return;
     }
@@ -893,11 +842,8 @@ export class VectorEditorService implements ProjectScoped {
 
   // ── Move / rotate gizmo (Select, Box and Ellipse tools) ───────────────────
 
-  /**
-   * The gizmo for the current selection, or null when there is nothing to
-   * transform. A method rather than a computed: it depends on the active tool
-   * and on label visibility, neither of which is a signal.
-   */
+  /** The gizmo of the current selection, or null. A method, not a computed: it
+   *  depends on the active tool and on label visibility, which are not signals. */
   gizmo(): VectorGizmo | null {
     if (!this.editor.isSelectTool() && !this.editor.isShapeTool()) return null;
     if (this._draft() || this._marquee()) return null;
@@ -928,7 +874,8 @@ export class VectorEditorService implements ProjectScoped {
     return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
   }
 
-  /** Start a rotate (knob) or move (pivot) drag. False when p misses the gizmo. */
+  /** Start a rotate (knob) or move (pivot) drag. False when p misses the
+   *  gizmo. */
   private gizmoDown(p: Pt): boolean {
     const gizmo = this.gizmo();
     if (!gizmo) return false;
@@ -962,23 +909,19 @@ export class VectorEditorService implements ProjectScoped {
     }
 
     if (distance(p, gizmo.pivot) < tol) {
-      // Same drag as grabbing a shape's body, without needing to hit its outline.
       this.groupDrag = { last: p, moved: false, clickedId: '', wasSelected: false };
       return true;
     }
     return false;
   }
 
-  /**
-   * Resize grips for the selection: one per side when it is a single box or
-   * ellipse. Dragging one moves that side along its normal, the opposite side
-   * staying put, whatever the shape's rotation.
-   */
+  /** Resize grips, one per side, when the selection is a single box or
+   *  ellipse. Dragging one moves that side along its normal. */
   sideHandles(): SideHandle[] {
     if (!this.gizmo() || this._rotation()) return [];
     const shape = this.selectedShape();
     if (!shape) return [];
-    // Too small on screen to tell the grips from the pivot: leave only the pivot.
+    // Too small on screen for grips.
     const min = 4 * this.tol();
     return sideHandles(shape).filter((h) => distance(h.pos, h.anchor) >= min);
   }
@@ -986,7 +929,7 @@ export class VectorEditorService implements ProjectScoped {
   private stretchMove(p: Pt): void {
     const drag = this.stretchDrag;
     if (!drag) return;
-    // Stop short of the opposite side so the shape can't collapse or flip.
+    // Stop short of the opposite side: the shape must not collapse or flip.
     const min = MIN_SHAPE_PX / Math.max(1e-6, this.zoomPan.scale);
     const along =
       (p.x - drag.anchor.x) * drag.u.x + (p.y - drag.anchor.y) * drag.u.y;
@@ -1007,7 +950,7 @@ export class VectorEditorService implements ProjectScoped {
     if (!drag) return;
     let angle =
       Math.atan2(p.y - drag.pivot.y, p.x - drag.pivot.x) - drag.startAngle;
-    // Keep it in (-180°, 180°] so the readout never shows a wound-up angle.
+    // Kept in (-180°, 180°].
     angle = Math.atan2(Math.sin(angle), Math.cos(angle));
     if (mods.shift) angle = Math.round(angle / ROTATE_SNAP) * ROTATE_SNAP;
 
@@ -1038,31 +981,26 @@ export class VectorEditorService implements ProjectScoped {
 
   // ── Copy / paste / duplicate (cross-frame) ────────────────────────────────
 
-  /** Copy the current selection into the (frame-independent) clipboard. */
   copySelection(): void {
     const sel = this.selectedShapes();
     if (sel.length === 0) return;
     this.clipboard = sel.map(cloneShape);
   }
 
-  /** Paste the clipboard into the current frame (fresh ids, offset, selected). */
+  /** Paste the clipboard into the current frame, with fresh ids and an offset. */
   pasteClipboard(): void {
     if (this.clipboard.length === 0) return;
     this.addCopies(this.clipboard);
   }
 
-  /** Duplicate the current selection in place (fresh ids, offset, selected). */
   duplicateSelection(): void {
     const sel = this.selectedShapes();
     if (sel.length === 0) return;
     this.addCopies(sel);
   }
 
-  /**
-   * Select every path on the frame, or just those of the active label when
-   * `currentLabelOnly`. Hidden labels are always skipped. Toggles: if every
-   * path in scope is already selected, clears the selection instead.
-   */
+  /** Select every path of the visible labels, or of the active label only.
+   *  Toggles: clears the selection when everything in scope is selected. */
   selectAll(currentLabelOnly = false): void {
     const activeId = this.labels.activeLabel?.id ?? null;
     const ids = this._shapes()
@@ -1073,14 +1011,12 @@ export class VectorEditorService implements ProjectScoped {
       )
       .map((s) => s.id);
 
-    // Toggle off when everything in scope is already selected.
     const selected = new Set(this._selectedIds());
     const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
     this._selectedIds.set(allSelected ? [] : ids);
     this._selectedNode.set(null);
   }
 
-  /** Materialize copies of `sources` into the frame as one committed action. */
   private addCopies(sources: VectorShape[]): void {
     const copies = sources.map((s) => this.materializeCopy(s));
     if (copies.length === 0) return;
@@ -1090,7 +1026,8 @@ export class VectorEditorService implements ProjectScoped {
     this.commit();
   }
 
-  /** A fresh-id, offset clone; remaps a missing label to the active one. */
+  /** A clone with a fresh id and an offset. A missing label becomes the active
+   *  one. */
   private materializeCopy(s: VectorShape): VectorShape {
     const labelId = this.labels.listSegmentationLabels.some((l) => l.id === s.labelId)
       ? s.labelId
@@ -1105,17 +1042,8 @@ export class VectorEditorService implements ProjectScoped {
     return this._selectedIds().includes(id);
   }
 
-  /**
-   * Reduce the selection to one shape (or nothing), and follow it with the
-   * active label.
-   *
-   * Selecting a path is how you say "I want to work on this", and the tools
-   * that follow — painting, the instance picker, a new path — all act on the
-   * active label. Leaving it pointing elsewhere meant selecting a path and
-   * editing silently produced work under the wrong label. Every single-shape
-   * selection routes through here, so click, marquee-collapse, vectorize and
-   * paste all behave the same way.
-   */
+  /** Reduce the selection to one shape (or none), and make its label the
+   *  active one: the tools that follow act on the active label. */
   private selectOnly(id: string | null): void {
     this._selectedIds.set(id ? [id] : []);
     this._selectedNode.set(null);
@@ -1146,7 +1074,7 @@ export class VectorEditorService implements ProjectScoped {
     const shape = this._shapes().find((s) => s.id === shapeId);
     if (!shape) return;
 
-    // Fewer than 2 remaining nodes is not a path — drop the whole shape.
+    // Fewer than 2 nodes is not a path.
     if (shape.nodes.length <= 2) {
       this.deleteShape(shapeId);
       return;
@@ -1168,7 +1096,7 @@ export class VectorEditorService implements ProjectScoped {
     this.commit();
   }
 
-  /** Apply a transform to the single selected shape and commit (marks dirty). */
+  /** Transform the single selected shape and commit. */
   private mutateSelected(fn: (s: VectorShape) => VectorShape): void {
     const id = this.primaryId();
     if (!id) return;
@@ -1178,7 +1106,7 @@ export class VectorEditorService implements ProjectScoped {
     this.commit();
   }
 
-  /** Like mutateSelected but for live drag updates — does NOT mark dirty. */
+  /** Like `mutateSelected`, for live drag updates: no commit. */
   private mutateSelectedLive(fn: (s: VectorShape) => VectorShape): void {
     const id = this.primaryId();
     if (!id) return;
@@ -1187,11 +1115,8 @@ export class VectorEditorService implements ProjectScoped {
     );
   }
 
-  /**
-   * Flip a node between smooth and corner. A corner with no handles gains
-   * tangent handles derived from its neighbours; a smooth node collapses its
-   * handles back onto the anchor.
-   */
+  /** Flip a node between smooth and corner. A corner gains handles tangent to
+   *  its neighbours; a smooth node loses them. */
   private toggleNodeSmooth(shapeId: string, index: number): void {
     const shape = this._shapes().find((s) => s.id === shapeId);
     if (!shape) return;
@@ -1214,7 +1139,6 @@ export class VectorEditorService implements ProjectScoped {
     this.commit();
   }
 
-  /** Generate symmetric handles for a node, tangent to its neighbours. */
   private autoSmooth(shape: VectorShape, index: number): VectorNode {
     const node = shape.nodes[index];
     const prev = this.neighbor(shape, index, -1);
@@ -1252,7 +1176,7 @@ export class VectorEditorService implements ProjectScoped {
     };
   }
 
-  /** Neighbour anchor in a direction, wrapping for closed paths. */
+  /** Neighbouring anchor, wrapping for closed paths. */
   private neighbor(shape: VectorShape, index: number, dir: number): Pt | null {
     const len = shape.nodes.length;
     if (shape.closed) {
@@ -1274,7 +1198,6 @@ export class VectorEditorService implements ProjectScoped {
     return this.history.canRedo();
   }
 
-  /** Step back one committed change. Returns false if at the baseline. */
   undo(): boolean {
     const state = this.history.stepBack();
     if (!state) return false;
@@ -1282,7 +1205,6 @@ export class VectorEditorService implements ProjectScoped {
     return true;
   }
 
-  /** Re-apply a previously undone change. Returns false if none. */
   redo(): boolean {
     const state = this.history.stepForward();
     if (!state) return false;
@@ -1290,7 +1212,6 @@ export class VectorEditorService implements ProjectScoped {
     return true;
   }
 
-  /** Snapshot the new state and signal a fresh committed action. */
   private commit(): void {
     this.history.commit(this._shapes());
     this.committed$.next(); // record a 'vector' entry in the unified order
@@ -1299,8 +1220,7 @@ export class VectorEditorService implements ProjectScoped {
 
   private restore(state: VectorShape[]): void {
     this._shapes.set(cloneShapes(state));
-    // Heal selection references that the restored state no longer contains
-    // (drop ids of deleted shapes; keep a multi-selection otherwise).
+    // Drop the selected ids the restored state no longer contains.
     const existing = new Set(this._shapes().map((s) => s.id));
     this._selectedIds.update((ids) => ids.filter((id) => existing.has(id)));
     const sel = this.selectedShape();

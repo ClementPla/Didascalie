@@ -1,47 +1,25 @@
 //! Inter-grader agreement: how closely the project's users annotated the same
 //! frames.
 //!
-//! # What is compared
+//! Two graders are compared on the frames both worked on ([`FrameBasis`]):
+//! reviewed by both (the default, and the only one that counts a frame
+//! deliberately left empty) or annotated by both.
 //!
-//! Two graders are compared on the frames they have **both** worked on, under
-//! one of two definitions ([`FrameBasis`]):
+//! **Segmentation**, per label, on painted mask plus vector shapes, binarised:
 //!
-//! - *Reviewed by both* — the default, and the only one that can count an
-//!   empty frame. A grader who reviews a frame without drawing anything is
-//!   saying "nothing here", which is an answer; a frame they have not reached
-//!   yet looks identical in the data until they mark it reviewed.
-//! - *Annotated by both* — for projects where nobody uses the review mark. It
-//!   cannot see deliberate empties, so it overstates agreement on what was
-//!   found and says nothing about what one grader found and the other did not
-//!   look at.
+//! - *Dice* and *IoU* are pooled: pixels are summed over all compared frames.
+//! - *Mean frame Dice* averages per-frame Dice over frames where at least one
+//!   of the two drew the label.
+//! - *Kappa* is Cohen's kappa on pixels.
 //!
-//! # The numbers
+//! **Classification**, per task; no answer counts as an answer. One-answer
+//! tasks: percent agreement and Cohen's kappa. Several-answer tasks: mean
+//! Jaccard index, and Cohen's kappa per class, averaged.
 //!
-//! **Segmentation**, per label. A grader's region is their painted mask plus
-//! their vector shapes, binarised (instance ids are ignored: this asks whether
-//! they marked the same pixels, not whether they split them the same way).
+//! **Overall** averages the pairwise values and adds Fleiss' kappa on the
+//! frames every participating grader has in common.
 //!
-//! - *Dice* and *IoU* are pooled: pixels are summed over all compared frames
-//!   before dividing, so a large structure counts for more than a small one
-//!   and a frame where neither drew the label does not count at all.
-//! - *Mean frame Dice* averages the per-frame Dice instead, over frames where
-//!   at least one of the two drew the label, so every such frame counts the
-//!   same and a frame only one of them annotated scores 0.
-//! - *Kappa* is Cohen's kappa on pixels (label present / absent).
-//!
-//! **Classification**, per task, over the same frames. No answer is treated as
-//! an answer of its own.
-//!
-//! - One-answer tasks: percent agreement and Cohen's kappa.
-//! - Several-answer tasks: agreement is the mean Jaccard index of the two
-//!   selections; kappa is Cohen's kappa per class (selected / not), averaged.
-//!
-//! **Overall** averages the pairwise values, and adds Fleiss' kappa for
-//! classification on the frames *every* participating grader has in common.
-//!
-//! A statistic that is undefined — nothing to compare, or no variation at all
-//! in the answers, which makes chance agreement 100% — is reported as `None`
-//! rather than as 0 or 1.
+//! An undefined statistic is `None`, not 0 or 1.
 
 use std::collections::{HashMap, HashSet};
 
@@ -189,9 +167,7 @@ pub struct AgreementReport {
 
 // ── Command ────────────────────────────────────────────────────────────────
 
-/// Compare every pair of graders. Administrators only: seeing how one's
-/// answers differ from a colleague's is exactly what independent grading is
-/// meant to prevent while it is still going on.
+/// Compare every pair of graders. Administrators only.
 #[tauri::command]
 pub async fn intergrader_report(
     db: State<'_, DbState>,
@@ -219,9 +195,8 @@ pub struct CaseScore {
     pub pixels_b: u64,
 }
 
-/// The frames behind one pair's score for one label, least agreement first:
-/// what to look at to understand a number in the report. Frames where neither
-/// grader drew the label are left out — there is nothing to see on them.
+/// The frames behind one pair's score for one label, least agreement first.
+/// Frames where neither grader drew the label are left out.
 #[tauri::command]
 pub async fn intergrader_cases(
     db: State<'_, DbState>,
@@ -236,10 +211,7 @@ pub async fn intergrader_cases(
     })
 }
 
-/// How a comparison is drawn. The defaults suit a colour photograph; on a
-/// greyscale or strongly tinted modality other colours read better, and an
-/// outline leaves the structure under it visible, so both are the viewer's
-/// choice.
+/// How a comparison is drawn.
 #[derive(Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../src/app/lib/generated/")]
@@ -253,8 +225,8 @@ pub struct ComparisonStyle {
 }
 
 /// A frame with both graders' regions for one label drawn over it, as JPEG no
-/// larger than `max_dim` on its longest side. With `overlay` false it is the
-/// bare image at the same size, to see what the graders were looking at.
+/// larger than `max_dim` on its longest side. With `overlay` false, the bare
+/// image.
 #[tauri::command]
 pub async fn intergrader_case_image(
     db: State<'_, DbState>,
@@ -284,8 +256,7 @@ pub async fn intergrader_case_image(
         (None, None)
     };
 
-    // Never larger than the frame itself: enlarging adds no detail, and the
-    // webview scales the picture to the page anyway.
+    // Never larger than the frame itself.
     let longest = max_dim.min(width.max(height)).max(1);
     let image = decode_downscaled(&bytes, longest)
         .map_err(|e| e.to_string())?
@@ -364,14 +335,10 @@ pub fn pair_cases(
     Ok(cases)
 }
 
-/// How strongly a filled region covers the image. Disagreement is what the eye
-/// should land on, so it is nearly opaque; agreement, usually most of the
-/// region, lets more of the image through. Outlines are drawn opaque: they
-/// cover little, and a thin translucent line disappears.
+/// Opacity of a filled region: disagreement nearly opaque, agreement lighter.
 const ALPHA_ONLY: f32 = 0.85;
 const ALPHA_BOTH: f32 = 0.6;
 
-/// The three colours of a comparison, as RGB.
 struct Colours {
     only_a: [u8; 3],
     only_b: [u8; 3],
@@ -388,13 +355,9 @@ impl Colours {
     }
 }
 
-/// Keep only the outline, `width` pixels thick, of the region carrying `bit`.
-///
-/// A marked pixel is outline when an unmarked pixel lies within `width` of it
-/// along a row or a column — i.e. the region minus its erosion by a square.
-/// The image border does not count as unmarked: a region running off the frame
-/// is not closed along the edge of the picture, because the grader did not
-/// draw a boundary there.
+/// Keep only the outline, `width` pixels thick, of the region carrying `bit`:
+/// the region minus its erosion by a square. The image border does not count
+/// as unmarked.
 fn keep_outline(marks: &mut [u8], ow: usize, oh: usize, bit: u8, width: usize) {
     // Erode along rows, then along columns of that result.
     let inside: Vec<bool> = marks.iter().map(|m| m & bit != 0).collect();
@@ -418,12 +381,8 @@ fn keep_outline(marks: &mut [u8], ow: usize, oh: usize, bit: u8, width: usize) {
 }
 
 /// Blend two graders' regions (native `width×height` masks) over an
-/// `out_w×out_h` RGB image.
-///
-/// A preview pixel is marked when *any* native pixel it covers is: sampling one
-/// native pixel per preview pixel instead would drop most of a thin structure
-/// — a one-pixel vessel on a 4000-pixel image — and show disagreement where
-/// there is only a missing sample.
+/// `out_w×out_h` RGB image. A preview pixel is marked when any native pixel it
+/// covers is, so thin structures survive.
 fn draw_comparison(
     rgb: &mut [u8],
     out_w: u32,
@@ -439,11 +398,8 @@ fn draw_comparison(
     if w == 0 || h == 0 || ow == 0 || oh == 0 || (a.is_none() && b.is_none()) {
         return;
     }
-    // The native pixels each preview column / row covers: at least one, so
-    // this also holds when the preview is *larger* than the frame. Walking the
-    // native pixels and marking where each lands does not — enlarged, most
-    // preview pixels are nobody's landing spot, and the region comes out as a
-    // grid of marked and unmarked lines.
+    // The native pixels each preview column / row covers: at least one, so this
+    // also holds when the preview is larger than the frame.
     let span = |out: usize, native: usize, i: usize| {
         let start = (i * native / out).min(native - 1);
         start..((i + 1) * native / out).clamp(start + 1, native)
@@ -464,9 +420,7 @@ fn draw_comparison(
             }
         }
     }
-    // Outlines are taken per grader, before the two are combined, so each
-    // keeps its own contour in its own colour; where the two contours run
-    // together the pixel carries both bits and takes the "both" colour.
+    // Outlines are taken per grader, before the two are combined.
     if edge_width > 0 {
         keep_outline(&mut marks, ow, oh, 1, edge_width);
         keep_outline(&mut marks, ow, oh, 2, edge_width);
@@ -498,7 +452,7 @@ fn mean(values: impl Iterator<Item = f64>) -> Option<f64> {
 }
 
 /// Kappa from observed and chance agreement; undefined when chance agreement
-/// is total (every answer identical, so there is nothing to beat).
+/// is total.
 fn kappa(observed: f64, expected: f64) -> Option<f64> {
     ((1.0 - expected) > 1e-12).then(|| (observed - expected) / (1.0 - expected))
 }
@@ -618,9 +572,8 @@ struct Region {
     count: u64,
 }
 
-/// Everything every user stored for one frame, still encoded: decoding is
-/// deferred to the label being compared so only one label's masks are in
-/// memory at a time, which matters on very large images.
+/// Everything every user stored for one frame, still encoded: only the label
+/// being compared is decoded.
 struct FrameRows {
     /// (user, label) -> painted mask
     raster: HashMap<(i64, i64), (MaskEncoding, Vec<u8>)>,
@@ -663,8 +616,7 @@ fn load_frame_rows(conn: &Connection, frame_id: i64) -> Result<FrameRows> {
 fn region(rows: &FrameRows, user: i64, label: i64, width: u32, height: u32) -> Option<Region> {
     let key = (user, label);
     let painted = rows.raster.get(&key);
-    // Shapes that fail to parse are skipped, as training and export do: one
-    // unreadable row should not sink the whole report.
+    // Shapes that fail to parse are skipped, as training and export do.
     let shapes: Vec<VectorShape> = rows
         .vector
         .get(&key)
@@ -1388,8 +1340,7 @@ mod tests {
         assert_ne!(&rgb[3..6], [0, 0, 0]);
     }
 
-    /// The hatching bug: drawn larger than the frame, a solid region came out
-    /// striped, because only one preview pixel per native pixel was marked.
+    /// Drawn larger than the frame, a solid region must stay solid.
     #[test]
     fn a_solid_region_stays_solid_when_drawn_larger_than_the_frame() {
         // A fully marked 2×2 frame drawn at 5×5.

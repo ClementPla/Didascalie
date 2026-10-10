@@ -34,19 +34,14 @@ export const CURVE_COLORS: Record<CurveId, string> = { a: '#f5c2e7', b: '#94e2d5
  * The projection curves over the editor canvas, in image coordinates (an SVG
  * whose viewBox follows the canvas's pan and zoom).
  *
- * The overlay lets input through to the canvas except on the curves: drag a
- * point to move it; click to select it (Delete removes it), or right-click /
- * Alt+click to remove it at once; double-click a curve to insert a point.
- * While a curve is being placed it takes every click: each adds a point, and
- * a double-click, Enter or Escape ends the curve. While one is being picked
- * from a label, the next click chooses the annotation.
+ * Input goes through to the canvas except on the curves. While a curve is
+ * being placed or picked, the overlay takes every click.
  */
 @Component({
   selector: 'app-curve-overlay',
   standalone: true,
   templateUrl: './curve-overlay.component.html',
-  // Theme tokens rather than literals: SVG presentation attributes cannot carry
-  // `var()`, so the accent colour lives in a class instead of on the element.
+  // SVG presentation attributes cannot carry `var()`: the colour is in a class.
   styles: `
     .curve-accent-stroke { stroke: var(--p-amber-300, #f9e2af); }
     .curve-accent-fill { fill: var(--p-amber-300, #f9e2af); }
@@ -147,8 +142,8 @@ export class CurveOverlayComponent {
       .subscribe(() => this.syncViewBox());
     queueMicrotask(() => this.syncViewBox());
 
-    // Starting a mode from a button leaves that button focused, and Enter
-    // would press it again: drop the focus.
+    // A mode started from a button leaves it focused, and Enter would press it
+    // again.
     effect(() => {
       if (this.capturing()) (document.activeElement as HTMLElement | null)?.blur?.();
     });
@@ -187,9 +182,8 @@ export class CurveOverlayComponent {
       return;
     }
     if (!this.projection.placing()) return;
-    // The second click of a double-click ends the curve (the first one added
-    // its last point). Read from the click itself: a separate dblclick event
-    // is not reliable across webviews.
+    // The second click of a double-click ends the curve. Read from the click: a
+    // separate dblclick event is not reliable across webviews.
     if (event.detail >= 2) {
       this.projection.finishPlacing();
       return;
@@ -235,10 +229,8 @@ export class CurveOverlayComponent {
   /** Two fingers are on the overlay: they belong to the canvas. */
   private pinching = false;
 
-  /**
-   * Hand two-finger gestures to the canvas, so the image can still be panned
-   * and pinched while the overlay is taking the taps that place points.
-   */
+  /** Hand two-finger gestures to the canvas, so the image can still be panned
+   *  and pinched while points are being placed. */
   onBackgroundTouch(event: TouchEvent): void {
     if (event.touches.length >= 2) this.pinching = true;
     if (!this.pinching) return;

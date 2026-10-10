@@ -23,10 +23,9 @@ import { ViewportController } from '../../registration/viewport-controller';
 import { OverlayLabel, SequenceFrameCache } from '../frame-cache';
 
 /**
- * Where a pane is looking, independently of its size and of its image's: how
- * far it is zoomed past "fit", and which point of the image (0..1 on each
- * axis) sits at its centre. This is what panes exchange to stay in step, so
- * two sequences of different resolutions still show the same region.
+ * Where a pane is looking, independently of its size and its image's: how far
+ * it is zoomed past "fit", and which point of the image (0..1 on each axis)
+ * is at its centre. Panes exchange this to stay in step.
  */
 export interface RelativeView {
   zoom: number;
@@ -43,9 +42,8 @@ export interface ReviewChange {
   reviewed: boolean;
 }
 
-/** Preview sizes requested from the backend (longest side, px). A few fixed
- *  steps rather than the exact pane size, so resizing the window does not
- *  throw the cache away at every pixel. */
+/** Preview sizes requested from the backend (longest side, px). Fixed steps,
+ *  so resizing the window does not discard the cache at every pixel. */
 const PREVIEW_STEPS = [512, 768, 1024, 1536, 2048];
 /** Margin `ViewportController.fitImage` leaves around a fitted image (CSS px). */
 const FIT_MARGIN = 24;
@@ -54,11 +52,9 @@ const COPIED_MS = 1500;
 
 /**
  * One sequence in the inspector: a read-only view of its frames with their
- * labels on top, following a frame index it is given.
- *
- * It owns the sequence's frame cache and its own zoom/pan, and knows nothing
- * about playback — the panel drives every pane from one clock, and asks each
- * whether a frame `isReady` before moving on to it.
+ * labels, following a frame index it is given. It owns the sequence's frame
+ * cache and its zoom/pan; the panel drives playback and asks each pane
+ * whether a frame `isReady`.
  */
 @Component({
   selector: 'app-inspect-pane',
@@ -236,8 +232,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     };
 
     const host = this.hostEl().nativeElement;
-    // Pointer and wheel events fire continuously while panning; nothing they
-    // do needs a change-detection pass, so keep them out of the zone.
+    // Pointer and wheel events stay out of the zone.
     this.zone.runOutsideAngular(() => {
       this.resizeObserver = new ResizeObserver((entries) => {
         const { width, height } = entries[0].contentRect;
@@ -271,11 +266,8 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
 
   // ── Driven by the panel ──────────────────────────────────────────────────
 
-  /**
-   * Whether the panel may move on to its frame `index`: this pane has it
-   * decoded, or will never have it (a sequence or a frame that failed to
-   * load must not hold the others back).
-   */
+  /** Whether the panel may move on to its frame `index`: it is decoded, or
+   *  failed to load. */
   isReady(index: number): boolean {
     if (this.status() === 'error') return true;
     if (!this.cache) return false;
@@ -315,10 +307,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  /**
-   * Fit the image in the pane. `byUser` when asked for explicitly: the other
-   * panes then follow, as they would any other change of view.
-   */
+  /** Fit the image in the pane. With `byUser`, the other panes follow. */
   fit(byUser = false): void {
     const native = this.nativeSize();
     if (!native) return;
@@ -375,8 +364,6 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
 
   private async loadSequence(id: number): Promise<void> {
     const token = ++this.loadToken;
-    // While a previous sequence is still loading there is no view to read:
-    // the one kept for it carries over.
     if (!this.keepView()) this.keptView = null;
     else if (this.userMoved) this.keptView = this.relativeView() ?? this.keptView;
     this.status.set('loading');
@@ -457,8 +444,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     this.waiting.set(!!cache && !cache.isReady(index));
     if (!cache || !this.viewReady) return;
 
-    // Until the wanted frame arrives, the previous one stays up: a late frame
-    // should read as a held image, not as a flash of empty canvas.
+    // Until the wanted frame arrives, the previous one stays up.
     const shown = cache.get(index) ? index : this.shownIndex;
     const frame = shown === null ? undefined : cache.get(shown);
     const meta = shown === null ? undefined : this.frames()[shown];
@@ -479,8 +465,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
 
     const opacity = this.opacity();
     if (frame.overlay && opacity > 0) {
-      // Magnified, labels keep hard pixel edges, as in the editor; shrunk,
-      // smoothing avoids thin structures breaking up.
+      // Magnified, labels keep hard pixel edges; shrunk, they are smoothed.
       const magnification =
         (this.controller.scale() * this.dpr * meta.width) / frame.overlay.width;
       ctx.imageSmoothingEnabled = magnification < 1;
@@ -499,8 +484,7 @@ export class InspectPaneComponent implements AfterViewInit, OnDestroy {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  /** Size of the image the view is laid out against (the frames of a
-   *  sequence normally share one). */
+  /** Size of the image the view is laid out against. */
   private nativeSize(): { width: number; height: number } | null {
     const frame = this.frames()[this.shownIndex ?? 0] ?? this.frames()[0];
     return frame ? { width: frame.width, height: frame.height } : null;

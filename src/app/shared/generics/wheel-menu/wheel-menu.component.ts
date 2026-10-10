@@ -19,16 +19,16 @@ export enum SegmentType {
 
 export interface MenuItem {
   label: string;
-  /** PrimeIcons class, used when `materialIcon` is absent. */
+  /** PrimeIcons class. */
   icon: string;
-  /** Material Symbols ligature name. Preferred over `icon` when set. */
+  /** Material Symbols ligature, preferred over `icon`. */
   materialIcon?: string;
-  /** Options for this entry, drawn as an outer ring while it is aimed at. */
+  /** Options of this entry, drawn as an outer ring while it is aimed at. */
   children?: MenuItem[];
   command?: () => void;
-  /** On/off state for `toggle` children, read every render. */
+  /** State of a `toggle` child. */
   checked?: () => boolean;
-  /** Whether this is the entry currently in effect (the active tool). */
+  /** This is the entry in effect (the active tool). */
   active?: () => boolean;
   type?: SegmentType;
   disabled?: boolean;
@@ -36,15 +36,13 @@ export interface MenuItem {
 
 interface Segment {
   path: string;
-  /** Where the icon and any state dot go. */
   cx: number;
   cy: number;
   startAngle: number;
   endAngle: number;
   children: Segment[];
-  /** Where this entry's options ring starts, and how wide each one is. The
-   *  ring is allowed to fan out past the entry's own wedge — only one entry's
-   *  options are ever drawn, so there is nothing for them to collide with. */
+  /** Where this entry's options ring starts, and the width of each option. It
+   *  may fan out past the entry's own wedge. */
   childStart: number;
   childStep: number;
 }
@@ -54,18 +52,11 @@ const DEG = Math.PI / 180;
 /**
  * A pie (radial) menu.
  *
- * Targeting is done from the pointer's angle and distance rather than from
- * per-path `mouseenter`, which is what makes it fast: a segment stays aimed at
- * however far out the pointer travels, so the gesture is a flick in a
- * direction rather than a move onto a small wedge. The middle is a dead zone,
- * so opening and closing without moving aims at nothing — the caller uses that
- * to mean "no choice made".
- *
- * Whatever is aimed at when the menu closes is applied — no click needed.
- * Committing on close rather than on every aim change is deliberate: sweeping
- * across the wheel would otherwise run every entry it passed over, and a tool
- * change has side effects (leaving the path tool finalizes an open draft).
- * Children are options belonging to the aimed entry and take a click.
+ * An entry is aimed at from the pointer's angle and distance, however far out
+ * the pointer goes; the middle is a dead zone. Whatever is aimed at when the
+ * menu closes is applied, not each entry the pointer passes over: a tool
+ * change has side effects. Children are options of the aimed entry and take
+ * a click.
  */
 @Component({
   selector: 'app-wheel-menu',
@@ -80,7 +71,6 @@ export class WheelMenuComponent {
   readonly items = input<MenuItem[]>([]);
   /** Outer edge of the ring of entries, in px. */
   readonly radius = input(150);
-  /** Whether the menu is open; pointer tracking runs only while it is. */
   readonly active = input(false);
 
   readonly closeMenu = output<void>();
@@ -103,7 +93,6 @@ export class WheelMenuComponent {
 
   readonly outerRadius = computed(() => this.radius() + this.childBand);
 
-  /** Square viewBox centred on the hub, big enough for the children ring. */
   readonly viewBox = computed(() => {
     const dim = this.outerRadius() * 2;
     return `${-dim / 2} ${-dim / 2} ${dim} ${dim}`;
@@ -111,36 +100,29 @@ export class WheelMenuComponent {
 
   readonly boxSize = computed(() => this.outerRadius() * 2);
 
-  /** The entry currently aimed at, for the label printed in the hub. */
   readonly aimedItem = computed(() => {
     const i = this._aimed();
     return i === null ? null : (this.items()[i] ?? null);
   });
 
-  /**
-    * Geometry for every entry. Derived from `items()` and `radius()` rather
-    * than built once on init, so the wheel cannot go stale against its input.
-   */
   readonly segments = computed<Segment[]>(() => {
     const items = this.items();
     const n = items.length;
     if (n === 0) return [];
 
     const step = 360 / n;
-    // A hair of angular padding draws the wedges as separate keys rather than
-    // one continuous disc.
+    // A little angular padding separates the wedges.
     const pad = Math.min(1.5, step * 0.04);
     const inner = this.ringInner;
     const outer = this.radius();
 
     return items.map((item, i) => {
-      // Entry 0 sits at the top and they run clockwise from there.
+      // Entry 0 is at the top; they run clockwise.
       const start = -90 - step / 2 + i * step;
       const end = start + step;
 
       const kids = item.children ?? [];
-      // Enough arc per option to fit its label, fanning wider than the entry's
-      // own wedge when it has several.
+      // Enough arc per option to fit its label.
       const span =
         kids.length > 0
           ? Math.max(step, Math.min(170, kids.length * 46))
@@ -187,8 +169,7 @@ export class WheelMenuComponent {
         this._aimedChild.set(null);
         return;
       }
-      // Coalesced to one resolution per frame; pointermove fires far more
-      // often than the wheel can usefully change.
+      // One resolution per frame.
       let pending: { x: number; y: number } | null = null;
       let frame = 0;
       const move = (ev: PointerEvent) => {
@@ -199,8 +180,7 @@ export class WheelMenuComponent {
           if (pending) this.aimAt(pending.x, pending.y);
         });
       };
-      // Bound to the window: aiming has to keep working past the wheel's own
-      // bounds, which is the whole point of a pie menu.
+      // On the window: aiming works past the wheel's own bounds.
       window.addEventListener('pointermove', move, { passive: true });
       onCleanup(() => {
         window.removeEventListener('pointermove', move);
@@ -209,7 +189,6 @@ export class WheelMenuComponent {
     });
   }
 
-  /** Resolve a screen position to an aimed entry, and possibly one of its options. */
   private aimAt(clientX: number, clientY: number): void {
     const el = this.svg()?.nativeElement ?? this.host.nativeElement;
     const rect = el.getBoundingClientRect();
@@ -229,13 +208,11 @@ export class WheelMenuComponent {
       return;
     }
 
-    // Screen y grows downwards, which matches the clockwise sweep the paths
-    // are drawn with, so no sign correction is needed here.
+    // Screen y grows downwards, as the clockwise sweep of the paths does.
     const deg = Math.atan2(dy, dx) / DEG;
 
-    // Inside the options band, the entry stays locked: its ring fans wider
-    // than its own wedge, so resolving the entry by angle out here would hand
-    // the pointer to a neighbour halfway through picking an option.
+    // Inside the options band the entry stays locked: its ring fans wider than
+    // its own wedge.
     const current = this._aimed();
     const currentKids =
       current === null ? [] : (items[current].children ?? []);
@@ -259,10 +236,7 @@ export class WheelMenuComponent {
     this._aimed.set(index);
   }
 
-  /**
-   * Run whatever entry is aimed at. Returns false when nothing is — the caller
-   * reads that as "opened and dismissed without choosing".
-   */
+  /** Run the entry aimed at. False when there is none. */
   commitAimed(): boolean {
     const index = this._aimed();
     if (index === null) return false;
@@ -272,7 +246,7 @@ export class WheelMenuComponent {
     return true;
   }
 
-  /** Click: toggle the aimed option if there is one, otherwise commit and close. */
+  /** Toggle the aimed option if there is one, otherwise commit and close. */
   onClick(): void {
     const parent = this._aimed();
     const child = this._aimedChild();
@@ -292,7 +266,6 @@ export class WheelMenuComponent {
     return item.active?.() ?? false;
   }
 
-  /** An annulus wedge between two radii and two angles. */
   private ringPath(r0: number, r1: number, a0: number, a1: number): string {
     const p = (r: number, a: number) =>
       `${(r * Math.cos(a * DEG)).toFixed(2)} ${(r * Math.sin(a * DEG)).toFixed(2)}`;

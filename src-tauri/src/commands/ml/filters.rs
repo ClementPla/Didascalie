@@ -1,41 +1,19 @@
-//! A modality-agnostic local feature basis, evaluated at full working
-//! resolution.
+//! A local feature basis at full working resolution.
 //!
-//! # Why this exists
-//!
-//! The frozen ViT encoders emit one token per patch (stride 14–16), which caps
-//! how finely they can localise anything. Structures thinner than a patch —
-//! whatever they happen to be in a given project — get smeared before any head
-//! sees them. This bank runs at full resolution and fills that gap.
-//!
-//! # Design principle: basis, not detectors
-//!
-//! Didascalie does not know what the user is labelling. So this module
-//! deliberately ships a *generic differential basis* rather than tuned
-//! detectors. In particular the Hessian eigenvalues are exposed **signed and
-//! ordered by magnitude** instead of being collapsed into a polarity-specific
-//! ridge measure: a bright tubular structure, a dark one, a blob and an edge
-//! all remain distinguishable downstream, and the trainable head decides which
-//! combination matters. Baking in "detect dark tubes" would help one task and
-//! silently hurt every other.
-//!
-//! # Modality neutrality
-//!
-//! * Works on 1-channel (CT, MR, ultrasound, X-ray, OCT) or 3-channel input.
-//! * Every image is robustly normalised first, so Hounsfield units, arbitrary
-//!   MR intensities and 8-bit RGB all land on a comparable scale.
-//! * The multi-scale differential stack is computed on luminance; raw channels
-//!   are passed through as-is so colour information (e.g. stained pathology)
-//!   still reaches the head without multiplying the channel count by three.
+//! ViT encoders emit one token per patch, so structures thinner than a patch
+//! are smeared; this bank fills that gap. It is a generic differential basis,
+//! not a set of tuned detectors: Hessian eigenvalues stay signed and ordered by
+//! magnitude, so bright and dark tubes, blobs and edges remain distinguishable
+//! and the head decides what matters. Images are robustly normalised first;
+//! the multi-scale stack is computed on luminance, with raw channels passed
+//! through.
 
 use ndarray::{Array2, Array3};
 use rayon::prelude::*;
 
-/// Scales (in pixels, as Gaussian sigma) at which the differential features are
-/// evaluated. Spanning a decade covers fine texture through coarse anatomy.
+/// Gaussian sigmas, in pixels, of the differential features.
 pub const DEFAULT_SCALES: [f32; 4] = [1.0, 2.0, 4.0, 8.0];
 
-/// Number of differential features produced per scale.
 const PER_SCALE: usize = 6;
 
 #[derive(Debug, Clone)]
@@ -52,13 +30,12 @@ impl Default for FilterBankConfig {
 }
 
 impl FilterBankConfig {
-    /// Channel count this configuration yields for an image with `in_channels`.
     pub fn output_channels(&self, in_channels: usize) -> usize {
         in_channels + self.scales.len() * PER_SCALE
     }
 }
 
-/// Mirror an index back into `[0, n)` (symmetric / edge-duplicating reflection).
+/// Mirror an index back into `[0, n)`.
 fn reflect(mut i: isize, n: usize) -> usize {
     let n_i = n as isize;
     if n_i == 1 {
@@ -75,7 +52,7 @@ fn reflect(mut i: isize, n: usize) -> usize {
     }
 }
 
-/// Normalised 1-D Gaussian kernel truncated at 3 sigma.
+/// Normalised 1-D Gaussian kernel, truncated at 3 sigma.
 fn gaussian_kernel(sigma: f32) -> Vec<f32> {
     let radius = (3.0 * sigma).ceil().max(1.0) as isize;
     let two_sig_sq = 2.0 * sigma * sigma;
@@ -95,7 +72,6 @@ pub fn gaussian_blur(src: &Array2<f32>, sigma: f32) -> Array2<f32> {
     let k = gaussian_kernel(sigma);
     let r = (k.len() / 2) as isize;
 
-    // Horizontal pass.
     let mut tmp = Array2::<f32>::zeros((h, w));
     for y in 0..h {
         for x in 0..w {
@@ -108,7 +84,6 @@ pub fn gaussian_blur(src: &Array2<f32>, sigma: f32) -> Array2<f32> {
         }
     }
 
-    // Vertical pass.
     let mut out = Array2::<f32>::zeros((h, w));
     for y in 0..h {
         for x in 0..w {
@@ -123,7 +98,6 @@ pub fn gaussian_blur(src: &Array2<f32>, sigma: f32) -> Array2<f32> {
     out
 }
 
-/// Central-difference gradient magnitude.
 pub fn gradient_magnitude(src: &Array2<f32>) -> Array2<f32> {
     let (h, w) = (src.shape()[0], src.shape()[1]);
     let mut out = Array2::<f32>::zeros((h, w));
@@ -141,8 +115,8 @@ pub fn gradient_magnitude(src: &Array2<f32>) -> Array2<f32> {
     out
 }
 
-/// Second derivatives `(Lxx, Lyy, Lxy)`, gamma-normalised by `sigma^2` so
-/// responses are comparable across scales.
+/// Second derivatives `(Lxx, Lyy, Lxy)`, scaled by `sigma^2` to be comparable
+/// across scales.
 fn hessian_components(src: &Array2<f32>, sigma: f32) -> (Array2<f32>, Array2<f32>, Array2<f32>) {
     let (h, w) = (src.shape()[0], src.shape()[1]);
     let norm = sigma * sigma;
@@ -165,11 +139,8 @@ fn hessian_components(src: &Array2<f32>, sigma: f32) -> (Array2<f32>, Array2<f32
     (lxx, lyy, lxy)
 }
 
-/// Signed Hessian eigenvalues ordered so that `|l1| <= |l2|`.
-///
-/// Kept signed on purpose — sign encodes whether a structure is brighter or
-/// darker than its surround, which is exactly the information a
-/// polarity-specific ridge filter would throw away.
+/// Signed Hessian eigenvalues, ordered so that `|l1| <= |l2|`. The sign says
+/// whether a structure is brighter or darker than its surround.
 pub fn hessian_eigenvalues(src: &Array2<f32>, sigma: f32) -> (Array2<f32>, Array2<f32>) {
     let (h, w) = (src.shape()[0], src.shape()[1]);
     let (lxx, lyy, lxy) = hessian_components(src, sigma);
@@ -193,8 +164,7 @@ pub fn hessian_eigenvalues(src: &Array2<f32>, sigma: f32) -> (Array2<f32>, Array
     (e1, e2)
 }
 
-/// Local standard deviation over a Gaussian window — a cheap, generic texture
-/// cue (speckle, granularity, stain heterogeneity).
+/// Local standard deviation over a Gaussian window: a texture cue.
 pub fn local_std(src: &Array2<f32>, sigma: f32) -> Array2<f32> {
     let mean = gaussian_blur(src, sigma);
     let sq = src.mapv(|v| v * v);
@@ -210,10 +180,7 @@ pub fn local_std(src: &Array2<f32>, sigma: f32) -> Array2<f32> {
     out
 }
 
-/// Rescale to `[0, 1]` using the 1st/99th percentiles, clamping outliers.
-///
-/// This is what lets one code path serve CT (Hounsfield units), MR (arbitrary
-/// scanner-dependent ranges), 16-bit acquisitions and ordinary 8-bit images.
+/// Rescale to `[0, 1]` between the 1st and 99th percentiles.
 pub fn robust_normalize(src: &Array2<f32>) -> Array2<f32> {
     let mut vals: Vec<f32> = src.iter().copied().filter(|v| v.is_finite()).collect();
     if vals.is_empty() {
@@ -229,7 +196,7 @@ pub fn robust_normalize(src: &Array2<f32>) -> Array2<f32> {
     src.mapv(|v| ((v - lo) / range).clamp(0.0, 1.0))
 }
 
-/// Luminance from a `[C, H, W]` image (`C` of 1 or 3; other counts average).
+/// Luminance of a `[C, H, W]` image (`C` of 1 or 3; other counts average).
 fn luminance(image: &Array3<f32>) -> Array2<f32> {
     let (c, h, w) = (image.shape()[0], image.shape()[1], image.shape()[2]);
     let mut out = Array2::<f32>::zeros((h, w));
@@ -247,18 +214,14 @@ fn luminance(image: &Array3<f32>) -> Array2<f32> {
     out
 }
 
-/// Compute the full basis for a `[C, H, W]` image.
-///
-/// Returns `([D, H, W], channel_names)` where `D ==
-/// cfg.output_channels(C)`. Channel names are stable and are persisted with a
-/// trained head so a model can be re-applied to identically-built features.
+/// The full basis of a `[C, H, W]` image: `([D, H, W], channel_names)`. The
+/// names are stored with a trained head.
 pub fn compute(image: &Array3<f32>, cfg: &FilterBankConfig) -> (Array3<f32>, Vec<String>) {
     let (c, h, w) = (image.shape()[0], image.shape()[1], image.shape()[2]);
     let d = cfg.output_channels(c);
     let mut out = Array3::<f32>::zeros((d, h, w));
     let mut names = Vec::with_capacity(d);
 
-    // Raw (normalised) channels carry colour / native intensity through.
     for ch in 0..c {
         let plane = robust_normalize(&image.index_axis(ndarray::Axis(0), ch).to_owned());
         out.index_axis_mut(ndarray::Axis(0), ch).assign(&plane);
@@ -267,22 +230,15 @@ pub fn compute(image: &Array3<f32>, cfg: &FilterBankConfig) -> (Array3<f32>, Vec
 
     let gray = robust_normalize(&luminance(image));
 
-    // Scales are fully independent and each involves several separable
-    // convolutions, which dominate the cost of building a training set. Running
-    // them in parallel is the cheapest large win available here.
-    //
-    // Parallelism stops at this level on purpose: nesting rayon inside the
-    // convolutions as well would oversubscribe the pool, and the caller already
-    // processes frames in sequence. `par_iter().map().collect()` preserves
-    // order, so the channel layout stays deterministic — which matters, because
-    // a head is only valid against the ordering it was trained on.
+    // Scales run in parallel, and only they do: nesting rayon in the convolutions
+    // would oversubscribe the pool. `collect()` keeps the channel order.
     let per_scale: Vec<[(Array2<f32>, &'static str); PER_SCALE]> = cfg
         .scales
         .par_iter()
         .map(|&sigma| {
             let smoothed = gaussian_blur(&gray, sigma);
             let grad = gradient_magnitude(&smoothed);
-            // Laplacian == trace of the Hessian; gamma-normalised alongside it.
+            // Laplacian = trace of the Hessian.
             let (lxx, lyy, _) = hessian_components(&smoothed, sigma);
             let log = &lxx + &lyy;
             let (e1, e2) = hessian_eigenvalues(&smoothed, sigma);
@@ -352,9 +308,7 @@ mod tests {
 
     #[test]
     fn hessian_sign_distinguishes_bright_from_dark_structures() {
-        // A bright horizontal line on a dark field, and its inverse. The
-        // large-magnitude eigenvalue must flip sign between them — this is the
-        // polarity information a tuned ridge filter would discard.
+        // A bright line and its inverse: the large eigenvalue must flip sign.
         let (h, w) = (21, 21);
         let mut bright = Array2::<f32>::zeros((h, w));
         for x in 0..w {
@@ -373,7 +327,6 @@ mod tests {
 
     #[test]
     fn robust_normalize_handles_arbitrary_ranges_and_flat_images() {
-        // Hounsfield-like range maps into [0, 1].
         let img = Array2::from_shape_fn((10, 10), |(y, x)| -1000.0 + (y * 10 + x) as f32 * 20.0);
         let n = robust_normalize(&img);
         assert!(n.iter().all(|&v| (0.0..=1.0).contains(&v)));
@@ -400,7 +353,6 @@ mod tests {
         assert_eq!(feat.shape()[0], cfg.output_channels(3));
         assert_eq!(names.len(), feat.shape()[0]);
         assert!(feat.iter().all(|v| v.is_finite()));
-        // Channel names are unique so a trained head can be matched to them.
         let mut sorted = names.clone();
         sorted.sort();
         let before = sorted.len();

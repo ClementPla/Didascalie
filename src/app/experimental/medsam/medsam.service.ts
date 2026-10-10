@@ -8,11 +8,8 @@ import { ImageAdjustmentService } from '../../features/editor/drawable-canvas/se
 import { LabelsService } from '../../services/labels/labels.service';
 import { ProjectService } from '../../services/project/project.service';
 
-/**
- * Experimental: refine a coarse brush stroke into a mask with the bundled
- * SAM-style model (Rust `mask_sam_segment` command).
- * Owns the MedSAM setting and cached state.
- */
+/** Refine a coarse stroke into a mask with the bundled SAM-style model
+ *  (Rust `mask_sam_segment`). */
 @Injectable({ providedIn: 'root' })
 export class MedsamService {
   private canvasManagerService = inject(CanvasManagerService);
@@ -27,14 +24,12 @@ export class MedsamService {
   /** Whether the Rust side holds encoder features for the current image. */
   private featuresExtracted = false;
 
-  /** Refine the stroke in the buffer canvas into the active label mask. */
   async refineStroke(): Promise<void> {
     const w = this.stateService.width;
     const h = this.stateService.height;
 
-    // SAM reads the whole stroke buffer + full image at native resolution, which
-    // isn't available in the windowed/viewport-composite mode used for large
-    // images. Skip rather than send a truncated mask.
+    // SAM reads the full image and stroke buffer, which large images (windowed
+    // composite) do not have.
     if (this.canvasManagerService.usesViewportComposite) {
       console.warn('SAM post-process is unavailable for large images.');
       return;
@@ -52,7 +47,7 @@ export class MedsamService {
     if (!imgCtx) return;
     const imgData = imgCtx.getImageData(0, 0, w, h).data;
 
-    // Extract the encoder features on the first stroke of an image, reuse after.
+    // Encoder features are extracted on the first stroke of an image.
     const result = await invoke<ArrayBufferLike>('mask_sam_segment', {
       coarseMask,
       image: this.featuresExtracted ? [] : imgData.buffer,
@@ -67,7 +62,6 @@ export class MedsamService {
     if (mask) applyResultMask(mask, new Uint8Array(result), this.labelService.paintValue(this.projectService.isInstanceSegmentation()));
   }
 
-  /** A new image was loaded: the features belong to the previous image. */
   onImageLoaded(): void {
     this.featuresExtracted = false;
   }

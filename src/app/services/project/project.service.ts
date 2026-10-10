@@ -46,7 +46,6 @@ export class ProjectService {
   private lifecycle = inject(ProjectLifecycleService);
   private notifications = inject(NotificationService);
 
-  // Private state
   private readonly STORAGE_KEY = 'didascalie_recent_projects';
   private readonly _config = signal<ProjectConfig>(DEFAULT_PROJECT_CONFIG);
   private readonly _projectPath = signal<string | null>(null);
@@ -60,14 +59,12 @@ export class ProjectService {
     () => this._config().text_description_enabled,
   );
 
-  // Public readonly signals
   readonly config = this._config.asReadonly();
   readonly projectPath = this._projectPath.asReadonly();
   readonly isOpen = this._isOpen.asReadonly();
   readonly framesCount = this._framesCount.asReadonly();
   readonly sequencesCount = this._sequencesCount.asReadonly();
 
-  // Computed conveniences (for template binding)
   readonly projectName = computed(() => this._config().name);
   readonly inputFolder = computed(() => this._config().input_folder);
   readonly isSegmentation = computed(() => this._config().segmentation_enabled);
@@ -83,7 +80,6 @@ export class ProjectService {
     () => this._config().folders_as_sequences,
   );
   readonly imagesEmbedded = computed(() => this._config().images_embedded);
-  // For backward compatibility in templates
   readonly hasTextDescription = this.isTextDescriptionEnabled;
 
   updateConfig(partial: Partial<ProjectConfig>): void {
@@ -118,11 +114,8 @@ export class ProjectService {
     this.updateConfig({ input_regex: regex });
   }
 
-  /**
-   * Keep one frame out of this many from each video of the input folder. An
-   * import option rather than part of the saved config: it says how the frames
-   * were chosen, and they are in the project from then on.
-   */
+  /** Keep one frame out of this many from each video of the input folder. An
+   *  import option, not part of the saved config. */
   readonly videoFrameStep = signal(1);
 
   setVideoFrameStep(step: number): void {
@@ -148,16 +141,9 @@ export class ProjectService {
   // ── Project Lifecycle ────────────────────────────────────────────────────
 
   /**
-   * Create a project, replacing whatever was open.
-   *
-    * The close is not optional, for the same reason as in {@link open}: without
-    * it the new project inherits the open one's config and every project-scoped
-    * service keeps its caches.
-   *
-   * The draft is captured first because `close()` resets project-scoped state,
-   * and that includes the labels this form just defined. It is then merged over
-   * the defaults, so a field the previous project's file did not carry comes
-   * back as a default rather than `undefined`.
+   * Create a project, replacing whatever was open. The draft is captured before
+   * `close()`, which resets the labels the form just defined, then merged over
+   * the defaults.
    */
   async create(path: string): Promise<void> {
     const draft = { ...this._config(), ...this.labelService.getDefinitions() };
@@ -174,8 +160,8 @@ export class ProjectService {
       throw error;
     }
 
-    // After the project exists, never before: `setDefinitions` reads the labels
-    // back from the database.
+    // After the project exists: `setDefinitions` reads the labels back from the
+    // database.
     await this.labelService.setDefinitions(config);
 
     this._projectPath.set(path);
@@ -185,28 +171,19 @@ export class ProjectService {
     this.addToRecentProjects(config.name, path);
   }
 
-  /**
-   * Open a project, replacing whatever was open.
-   *
-    * The close is not optional: without it the second project inherits the
-    * first one's sequences, masks, undo history, gallery filters and per-frame
-    * caches. Ids restart at 1 in every project, so those caches do not look
-    * stale; they read as the new project's own data.
-   */
+  /** Open a project, replacing whatever was open. The close comes first: ids
+   *  restart at 1 in every project, and caches keyed by them would be reused. */
   async open(path: string): Promise<void> {
     await this.close();
     const config = await api.openProject(path);
-    // Merged over the defaults rather than assigned. A project file written by
-    // an older version can lack a field the current one expects, and a plain
-    // assignment turns that into `undefined` rather than a default — which is
-    // how `embed_threshold_kb` went missing and broke the folder scan that
-    // follows project creation.
+    // Merged over the defaults: a file written by an older version can lack a
+    // field.
     this._config.set({ ...DEFAULT_PROJECT_CONFIG, ...config });
     await this.labelService.setDefinitions(config); // Now async
     this._projectPath.set(path);
     this._isOpen.set(true);
-    // A project made on another computer may name a folder this one reaches
-    // by another path: ask for it before anything tries to load an image.
+    // A project made on another computer may name a folder this one reaches by
+    // another path.
     await this.refreshImageFolder();
     if (this._imageFolder()?.missing && !(await this.locateImageFolder())) {
       this.notifications.warn(
@@ -227,12 +204,8 @@ export class ProjectService {
     }
   }
 
-  /**
-   * Ask where the project's image folder is on this computer. The project
-   * remembers it next to the paths it already knows, so the same file keeps
-   * working on the computers it came from. False when nothing was chosen, or
-   * the folder chosen is not the project's.
-   */
+  /** Ask where the project's image folder is on this computer. False when
+   *  nothing was chosen, or the folder is not the project's. */
   async locateImageFolder(): Promise<boolean> {
     const known = this._imageFolder()?.folder;
     const picked = await open({
@@ -260,9 +233,7 @@ export class ProjectService {
     if (this._isOpen()) {
       await api.closeProject();
     }
-    // Every service holding project state, not just labels — see
-    // `core/project-scoped.ts`. This service is deliberately not in that list:
-    // it drives the lifecycle rather than being subject to it.
+    // This service is not in the project-scoped list: it drives the lifecycle.
     this.lifecycle.resetAll();
     this.reset();
   }
@@ -290,11 +261,7 @@ export class ProjectService {
     return result;
   }
 
-  /**
-   * Add a folder's images to the open project. See `add_images_to_project` for
-   * how images already present, and folders outside the project's own, are
-   * handled.
-   */
+  /** Add a folder's images to the open project. See `add_images_to_project`. */
   async addImages(options: ScanOptions): Promise<AddImagesResult> {
     const result = await api.addImagesToProject(options);
     await this.refreshCounts();
@@ -304,16 +271,10 @@ export class ProjectService {
   // ── Editing an open project ──────────────────────────────────────────────
 
   /**
-   * Apply one configuration change to the open project.
-   *
-   * The backend changes the config and the annotations that depend on it in
-   * one transaction and hands back the result, which replaces the local copy
-   * wholesale: nothing here patches `_config` by hand, so the two cannot
-   * disagree about what a half-applied edit looks like.
-   *
-   * Callers go through `ProjectSettingsService`, which also flushes and drops
-   * the editor's in-memory state around the edit. Calling this directly while
-   * a frame is loaded leaves that state describing labels that have changed.
+   * Apply one configuration change to the open project. The backend returns the
+   * resulting configuration, which replaces the local copy. Callers go through
+   * `ProjectSettingsService`, which flushes and drops the editor's in-memory
+   * state around the edit.
    */
   async applyEdit(edit: ProjectEdit): Promise<void> {
     const config = await api.applyProjectEdit(edit);
@@ -343,8 +304,7 @@ export class ProjectService {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (!stored) return [];
       const parsed = JSON.parse(stored) as Partial<RecentProject>[];
-      // Migration: older entries lack `last_opened`. Fill with 0 so they sort
-      // to the bottom but don't crash any consumer.
+      // Older entries lack `last_opened`.
       return parsed
         .filter((p) => p && p.path && p.name)
         .map((p) => ({

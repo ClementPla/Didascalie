@@ -20,29 +20,18 @@ import { UndoRedoService } from '../editor/drawable-canvas/service/undo-redo.ser
 import { VectorEditorService } from '../editor/drawable-canvas/service/vector-editor.service';
 
 /**
- * Changes the configuration of the open project without leaving the editor's
- * in-memory state behind.
+ * Changes the configuration of the open project.
  *
- * # Why an edit is bracketed
+ * The editor's services outlive the editor page and still hold the last
+ * frame: one mask per label by position in the label list, its shapes, its
+ * undo history, maybe a pending save. So every edit is bracketed:
  *
- * The editor's services outlive the editor page. While the settings page is
- * open they still hold the last frame: one mask per label **by position in the
- * label list**, the frame's shapes, its undo history, and possibly a save
- * armed to fire a few seconds after the last stroke. Change the label list
- * underneath that and position 1 is a different label — the pending save would
- * write one label's mask into another.
+ * 1. Before: flush the pending save, while positions still mean what they
+ *    meant when the strokes were made.
+ * 2. After: drop the editor's frame state, which is reloaded from the project
+ *    against the new definitions.
  *
- * So every edit is bracketed:
- *
- * 1. **Before**: flush the pending save while positions still mean what they
- *    meant when the strokes were made. It also makes the deletion warning
- *    count what is really in the project.
- * 2. **After**: drop the editor's frame state. Nothing is lost — step 1 saved
- *    it — and the editor reloads the frame from the project when it is next
- *    opened, against the new definitions.
- *
- * Which sequence and frame are open is deliberately left alone, so returning
- * to the editor lands where the user was.
+ * The open sequence and frame are left alone.
  */
 @Injectable({ providedIn: 'root' })
 export class ProjectSettingsService {
@@ -75,7 +64,6 @@ export class ProjectSettingsService {
 
   async addImages(options: ScanOptions): Promise<AddImagesResult> {
     const result = await this.project.addImages(options);
-    // The sequence list is cached for the editor's navigator.
     if (result.framesImported > 0) await this.sequences.loadSequences();
     return result;
   }

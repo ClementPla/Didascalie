@@ -3,17 +3,12 @@ export class Tool {
   public name: string;
   public icon: string;
   public shortcut: string | null = null;
-  /** One line saying what the tool does, appended to its toolbar tooltip.
-   *  Left null for the vector tools, whose tooltip is the name and shortcut
-   *  only. */
+  /** What the tool does, appended to its toolbar tooltip. */
   public description: string | null = null;
-  /** Second icon badged over `icon`, for tools that are a combination of two
-   *  others (the lasso eraser is a lasso plus an eraser). */
+  /** Second icon badged over `icon`. */
   public overlayIcon: string | null = null;
-  /** Material Symbols ligature name, preferred over `icon` where the toolbar
-   *  supports it. PrimeIcons has no good glyph for tracing an outline or a
-   *  centerline. `icon` stays set as the fallback, and is what the
-   *  quick-access wheel uses — it renders icons as CSS classes only. */
+  /** Material Symbols ligature, preferred over `icon` where the toolbar
+   *  supports it. The quick-access wheel uses `icon`. */
   public materialIcon: string | null = null;
   constructor(
     id: number,
@@ -79,7 +74,6 @@ export class Tools {
     'pi pi-eraser'
   );
 
-  // Vector tools: a different class of tool (SVG shapes, not raster masks).
   public static SELECT = new Tool(
     9,
     'Select',
@@ -126,7 +120,6 @@ export class Tools {
     'polyline'
   );
 
-  // Convert tools: click a connected region of pixels to trace it into shapes.
   public static VECTORIZE = new Tool(
     7,
     'Trace outline',
@@ -147,7 +140,6 @@ export class Tools {
   );
 }
 
-/** Raster (mask) tools. Pan is deliberately not one of them — see NAV_TOOLS. */
 export const RASTER_TOOLS = [
   Tools.PEN,
   Tools.LINE,
@@ -156,11 +148,10 @@ export const RASTER_TOOLS = [
   Tools.LASSO_ERASER,
 ];
 
-/** Navigation. Split out of the raster group so the toolbar's leading segment
- *  keeps its position when tool-specific options appear and disappear. */
+/** Apart from the raster group, so the toolbar's leading segment keeps its
+ *  position when tool options appear. */
 export const NAV_TOOLS = [Tools.PAN];
 
-/** Vector drawing/selection tools, rendered as a distinct toolbar group. */
 export const VECTOR_TOOLS = [
   Tools.SELECT,
   Tools.PATH,
@@ -169,8 +160,7 @@ export const VECTOR_TOOLS = [
   Tools.NODE,
 ];
 
-/** Convert tools (raster ↔ vector): click a pixel region to trace it. Paired in
- *  the toolbar with the Rasterize action button. */
+/** Raster ↔ vector: click a pixel region to trace it. */
 export const CONVERT_TOOLS = [Tools.VECTORIZE, Tools.SKELETONIZE];
 
 export enum PostProcessOption {
@@ -180,13 +170,8 @@ export enum PostProcessOption {
   SUPERPIXEL = 'Superpixel',
 }
 
-/** Stable post-processing modes, in the order the tool settings panel shows
- *  them. Otsu and Flood Fill come first: both are deterministic, stroke-bounded
- *  operators sharing one set of refinement controls.
- *
- *  Experimental modes (MedSAM, Superpixel, …) are contributed by
- *  `src/app/experimental/registry.ts` and appended only while the
- *  experimental-features switch is on (see FeatureFlagsService). */
+/** Stable post-processing modes, in display order. Experimental ones come
+ *  from `src/app/experimental/registry.ts`. */
 export const postProcessingOptions = [
   PostProcessOption.OTSU,
   PostProcessOption.FLOODFILL,

@@ -10,18 +10,14 @@
   min-height: 0;
 }
 
-/* Recessed image area: a touch darker/lighter than the surrounding chrome,
-   derived from the active theme so it follows preset + dark mode. */
 .canvas-viewport {
   $minor-grid: color-mix(in srgb, var(--p-text-color) 7%, transparent);
   $major-grid: color-mix(in srgb, var(--p-text-color) 14%, transparent);
 
   background-color: color-mix(in srgb, var(--p-content-background) 90%, #000);
   background-image:
-    // Minor grid lines (every 8px)
     linear-gradient(to right,  #{$minor-grid} 1px, transparent 1px),
     linear-gradient(to bottom, #{$minor-grid} 1px, transparent 1px),
-    // Major grid lines (every 64px)
     linear-gradient(to right,  #{$major-grid} 1px, transparent 1px),
     linear-gradient(to bottom, #{$major-grid} 1px, transparent 1px);
   background-size:
@@ -68,17 +64,14 @@
   -ms-interpolation-mode: nearest-neighbor;
 }
 
-/* Ruler chrome around the canvas. */
 .ruler {
   background-color: var(--p-content-background);
   color: var(--p-text-color);
-  /* Subtle, theme-aware tick colour used by the generated tick marks. */
   --ruler-tick: color-mix(in srgb, var(--p-text-color) 45%, transparent);
 }
 
-/* Emphasised markers (image origin, cursor position, image extent).
-   margin:0 is essential: Tailwind preflight is disabled, so the UA's
-   default <p> margin would otherwise shove these off their target. */
+/* margin: 0, since Tailwind preflight is disabled and <p> has a default
+   margin. */
 .viewBoxMarker {
   margin: 0;
   top: 0;

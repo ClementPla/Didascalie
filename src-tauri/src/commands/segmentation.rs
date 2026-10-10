@@ -61,15 +61,10 @@ fn otsu_in_mask(
     mask: &Array2<bool>,
     inverse: bool,
 ) -> Result<Array2<bool>, String> {
-    // Ensure the image and mask have the same dimensions
     if image.dim() != mask.dim() {
         return Err("Image and mask dimensions must match".to_string());
     }
 
-    // We will do adaptive thresholding with a window size of size window x window
-
-    // Step 1: compute the average pixel value in the window
-    // Extract the pixel values within the mask
     let mut masked_pixels = Vec::new();
     for (&pixel, &is_masked) in image.iter().zip(mask.iter()) {
         if is_masked {
@@ -85,10 +80,8 @@ fn otsu_in_mask(
         return Err("Masked pixels are empty; cannot compute Otsu threshold".to_string());
     }
 
-    // Compute the Otsu threshold on the masked pixels
+    // Otsu threshold of the pixels under the mask.
     let threshold = otsu_level(&masked_pixels);
-
-    // Apply the threshold to the entire image to get a binary image
 
     let thresholded_image = if inverse {
         image.map(|&pixel| 255 - pixel > threshold)
@@ -96,7 +89,6 @@ fn otsu_in_mask(
         image.map(|&pixel| pixel > threshold)
     };
 
-    // Compute the logical AND between the thresholded image and the original mask
     let refined_mask = Zip::from(&thresholded_image)
         .and(mask)
         .map_collect(|&thresholded, &original_mask| thresholded && original_mask);
@@ -121,7 +113,6 @@ fn dilation(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
 
     for y in 0..height {
         for x in 0..width {
-            // Check if any pixel under the structuring element is foreground
             let mut any_foreground = false;
 
             for &(dx, dy) in &disk_offsets {
@@ -160,14 +151,12 @@ fn erosion(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
 
     for y in 0..height {
         for x in 0..width {
-            // Check if all pixels under the structuring element are foreground
             let mut all_foreground = true;
 
             for &(dx, dy) in &disk_offsets {
                 let nx = x as i32 + dx;
                 let ny = y as i32 + dy;
 
-                // Out of bounds or background pixel = erosion fails
                 if nx < 0 || nx >= width as i32 || ny < 0 || ny >= height as i32 {
                     all_foreground = false;
                     break;
@@ -186,10 +175,8 @@ fn erosion(mask: &Array2<bool>, kernel_size: u8) -> Array2<bool> {
     result
 }
 
-/// Clean up a binary selection: optional morphological closing ("smooth")
-/// and an optional largest-connected-component filter. Shared by the
-/// stroke-bounded operators (Otsu, flood fill) so they expose the same
-/// refinement controls.
+/// Clean up a binary selection: optional morphological closing and optional
+/// largest-connected-component filter. Shared by Otsu and flood fill.
 pub(crate) fn morpho_mask(
     mask: &Array2<bool>,
     opening: bool,
@@ -218,7 +205,6 @@ pub(crate) fn morpho_mask(
 
         let kmers = cc.iter().copied().collect::<Vec<u32>>();
         let nodes: HashMap<u32, usize> = kmers.iter().copied().counts();
-        // Find the largest connected component that is not 0
         let largest_kmer = kmers
             .iter()
             .copied()
@@ -270,8 +256,7 @@ pub async fn otsu_segmentation(
     let morphed_mask = morpho_mask(&refined_mask, opening, connectedness, kernel_size);
     refined_mask.assign(&morphed_mask);
 
-    // 3. Single-channel presence mask (255 = foreground), row-major. The
-    // frontend writes the active label / instance value wherever it is nonzero.
+    // Single-channel presence mask (255 = foreground), row-major.
     let mut output = vec![0u8; width * height];
     for y in 0..height {
         for x in 0..width {

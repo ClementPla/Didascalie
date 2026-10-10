@@ -3,12 +3,10 @@ import { provideRouter } from '@angular/router';
 
 import { AppComponent } from './app.component';
 
-/** Smoke test for the app shell. */
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
-      // The shell hosts a router-outlet, so it needs a router to render at all.
       providers: [provideRouter([])],
     }).compileComponents();
   });

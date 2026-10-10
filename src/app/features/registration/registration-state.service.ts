@@ -41,10 +41,8 @@ export type PlacementState =
   | { phase: 'awaiting-moving'; pendingRef: Point2D }
   | { phase: 'awaiting-ref'; pendingMoving: Point2D };
 
-/**
- * One registration case in the current sequence: a (reference, moving) frame
- * pair. A sequence can hold many, and a frame may appear in several of them.
- */
+/** One registration case of the current sequence: a (reference, moving)
+ *  frame pair. A frame may appear in several. */
 export interface RegistrationCase {
   referenceFrameId: string;
   movingFrameId: string;
@@ -106,8 +104,8 @@ export class RegistrationStateService implements ProjectScoped {
     this._cases.set(cases);
   }
 
-  /** Switch the active pair to (ref, moving) in one step, resetting pairs so
-   *  they can be repopulated from the database for the new case. */
+  /** Switch the active pair to (ref, moving), with empty pairs to be
+   *  repopulated from the database. */
   setActivePair(referenceFrameId: string, movingFrameId: string): void {
     this._referenceFrameId.set(referenceFrameId);
     this._movingFrameId.set(movingFrameId);
@@ -174,7 +172,6 @@ export class RegistrationStateService implements ProjectScoped {
     null,
   );
 
-  // For shadow cursor previewing during placement
   readonly hoverPoint = this._hoverPoint.asReadonly();
   setShowShadowCursor(v: boolean): void {
     this._vis.update((o) => ({ ...o, showShadowCursor: v }));
@@ -243,26 +240,22 @@ export class RegistrationStateService implements ProjectScoped {
     const current = this._placement();
 
     if (current.phase === 'awaiting-ref') {
-      // Completing a moving-first placement.
       this.commitPair(p, current.pendingMoving);
       this._placement.set({ phase: 'idle' });
       return;
     }
 
-    // Starting a ref-first placement (or replacing an in-flight ref-first one).
     this._placement.set({ phase: 'awaiting-moving', pendingRef: { ...p } });
   }
   placeMovingPoint(p: Point2D): void {
     const current = this._placement();
 
     if (current.phase === 'awaiting-moving') {
-      // Completing a ref-first placement.
       this.commitPair(current.pendingRef, p);
       this._placement.set({ phase: 'idle' });
       return;
     }
 
-    // Starting a moving-first placement.
     this._placement.set({ phase: 'awaiting-ref', pendingMoving: { ...p } });
   }
 
@@ -323,7 +316,7 @@ export class RegistrationStateService implements ProjectScoped {
       case 'homography': // accept either name
       case 'tps':
       case 'bspline-grid': {
-        // Affine and homography both go through the homography solver now.
+        // Affine and homography both go through the homography solver.
         const result = fitHomography(reg.pairs);
         if (result) transform = result;
         break;
@@ -374,8 +367,6 @@ export class RegistrationStateService implements ProjectScoped {
     return colorForIndex(idx === -1 ? 0 : idx);
   }
   setHoveredPair(id: string | null): void {
-    // Equality check: avoid signal writes when the value is unchanged,
-    // which would cascade unnecessary redraws.
     if (this._hoveredPairId() !== id) {
       this._hoveredPairId.set(id);
     }
@@ -396,7 +387,7 @@ export class RegistrationStateService implements ProjectScoped {
     this._vis.update((o) => ({
       ...o,
       showMovingWarped: v,
-      // Force sync on while warp is on — they must share the same view.
+      // The warp needs synced views.
       syncPanZoom: v ? true : o.syncPanZoom,
     }));
   }
@@ -408,7 +399,6 @@ export class RegistrationStateService implements ProjectScoped {
     const reg = this._registration();
     if (!reg) return;
 
-    // Convert KeypointPairs to CorrespondencePairs and merge with existing pairs.
     const converted: CorrespondencePair[] = newPairs.map((kp) =>
       makePair(
         { x: kp.refX, y: kp.refY },

@@ -7,18 +7,14 @@ repository = "https://github.com/ClementPla/Didascalie/tree/main"
 edition = "2024"
 rust-version = "1.85.2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
 name = "didascalie_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
-# On by default so a normal build gets GPU training. Both backends are compiled
-# in and `commands::ml::backend` picks at runtime, so this only decides whether
-# CUDA is *available* to fall back from — never whether the app runs.
-# Build with `--no-default-features` on a machine with no CUDA toolkit: burn's
-# CUDA backend needs NVRTC at compile time, which ships with the toolkit.
+# Both backends are compiled in and `commands::ml::backend` picks at run time.
+# Build with `--no-default-features` on a machine without the CUDA toolkit:
+# burn's CUDA backend needs NVRTC at compile time.
 default = ["gpu"]
 gpu = ["burn/cuda", "dep:cudarc"]
 
@@ -33,8 +29,7 @@ tauri = { version = "2.11.2", features = [ "rustls-tls"] }
 tauri-plugin-log = "2.8.0"
 tauri-plugin-dialog = "2.7.1"
 image = "0.25.10"
-# Direct use for DCT scale-on-decode of JPEG thumbnails (avoids decoding the
-# full-resolution image just to shrink it). Already in the tree via `image`.
+# DCT scale-on-decode of JPEG thumbnails. Already in the tree via `image`.
 jpeg-decoder = "0.3"
 regex = "1.12.3"
 tauri-plugin-fs = "2"
@@ -66,46 +61,26 @@ once_cell = "1.21.4"
 rusqlite = { version = "0.39.0", features = ["bundled"] }
 reqwest = { version = "0.13.3", default-features = false, features = ["json", "stream"] }
 serde_bytes = "0.11.19"
-# Available-RAM probe for sizing the training sample table (see
-# `commands::ml::commands::patch_budget`). Only the memory API is needed.
+# Available-RAM probe (`commands::ml::commands::patch_budget`).
 sysinfo = { version = "0.38", default-features = false, features = ["system"] }
 ts-rs = "12.0.1"
 tauri-plugin-opener = "2.5.5"
-# DirectML is DirectX 12, so it exists only on Windows. Enabling its `ort`
-# feature everywhere made `DirectMLExecutionProvider::register` reference
-# `OrtSessionOptionsAppendExecutionProvider_DML`, which the Linux ONNX Runtime
-# does not export — the build compiled and then failed at link. Cargo unions
-# features across target blocks that both apply, so Windows gets
-# cuda + copy-dylibs + directml while everything else gets the base set.
-#
-# It earns the special case: the CUDA provider needs a CUDA runtime *and* a
-# user-supplied cuDNN 9, whereas DirectML needs only DX12 and ships its own DLL,
-# so it is the one GPU path with no prerequisites at all.
+# DirectML exists only on Windows: with its `ort` feature enabled elsewhere,
+# the build fails at link. It needs only DX12 and ships its own DLL.
 [target.'cfg(windows)'.dependencies]
 ort = { version = "=2.0.0-rc.10", features = ["directml"] }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
-# The Python bridge and remote control. libzmq is built from C++ source, which
-# does not cross-compile to Android without its own toolchain work, and neither
-# feature has a use on a tablet.
+# The Python bridge. libzmq is built from C++ source, which does not
+# cross-compile to Android as is.
 zmq = "0.10.0"
-# `commands::ml::encoder` registers providers one at a time and reports which
-# actually took, so extra providers widen the fallback chain rather than
-# forcing a choice. DirectML is *not* here — see the Windows-only block below.
+# DirectML is in the Windows-only block above.
 ort = { version = "=2.0.0-rc.10", features = ["cuda", "copy-dylibs"] }
-# In-app training of the scribble-conditioned segmentation head (see
-# `commands::ml`). Autodiff on the CPU (ndarray) backend: the head is tiny and
-# trains on cached encoder features, so this needs no CUDA/wgpu toolchain.
-# `burn-train`'s Learner/TUI is deliberately not used — the loop is hand-rolled
-# so it can stream progress through Tauri events instead of a terminal
-# dashboard.
+# In-app training of the segmentation head (`commands::ml`). The loop is
+# hand-rolled, without `burn-train`, to stream progress through Tauri events.
 burn = { version = "0.21", default-features = false, features = ["std", "ndarray", "autodiff"] }
-# Not used to compute anything — pulled in only so `commands::ml::backend` can
-# *report* which CUDA this binary was built against. cudarc picks the NVRTC DLL
-# names it loads from a version fixed at compile time, so a mismatch there fails
-# with no symptom beyond a silent CPU fallback. The features mirror
-# cubecl-cuda's exactly, so cargo's feature union leaves the cudarc that burn
-# already builds unchanged.
+# Only so `commands::ml::backend` can report which CUDA this binary was built
+# against. The features mirror cubecl-cuda's, so burn's cudarc is unchanged.
 cudarc = { version = "0.19", optional = true, default-features = false, features = ["std", "driver", "nvrtc", "nccl", "fallback-dynamic-loading", "cuda-version-from-build-system", "fallback-latest"] }
 # Desktop auto-update (GitHub releases). Registered under #[cfg(desktop)].
 tauri-plugin-updater = "2"
@@ -114,37 +89,20 @@ tauri-plugin-process = "2"
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
 
-# Dependencies only — this glob does not cover workspace members, so *this*
-# crate stays at the dev default of `opt-level = 0`. That is deliberate: fast
-# rebuilds matter more during development than fast runs.
-#
-# Worth knowing when reading timings, though. The filter bank, feature assembly
-# and patch sampling are all in this crate, so the `[ml] frame N phases` numbers
-# under `tauri dev` are several times slower than a release build's — measure
-# performance changes against release, not dev.
+# Dependencies only: this crate stays at `opt-level = 0` in dev, for fast
+# rebuilds. Measure performance against a release build.
 [profile.dev.package."*"]
 opt-level = 3
 
 
 [profile.release]
-# 1 unit + full LTO was costing minutes of link time, and LTO scales
-# superlinearly with code size — which grew sharply when the CUDA backend added
-# ~50 crates and the training loop began monomorphising for two backends.
-#
-# Thin LTO keeps cross-crate inlining but partitions the work, so it parallelises
-# and finishes in a fraction of the time for a few percent of the optimisation.
-# For an app whose hot loops are inside burn and ort — already compiled at
-# opt-level 3 as dependencies — that is a trade worth taking. Use
-# `--profile release-full` below for a shipping build if the difference matters.
+# Thin LTO: full LTO with one codegen unit cost minutes of link time. Use
+# `--profile release-full` when the difference matters.
 codegen-units = 16
 lto = "thin"
 opt-level = 2 # Prioritizes speed over binary size. Use `z` if you prefer smaller binary or `s` for in between.
-# `panic = "abort"` is deliberately NOT set. `commands::ml::backend` detects CUDA
-# by running a real kernel inside `catch_unwind` — cubecl panics rather than
-# returning an error when the driver or NVRTC is missing — and aborting turns
-# that CPU fallback into a hard crash. It shipped that way once: a dev machine
-# with the toolkit on PATH never reproduces it, because the probe succeeds
-# there. The module raises a `compile_error!` if this line comes back.
+# No `panic = "abort"`: `commands::ml::backend` detects CUDA by catching a
+# panic, and raises a `compile_error!` if this is set.
 strip = true # Ensures debug symbols are removed.
 incremental = true
 

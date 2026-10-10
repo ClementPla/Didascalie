@@ -1,20 +1,8 @@
 //! Frozen ONNX encoder inference: image in, dense patch tokens out.
 //!
-//! # Robustness over hard-coding
-//!
-//! Every backbone names its tensors differently (`pixel_values` /
-//! `last_hidden_state` for Hub ViTs, `image` / `features` for the bundled
-//! SAM-style encoder) and lays its output out differently (`[B, T, D]` tokens
-//! vs `[B, D, gh, gw]` maps). Rather than encode a table of per-model quirks,
-//! this module:
-//!
-//! 1. takes the graph's *declared* input name, and
-//! 2. binds every declared output, runs once, and picks the result that
-//!    actually looks like a dense feature map.
-//!
-//! The registry's `embed_dim` / `input_size` stay hints for the UI; the numbers
-//! used for real come from the graph. A new encoder can usually be added by
-//! appending one catalog row.
+//! Backbones name and lay out their tensors differently. Instead of a table of
+//! per-model quirks, the graph's declared input is used, every declared output
+//! is bound, and the one that looks like a dense feature map is kept.
 
 use ndarray::{Array3, Array4};
 use ort::{
@@ -27,26 +15,17 @@ use ort::{
 };
 use std::path::Path;
 
-/// The accelerator the encoder is *actually* running on.
-///
-/// Set by [`EncoderSession::load`] from the provider that genuinely registered,
-/// not from what was merely offered. Defaults to CPU until an encoder loads.
+/// The accelerator the encoder is actually running on: the provider that
+/// registered, not the one offered.
 static ACTIVE_ACCELERATOR: parking_lot::Mutex<&'static str> = parking_lot::Mutex::new("CPU");
 
-/// Report the accelerator in use. See [`ACTIVE_ACCELERATOR`].
 pub fn detect_accelerator() -> &'static str {
     *ACTIVE_ACCELERATOR.lock()
 }
 
-/// Attach the best available accelerator, returning which one took.
-///
-/// `is_available()` is **not** sufficient: it reports whether a provider was
-/// compiled into `ort`, not whether it can load. A CUDA build whose machine
-/// lacks `cudnn64_9.dll` answers "available" and then fails at registration —
-/// and `with_execution_providers` logs that failure and silently continues on
-/// CPU. Registering one at a time and checking the result is the only way to
-/// know what is really executing, which is the difference between reporting
-/// "CUDA" and reporting the truth.
+/// Attach the best available accelerator and return which one took.
+/// `is_available()` only says a provider was compiled in, so each is
+/// registered in turn and the result checked.
 fn attach_accelerator(
     builder: ort::session::builder::SessionBuilder,
 ) -> (ort::session::builder::SessionBuilder, &'static str) {
@@ -67,11 +46,8 @@ fn attach_accelerator(
         }};
     }
 
-    // TensorRT is deliberately not in the chain. It depends on CUDA *and*
-    // cuDNN, so it cannot rescue a machine where the CUDA provider failed to
-    // load; it additionally needs the TensorRT SDK, and builds engines on first
-    // run, which would turn a missing cuDNN into a multi-minute stall rather
-    // than a clear message.
+    // TensorRT is left out: it needs CUDA and cuDNN anyway, plus its own SDK, and
+    // builds engines on first run.
     let builder = try_ep!(builder, CUDAExecutionProvider::default(), "CUDA (GPU)");
     let builder = try_ep!(builder, DirectMLExecutionProvider::default(), "DirectML (GPU)");
     let builder = try_ep!(builder, CoreMLExecutionProvider::default(), "CoreML");
@@ -80,17 +56,14 @@ fn attach_accelerator(
 
 use super::registry::EncoderSpec;
 
-/// A loaded, frozen encoder.
 pub struct EncoderSession {
     session: Session,
     input_name: String,
     output_names: Vec<String>,
-    /// Square input side the graph is fed (from the spec; graphs with dynamic
-    /// axes accept it, fixed-axis graphs were authored for it).
+    /// Square input side the graph is fed.
     input_size: u32,
     spec: EncoderSpec,
-    /// Kept so the session can be reopened on CPU if the accelerator turns out
-    /// to be unable to execute this particular graph.
+    /// To reopen the session on CPU if the accelerator cannot run this graph.
     path: std::path::PathBuf,
     cpu_only: bool,
 }
@@ -101,22 +74,14 @@ pub struct PatchFeatures {
 }
 
 impl EncoderSession {
-    /// Open a cached `.onnx` file. Execution providers mirror `dl::model` so
-    /// the GPU is used when present and CPU is the fallback.
+    /// Open a cached `.onnx` file, on the GPU when there is one.
     pub fn load(path: &Path, spec: EncoderSpec) -> Result<Self, String> {
         Self::open(path, spec, false)
     }
 
-    /// As [`load`], but `force_cpu` skips accelerator registration entirely.
-    ///
-    /// Registering successfully is not the same as *executing* successfully:
-    /// DirectML in particular accepts graphs with dynamic spatial axes and then
-    /// fails inside a `Reshape` at run time. That is why this exists as a
-    /// separate entry point rather than being folded into the provider chain.
-    ///
-    /// Pinning the symbolic dimensions with `with_dimension_override`, as ORT's
-    /// DirectML documentation prescribes, was tried and does not help: the same
-    /// `Reshape` fails, and the failure path takes twice as long.
+    /// As [`load`], but `force_cpu` skips accelerator registration: DirectML
+    /// accepts graphs with dynamic spatial axes and then fails in a `Reshape` at
+    /// run time (`with_dimension_override` does not help).
     fn open(path: &Path, spec: EncoderSpec, force_cpu: bool) -> Result<Self, String> {
         let builder = Session::builder()
             .map_err(|e| format!("session builder: {e}"))?
@@ -168,10 +133,8 @@ impl EncoderSession {
         })
     }
 
-    /// Scale `[C, H, W]` in `[0, 1]` into the tensor the graph expects.
-    ///
-    /// Single-channel input (CT, MR, ultrasound, X-ray) is replicated across
-    /// RGB, since these backbones are all three-channel.
+    /// Scale `[C, H, W]` in `[0, 1]` into the tensor the graph expects. A single
+    /// channel is replicated across RGB.
     fn preprocess(&self, image: &Array3<f32>) -> Result<Tensor<f32>, String> {
         let s = self.input_size as usize;
         let resized = resize_bilinear(image, s, s);
@@ -194,14 +157,9 @@ impl EncoderSession {
         Tensor::from_array(arr).map_err(|e| format!("failed to build encoder tensor: {e}"))
     }
 
-    /// Run the encoder and return dense patch features `[D, grid_h, grid_w]`.
-    ///
-    /// A GPU provider that registers can still fail to *execute* a given graph
-    /// — DirectML accepts dynamic spatial axes and then errors inside a
-    /// `Reshape`. Rather than surface that as a dead encoder, reopen once on
-    /// CPU and carry on: slower beats broken, and the user gets told which
-    /// happened. The retry is attempted a single time, after which the session
-    /// stays on CPU, so a genuinely malformed graph still fails fast.
+    /// Run the encoder and return dense patch features `[D, grid_h, grid_w]`. If
+    /// the accelerator fails to execute the graph, the session is reopened once on
+    /// CPU and stays there.
     pub fn embed(&mut self, image: &Array3<f32>) -> Result<PatchFeatures, String> {
         match self.run(image) {
             Ok(out) => Ok(out),
@@ -244,7 +202,7 @@ impl EncoderSession {
             .run_binding(&binding)
             .map_err(|e| format!("encoder inference failed: {e}"))?;
 
-        // Pick whichever declared output actually came back as a dense map.
+        // Keep whichever declared output came back as a dense map.
         let mut best: Option<(Vec<usize>, Vec<f32>)> = None;
         for name in &self.output_names {
             let Some(value) = outputs.get(name.as_str()) else {
@@ -269,26 +227,14 @@ impl EncoderSession {
         Ok(PatchFeatures { data: grid })
     }
 
-    /// Catalog id of the loaded encoder, for cache keys and reporting.
     pub fn encoder_id(&self) -> &str {
         &self.spec.id
     }
 
 }
 
-/// Reshape a raw encoder output into `[D, grid_h, grid_w]`.
-///
-/// Handles the two layouts in the wild:
-/// * `[B, D, gh, gw]` — already a map (SAM-style).
-/// * `[B, T, D]` — a token sequence. Any leading non-patch tokens (CLS, and the
-///   register tokens some DINOv2 variants add) are dropped by taking the
-///   largest trailing perfect square, which avoids hard-coding a count.
-/// Open a graph and report its dense-feature grid, for verifying an export.
-///
-/// A catalog entry can be perfectly described and still be unusable: a graph
-/// may carry control flow that `ort` rejects at load, which no amount of
-/// correct metadata fixes. This is the check that distinguishes "the spec is
-/// right" from "the file works", and it needs a real download, so it is opt-in.
+/// Open a graph and report its dense-feature grid, to verify an export. Needs
+/// real weights, so it is opt-in:
 ///
 /// ```text
 /// DIDA_ENCODER_ONNX=<path> cargo test --lib encoder_graph_loads -- --ignored --nocapture
@@ -331,22 +277,9 @@ fn decode_tokens(shape: &[usize], data: Vec<f32>) -> Result<Array3<f32>, String>
     }
 }
 
-/// Bilinear resample of a `[C, H, W]` volume. Used both to fit images to the
-/// encoder input and to lift patch tokens back to working resolution.
-/// Bilinear resample of a `[c, h, w]` volume.
-///
-/// # Why the loop order matters so much here
-///
-/// This is called to upsample an encoder's token grid to working resolution —
-/// `[384, 32, 32]` to `[384, 384, 384]`, 56 million outputs. The channel loop
-/// must stay *outermost*: for a C-ordered `[c, h, w]` array a channel-inner loop strides by
-/// `h * w` floats (590 KB at this size) on every step: a cache miss on each of
-/// the four gathers, for every output. Measured at 6.2 s per frame — larger than
-/// the ViT forward it follows, and it kept being misread as encoder cost.
-///
-/// Channel outermost walks contiguous memory, the sample points and weights are
-/// computed once per axis instead of per element, and channels are independent
-/// so they parallelise cleanly.
+/// Bilinear resample of a `[c, h, w]` volume. The channel loop is outermost
+/// so that memory is walked contiguously: this upsamples token grids to
+/// working resolution, and the other order is several times slower.
 pub fn resize_bilinear(src: &Array3<f32>, out_h: usize, out_w: usize) -> Array3<f32> {
     use rayon::prelude::*;
 
@@ -370,8 +303,6 @@ pub fn resize_bilinear(src: &Array3<f32>, out_h: usize, out_w: usize) -> Array3<
     let xs = taps(out_w, w);
     let ys = taps(out_h, h);
 
-    // `as_standard_layout` is a no-op when the input is already contiguous,
-    // which it is for decoded tokens.
     let src_std = src.as_standard_layout();
     let src_s = src_std.as_slice().expect("standard layout is contiguous");
     let out_s = out.as_slice_mut().expect("freshly allocated array is contiguous");
@@ -399,10 +330,8 @@ pub fn resize_bilinear(src: &Array3<f32>, out_h: usize, out_w: usize) -> Array3<
 mod tests {
     use super::*;
 
-    /// The original implementation, kept as the reference the fast path must
-    /// reproduce exactly. Reordering loops and precomputing weights must change
-    /// only the speed — a resample that shifts by half a pixel would move every
-    /// feature off its label and be near-impossible to spot from accuracy alone.
+    /// The straightforward implementation, which the fast path must reproduce
+    /// exactly.
     fn resize_bilinear_reference(src: &Array3<f32>, out_h: usize, out_w: usize) -> Array3<f32> {
         let (c, h, w) = (src.shape()[0], src.shape()[1], src.shape()[2]);
         let mut out = Array3::<f32>::zeros((c, out_h, out_w));
@@ -433,8 +362,6 @@ mod tests {
 
     #[test]
     fn the_fast_resample_matches_the_reference_exactly() {
-        // Upsample, downsample, identity, non-square, and single-pixel input —
-        // the clamping edge cases are where a rewrite goes wrong.
         for &(c, h, w, oh, ow) in &[
             (5usize, 4usize, 6usize, 17usize, 13usize), // up, non-square
             (3, 9, 9, 4, 4),                            // down
@@ -527,10 +454,8 @@ mod tests {
         }
     }
 
-    /// Opt-in: proves a downloaded graph actually opens and produces a grid.
-    ///
-    /// Ignored because it needs real weights on disk. Point `DIDA_ENCODER_ONNX`
-    /// at a cached `model.onnx` and `DIDA_ENCODER_ID` at the catalog entry.
+    /// Opt-in: needs real weights. Point `DIDA_ENCODER_ONNX` at a cached
+    /// `model.onnx` and `DIDA_ENCODER_ID` at the catalog entry.
     #[test]
     #[ignore = "needs a downloaded encoder; set DIDA_ENCODER_ONNX"]
     fn encoder_graph_loads() {

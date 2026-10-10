@@ -56,14 +56,12 @@ export class NewProjectComponent implements OnInit {
   private messageService = inject(MessageService);
   private userService = inject(UserService);
 
-  /** Name of the project's first account, its administrator. Optional: left
-   *  empty, the account keeps the default name and can be renamed later. */
+  /** Name of the project's first account, its administrator. Optional. */
   ownerName = localStorage.getItem(OWNER_NAME_KEY) ?? '';
 
   readonly isLoading = signal(false);
   readonly savePath = signal<string | null>(null);
 
-  // Validation surfaces
   readonly nameError = signal(false);
   readonly folderError = signal(false);
   readonly savePathError = signal(false);
@@ -78,7 +76,6 @@ export class NewProjectComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    // If the user lands here mid-state (e.g. from a back nav), clear stale errors.
     this.nameError.set(false);
     this.folderError.set(false);
     this.savePathError.set(false);
@@ -96,8 +93,6 @@ export class NewProjectComponent implements OnInit {
   set projectName(v: string) {
     this.projectService.setName(v);
     if (v) this.nameError.set(false);
-    // Auto-suggest the save path when the user names the project, but only if
-    // they haven't picked one yet. Tauri's save() will let them confirm.
   }
 
   get inputFolder(): string {
@@ -211,13 +206,8 @@ export class NewProjectComponent implements OnInit {
     }
   }
 
-  /**
-   * Give the project's first account the creator's name.
-   *
-   * A new project already has that account and is logged in as it; this only
-   * renames it. A failure here must not fail the creation that just succeeded,
-   * so it is reported and swallowed — the account page can rename it later.
-   */
+  /** Rename the project's first account after its creator. A failure is
+   *  reported, not thrown: the project is already created. */
   private async nameOwner(): Promise<void> {
     const name = this.ownerName.trim();
     if (!name) return;
@@ -233,7 +223,6 @@ export class NewProjectComponent implements OnInit {
     }
   }
 
-  /** Show only the filename for the chosen save path; full path on hover. */
   savePathDisplay(): string {
     const p = this.savePath();
     if (!p) return '';

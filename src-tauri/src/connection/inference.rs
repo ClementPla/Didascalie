@@ -27,23 +27,22 @@ pub fn load_frame_as_payload(db: &DbState, frame_id: i64) -> Result<ImagePayload
   })
 }
 
-/// How long the peer gets to answer, by what it is asked to do.
+/// How long the peer gets to answer.
 pub mod timeout {
   use std::time::Duration;
-  /// Background discovery: must not hold anything up when nobody listens.
+  /// Background discovery.
   pub const PROBE: Duration = Duration::from_millis(400);
   pub const PING: Duration = Duration::from_secs(3);
-  /// Shipping one frame, or fetching one frame's result.
   pub const TRANSFER: Duration = Duration::from_secs(60);
   pub const KEYPOINTS: Duration = Duration::from_secs(30);
-  /// Generous: the first call often loads model weights.
+  /// The first call often loads model weights.
   pub const SEGMENT: Duration = Duration::from_secs(300);
   pub const SEQUENCE: Duration = Duration::from_secs(3600);
 }
 
 /// Where the user's Python server is. Holds no socket: every exchange opens
-/// its own [`Channel`], because a REQ socket that timed out once can never
-/// send again, and a fresh one costs nothing on localhost.
+/// its own [`Channel`], because a REQ socket that timed out can never send
+/// again.
 pub struct InferenceClient {
   ctx: zmq::Context,
   endpoint: Mutex<Option<String>>,
@@ -57,7 +56,6 @@ impl InferenceClient {
     }
   }
 
-  /// Ping `host:port` and, if it answers, make it the endpoint.
   pub fn connect(&self, host: &str, port: u16, wait: Duration) -> Result<PingReply, ComError> {
     let endpoint = format!("tcp://{host}:{port}");
     let reply: PingReply = Channel::open(&self.ctx, &endpoint)?.call(&Request::Ping, wait)?;
@@ -65,7 +63,6 @@ impl InferenceClient {
     Ok(reply.with_legacy_functions())
   }
 
-  /// A channel to the connected endpoint, good for any number of exchanges.
   pub fn channel(&self) -> Result<Channel, ComError> {
     let endpoint = self.endpoint.lock().unwrap().clone();
     let endpoint = endpoint.ok_or_else(|| ComError::Other("not connected".into()))?;
@@ -86,8 +83,8 @@ impl Channel {
     Ok(Self { socket })
   }
 
-  /// Send `req` and decode the reply, turning the peer's `ok: false` into an
-  /// error. After an error the channel is unusable; open another.
+  /// Send `req` and decode the reply; the peer's `ok: false` becomes an error.
+  /// After an error the channel is unusable.
   pub fn call<T: DeserializeOwned>(&self, req: &Request, wait: Duration) -> Result<T, ComError> {
     let buf = rmp_serde::to_vec_named(req).map_err(|e| ComError::Other(e.to_string()))?;
     self.socket.set_rcvtimeo(wait.as_millis() as i32)?;
@@ -193,11 +190,11 @@ mod tests {
       .unwrap_err();
     assert_eq!(err.to_string(), "RuntimeError: model exploded");
 
-    // Nobody listening: a probe gives up quickly instead of hanging.
+    // Nobody listening: a probe gives up quickly.
     let started = std::time::Instant::now();
     assert!(matches!(client.connect("127.0.0.1", 1, timeout::PROBE), Err(ComError::NoReply)));
     assert!(started.elapsed() < Duration::from_secs(2));
-    // …and a failed connect leaves the working endpoint in place.
+    // A failed connect leaves the working endpoint in place.
     assert!(client.channel().unwrap().send(&Request::Ping, timeout::PING).is_ok());
   }
 }

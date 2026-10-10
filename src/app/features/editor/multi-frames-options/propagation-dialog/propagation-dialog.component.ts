@@ -19,11 +19,8 @@ import {
   PropagationService,
 } from '../../../../services/labels/propagation.service';
 
-/**
- * Confirmation dialog for copying the current frame's labels onto the rest of
- * its sequence. Propagation overwrites frames the user cannot see and cannot be
- * undone, so the affected count is stated explicitly before they commit.
- */
+/** Confirmation dialog for copying the current frame's labels onto the rest
+ *  of its sequence, which cannot be undone. */
 @Component({
   selector: 'app-propagation-dialog',
   standalone: true,
@@ -42,11 +39,10 @@ export class PropagationDialogComponent {
   private readonly propagation = inject(PropagationService);
   private readonly labels = inject(LabelsService);
 
-  /** Two-way bound by the host so a toolbar button or shortcut can open it. */
   readonly visible = model(false);
 
-  /** Edits the service's remembered settings directly, so confirming here also
-   *  redefines what the one-click toolbar action does. */
+  /** The service's remembered settings: confirming here also sets what the
+   *  one-click toolbar action does. */
   readonly scope = computed(() => this.propagation.settings().scope);
   readonly labelScope = computed(() => this.propagation.settings().labelScope);
   readonly running = signal(false);

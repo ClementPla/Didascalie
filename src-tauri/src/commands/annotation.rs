@@ -14,9 +14,8 @@ pub fn save_annotation(
     label_id: i64,
     mask_data: Vec<u8>,
 ) -> Result<()> {
-    // The uint8-per-label model always persists a value-aware RLE. Legacy
-    // encodings (binary `rle`, instance `png`) remain readable on load but are
-    // never written; a re-saved frame is transparently upgraded to `rle8`.
+    // Always written as `rle8`. The legacy encodings (`rle`, instance `png`) are
+    // still read.
     db.with_conn(|conn| {
         let encoded = rle::encode8(&mask_data);
         queries::save_annotation(conn, frame_id, label_id, &encoded, MaskEncoding::Rle8)
@@ -24,11 +23,7 @@ pub fn save_annotation(
 }
 
 /// Erase every annotation on every frame of a sequence, returning how many
-/// frames carried one.
-///
-/// Unlike clearing a label or a frame in the editor, this is not undoable: it
-/// writes straight to the project, including frames that are not open. The
-/// caller is expected to confirm first.
+/// frames carried one. Not undoable.
 #[tauri::command]
 pub fn clear_sequence_annotations(db: State<DbState>, sequence_id: i64) -> Result<usize> {
     db.with_conn(|conn| queries::clear_sequence_annotations(conn, sequence_id))
@@ -58,8 +53,6 @@ pub fn load_annotations(db: State<DbState>, frame_id: i64) -> Result<Vec<Annotat
 }
 
 /// Decode any stored encoding into a `width*height` uint8 value mask.
-/// Legacy `rle` (binary) collapses to `1` where present; legacy instance `png`
-/// maps each distinct opaque colour to an instance id in first-seen order.
 pub(crate) fn decode_to_uint8(data: &[u8], encoding: &MaskEncoding, width: u32, height: u32) -> Vec<u8> {
     let (w, h) = (width as usize, height as usize);
     match encoding {
@@ -72,9 +65,8 @@ pub(crate) fn decode_to_uint8(data: &[u8], encoding: &MaskEncoding, width: u32, 
     }
 }
 
-/// Legacy instance masks were RGBA PNGs where each instance had its own shade.
-/// Rebuild a uint8 id mask by assigning ids (1..=255) to distinct opaque
-/// colours in the order they first appear.
+/// Legacy instance masks were RGBA PNGs with one shade per instance: ids
+/// (1..=255) are assigned to distinct opaque colours in order of appearance.
 fn decode_instance_png(data: &[u8], w: usize, h: usize) -> Vec<u8> {
     let mut mask = vec![0u8; w * h];
     let img = match image::load_from_memory(data) {

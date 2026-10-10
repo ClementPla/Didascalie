@@ -34,15 +34,12 @@ export class QuickAccessMenuComponent {
 
   private readonly wheel = viewChild<WheelMenuComponent>('wheel');
 
-  /** Whether the last visit applied an entry. A click closes the wheel before
-   *  the key comes back up, so the answer has to outlive the wheel itself. */
+  /** Whether the last visit applied an entry. Outlives the wheel: a click
+   *  closes it before the key comes back up. */
   private committed = false;
 
-  /**
-    * Built once, not from the template: a new array on every change-detection
-    * pass makes the wheel rebuild itself. Live state is read through the
-    * `active` / `checked` callbacks.
-   */
+  /** Built once: a new array on every change detection rebuilds the wheel.
+   *  Live state is read through the `active` / `checked` callbacks. */
   readonly menuItems: MenuItem[] = this.buildItems();
 
   private toolItem(tool: Tool, children?: MenuItem[]): MenuItem {
@@ -100,8 +97,7 @@ export class QuickAccessMenuComponent {
     ];
   }
 
-  /** Ordered so the two most-used tools sit opposite each other: aiming is a
-   *  direction, and opposite directions are the easiest pair to alternate. */
+  /** The two most-used tools sit opposite each other. */
   private buildItems(): MenuItem[] {
     return [
       this.toolItem(Tools.PEN, this.drawOptions),
@@ -149,11 +145,7 @@ export class QuickAccessMenuComponent {
     this.isOpen.set(true);
   }
 
-  /**
-   * Applies whatever is aimed at and closes. Returns false when the visit
-   * aimed at nothing — opened and released on the spot — which the caller
-   * turns into a swap back to the previous tool.
-   */
+  /** Apply what is aimed at and close. False when nothing was aimed at. */
   close(): boolean {
     if (this.isOpen()) {
       this.committed = this.wheel()?.commitAimed() ?? false;

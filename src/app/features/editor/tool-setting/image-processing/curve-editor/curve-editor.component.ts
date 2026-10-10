@@ -31,9 +31,7 @@ export class CurveEditorComponent
 {
   @Input() curve: CurvePoints = IDENTITY_CURVE.map((p) => ({ ...p }));
   readonly histogram = input<Uint32Array | null>(null);
-  /** Color for the curve line + selected node (channel tint). */
   readonly color = input('#e0e0e0');
-  /** Show grid lines. */
   readonly showGrid = input(true);
 
   readonly curveChange = output<CurvePoints>();
@@ -43,11 +41,10 @@ export class CurveEditorComponent
   private ctx!: CanvasRenderingContext2D;
   private dpr = Math.max(1, window.devicePixelRatio || 1);
 
-  // Logical drawing area in CSS px. Set in ngAfterViewInit and on resize.
+  // Drawing area in CSS px.
   private cssWidth = 256;
   private cssHeight = 256;
 
-  // Interaction state
   private draggingIndex: number | null = null;
   /** Hit-radius multiplier for the pointer that last went down. */
   private touchSlop = 1;
@@ -68,7 +65,6 @@ export class CurveEditorComponent
     });
     this.resizeObserver.observe(this.canvasRef().nativeElement);
 
-    // Initial sync if the element already has a size (active tab).
     this.resizeCanvas();
     this.redraw();
   }
@@ -92,8 +88,7 @@ export class CurveEditorComponent
   private resizeCanvas() {
     const el = this.canvasRef().nativeElement;
     const rect = el.getBoundingClientRect();
-    // Bail silently when the panel is hidden; the observer will fire again
-    // when it becomes visible.
+    // The panel is hidden: the observer fires again when it shows.
     if (rect.width === 0 || rect.height === 0) return;
 
     this.cssWidth = rect.width;
@@ -120,8 +115,6 @@ export class CurveEditorComponent
   }
 
   // ── Mouse handling ───────────────────────────────────────────────────────
-
-  // Pointer events, so mouse, finger and pen all drive the same handlers.
 
   /** Follow the pointer over the whole window until it is released. */
   private trackDrag(): void {
@@ -158,7 +151,7 @@ export class CurveEditorComponent
     const { offsetX, offsetY } = this.localCoords(event);
     const hit = this.hitTestNode(offsetX, offsetY);
     if (hit !== null && this.curve.length > this.minNodes) {
-      // Don't allow deleting endpoints (preserves the 0/255 boundary)
+      // Endpoints cannot be deleted.
       if (hit === 0 || hit === this.curve.length - 1) return;
       this.curve = this.curve.filter((_, i) => i !== hit);
       this.emit();
@@ -190,11 +183,11 @@ export class CurveEditorComponent
     const idx = this.draggingIndex;
     const dragged = this.canvasToCurve(offsetX, offsetY);
 
-    // Endpoints: lock x to 0 or 255 (free y)
+    // Endpoints keep x at 0 or 255.
     if (idx === 0) dragged.x = 0;
     else if (idx === this.curve.length - 1) dragged.x = 255;
     else {
-      // Middle nodes: clamp x to stay between neighbors (1 px separation)
+      // Middle nodes stay between their neighbours.
       const prev = this.curve[idx - 1].x;
       const next = this.curve[idx + 1].x;
       dragged.x = clamp(dragged.x, prev + 1, next - 1);
@@ -250,18 +243,15 @@ export class CurveEditorComponent
       h = this.cssHeight;
     this.ctx.clearRect(0, 0, w, h);
 
-    // Background
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
     this.ctx.fillRect(0, 0, w, h);
 
-    // Histogram (behind everything else, semi-transparent)
     if (this.histogram()) {
       this.drawHistogram(w, h);
     }
 
     if (this.showGrid()) this.drawGrid(w, h);
 
-    // Identity reference line
     this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
@@ -292,7 +282,7 @@ export class CurveEditorComponent
   private drawHistogram(w: number, h: number) {
     const hist = this.histogram()!;
     let max = 0;
-    // Skip pure black/white peaks that dominate vertical scale
+    // Pure black and white are left out: their peaks dominate the scale.
     for (let i = 1; i < 255; i++) if (hist[i] > max) max = hist[i];
     if (max === 0) return;
 

@@ -70,10 +70,7 @@ export class ImageAdjustmentsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ==========================================
-  // State access (used by template; OnPush re-renders when these change
-  // via two-way binding setters below)
-  // ==========================================
+  // ── State access ─────────────────────────────────────────────────────────
 
   brightness(ch: Channel): number { return this.service.state[ch].brightness; }
   contrast(ch: Channel):   number { return this.service.state[ch].contrast; }

@@ -1,36 +1,19 @@
 //! Choosing where the head trains and runs.
 //!
-//! burn selects a backend at *compile* time — the backend is a type parameter,
-//! not a value — but "use the GPU if there is one" is inherently a *runtime*
-//! question. This module bridges the two: both backends are compiled in, and
-//! [`Selection::detect`] decides which one a given machine actually uses.
-//!
-//! The cost of that bridge is that every generic function over `B: Backend`
-//! gets instantiated twice. That is a compile-time cost only, and it buys a
-//! binary that runs on a laptop without CUDA and a workstation with one,
-//! without a separate build.
-//!
-//! # Why the probe looks the way it does
-//!
-//! There is no `is_available()` to ask. cubecl initialises CUDA lazily and
-//! *panics* — inside a `Result`-free path — when the driver, the toolkit or a
-//! usable device is missing. Catching that panic is therefore the only honest
-//! test. It is done once, behind a `OnceLock`, because the first CUDA context
-//! costs a few hundred milliseconds and the answer cannot change mid-run.
+//! burn picks its backend at compile time, so both are compiled in and
+//! [`Selection::detect`] chooses at run time. There is no `is_available()`:
+//! cubecl panics when CUDA is unusable, so the probe catches that panic, once.
 
 use burn::backend::{Autodiff, NdArray};
 
-/// CPU backend. Always compiled; the fallback that must never fail.
 pub type CpuTrain = Autodiff<NdArray>;
 pub type CpuInfer = NdArray;
 
-/// CUDA backend, compiled only when the `gpu` feature is on.
 #[cfg(feature = "gpu")]
 pub type GpuTrain = Autodiff<burn::backend::Cuda>;
 #[cfg(feature = "gpu")]
 pub type GpuInfer = burn::backend::Cuda;
 
-/// Which backend a run will use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Selection {
     Cpu,
@@ -39,20 +22,8 @@ pub enum Selection {
 }
 
 impl Selection {
-    /// The best backend this machine can actually run.
-    ///
-    /// GPU is preferred when present: the convolutional head is orders of
-    /// magnitude more expensive than the per-pixel MLP it replaced, and on CPU
-    /// a realistic sweep runs for minutes per fit.
-    /// Set `DIDA_FORCE_CPU=1` to skip the CUDA probe entirely.
-    ///
-    /// The probe runs a real kernel, and not every way that can fail is
-    /// catchable: `catch_unwind` recovers a panic, but a driver that aborts the
-    /// process or blocks in initialisation takes the app with it, and then the
-    /// symptom is "training never starts" with nothing in the log to say why.
-    /// This turns diagnosing that from a rebuild into an env var — the run
-    /// either completes on CPU, which convicts the probe, or fails the same way,
-    /// which clears it.
+    /// The best backend this machine can run. `DIDA_FORCE_CPU=1` skips the CUDA
+    /// probe, for a driver that aborts or hangs instead of panicking.
     pub fn detect() -> Self {
         if forced_cpu() {
             log::info!("[ml] DIDA_FORCE_CPU is set — skipping the CUDA probe");
@@ -65,11 +36,7 @@ impl Selection {
         Selection::Cpu
     }
 
-    /// Human-readable name, surfaced in logs and in the UI.
-    ///
-    /// Worth reporting rather than leaving implicit: a user who expects GPU
-    /// acceleration and silently gets CPU will read the result as "this tool is
-    /// slow" instead of "my CUDA install is broken".
+    /// Shown in logs and in the UI.
     pub const fn label(self) -> &'static str {
         match self {
             Selection::Cpu => "CPU (burn ndarray)",
@@ -79,21 +46,14 @@ impl Selection {
     }
 }
 
-/// Whether the user asked to bypass the GPU entirely.
 fn forced_cpu() -> bool {
     std::env::var("DIDA_FORCE_CPU")
         .map(|v| v != "0" && !v.is_empty())
         .unwrap_or(false)
 }
 
-// The probe below is only a fallback because the panic can be caught. Under
-// `panic = "abort"` there is nothing to catch: the process dies on the first
-// machine without a usable CUDA runtime, and it dies at the moment training
-// starts — after the user has waited through feature extraction.
-//
-// This shipped once. A developer machine with the toolkit on PATH never sees
-// it, because the probe succeeds there; the installed build inherits the system
-// PATH, fails to find NVRTC, and aborts. Fail the build instead.
+// The probe relies on catching a panic. Under `panic = "abort"` the process
+// would die on any machine without a usable CUDA runtime: fail the build.
 #[cfg(all(feature = "gpu", panic = "abort"))]
 compile_error!(
     "`panic = \"abort\"` breaks the CUDA probe in this module: it relies on \
@@ -102,28 +62,17 @@ compile_error!(
      Remove `panic = \"abort\"` from the release profile in Cargo.toml."
 );
 
-/// The CUDA version this binary was *built* against, as `"major.minor"`.
-///
-/// Not a property of the machine — of the build. cudarc fixes it at compile
-/// time (from `nvcc --version` on the build host, or `CUDARC_CUDA_VERSION`) and
-/// derives the NVRTC file names it will search from it. A build made where
-/// `nvcc` was absent falls back to the newest CUDA cudarc knows and then cannot
-/// find an older toolkit's `nvrtc64_120_0.dll`, which looks exactly like having
-/// no GPU. Shipped that way in 0.8.0; see `CUDARC_CUDA_VERSION` in
-/// `.github/workflows/main.yml`.
+/// The CUDA version this binary was built against, as `"major.minor"`. cudarc
+/// fixes it at compile time and derives the NVRTC file names from it; see
+/// `CUDARC_CUDA_VERSION` in `.github/workflows/main.yml`.
 #[cfg(feature = "gpu")]
 fn built_for_cuda() -> String {
     let v = cudarc::driver::sys::CUDA_VERSION;
     format!("{}.{}", v / 1000, (v % 1000) / 10)
 }
 
-/// Whether a CUDA context can be created *and used* on this machine.
-///
-/// Probed once. Allocation alone would prove nothing — burn is lazy, so a
-/// tensor can be "created" against a device that cannot execute anything; the
-/// probe forces a real kernel and reads the result back.
-///
-/// Correctness here depends on unwinding — see the `compile_error!` above.
+/// Whether a CUDA context can be created and used. Probed once, with a real
+/// kernel: burn is lazy, so allocating a tensor proves nothing.
 #[cfg(feature = "gpu")]
 pub fn cuda_works() -> bool {
     use burn::tensor::Tensor;
@@ -131,15 +80,9 @@ pub fn cuda_works() -> bool {
 
     static OK: OnceLock<bool> = OnceLock::new();
     *OK.get_or_init(|| {
-        // Logged *before* the probe, not only after it. A driver that aborts or
-        // hangs instead of panicking leaves no trace of its own, so this line
-        // with no verdict after it is the signal that the probe was fatal —
-        // which is otherwise indistinguishable from training never being asked
-        // for. Set DIDA_FORCE_CPU=1 to confirm.
+        // Logged before the probe: a driver that aborts or hangs leaves no other trace.
         log::info!("[ml] probing for a usable CUDA device…");
-        // Silence the default hook for the duration: a failed probe is an
-        // expected outcome on a CPU-only machine, and printing a backtrace for
-        // it would look like a crash.
+        // A failed probe is expected on a CPU-only machine: no backtrace for it.
         let prev = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
         let ok = std::panic::catch_unwind(|| {
@@ -179,8 +122,6 @@ mod tests {
 
     #[test]
     fn detection_always_yields_a_usable_backend() {
-        // The point of the fallback: this must return *something* on any
-        // machine, including CI runners with no GPU at all.
         let s = Selection::detect();
         assert!(!s.label().is_empty());
     }
@@ -188,8 +129,6 @@ mod tests {
     #[test]
     #[cfg(feature = "gpu")]
     fn the_cuda_probe_is_stable() {
-        // Whatever the answer is, it must not change between calls — callers
-        // pick a backend once and then build tensors against it.
         assert_eq!(cuda_works(), cuda_works());
     }
 }

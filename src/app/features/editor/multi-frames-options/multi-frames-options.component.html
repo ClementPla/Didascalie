@@ -1,6 +1,5 @@
 @if (totalFrames > 1) {
   <p-panel header="Navigation" [toggleable]="true" [collapsed]="false">
-    <!-- Frame slider (if multiple frames in current sequence) -->
     @if (totalFrames > 1) {
       <div class="frame-slider">
         <label>Frame: {{ progress.current }} / {{ progress.total }}</label>

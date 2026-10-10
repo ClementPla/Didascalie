@@ -3,23 +3,20 @@ import { ProjectScoped } from '../core/project-scoped';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-/**
- * One level of a resolution pyramid.
- * `scale` = levelPx / nativePx, so a point in native image space
- * multiplied by `scale` gives its position in this level's canvas.
- */
+/** One level of a resolution pyramid. A native-space point times `scale` is
+ *  its position in this level's canvas. */
 export interface PyramidLevel {
   canvas: OffscreenCanvas;
   width:  number;
   height: number;
-  /** levelPx / nativePx. Level 0 (native) is 1.0; each step halves it. */
+  /** levelPx / nativePx: 1.0 at level 0, halved at each step. */
   scale:  number;
-  /** Human label for debugging: "L0 (6000×4000)", "L1 (3000×2000)", … */
+  /** For debugging: "L0 (6000×4000)". */
   label:  string;
 }
 
 export interface Pyramid {
-  /** Levels from finest (index 0 = native) to coarsest. */
+  /** From finest (index 0) to coarsest. */
   levels:        PyramidLevel[];
   nativeWidth:   number;
   nativeHeight:  number;
@@ -35,19 +32,10 @@ const MAX_LEVELS         = 8;
 
 @Injectable({ providedIn: 'root' })
 export class PyramidService implements OnDestroy, ProjectScoped {
-  /**
-   * Cache: image src → Pyramid.  Lets multiple components access the same
-   * image without re-building the pyramid. Cleared on destroy.
-   */
+  /** Image src → pyramid. */
   private cache = new Map<string, Promise<Pyramid>>();
 
-  /**
-   * @see ProjectScoped
-   *
-   * Keyed by image source URL. Blob and data URLs are reissued per session, so
-   * an entry from a closed project is dead weight at best and a wrong-image hit
-   * at worst if a URL is ever reused.
-   */
+  /** @see ProjectScoped */
   resetForProject(): void {
     this.cache.clear();
   }
@@ -58,11 +46,7 @@ export class PyramidService implements OnDestroy, ProjectScoped {
 
   // ── Public API ───────────────────────────────────────────────────────────
 
-  /**
-   * Build (or return cached) pyramid for `img`.
-   * Building is async because OffscreenCanvas drawImage is microtask-queued.
-   * The caller should await once and then use `getLevelForViewport` sync.
-   */
+  /** Build, or return from cache, the pyramid of `img`. */
   async getPyramid(img: HTMLImageElement): Promise<Pyramid> {
     const key = img.src;
     if (!this.cache.has(key)) {
@@ -71,12 +55,8 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     return this.cache.get(key)!;
   }
 
-  /**
-   * Build (or return cached) a pyramid from an arbitrary canvas source, keyed by
-   * a caller-supplied `key`. Use when the source isn't an `<img>` with a stable
-   * `src` — e.g. an adjusted `OffscreenCanvas` in the editor. The caller owns
-   * invalidation: pass a new key (or call `invalidate`) when the pixels change.
-   */
+  /** Build, or return from cache, a pyramid of any canvas source, under a
+   *  caller-supplied `key`. The caller invalidates it when the pixels change. */
   async getPyramidForSource(
     source: CanvasImageSource,
     width: number,
@@ -90,35 +70,14 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     return this.cache.get(key)!;
   }
 
-  /**
-   * Invalidate the cache entry for a given image src.
-   * Call if the image data changes underneath.
-   */
   invalidate(src: string): void {
     this.cache.delete(src);
   }
 
   /**
-   * Choose the best pyramid level for the given viewport size and current
-   * view scale.
-   *
-   * We want a level whose pixel dimensions are ≥ (viewport × OVERSAMPLE)
-   * at the current viewScale, so the rendered image doesn't look blocky.
-   * Concretely, we want the *finest* level L where
-   *
-   *   L.width  × viewScale ≥ viewportWidth  × OVERSAMPLE
-   *   L.height × viewScale ≥ viewportHeight × OVERSAMPLE
-   *
-   * If no level satisfies this, we return the finest (native) level.
-   *
-   * All inputs and outputs are in **native image-space coordinates**.
-   * The caller still applies the view transform (scale + offset) from
-   * ZoomPanService (or ViewportController); this just picks the texture.
-   *
-   * @param pyramid       The pyramid returned by getPyramid.
-   * @param viewScale     CSS px per native image px (from the view transform).
-   * @param viewportW     Viewport width in CSS px.
-   * @param viewportH     Viewport height in CSS px.
+   * The level to draw for a viewport size and view scale: the coarsest one
+   * whose size on screen is at least the viewport times OVERSAMPLE, or the
+   * finest when none is. `viewScale` is CSS px per native image px.
    */
   getLevelForViewport(
     pyramid:   Pyramid,
@@ -129,7 +88,6 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     const targetW = (viewportW * OVERSAMPLE_FACTOR) / viewScale;
     const targetH = (viewportH * OVERSAMPLE_FACTOR) / viewScale;
 
-    // Walk from coarsest to finest; stop at the first level big enough.
     for (let i = pyramid.levels.length - 1; i >= 0; i--) {
       const lvl = pyramid.levels[i];
       if (lvl.width >= targetW && lvl.height >= targetH) {
@@ -139,12 +97,8 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     return pyramid.levels[0]; // finest available
   }
 
-  /**
-   * True when even the finest stored level is coarser than the viewport needs,
-   * so the caller should draw the full-resolution *source* instead of a level.
-   * Relevant for pyramids built via `getPyramidForSource(..., finestPx)`, which
-   * omit a native-resolution level to save memory on very large images.
-   */
+  /** Even the finest stored level is too coarse for the viewport: the caller
+   *  draws the full-resolution source (pyramids built with `finestPx`). */
   needsNativeResolution(
     pyramid: Pyramid,
     viewScale: number,
@@ -158,39 +112,21 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     return finest.width < targetW || finest.height < targetH;
   }
 
-  /**
-   * Apply a level's scale to a native-space point for canvas drawing.
-   * Use this when you want to position something in level-canvas coordinates.
-   */
   nativeToLevel(p: { x: number; y: number }, level: PyramidLevel) {
     return { x: p.x * level.scale, y: p.y * level.scale };
   }
 
-  /**
-   * Convert a point from level-canvas coordinates back to native image space.
-   */
   levelToNative(p: { x: number; y: number }, level: PyramidLevel) {
     return { x: p.x / level.scale, y: p.y / level.scale };
   }
 
-  /**
-   * Convenience: given a view transform (scale, offset) calibrated for the
-   * native image, produce the equivalent transform for a specific level.
-   * The level's canvas is smaller by `level.scale`, so we compensate.
-   *
-   * Returns { scale, offset } in the same shape as ViewportController exposes.
-   *
-   * Usage: when drawing a level canvas instead of the native image, call this
-   * and apply the adjusted transform. Coordinate math stays in native space
-   * everywhere else.
-   */
+  /** The view transform for drawing a level's canvas instead of the native
+   *  image: the canvas is `level.scale` smaller. */
   adjustTransformForLevel(
     nativeScale:  number,
     nativeOffset: { x: number; y: number },
     level:        PyramidLevel,
   ): { scale: number; offset: { x: number; y: number } } {
-    // The level is `level.scale` smaller than native, so we need to zoom
-    // the canvas by `nativeScale / level.scale` to make it look the same.
     return {
       scale:  nativeScale / level.scale,
       offset: nativeOffset, // offset stays in CSS px — level change doesn't shift origin
@@ -219,11 +155,8 @@ export class PyramidService implements OnDestroy, ProjectScoped {
       throw new Error('PyramidService: source has zero dimensions');
     }
 
-    // Memory-bounded mode: skip the native-resolution copy entirely (it can be
-    // hundreds of MB on a large image) and store only levels whose longest side
-    // is ≤ finestPx, each downsampled directly from the source. The caller draws
-    // the source itself when it needs finer than the finest stored level (see
-    // needsNativeResolution).
+    // Memory-bounded mode: no native-resolution copy, only levels whose longest
+    // side is ≤ finestPx, each downsampled from the source.
     if (finestPx > 0) {
       let w = nativeWidth;
       let h = nativeHeight;
@@ -247,8 +180,7 @@ export class PyramidService implements OnDestroy, ProjectScoped {
       return { levels, nativeWidth, nativeHeight };
     }
 
-    // Default mode (includes a native L0): a step-by-step halving cascade for
-    // best downsampling quality. Used by the registration viewers.
+    // Default mode, with a native L0: halved step by step. Used by registration.
     const level0 = await this.makeLevel(source, nativeWidth, nativeHeight, 1.0, 'L0');
     const levels: PyramidLevel[] = [level0];
 
@@ -270,7 +202,6 @@ export class PyramidService implements OnDestroy, ProjectScoped {
       );
       levels.push(lvl);
 
-      // Stop once the longest side is under our max.
       if (Math.max(w, h) <= MAX_LEVEL_PX) break;
     }
 
@@ -287,10 +218,8 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext('2d', { alpha: false })!;
 
-    // High-quality downsampling: `imageSmoothingQuality = 'high'` uses a
-    // bicubic or lanczos-class filter in most browsers. We draw each level
-    // from the *previous* level (halving step-by-step), which approximates
-    // a box filter cascade and avoids aliasing better than direct downsampling.
+    // Each level is drawn from the previous one: halving step by step aliases
+    // less than downsampling directly.
     ctx.imageSmoothingEnabled  = true;
     ctx.imageSmoothingQuality  = 'high';
     ctx.drawImage(source, 0, 0, width, height);

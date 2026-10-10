@@ -118,11 +118,8 @@ describe('curve geometry', () => {
 
   describe('longestSkeletonPath', () => {
     it('explores only the component holding the first branch', () => {
-      // Documents a real limitation rather than an intent: the double sweep
-      // starts at the first branch's node, so disconnected branches are never
-      // reached and a longer one elsewhere is ignored. Fine for skeletons of a
-      // single connected region, which is all the caller produces today —
-      // but wrong if it is ever handed several regions at once.
+      // A known limitation: the double sweep starts at the first branch's node, so
+      // disconnected branches are never reached.
       const first: Point[] = [{ x: 0, y: 0 }, { x: 3, y: 0 }];
       const longerElsewhere: Point[] = [{ x: 0, y: 50 }, { x: 40, y: 50 }];
       const out = longestSkeletonPath([first, longerElsewhere]);

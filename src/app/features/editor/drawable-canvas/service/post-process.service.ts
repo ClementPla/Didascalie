@@ -16,11 +16,8 @@ import { ProjectService } from '../../../../services/project/project.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { findExperimentalPostProcess } from '../../../../experimental/registry';
 
-/**
- * Runs the Rust post-process commands and writes their single-channel results
-  * into the active label mask. Colour is resolved at composite time, from the
-  * label palette.
- */
+/** Runs the Rust post-process commands and writes their results into the
+ *  active label mask. */
 @Injectable({
   providedIn: 'root',
 })
@@ -89,8 +86,6 @@ export class PostProcessService {
       startX: clickX,
       startY: clickY,
       tolerance: this.editorService.floodFillTolerance,
-      // Same refinement controls as the Otsu mode — both are stroke-bounded
-      // selection operators and the panel presents them as one set.
       inverse: this.editorService.useInverse,
       opening: this.editorService.autoPostProcessOpening,
       kernelSize: this.editorService.morphoSize,
@@ -101,10 +96,8 @@ export class PostProcessService {
     if (mask) applyRegionResult(mask, w, new Uint8Array(result), rect, this.labelService.paintValue(this.projectService.isInstanceSegmentation()));
   }
 
-  /**
-   * Erase the connected components (across the active mask, or every mask when
-   * "erase all" is on) that the eraser stroke touched.
-   */
+  /** Erase the connected components the eraser stroke touched, in the active
+   *  mask or in every mask ("erase all"). */
   async eraseConnectedComponents_post_process() {
     const w = this.stateService.width;
     const h = this.stateService.height;
@@ -134,8 +127,7 @@ export class PostProcessService {
       case PostProcessOption.FLOODFILL:
         return this.flood_fill_post_process();
       default: {
-        // Experimental modes (MedSAM, superpixel, …) are resolved through the
-        // registry so this service never imports experimental feature code.
+        // Experimental modes come from the registry.
         const experimental = findExperimentalPostProcess(
           this.editorService.postProcessOption
         );

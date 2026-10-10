@@ -1,19 +1,12 @@
-//! Copy-propagation of a frame's segmentation annotations onto other frames.
+//! Copying a frame's segmentation annotations onto other frames.
 //!
-//! Propagation happens here rather than in the frontend because the stored
-//! forms are already the cheap ones: a raster mask is a compressed `rle8` BLOB
-//! and a vector row is opaque JSON. Copying is a row copy — no decode, and no
-//! mask ever crosses the IPC boundary (a full mask is ~136 MB at 8k×17k, so
-//! doing this frame-by-frame through the editor would be unusable).
+//! Done here because the stored forms are cheap to copy: a compressed `rle8`
+//! BLOB and opaque JSON, with no decode and no mask crossing IPC.
 //!
-//! Two invariants make raster and vector behave as one thing:
-//!
-//! 1. **Both tables move together, in one transaction.** A frame's segmentation
-//!    state is (raster rows ∪ vector rows) — the editor converts freely between
-//!    them — so propagating one without the other yields inconsistent frames.
-//! 2. **Replace deletes labels the source doesn't have.** If the source has no
-//!    row for a label in scope, the target's row for it is removed. Otherwise
-//!    the target keeps stale labels and isn't a copy of the source at all.
+//! 1. Raster and vector rows move together, in one transaction: the editor
+//!    converts freely between them.
+//! 2. Replace deletes labels the source does not have, or the target would
+//!    keep stale ones.
 
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
@@ -28,7 +21,7 @@ use crate::utils::error::Result;
 #[serde(rename_all = "camelCase")]
 pub enum PropagationMode {
     /// The target's annotations for every label in scope become exactly the
-    /// source's (including "absent" — see the module invariants).
+    /// source's, absent ones included.
     #[default]
     Replace,
 }
@@ -37,11 +30,9 @@ pub enum PropagationMode {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum SkipReason {
-    /// Target frame dimensions differ from the source's. Raster masks are flat
-    /// `width*height` arrays and vector nodes are image-pixel coordinates, so
-    /// neither means anything on a differently sized frame.
+    /// The target's dimensions differ from the source's: masks and vector nodes
+    /// are in image pixels.
     SizeMismatch,
-    /// No such frame (deleted between the UI listing it and the call landing).
     NotFound,
 }
 
@@ -63,17 +54,14 @@ pub struct PropagationReport {
 /// A source frame's annotations for one label, as stored.
 struct SourceLabel {
     label_id: i64,
-    /// `(encoding, mask_data)` copied verbatim — legacy encodings stay readable,
-    /// so there is no reason to decode and re-encode on the way through.
+    /// `(encoding, mask_data)`, copied verbatim.
     raster: Option<(String, Vec<u8>)>,
     /// The `shapes` JSON array, or `None` when the label has no vector row.
     vectors: Option<serde_json::Value>,
 }
 
-/// Copy `source_frame_id`'s annotations onto `target_frame_ids`.
-///
-/// `label_ids` restricts the copy to those labels (`None` = every label).
-/// Labels outside the scope are untouched on the targets.
+/// Copy `source_frame_id`'s annotations onto `target_frame_ids`, for
+/// `label_ids` only (`None` = every label).
 #[tauri::command]
 pub fn propagate_annotations(
     db: State<DbState>,
@@ -114,8 +102,7 @@ pub(crate) fn propagate(
     let tx = conn.unchecked_transaction()?;
 
     for &target in target_frame_ids {
-        // Propagating onto the source would delete-then-reinsert its own rows;
-        // harmless, but reporting it as "applied" would be misleading.
+        // The source itself is not a target.
         if target == source_frame_id {
             continue;
         }
@@ -167,8 +154,8 @@ fn frame_dimensions_opt(conn: &Connection, frame_id: i64) -> Result<Option<(u32,
     Ok(dims)
 }
 
-/// Read the source frame's rows for every label in scope. A label with no rows
-/// is still present in the result — that absence is what `Replace` propagates.
+/// Read the source frame's rows for every label in scope. A label with no
+/// rows is still in the result: `Replace` propagates that absence.
 fn read_source(conn: &Connection, frame_id: i64, scope: &[i64]) -> Result<Vec<SourceLabel>> {
     let mut raster = conn.prepare(
         "SELECT encoding, mask_data FROM annotations WHERE frame_id = ?1 AND label_id = ?2",
@@ -201,9 +188,8 @@ fn read_source(conn: &Connection, frame_id: i64, scope: &[i64]) -> Result<Vec<So
     Ok(out)
 }
 
-/// Apply one label's source state to one target frame: delete first, then write
-/// back whatever the source had. The delete is what makes an absent source
-/// label erase the target's.
+/// Apply one label's source state to one target frame: delete, then write
+/// back what the source had.
 fn write_label(conn: &Connection, frame_id: i64, label: &SourceLabel) -> Result<()> {
     // Reads above went through the user-scoped views; writes name the user.
     let user = queries::current_user_id(conn)?;
@@ -242,8 +228,7 @@ fn write_label(conn: &Connection, frame_id: i64, label: &SourceLabel) -> Result<
     Ok(())
 }
 
-/// Shape ids are frame-local identities (selection, per-frame undo). Give each
-/// copy its own so two frames never disagree about what a given id means.
+/// Shape ids are frame-local identities: each copy gets its own.
 fn with_fresh_shape_ids(shapes: &serde_json::Value) -> serde_json::Value {
     let mut copy = shapes.clone();
     if let Some(array) = copy.as_array_mut() {

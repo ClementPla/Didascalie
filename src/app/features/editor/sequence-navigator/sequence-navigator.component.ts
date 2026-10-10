@@ -44,27 +44,21 @@ export class SequenceNavigatorComponent implements OnInit {
   private readonly propagation = inject(PropagationService);
   private readonly host = inject(ElementRef<HTMLElement>);
 
-  /** Emits the id of the sequence the user wants to jump to. */
   readonly sequenceSelected = output<number>();
 
   sequences: NavSequence[] = [];
 
-  /** Only a page of sequences is rendered at once — a long project can have
-   *  thousands, and one gallery element (+ IntersectionObserver) each makes the
-   *  full list expensive to build. */
+  /** Sequences rendered at once: a project can have thousands. */
   readonly pageSize = 60;
   first = 0;
 
   constructor() {
-    // Re-load statuses and re-scroll whenever the active sequence changes
-    // (e.g. Next/Previous navigation or a save marking frames reviewed).
     effect(() => {
       this.sequenceService.currentSequence();
       void this.load();
     });
 
-    // Propagation annotates frames that are never displayed, so nothing else
-    // would tell the status dots they are stale.
+    // Propagation annotates frames that are not displayed.
     this.propagation.propagated$
       .pipe(takeUntilDestroyed())
       .subscribe(() => void this.load());
@@ -78,7 +72,6 @@ export class SequenceNavigatorComponent implements OnInit {
     return this.sequenceService.currentSequence()?.id ?? null;
   }
 
-  /** The slice of sequences shown on the current page. */
   get pagedSequences(): NavSequence[] {
     return this.sequences.slice(this.first, this.first + this.pageSize);
   }
@@ -111,7 +104,6 @@ export class SequenceNavigatorComponent implements OnInit {
           frameIds: frameIdsBySequence[s.id] ?? [],
         }));
 
-      // Keep the active sequence on the visible page so navigation reveals it.
       this.focusCurrentPage();
       this.scrollToCurrent();
     } catch (error) {
@@ -133,7 +125,6 @@ export class SequenceNavigatorComponent implements OnInit {
     this.sequenceSelected.emit(seq.id);
   }
 
-  /** Move the paginator to the page holding the active sequence. */
   private focusCurrentPage(): void {
     const id = this.currentId;
     if (id == null) return;

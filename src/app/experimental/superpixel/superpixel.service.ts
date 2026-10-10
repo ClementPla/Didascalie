@@ -6,11 +6,8 @@ import { StateManagerService } from '../../features/editor/drawable-canvas/servi
 import { ImageAdjustmentService } from '../../features/editor/drawable-canvas/service/image-adjustment/image-adjustment.service';
 import { LabelsService } from '../../services/labels/labels.service';
 
-/**
- * Experimental: snap brush strokes to superpixel boundaries
- * (Rust `superpixel_refine` / `superpixel_overlay` commands).
- * Owns all superpixel settings and cached state.
- */
+/** Snap brush strokes to superpixel boundaries (Rust `superpixel_refine` /
+ *  `superpixel_overlay`). */
 @Injectable({ providedIn: 'root' })
 export class SuperpixelService {
   private canvasManagerService = inject(CanvasManagerService);
@@ -24,7 +21,6 @@ export class SuperpixelService {
   public threshold = 10.0;
   /** Minimum fraction of a superpixel the stroke must cover. */
   public minOverlap = 0.15;
-  /** Overlay the superpixel boundaries on the canvas. */
   public showBoundaries = false;
 
   /** Whether the Rust side holds a superpixel map for the current image. */
@@ -32,8 +28,8 @@ export class SuperpixelService {
   /** Cached boundary overlay at image-native resolution. */
   private overlayCanvas: OffscreenCanvas | null = null;
 
-  /** Refine the stroke in the buffer canvas: keep only the touched
-   *  superpixels that match the dominant color under the stroke. */
+  /** Keep only the touched superpixels that match the dominant colour under
+   *  the stroke. */
   async refineStroke(): Promise<void> {
     const bufferCtx = this.canvasManagerService.getBufferCtx();
     const rect = {
@@ -43,7 +39,6 @@ export class SuperpixelService {
       height: this.stateService.height,
     };
 
-    // The buffer holds the brush stroke; the Rust side reads its alpha.
     const maskData = bufferCtx.getImageData(
       rect.x,
       rect.y,
@@ -58,9 +53,7 @@ export class SuperpixelService {
       | OffscreenCanvasRenderingContext2D
       | null)!.getImageData(rect.x, rect.y, rect.width, rect.height).data;
 
-    // Compute the superpixel map on the first stroke of an image, reuse after
-    // (mirrors the SAM feature-extraction flag). The command returns an RGBA
-    // mask (white/transparent), like flood_fill.
+    // The map is computed on the first stroke of an image.
     const result = await invoke<ArrayBufferLike>('superpixel_refine', {
       image: this.mapComputed ? [] : imgData.buffer,
       brush: maskData.buffer,
@@ -84,20 +77,17 @@ export class SuperpixelService {
     }
   }
 
-  /** Invalidate the cached superpixel map/overlay (e.g. when the target count
-   *  changes) so the next stroke or overlay refresh recomputes it. */
+  /** Drop the cached map and overlay. */
   invalidate(): void {
     this.mapComputed = false;
     this.overlayCanvas = null;
   }
 
-  /** The overlay to draw on the canvas, or null when hidden/not computed. */
   visibleOverlay(): OffscreenCanvas | null {
     return this.showBoundaries ? this.overlayCanvas : null;
   }
 
-  /** Fetch (building the map on demand) and cache the superpixel boundary
-   *  overlay, then request a redraw. Clears the overlay when the toggle is off. */
+  /** Fetch and cache the boundary overlay, building the map on demand. */
   async updateOverlay(): Promise<void> {
     if (!this.showBoundaries) {
       this.overlayCanvas = null;
@@ -135,8 +125,6 @@ export class SuperpixelService {
     this.canvasManagerService.requestRedraw.next(true);
   }
 
-  /** The superpixel count changed: drop the cached map and, if the overlay is
-   *  visible, recompute it with the new granularity. */
   onCountChanged(): void {
     this.invalidate();
     if (this.showBoundaries) {
@@ -144,16 +132,13 @@ export class SuperpixelService {
     }
   }
 
-  /** A new image was loaded: the map belongs to the previous image. */
   onImageLoaded(): void {
     this.invalidate();
     if (this.showBoundaries) {
-      // Rebuild the overlay for the newly loaded image.
       void this.updateOverlay();
     }
   }
 
-  /** Experimental features were switched off: hide the overlay. */
   onFeatureDisabled(): void {
     this.showBoundaries = false;
     this.overlayCanvas = null;

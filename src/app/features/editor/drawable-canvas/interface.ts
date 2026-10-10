@@ -3,16 +3,13 @@ import { CanvasManagerService } from "./service/canvas-manager.service";
 import { StateManagerService } from "./service/state-manager.service";
 
 export interface ToolContext {
-  // Services
   canvasManager: CanvasManagerService;
   stateService: StateManagerService;
   editorService: EditorService;
   
-  // Scoped Data
   color: string;   // active display colour (live stroke preview)
   value: number;   // active mask value written on commit (1 = semantic, id = instance)
 
-  // Coordinate Helper (The "Bridge" to ZoomPanService)
   getCoords: (event: MouseEvent | Point2D) => Point2D;
   swapMarkers: () => void;
   singleDrawRequest: (ctx: OffscreenCanvasRenderingContext2D | null) => void;

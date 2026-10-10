@@ -1,4 +1,3 @@
-// Same page shell as the new-project form, so the two read as one family.
 :host {
   display: block;
   width: 100%;
@@ -112,7 +111,6 @@
   min-width: 0;
 }
 
-// Reorderable label rows
 .label-list {
   display: flex;
   flex-direction: column;
@@ -208,7 +206,6 @@
   border-left: 2px solid var(--p-content-border-color, rgba(255, 255, 255, 0.08));
 }
 
-// Destructive confirmation
 .danger-title {
   display: flex;
   align-items: center;

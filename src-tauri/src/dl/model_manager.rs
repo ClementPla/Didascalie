@@ -10,10 +10,8 @@ pub struct ModelConfig {
     pub filename: String,
     pub cache_subdir: String,
     pub expected_size: Option<u64>, // Optional: for validation
-    /// Pinned lowercase-hex SHA-256 of the trusted model file. When set, the
-    /// download is rejected unless it matches — protecting against a tampered
-    /// or swapped file at the source. Populate from a trusted copy with
-    /// `sha256sum encoder.onnx`. `None` keeps the size-only check.
+    /// Lowercase-hex SHA-256 the downloaded file must match. `None` keeps the
+    /// size-only check.
     pub expected_sha256: Option<String>,
 }
 
@@ -39,7 +37,7 @@ impl ModelConfig {
     }
 }
 
-/// Stream a file through SHA-256 off the async runtime (hashing is CPU-bound).
+/// SHA-256 of a file, off the async runtime.
 async fn compute_sha256(path: &Path) -> Result<String, String> {
     let path = path.to_path_buf();
     tokio::task::spawn_blocking(move || {
@@ -86,7 +84,6 @@ pub async fn ensure_model_cached(
     if model_path.exists() {
         println!("Model found at: {:?}", model_path);
 
-        // Validate file size if expected size is provided
         if let Some(expected_size) = config.expected_size {
             let metadata = tokio::fs::metadata(&model_path)
                 .await
@@ -128,9 +125,7 @@ pub async fn ensure_model_cached(
         }
     }
 
-    // Integrity check against the pinned hash (when configured). Done once at
-    // download time, not on every cached load, to avoid re-hashing a large
-    // file on each startup — the cheap size check covers cached files.
+    // Hashed once, at download time; cached files get the size check only.
     if let Some(expected) = &config.expected_sha256 {
         let actual = compute_sha256(&model_path).await?;
         if !actual.eq_ignore_ascii_case(expected) {
@@ -184,9 +179,7 @@ async fn download_model(
 
     println!("Total size: {} bytes", total_size);
 
-    // Create temporary file. `filename` may itself contain directories (Hub
-    // repos commonly serve `onnx/model.onnx`), so the parent has to exist
-    // before the file is opened — `models_dir` alone is not enough.
+    // `filename` may contain directories (`onnx/model.onnx`): create the parent.
     let temp_path = output_path.with_extension("tmp");
     if let Some(parent) = temp_path.parent() {
         tokio::fs::create_dir_all(parent)
@@ -212,7 +205,6 @@ async fn download_model(
         downloaded += chunk.len() as u64;
         let progress = (downloaded as f64 / total_size as f64) * 100.0;
 
-        // Log every 10% or at completion
         if downloaded - last_progress_log >= total_size / 10 || downloaded == total_size {
             println!(
                 "Download progress: {:.2}% ({}/{})",

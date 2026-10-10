@@ -5,7 +5,6 @@ import { ProjectScoped } from '../core/project-scoped';
 @Injectable({ providedIn: 'root' })
 export class SequenceService implements ProjectScoped {
 
-  // Private state
   private readonly _sequences = signal<Sequence[]>([]);
   private readonly _currentSequence = signal<Sequence | null>(null);
   private readonly _frames = signal<Frame[]>([]);
@@ -13,7 +12,6 @@ export class SequenceService implements ProjectScoped {
   private readonly _currentFrameImage = signal<FrameImage | null>(null);
   private readonly _loading = signal(false);
 
-  // Public readonly signals
   readonly sequences = this._sequences.asReadonly();
   readonly currentSequence = this._currentSequence.asReadonly();
   readonly frames = this._frames.asReadonly();
@@ -21,7 +19,6 @@ export class SequenceService implements ProjectScoped {
   readonly currentFrameImage = this._currentFrameImage.asReadonly();
   readonly loading = this._loading.asReadonly();
 
-  // Computed values
   readonly currentFrame = computed(() => {
     const frames = this._frames();
     const index = this._currentFrameIndex();
@@ -57,9 +54,6 @@ export class SequenceService implements ProjectScoped {
     return seqIdx === sequences.length - 1 && frameIdx === frames.length - 1;
   });
 
-  /**
-   * True when every frame of the current sequence is reviewed.
-   */
   readonly isCurrentSequenceReviewed = computed(() => {
     const frames = this._frames();
     return frames.length > 0 && frames.every(f => f.reviewed);
@@ -74,10 +68,7 @@ export class SequenceService implements ProjectScoped {
     }
   }
 
-  /**
-   * Select a sequence and load its frames, opening it on `frameIndex` (clamped
-   * to the sequence; the first frame by default).
-   */
+  /** Select a sequence and load its frames, opening it on `frameIndex`. */
   async selectSequence(sequence: Sequence, frameIndex = 0): Promise<void> {
     this._currentSequence.set(sequence);
     
@@ -87,15 +78,11 @@ export class SequenceService implements ProjectScoped {
       Math.max(0, Math.min(frameIndex, frames.length - 1)),
     );
 
-    // Load the opening frame's image
     if (frames.length > 0) {
       await this.loadCurrentFrameImage();
     }
   }
 
-  /**
-   * Select a sequence by index.
-   */
   async selectSequenceByIndex(index: number): Promise<void> {
     const sequences = this._sequences();
     if (index >= 0 && index < sequences.length) {
@@ -105,9 +92,6 @@ export class SequenceService implements ProjectScoped {
 
   // ── Frame Navigation ─────────────────────────────────────────────────────
 
-  /**
-   * Select a frame by index within current sequence.
-   */
   async selectFrame(index: number): Promise<void> {
     const frames = this._frames();
     if (index >= 0 && index < frames.length) {
@@ -116,9 +100,7 @@ export class SequenceService implements ProjectScoped {
     }
   }
 
-  /**
-   * Go to next frame. Returns true if moved.
-   */
+  /** Returns true if moved. */
   async nextFrame(): Promise<boolean> {
     const index = this._currentFrameIndex();
     const frames = this._frames();
@@ -129,13 +111,10 @@ export class SequenceService implements ProjectScoped {
       return true;
     }
 
-    // Try next sequence
     return this.nextSequence();
   }
 
-  /**
-   * Go to previous frame. Returns true if moved.
-   */
+  /** Returns true if moved. */
   async prevFrame(): Promise<boolean> {
     const index = this._currentFrameIndex();
 
@@ -145,13 +124,11 @@ export class SequenceService implements ProjectScoped {
       return true;
     }
 
-    // Try previous sequence (go to last frame)
+    // The last frame of the previous sequence.
     return this.prevSequence(true);
   }
 
-  /**
-   * Go to next sequence. Returns true if moved.
-   */
+  /** Returns true if moved. */
   async nextSequence(): Promise<boolean> {
     const sequences = this._sequences();
     const currentIdx = this.currentSequenceIndex();
@@ -164,10 +141,7 @@ export class SequenceService implements ProjectScoped {
     return false;
   }
 
-  /**
-   * Go to previous sequence. Returns true if moved.
-   * @param goToLastFrame If true, go to last frame of previous sequence.
-   */
+  /** Returns true if moved. */
   async prevSequence(goToLastFrame = false): Promise<boolean> {
     const sequences = this._sequences();
     const currentIdx = this.currentSequenceIndex();
@@ -189,9 +163,6 @@ export class SequenceService implements ProjectScoped {
 
   // ── Frame Image Loading ──────────────────────────────────────────────────
 
-  /**
-   * Load the image data for the current frame.
-   */
   async loadCurrentFrameImage(): Promise<void> {
     const frame = this.currentFrame();
     if (!frame) {
@@ -202,9 +173,8 @@ export class SequenceService implements ProjectScoped {
     this._loading.set(true);
 
     try {
-      // Images too large for the browser to decode are fetched as a server-side
-      // downsampled overview (native dims preserved on the frame). ~4096 keeps
-      // the backdrop within canvas limits; native detail comes from tiles later.
+      // Images too large for the browser to decode are fetched as a downsampled
+      // overview; native detail comes from tiles.
       const OVERVIEW_MAX_DIM = 4096;
       const large =
         Math.max(frame.width, frame.height) > OVERVIEW_MAX_DIM;
@@ -222,9 +192,6 @@ export class SequenceService implements ProjectScoped {
 
   // ── Frame Status ─────────────────────────────────────────────────────────
 
-  /**
-   * Mark current frame as reviewed.
-   */
   async markCurrentReviewed(reviewed = true): Promise<void> {
     const frame = this.currentFrame();
     if (!frame) return;
@@ -238,9 +205,6 @@ export class SequenceService implements ProjectScoped {
     );
   }
 
-  /**
-   * Mark every frame of the current sequence as reviewed / unreviewed.
-   */
   async markCurrentSequenceReviewed(reviewed = true): Promise<void> {
     const frames = this._frames();
     if (frames.length === 0) return;
@@ -251,10 +215,7 @@ export class SequenceService implements ProjectScoped {
     this._frames.update(fs => fs.map(f => ({ ...f, reviewed })));
   }
 
-  /**
-   * Frames were marked reviewed / unreviewed outside of this service (the
-   * inspector): keep those of the current sequence in step.
-   */
+  /** Frames were marked reviewed or not outside this service (the inspector). */
   noteFramesReviewed(frameIds: readonly number[], reviewed: boolean): void {
     const changed = new Set(frameIds);
     if (!this._frames().some(f => changed.has(f.id))) return;
@@ -263,9 +224,7 @@ export class SequenceService implements ProjectScoped {
     );
   }
 
-  /**
-   * Get progress (reviewed vs total frames).
-   */
+  /** Reviewed and total frames. */
   async getProgress(): Promise<{ reviewed: number; total: number }> {
     const [reviewed, total] = await api.getProgress();
     return { reviewed, total };
@@ -279,9 +238,6 @@ export class SequenceService implements ProjectScoped {
     return this._sequences().find(s => s.id === sequenceId) ?? null;
   }
 
-  /**
-   * Check if current frame has been reviewed.
-   */
   isCurrentFrameReviewed(): boolean {
     return this.currentFrame()?.reviewed ?? false;
   }

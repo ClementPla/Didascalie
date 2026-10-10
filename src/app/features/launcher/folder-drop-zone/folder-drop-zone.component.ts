@@ -5,14 +5,9 @@ import { open } from '@tauri-apps/plugin-dialog';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 
 /**
- * Folder drop zone: combines HTML drag events (for visual hover state) with
- * Tauri's native drop event (for actual filesystem paths). HTML drops are
- * sandboxed in webviews and give us no path, so we use them only for the UI
- * and let Tauri provide the real data.
- *
- * The component owns the Tauri listener while mounted and cleans up on
- * destroy. Only one of these should be live at a time per window (the listener
- * is global), so we mount this component once on the page that needs it.
+ * Folder drop zone. HTML drag events only drive the hover state: a drop in a
+ * webview carries no path, which Tauri's native drop event provides. That
+ * listener is global, so only one of these should be mounted per window.
  */
 @Component({
   selector: 'app-folder-drop-zone',
@@ -24,10 +19,9 @@ import type { UnlistenFn } from '@tauri-apps/api/event';
 export class FolderDropZoneComponent implements OnInit, OnDestroy {
   private elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  /** Currently selected folder path, or null. Drives the resting visual. */
   readonly folderPath = input<string | null>(null);
 
-  /** Compact mode: smaller drop zone, used when a folder is already chosen. */
+  /** Smaller, for when a folder is already chosen. */
   readonly compact = input(false);
 
   readonly folderChange = output<string>();
@@ -89,8 +83,7 @@ export class FolderDropZoneComponent implements OnInit, OnDestroy {
 
   @HostListener('dragleave', ['$event'])
   onDragLeave(event: DragEvent): void {
-    // Browsers fire dragleave when crossing child element boundaries;
-    // re-check whether the cursor actually left our box.
+    // dragleave also fires when crossing child elements.
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     if (
       event.clientX <= rect.left ||
@@ -102,7 +95,7 @@ export class FolderDropZoneComponent implements OnInit, OnDestroy {
     }
   }
 
-  // We don't handle 'drop' here — Tauri swallows it and dispatches its own.
+  // 'drop' is handled by Tauri.
 
   @HostBinding('class.is-hovering')
   get hoveringClass(): boolean {

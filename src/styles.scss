@@ -1,8 +1,6 @@
 @use "assets/css/variables" as *;
 @import "primeicons/primeicons.css";
-// Self-hosted, not the Google Fonts CDN: the app must work offline and
-// must not reach out to a third party at startup. Outlined only — the
-// rounded and sharp styles ship in the same package and are not used.
+// Self-hosted: the app works offline.
 @import "@material-symbols/font-400/outlined.css";
 
 @layer tailwind-base, primeng, tailwind-utilities;
@@ -23,9 +21,7 @@ body {
     font-size: 14px;
 }
 
-/* Tablet build. Every size in the app is in rem, so this one value scales the
-   icons, text and panels together; a tablet has fewer CSS pixels than a
-   desktop window and is looked at from closer. */
+/* Tablet build. Every size is in rem, so this scales the whole UI. */
 html.is-android,
 html.is-android body {
     font-size: 11px;
@@ -33,11 +29,9 @@ html.is-android body {
 
 body {
     margin: 0;
-    /* System font stack — no network fetch; uses Roboto if locally installed,
-       otherwise the platform UI font. */
+    /* System font stack. */
     font-family: Roboto, system-ui, -apple-system, "Segoe UI", "Helvetica Neue",
         Arial, sans-serif;
-    /* Follow the active theme so dark mode has no white backdrop. */
     background: var(--p-content-background);
     color: var(--p-text-color);
 }
@@ -46,15 +40,9 @@ body {
 :root{
     --toolbar-height: 5rem;
 
-    /* ------------------------------------------------------------------
-       Legacy → styled-mode token bridge.
-       Much of the app's SCSS was written against PrimeNG's old theme
-       variables (--surface-*, --text-color*, --primary-color, --*-400),
-       which the new @primeng/themes presets DO NOT define. Without this
-       map those usages fall back to their hardcoded dark hex and never
-       follow the active preset / dark mode. Pointing them at the live
-       --p-* tokens makes every consumer theme-aware (incl. dark mode).
-       ------------------------------------------------------------------ */
+    /* PrimeNG's old theme variables (--surface-*, --text-color*, --primary-color),
+       which much of the app's SCSS uses and the new presets do not define, mapped
+       to the live --p-* tokens. */
     --surface-ground: var(--p-content-background);
     --surface-section: var(--p-content-background);
     --surface-card: var(--p-content-background);
@@ -95,10 +83,8 @@ body {
     min-height: var(--toolbar-height);
 }
 
-/* Icon-only toggle buttons (`class="icon-toggle"`). PrimeNG renders the label
-   even when it is blank, plus the gap before it, so a button with only an icon
-   comes out wide, short and off-centre. Dropping both and evening the padding
-   makes it a square the height of the buttons beside it. */
+/* Icon-only toggle buttons (`class="icon-toggle"`): PrimeNG renders the blank
+   label and the gap before it. */
 .p-togglebutton.icon-toggle {
     .p-togglebutton-label {
         display: none;

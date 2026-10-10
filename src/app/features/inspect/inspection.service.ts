@@ -5,8 +5,7 @@ import { ProjectScoped } from '../../core/project-scoped';
 import { IOService } from '../../services/io.service';
 import { SequenceService } from '../../services/sequence.service';
 
-/** Sequences that can be compared side by side. Each pane keeps its own frame
- *  cache, and past a handful the panes are too small to judge labels on. */
+/** Most sequences compared side by side. */
 export const MAX_INSPECT_PANES = 6;
 
 /** Width of the left panel, in CSS px. */
@@ -15,19 +14,12 @@ export const MIN_SIDEBAR_WIDTH = 200;
 const SIDEBAR_WIDTH_KEY = 'didascalie.inspect.sidebarWidth';
 
 /**
- * What the "Inspect sequence" panel shows, and how the rest of the app sends
- * sequences to it.
+ * What the "Inspect sequence" panel shows, kept across visits: the sequences
+ * on screen and the player's settings.
  *
- * The panel itself is a route component, rebuilt on every visit; this holds
- * what must outlive it: the sequences on screen (so coming back from the editor
- * finds the same comparison) and the player's settings.
- *
- * # The shared sequence
- *
- * The editor, the keypoint pairing panel and the inspector all follow
- * `SequenceService.currentSequence`, which is what makes switching between them
- * stay on the same sequence. The inspector shows several at once, so it is the
- * *focused* pane that plays that role (`shareSequence`).
+ * The editor, the pairing panel and the inspector all follow
+ * `SequenceService.currentSequence`. The inspector shows several sequences,
+ * so its focused pane plays that role (`shareSequence`).
  */
 @Injectable({ providedIn: 'root' })
 export class InspectionService implements ProjectScoped {
@@ -44,7 +36,7 @@ export class InspectionService implements ProjectScoped {
   /** `open()` chose the sequences since the panel last started. */
   private requested = false;
 
-  // Player settings: preferences, kept across sequences and projects.
+  // Player settings, kept across sequences and projects.
   readonly fps = signal(10);
   readonly loop = signal(true);
   readonly labelOpacity = signal(0.5);
@@ -52,19 +44,15 @@ export class InspectionService implements ProjectScoped {
   readonly edgesOnly = signal(false);
   /** Zooming or panning one pane moves the others the same way. */
   readonly syncViews = signal(true);
-  /** A pane keeps its zoom and position when its sequence changes, instead
-   *  of fitting the new one. */
+  /** A pane keeps its zoom and position when its sequence changes. */
   readonly keepView = signal(false);
 
   /** The sequence list and label toggles on the left are shown. */
   readonly sidebarVisible = signal(true);
   readonly sidebarWidth = signal(readSidebarWidth());
 
-  /**
-   * First and last frame to play (0-based, included); null for the sequence's
-   * own. Kept from one sequence to the next: looking at the first 30 frames of
-   * each video of a project is one setting, not one per video.
-   */
+  /** First and last frame to play (0-based, included); null for the
+   *  sequence's own. Kept from one sequence to the next. */
   readonly rangeStart = signal<number | null>(null);
   readonly rangeEnd = signal<number | null>(null);
 
@@ -72,10 +60,7 @@ export class InspectionService implements ProjectScoped {
   private pendingShare: { id: number; frameIndex?: number } | null = null;
   private sharing: Promise<boolean> | null = null;
 
-  /**
-   * Show `sequenceIds` in the inspector (at most {@link MAX_INSPECT_PANES}),
-   * starting on `startFrame`.
-   */
+  /** Show `sequenceIds` in the inspector (at most {@link MAX_INSPECT_PANES}). */
   async open(sequenceIds: number[], startFrame = 0): Promise<boolean> {
     const ids = [...new Set(sequenceIds)].slice(0, MAX_INSPECT_PANES);
     if (ids.length === 0) return false;
@@ -86,10 +71,8 @@ export class InspectionService implements ProjectScoped {
     return this.router.navigate(['/inspect']);
   }
 
-  /**
-   * Whether the sequences on screen were asked for through `open()`, as
-   * opposed to being whatever the panel showed last time. Reading it clears it.
-   */
+  /** Whether the sequences on screen were asked for through `open()`. Reading
+   *  it clears it. */
   takeRequest(): boolean {
     const requested = this.requested;
     this.requested = false;
@@ -97,13 +80,9 @@ export class InspectionService implements ProjectScoped {
   }
 
   /**
-   * Make sequence `id` the app's current one, so the editor and the pairing
-   * panel pick it up. With a `frameIndex` it opens on that frame; without, a
-   * sequence that is already current keeps the frame it is on. Resolves once
-   * done, false when the sequence does not exist.
-   *
-   * Calls made while one is running collapse to the latest: stepping quickly
-   * through sequences should not load each one's frame in turn.
+   * Make sequence `id` the app's current one, on `frameIndex` when given.
+   * Resolves to false when the sequence does not exist. Calls made while one
+   * is running collapse to the latest.
    */
   shareSequence(id: number, frameIndex?: number): Promise<boolean> {
     this.pendingShare = { id, frameIndex };
@@ -120,8 +99,6 @@ export class InspectionService implements ProjectScoped {
         shared = await this.applyShare(id, frameIndex);
       }
     } finally {
-      // Cleared in the same turn as the last check above, so a request can
-      // never land on a drain that has already decided to stop.
       this.sharing = null;
     }
     return shared;
@@ -143,8 +120,7 @@ export class InspectionService implements ProjectScoped {
       ) {
         return true;
       }
-      // An edit still waiting for its autosave is saved against whichever
-      // frame is current when the timer fires: write it before moving on.
+      // A pending autosave would be written against the wrong frame.
       await this.io.saveIfDirty();
       await this.sequences.selectSequence(sequence, frameIndex ?? 0);
       return true;
@@ -159,11 +135,10 @@ export class InspectionService implements ProjectScoped {
     try {
       localStorage.setItem(SIDEBAR_WIDTH_KEY, String(this.sidebarWidth()));
     } catch {
-      // Not persisted; harmless.
     }
   }
 
-  /** @see ProjectScoped — the panes are project data, the settings are not. */
+  /** @see ProjectScoped */
   resetForProject(): void {
     this.sequenceIds.set([]);
     this.focused.set(0);
@@ -180,7 +155,6 @@ function readSidebarWidth(): number {
     const stored = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
     if (stored >= MIN_SIDEBAR_WIDTH) return stored;
   } catch {
-    // Storage unavailable: default width.
   }
   return DEFAULT_SIDEBAR_WIDTH;
 }

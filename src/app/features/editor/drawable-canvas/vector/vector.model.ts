@@ -1,7 +1,5 @@
 import { VectorNode, VectorShape } from '../../../../lib/api';
 
-// Re-export the wire types so the editor code can treat the model file as the
-// single import site for vector types.
 export type { VectorNode, VectorShape } from '../../../../lib/api';
 
 export interface Pt {
@@ -9,12 +7,12 @@ export interface Pt {
   y: number;
 }
 
-/** Create a fresh anchor node whose handles coincide with it (straight). */
+/** A node whose handles coincide with it. */
 export function makeNode(x: number, y: number, smooth = false): VectorNode {
   return { x, y, inX: x, inY: y, outX: x, outY: y, smooth };
 }
 
-/** True when a handle sits exactly on its anchor (a straight-segment endpoint). */
+/** The handle sits on its anchor (the end of a straight segment). */
 export function isFlatHandle(
   ax: number,
   ay: number,
@@ -36,11 +34,8 @@ function cubicPoint(p0: Pt, p1: Pt, p2: Pt, p3: Pt, t: number): Pt {
   };
 }
 
-/**
- * Sample a shape into a polyline (image space). Straight segments contribute a
- * single endpoint; curved ones are subdivided. Used for hit-testing and, later,
- * export rasterization.
- */
+/** Sample a shape into a polyline (image space). Curved segments are
+ *  subdivided. */
 export function flattenShape(shape: VectorShape, samples = 16): Pt[] {
   const n = shape.nodes;
   if (n.length === 0) return [];
@@ -78,10 +73,7 @@ export interface Bounds {
   height: number;
 }
 
-/**
- * Axis-aligned bounding box of a shape in image space, or null when it has no
- * geometry. Uses the flattened polyline so curved segments are covered.
- */
+/** Bounding box of a shape, from its flattened polyline, or null. */
 export function shapeBounds(shape: VectorShape): Bounds | null {
   const pts = flattenShape(shape);
   if (pts.length === 0) return null;
@@ -99,7 +91,6 @@ export function shapeBounds(shape: VectorShape): Bounds | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-/** True when two axis-aligned boxes overlap (touching edges count). */
 export function boundsIntersect(a: Bounds, b: Bounds): boolean {
   return (
     a.x <= b.x + b.width &&
@@ -109,11 +100,7 @@ export function boundsIntersect(a: Bounds, b: Bounds): boolean {
   );
 }
 
-/**
- * Even-odd point-in-polygon test against the shape's flattened outline. Used to
- * hit-test the *body* of a closed path (so clicking its interior selects it),
- * whereas open paths are picked by outline proximity (`distanceToShape`).
- */
+/** Even-odd point-in-polygon test against the shape's flattened outline. */
 export function pointInShape(shape: VectorShape, p: Pt): boolean {
   if (!shape.closed) return false;
   const poly = flattenShape(shape);
@@ -133,17 +120,14 @@ export function pointInShape(shape: VectorShape, p: Pt): boolean {
   return inside;
 }
 
-/** Deep clone one shape (all node fields are primitives). */
 export function cloneShape(shape: VectorShape): VectorShape {
   return { ...shape, nodes: shape.nodes.map((n) => ({ ...n })) };
 }
 
-/** Deep clone an array of shapes. */
 export function cloneShapes(shapes: VectorShape[]): VectorShape[] {
   return shapes.map(cloneShape);
 }
 
-/** Translate a whole shape (anchors + both handles) by (dx, dy) in image space. */
 export function translateShape(
   shape: VectorShape,
   dx: number,
@@ -163,7 +147,7 @@ export function translateShape(
   };
 }
 
-/** Rotate a whole shape (anchors + both handles) by `angle` radians around `pivot`. */
+/** Rotate a shape by `angle` radians around `pivot`. */
 export function rotateShape(
   shape: VectorShape,
   pivot: Pt,
@@ -190,11 +174,9 @@ export function rotateShape(
 }
 
 /**
- * Stretch a shape along the unit direction `u`, keeping the line through
- * `anchor` perpendicular to `u` fixed. `factor` 1 leaves it unchanged.
- *
- * Being affine, it maps a rotated box to a rotated box and an ellipse to an
- * ellipse, so neither needs to remember its angle to be resized.
+ * Stretch a shape along the unit direction `u`, keeping fixed the line
+ * through `anchor` perpendicular to `u`. Affine, so a rotated box stays a
+ * rotated box and an ellipse an ellipse.
  */
 export function stretchShape(
   shape: VectorShape,
@@ -221,18 +203,15 @@ export function stretchShape(
   };
 }
 
-/** A resize grip on one side of a box or ellipse, and the point on the
- *  opposite side that stays put while it is dragged. */
+/** A resize grip on one side of a box or ellipse, and the opposite point,
+ *  which stays put. */
 export interface SideHandle {
   pos: Pt;
   anchor: Pt;
 }
 
-/**
- * The four side grips of a box (edge midpoints) or an ellipse (its four
- * points), read off the geometry so they follow the shape however it has been
- * rotated. Empty for anything else: an arbitrary path has no "sides".
- */
+/** The four side grips of a box or an ellipse, read off its geometry.
+ *  Empty for any other path. */
 export function sideHandles(shape: VectorShape): SideHandle[] {
   const n = shape.nodes;
   if (!shape.closed || n.length !== 4) return [];
@@ -274,7 +253,6 @@ export function shapesBounds(shapes: VectorShape[]): Bounds | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-/** The four corner nodes of the axis-aligned rectangle spanning a and b. */
 export function rectNodes(a: Pt, b: Pt): VectorNode[] {
   const x0 = Math.min(a.x, b.x);
   const y0 = Math.min(a.y, b.y);
@@ -292,11 +270,8 @@ export function rectNodes(a: Pt, b: Pt): VectorNode[] {
  *  approximate a circle. */
 const CIRCLE_KAPPA = 0.5522847498;
 
-/**
- * Four smooth nodes (top, right, bottom, left) tracing the ellipse inscribed
- * in the rectangle spanning a and b. It stays an ordinary bezier path, so the
- * Node tool can reshape it like any other.
- */
+/** Four smooth nodes tracing the ellipse inscribed in the rectangle spanning
+ *  a and b. */
 export function ellipseNodes(a: Pt, b: Pt): VectorNode[] {
   const cx = (a.x + b.x) / 2;
   const cy = (a.y + b.y) / 2;
@@ -326,7 +301,6 @@ export function ellipseNodes(a: Pt, b: Pt): VectorNode[] {
   ];
 }
 
-/** Squared distance from p to segment ab. */
 function distSqToSegment(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -340,7 +314,7 @@ function distSqToSegment(p: Pt, a: Pt, b: Pt): number {
   return ex * ex + ey * ey;
 }
 
-/** Shortest distance (image px) from a point to a shape's outline. */
+/** Distance (image px) from a point to a shape's outline. */
 export function distanceToShape(shape: VectorShape, p: Pt): number {
   const poly = flattenShape(shape);
   if (poly.length === 0) return Infinity;
@@ -372,7 +346,7 @@ export function segmentPoint(a: VectorNode, b: VectorNode, t: number): Pt {
   );
 }
 
-/** Closest segment index + parameter on a shape to point p (sampled). */
+/** The segment of a shape closest to p, and the parameter along it. */
 export function closestSegment(
   shape: VectorShape,
   p: Pt,
@@ -396,11 +370,8 @@ export function closestSegment(
   return best;
 }
 
-/**
- * Insert a node on segment `segIndex` at parameter `t`, preserving the curve
- * via de Casteljau subdivision (or a plain midpoint on straight segments).
- * Returns a new shape; the inserted node is at index `segIndex + 1`.
- */
+/** Insert a node on segment `segIndex` at parameter `t` (de Casteljau).
+ *  Returns a new shape, with the node at index `segIndex + 1`. */
 export function splitSegment(
   shape: VectorShape,
   segIndex: number,
@@ -449,23 +420,17 @@ export function splitSegment(
   return { ...shape, nodes };
 }
 
-/** True when a node's handle sits on its anchor (i.e. a straight segment end). */
 function handleIsFlat(nx: number, ny: number, hx: number, hy: number): boolean {
   return nx === hx && ny === hy;
 }
 
-/**
- * Build an SVG path `d` string from a shape, in image-space coordinates.
- *
- * Every segment is emitted as a cubic so the same code handles beziers,
- * polygons and polylines; a straight segment simply has its control points on
- * the anchors, which renders identically to a line.
- */
+/** SVG path data of a shape, in image coordinates. Every segment is a cubic;
+ *  a straight one has its control points on the anchors. */
 export function buildPathData(shape: VectorShape): string {
   const n = shape.nodes;
   if (n.length === 0) return '';
   if (n.length === 1) {
-    // A lone node has no segment; emit a degenerate move so it can still be hit.
+    // A lone node: a degenerate move, so it can still be hit.
     return `M ${n[0].x} ${n[0].y}`;
   }
 

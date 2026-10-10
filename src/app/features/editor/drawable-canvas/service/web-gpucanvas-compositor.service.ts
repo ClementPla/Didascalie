@@ -1,11 +1,10 @@
 import { Injectable } from '@angular/core';
 
 /**
- * GPU compositor for the uint8-per-label model. Each label mask is uploaded as
- * a layer of an `r8uint` texture array; a per-layer 256-entry palette buffer
- * maps values to colours. The composite shader writes the top-most nonzero
- * layer's colour per pixel, matching the CPU path. In edge mode it only keeps
- * the pixels on each layer's own outline, so stacked labels all stay visible.
+ * GPU compositor of the label masks. Each mask is a layer of an `r8uint`
+ * texture array, with a 256-entry palette per layer. The shader writes the
+ * colour of the top-most nonzero layer, like the CPU path; in edge mode it
+ * keeps only the pixels on each layer's own outline.
  */
 @Injectable({ providedIn: 'root' })
 export class WebGPUCanvasCompositorService {
@@ -14,7 +13,6 @@ export class WebGPUCanvasCompositorService {
   private compositePipeline: GPUComputePipeline | null = null;
   private initialized = false;
 
-  // Persistent resources (sized by prepareResources)
   private outputTexture: GPUTexture | null = null;
   private maskTextureArray: GPUTexture | null = null;
   private uniformBuffer: GPUBuffer | null = null;
@@ -41,9 +39,8 @@ export class WebGPUCanvasCompositorService {
 
       await this.createCompositePipeline();
 
-      // Only advertise WebGPU if it produces provably-correct output — this
-      // guards the auto-enabled GPU path against a driver/shader mismatch that
-      // would otherwise render wrong masks silently (no exception to catch).
+      // WebGPU is used only if it gives the exact expected output: a driver or
+      // shader mismatch renders wrong masks without raising anything.
       if (!(await this.selfTest())) {
         console.warn('WebGPU self-test failed; using CPU compositor.');
         return false;
@@ -58,11 +55,9 @@ export class WebGPUCanvasCompositorService {
   }
 
   /**
-   * Composite a tiny known pattern and check the exact result: value→colour
-   * mapping via the palette, top-most-layer-wins ordering, and transparency.
-   * Then the edge mode on stacked layers: the lower layer's outline must show
-   * through the upper layer's interior.
-   * rgba8unorm stores 0/255 exactly, so the comparison is exact.
+   * Composite a tiny known pattern and compare exactly: palette mapping,
+   * top-most layer wins, transparency. Then edge mode on stacked layers: the
+   * lower layer's outline must show through the upper one's interior.
    */
   private async selfTest(): Promise<boolean> {
     try {
@@ -197,7 +192,6 @@ export class WebGPUCanvasCompositorService {
         GPUTextureUsage.COPY_SRC,
     });
 
-    // One 8-bit unsigned integer per pixel per label.
     this.maskTextureArray = this.device.createTexture({
       size: { width, height, depthOrArrayLayers: arrayLayers },
       format: 'r8uint',
@@ -219,7 +213,7 @@ export class WebGPUCanvasCompositorService {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    // Packed RGBA (u32) per value (256) per layer.
+    // A packed RGBA (u32) per value (256) per layer.
     this.paletteBuffer = this.device.createBuffer({
       size: arrayLayers * 256 * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -347,7 +341,6 @@ export class WebGPUCanvasCompositorService {
     this.isProcessing = true;
 
     try {
-      // Upload each mask into its array slice (1 byte/pixel).
       for (let i = 0; i < masks.length; i++) {
         this.device.queue.writeTexture(
           { texture: this.maskTextureArray, origin: { x: 0, y: 0, z: i } },
@@ -357,14 +350,12 @@ export class WebGPUCanvasCompositorService {
         );
       }
 
-      // Visibility flags, zero-padded to the prepared layer count.
       const visibilityData = new Uint32Array(this.cachedLayerCount);
       for (let i = 0; i < masks.length; i++) {
         visibilityData[i] = visibilityFlags[i] ? 1 : 0;
       }
       this.device.queue.writeBuffer(this.visibilityBuffer, 0, visibilityData);
 
-      // Palettes packed as u32 RGBA per (layer, value).
       const paletteData = new Uint32Array(this.cachedLayerCount * 256);
       for (let i = 0; i < masks.length; i++) {
         const pal = palettes[i];

@@ -20,11 +20,7 @@ interface Progress {
   currentFile: string;
 }
 
-/**
- * Schema-driven export: the format list and every format's options come from the
- * backend registry, so new formats appear here with no UI changes. Import lives
- * separately on the opening page (launcher).
- */
+/** Export. The formats and their options come from the backend registry. */
 @Component({
   selector: 'app-export',
   imports: [
@@ -48,7 +44,6 @@ export class ExportComponent implements OnInit, OnDestroy {
   private readonly formats = signal<DatasetFormat[]>([]);
   readonly exportFormats = computed(() => this.formats().filter((f) => f.canExport));
 
-  // Export state.
   readonly selectedFormat = signal<DatasetFormat | null>(null);
   exportOptionValues: Record<string, any> = {};
   onlyReviewed = true;

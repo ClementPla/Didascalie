@@ -28,18 +28,13 @@ export interface VoxelPoint {
 
 /**
  * The three.js side of the 3D view: label meshes, image planes, a ray-marched
- * rendering of the image, and an orbit camera. Framework-free; the component
- * feeds it data and settings.
- *
- * # Spaces
+ * rendering of the image, and an orbit camera.
  *
  * Everything lives under `root`, whose local space is voxel space: voxel
  * `(x, y, z)` (column, row, slice) is centred on that integer point. `root`
- * applies the slice spacing (`scale.z`) and centres the volume on the origin,
- * where the camera orbits. The camera's "up" is -y so that, seen from slice 0,
- * the volume reads like the 2D editor (rows going down).
- *
- * Rendering is on demand: nothing runs between changes.
+ * applies the slice spacing and centres the volume on the origin. The
+ * camera's "up" is -y, so that seen from slice 0 the volume reads like the 2D
+ * editor. Rendering is on demand.
  */
 export class VolumeScene {
   private readonly renderer: THREE.WebGLRenderer;
@@ -74,10 +69,8 @@ export class VolumeScene {
   private renderPending = false;
   private readonly raycaster = new THREE.Raycaster();
 
-  /**
-   * Dragging the slice outline changes slices: called with each new slice
-   * under the pointer. Set by the view.
-   */
+  /** Called with each new slice under the pointer while the slice outline is
+   *  dragged. */
   onSliceDrag: ((z: number) => void) | null = null;
   /** The drag in progress: the grabbed point (voxel space) and its slice. */
   private sliceDrag: { pointerId: number; anchor: THREE.Vector3; z: number } | null = null;
@@ -96,8 +89,8 @@ export class VolumeScene {
     headlight.position.set(0.3, -0.4, 1);
     this.camera.add(headlight);
 
-    // Registered before the orbit controls, in the capture phase, so a press
-    // on the slice outline can claim the pointer before orbiting starts.
+    // Capture phase, before the orbit controls: a press on the slice outline
+    // claims the pointer.
     canvas.addEventListener('pointerdown', (e) => this.onPointerDown(e), { capture: true });
     canvas.addEventListener('pointermove', (e) => this.onPointerMove(e));
     canvas.addEventListener('pointerup', (e) => this.onPointerUp(e));
@@ -170,8 +163,7 @@ export class VolumeScene {
     this.sliceOutline.frustumCulled = false;
     this.root.add(this.sliceOutline);
 
-    // Drawn over everything (depthTest off): it says where the brush is, and
-    // being hidden inside a label surface is exactly when that matters.
+    // Drawn over everything (depthTest off), to stay visible inside a surface.
     this.brushRing = new THREE.Mesh(
       new THREE.RingGeometry(0.88, 1, 48),
       new THREE.MeshBasicMaterial({
@@ -642,8 +634,8 @@ const VOLUME_VERTEX = /* glsl */ `
 /**
  * Ray marching through the volume box, drawn on its back faces so every pixel
  * the box covers runs once, camera inside or out. `vPos` and `uCamPos` are in
- * voxel space (`uBoxMatrix` is the box's transform within it). MIP keeps the brightest windowed sample; composite
- * accumulates front to back with opacity proportional to intensity.
+ * voxel space. MIP keeps the brightest windowed sample; composite accumulates
+ * front to back with opacity proportional to intensity.
  */
 const VOLUME_FRAGMENT = /* glsl */ `
   precision highp float;

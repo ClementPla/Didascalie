@@ -2,8 +2,7 @@
   display: flex;
   flex-direction: column; /* Stacks groups vertically */
   width: max-content;
-  // On a short screen (a tablet in landscape) the rail is taller than the
-  // editor: scroll it rather than lose the last groups.
+  // On a short screen the rail scrolls.
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: none;
@@ -48,11 +47,8 @@
 }
 
 :host ::ng-deep .group-content {
-  // Size the DIRECT child of the group to a fixed square. This is what makes a
-  // group render correctly regardless of what it contains: a bare
-  // <button pButton> is itself the direct child, while a <p-togglebutton> is a
-  // wrapper around its control. Sizing the direct child (not just the inner
-  // .p-button) means a group made only of bare buttons still has a width.
+  // The direct child of the group is a fixed square: a bare <button pButton> is
+  // the direct child itself, a <p-togglebutton> wraps its control.
   > * {
     display: flex;
     align-items: center;
@@ -63,8 +59,7 @@
     min-width: 0;
     padding: 0;
   }
-  // A control NESTED inside a wrapper (the space makes this a descendant
-  // selector, so it never matches a bare direct-child button) fills the square.
+  // A control nested inside a wrapper fills the square.
   > * :is(.button, .p-button, .p-togglebutton) {
     width: 100%;
     height: 100%;
@@ -75,20 +70,16 @@
     align-items: center;
   }
 
-  // Rail toggle buttons are icon-only. Drop PrimeNG's border/shadow — the
-  // checked state's dark top/bottom lines are what look bad — and let the
-  // checked *background* alone signal the pressed state.
+  // Icon-only toggles: no border or shadow, the checked background alone shows
+  // the pressed state.
   .p-togglebutton,
   .p-togglebutton.p-togglebutton-checked {
     border: 0;
     box-shadow: none;
     border-radius: var(--radius, 0.5rem);
   }
-  // Center the icon: zero the content padding/gap and hide the empty label,
-  // which otherwise reserves width and nudges the icon off-centre.
-  // …and make it fill the square. PrimeNG paints the pressed state on this
-  // inner element, and the square centres its children, so left alone it is
-  // only as tall as the icon: a highlighted band across a dimmer button.
+  // No padding, gap or label, and the content fills the square: PrimeNG paints
+  // the pressed state on this inner element.
   .p-togglebutton-content {
     align-self: stretch;
     padding: 0;

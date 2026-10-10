@@ -5,9 +5,8 @@ use crate::storage::{queries, DbState};
 use crate::utils::error::Result;
 use crate::utils::AppError;
 
-/// All vector shapes for a single (frame, label). `shapes` is an opaque JSON
-/// array of `VectorShape`, owned and validated by the frontend — the backend
-/// only stores and returns it verbatim.
+/// All vector shapes of one (frame, label). `shapes` is a JSON array of
+/// `VectorShape`, owned by the frontend and stored verbatim.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VectorAnnotations {
@@ -23,7 +22,7 @@ pub fn save_vector_annotations(
     shapes: serde_json::Value,
 ) -> Result<()> {
     db.with_conn(|conn| {
-        // No shapes for this label → drop the row so we don't keep empty records.
+        // No shapes: no row.
         let user = queries::current_user_id(conn)?;
         let is_empty = shapes.as_array().map(|a| a.is_empty()).unwrap_or(true);
         if is_empty {
@@ -138,8 +137,8 @@ fn cubic_point(
     )
 }
 
-/// Sample a shape into a polyline in image space. Closed shapes return a ring
-/// whose last point equals the first.
+/// Sample a shape into a polyline in image space. A closed shape's last
+/// point equals its first.
 pub fn flatten_shape(shape: &VectorShape, samples: usize) -> Vec<(f64, f64)> {
     let n = &shape.nodes;
     if n.is_empty() {
@@ -172,8 +171,8 @@ pub fn flatten_shape(shape: &VectorShape, samples: usize) -> Vec<(f64, f64)> {
     pts
 }
 
-/// Rasterize a shape's coverage into an alpha buffer (sets covered pixels to
-/// 255). Closed + filled shapes are filled (even-odd); all others are stroked.
+/// Rasterize a shape into an alpha buffer (covered pixels become 255).
+/// Closed and filled shapes are filled, even-odd; the others are stroked.
 pub fn rasterize_shape(shape: &VectorShape, width: u32, height: u32, alpha: &mut [u8]) {
     let poly = flatten_shape(shape, 24);
     if poly.len() < 2 {

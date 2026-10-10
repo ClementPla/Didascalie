@@ -1,14 +1,12 @@
 <div
   class="grid grid-cols-[auto_1fr] grid-rows-[auto_1fr] max-screen-available overflow-hidden rounded-lg w-full"
 >
-  <!-- Corner -->
   <div
     class="invisible ruler"
     [style.height.px]="rulerSize"
     [style.width.px]="rulerSize"
   ></div>
 
-  <!-- Top ruler -->
   <div
     class="overflow-x-clip relative ruler ruler--x"
     [style.height.px]="rulerSize"
@@ -23,7 +21,6 @@
     </p>
   </div>
 
-  <!-- Left ruler -->
   <div
     class="relative ruler ruler--y"
     [style.width.px]="rulerSize"
@@ -42,7 +39,6 @@
     </p>
   </div>
 
-  <!-- Viewport (fills the grid cell; canvases fill the viewport) -->
   <div
     class="canvas-viewport overflow-hidden relative"
     #viewport
@@ -75,7 +71,7 @@
 
     <p-contextMenu #labelMenu [model]="labelMenuItems" appendTo="body" />
 
-    <!-- Overlay layer for experimental features (e.g. superpixel boundaries) -->
+    <!-- Overlays of experimental features -->
     <canvas
       #overlayCanvas
       class="absolute crisp-edges h-full inset-0 pointer-events-none w-full z-[15]"
@@ -100,7 +96,6 @@
       [ngClass]="{ invisible: !isLoading, visible: isLoading }"
     ></div>
 
-    <!-- Floating buttons -->
     <div class="absolute flex gap-2 items-center left-5 top-2 z-40">
       <p-button
         [rounded]="true" [raised]="true"
@@ -110,7 +105,7 @@
       ></p-button>
     </div>
 
-    <!-- Vector shape properties (shown when a shape is selected with the Node tool) -->
+    <!-- Properties of the shape selected with the Node tool -->
     @if (editorService.isNodeTool() && vectorEditor.selectedShape(); as shape) {
       <div class="absolute flex gap-2 items-center right-5 top-2 z-40">
         <p-select

@@ -57,10 +57,9 @@ export class RegistrationSidebarComponent {
   public readonly isAwaiting = this.state.isAwaitingMoving;
   public readonly pairCount = this.state.pairCount;
 
-  // Reactive views.
   public readonly pairs = this.state.pairs;
 
-  // How many more pairs the user needs to reach the affine minimum (3).
+  // Pairs still needed to reach the affine minimum (3).
   public readonly pairsNeeded = computed(() =>
     Math.max(0, 4 - this.pairCount()),
   );
@@ -81,7 +80,6 @@ export class RegistrationSidebarComponent {
   public readonly inferenceReady = this.inference.isReady;
 
   public readonly existingFunctions = computed(() => {
-    // Return a list of { name: string, code : string } for each registered function, to populate the dropdown.
     const s = this.inference.status();
     if (s.kind !== 'connected') return [];
     return s.registered
@@ -102,7 +100,6 @@ export class RegistrationSidebarComponent {
   public readonly caseDeleted = output<RegistrationCase>();
   public readonly newCaseRequested = output<void>();
 
-  /** Human-readable frame label for a frame id, falling back to the id. */
   public frameLabel(id: string): string {
     return this.frameOptions().find((f) => f.id === id)?.label ?? `Frame ${id}`;
   }
@@ -137,7 +134,7 @@ export class RegistrationSidebarComponent {
       this.portDialogOpen.set(false);
       await this.runPrefill();
     } catch {
-      // status is now 'error'; dialog stays open so the user can retry.
+      // The dialog stays open, to retry.
     }
   }
 

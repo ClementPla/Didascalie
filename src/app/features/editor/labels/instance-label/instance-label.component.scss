@@ -7,8 +7,7 @@
   scrollbar-width: none;
 }
 
-// Fingertip-sized tiles, set here rather than by utility classes so the size
-// does not depend on which of them the build happens to generate.
+// Fingertip-sized tiles.
 .instance-strip > * {
   width: 2.2rem;
   font-size: 0.8rem !important;

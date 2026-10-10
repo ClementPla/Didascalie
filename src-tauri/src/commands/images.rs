@@ -10,7 +10,6 @@ pub fn convert_image_to_mask_array(image: &DynamicImage) -> Array2<bool> {
 
     for pixel in pixels.chunks(4) {
         let a = pixel[3];
-        // Binarization using the alpha channel
         let is_masked = a > 128;
 
         mask_data.push(is_masked);

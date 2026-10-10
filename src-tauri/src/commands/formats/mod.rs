@@ -1,10 +1,8 @@
 //! Pluggable import/export formats.
 //!
-//! Every format implements [`ExportFormat`] and/or [`ImportFormat`] against the
-//! canonical [`Dataset`] IR and is listed in the registry below — adding a new
-//! standard is one file plus one line. Formats describe their own options via
-//! [`OptionSpec`], so the UI renders the export/import dialog generically with
-//! no per-format code.
+//! A format implements [`ExportFormat`] and/or [`ImportFormat`] against the
+//! [`Dataset`] IR and is listed in the registry below. Formats describe their
+//! options with [`OptionSpec`], which the UI renders generically.
 
 pub mod geometry;
 pub mod storage;
@@ -46,7 +44,7 @@ pub fn enum_opt(key: &str, label: &str, choices: &[(&str, &str)], default: &str)
     }
 }
 
-/// Values chosen for a format's options — an untyped bag from the UI.
+/// Values chosen for a format's options.
 pub type OptionValues = serde_json::Map<String, serde_json::Value>;
 
 pub fn get_bool(v: &OptionValues, key: &str, default: bool) -> bool {
@@ -56,7 +54,7 @@ pub fn get_str(v: &OptionValues, key: &str, default: &str) -> String {
     v.get(key).and_then(|x| x.as_str()).unwrap_or(default).to_string()
 }
 
-/// A stable default label colour by index, for imports that carry no colours.
+/// A default label colour by index, for imports that carry none.
 pub fn default_color(i: usize) -> String {
     const PALETTE: [&str; 10] = [
         "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#bcf60c",

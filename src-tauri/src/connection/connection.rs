@@ -124,7 +124,6 @@ impl Connection {
                 })
             }
             Command::GetImages => {
-                // Implement get images logic
                 Ok(Response {
                     success: true,
                     data: Some(serde_json::json!([])),
@@ -154,7 +153,6 @@ impl Connection {
         let msg = match self.socket.recv_bytes(0) {
             Ok(m) => m,
             Err(zmq::Error::EAGAIN) => {
-                // No message ready - handle gracefully, e.g. return Ok
                 return Ok(());
             }
             Err(e) => {

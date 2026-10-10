@@ -2,12 +2,9 @@
 
 use tauri::{AppHandle, Manager};
 
-/// Close the detached view window titled `title`.
-///
-/// `window.close()` from the opener does not close these: they are native
-/// windows created in answer to `window.open`, not script-owned ones. The
-/// frontend names each by its title (one window per view), so that is how it
-/// finds it again.
+/// Close the detached view window titled `title`. `window.close()` from the
+/// opener does not: these are native windows created in answer to
+/// `window.open`.
 #[tauri::command]
 pub fn close_detached_window(app: AppHandle, title: String) -> Result<(), String> {
     for (label, window) in app.webview_windows() {

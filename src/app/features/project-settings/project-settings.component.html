@@ -7,7 +7,6 @@
   </header>
 
   <div class="sections">
-    <!-- Project -->
     <p-fieldset legend="Project" class="section-project">
       <div class="field-stack">
         <label class="field">
@@ -34,7 +33,6 @@
       </div>
     </p-fieldset>
 
-    <!-- Images -->
     <p-fieldset legend="Images" class="section-images">
       <div class="field-stack">
         <div class="field">
@@ -168,7 +166,6 @@
       </div>
     </p-fieldset>
 
-    <!-- Segmentation labels -->
     <p-fieldset legend="Segmentation labels" class="section-labels">
       <div class="field-stack">
         <div class="switch-row">
@@ -256,7 +253,6 @@
       </div>
     </p-fieldset>
 
-    <!-- Classification -->
     <p-fieldset legend="Classification" class="section-classification">
       <div class="field-stack">
         <div class="switch-row">
@@ -278,9 +274,8 @@
           <small class="muted">No classification task yet.</small>
         }
 
-        <!-- Tracked by position, not name: a name is edited in place, and
-             tracking by it would rebuild the row and drop the focus the user
-             just moved to the next field. -->
+        <!-- Tracked by position: a name is edited in place, and tracking by it
+             would rebuild the row and drop the focus. -->
         @for (task of tasks(); track $index; let t = $index) {
           <div class="task">
             <div class="row">
@@ -369,7 +364,6 @@
       </div>
     </p-fieldset>
 
-    <!-- Text descriptions -->
     <p-fieldset legend="Text descriptions" class="section-text">
       <div class="field-stack">
         <div class="switch-row">

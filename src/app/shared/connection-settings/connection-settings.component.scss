@@ -23,8 +23,6 @@
     line-height: 1.35;
   }
 
-  // Fields and their button share a baseline: labels sit above the inputs,
-  // so the button aligns to the bottom of the row.
   &__row {
     display: flex;
     align-items: flex-end;

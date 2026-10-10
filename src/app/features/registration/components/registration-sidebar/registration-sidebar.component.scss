@@ -91,7 +91,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-// Make the pair list the scroll container — not the whole sidebar.
+// The pair list scrolls, not the whole sidebar.
 .pairs-section {
   flex: 1;
   min-height: 0; // ← critical, lets flex child shrink
@@ -100,7 +100,6 @@
   overflow: hidden; // contains the inner scroll
 }
 
-// Only the list itself scrolls.
 .pair-list {
   flex: 1;
   min-height: 0;

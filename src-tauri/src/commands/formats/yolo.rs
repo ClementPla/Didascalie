@@ -50,7 +50,6 @@ impl ExportFormat for Yolo {
             let _ = fs::create_dir_all(out_dir.join("images"));
         }
 
-        // data.yaml
         let mut yaml = String::from("path: .\ntrain: images\nval: images\nnames:\n");
         for l in &dataset.labels {
             yaml.push_str(&format!("  {}: {}\n", l.index.saturating_sub(1), l.name));
@@ -231,8 +230,8 @@ impl ImportFormat for Yolo {
     }
 }
 
-/// Minimal `names:` reader — handles the dict form (`  0: name`) and the inline
-/// list (`names: [a, b]`). Good enough without pulling in a YAML dependency.
+/// Minimal `names:` reader: the dict form (`  0: name`) and the inline list
+/// (`names: [a, b]`).
 fn parse_yaml_names(yaml_path: &Path) -> Vec<String> {
     let Ok(text) = fs::read_to_string(yaml_path) else {
         return Vec::new();
@@ -244,7 +243,6 @@ fn parse_yaml_names(yaml_path: &Path) -> Vec<String> {
         if let Some(rest) = trimmed.strip_prefix("names:") {
             let rest = rest.trim();
             if rest.starts_with('[') {
-                // inline list
                 return rest
                     .trim_matches(|c| c == '[' || c == ']')
                     .split(',')

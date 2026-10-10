@@ -8,11 +8,10 @@ export interface Point2D {
 // ── Correspondence pairs ───────────────────────────────────────────────────
 
 export interface CorrespondencePair {
-  /** Stable id for UI tracking (drag, delete, color assignment). */
   id: string;
-  /** Point in the reference image, in *native* image-space pixels. */
+  /** In the reference image, native pixels. */
   ref: Point2D;
-  /** Point in the moving image, in *native* image-space pixels. */
+  /** In the moving image, native pixels. */
   moving: Point2D;
 }
 
@@ -109,7 +108,6 @@ export function fitHomography(pairs: CorrespondencePair[]): HomographyTransform 
   const h = smallestEigenvector9(M);
   if (!h) return null;
 
-  // Reshape h into a 3×3 homography (still in normalized space).
   const Hn: Matrix3x3 = [
     h[0], h[1], h[2],
     h[3], h[4], h[5],
@@ -121,9 +119,7 @@ export function fitHomography(pairs: CorrespondencePair[]): HomographyTransform 
   if (!TrefInv) return null;
   const Hd = mul3x3(mul3x3(TrefInv, Hn), movingNorm.T);
 
-  // Canonical scaling: divide by h22 so the bottom-right entry is 1.
-  // Fall back to dividing by the largest absolute entry if h22 ≈ 0 (rare:
-  // would mean the homography sends the origin to infinity).
+  // Divide by h22, or by the largest entry when h22 ≈ 0.
   let denom = Hd[8];
   if (Math.abs(denom) < 1e-12) {
     denom = Hd.reduce((m, v) => Math.abs(v) > Math.abs(m) ? v : m, Hd[0]);
@@ -151,7 +147,6 @@ export function applyTransform(t: Transform2D, p: Point2D): Point2D {
   return { ...p };
 }
 
-/** Inverse homography. Closed-form 3×3 inverse via cofactor expansion. */
 export function invertHomography(t: HomographyTransform): HomographyTransform | null {
   const inv = invert3x3(t.matrix);
   if (!inv) return null;
@@ -163,18 +158,12 @@ export function invertHomography(t: HomographyTransform): HomographyTransform | 
 }
 
 /**
- * Expand a 3×3 homography (operating on (x, y, 1)) to a 4×4 matrix for
- * CSS `transform: matrix3d(...)`. CSS uses column-major argument order.
- *
- * Our 3×3 acts on (x, y, w); we embed by mapping z to a pass-through
- * (column 2 = [0, 0, 1, 0], row 2 = [0, 0, 1, 0]):
+ * A 3×3 homography as a CSS `matrix3d(...)` string, z passing through:
  *
  *   [ h00  h01   0   h02 ]
  *   [ h10  h11   0   h12 ]
  *   [  0    0    1    0  ]
  *   [ h20  h21   0   h22 ]
- *
- * Returns the CSS-ready string.
  */
 export function homographyToCssMatrix3d(t: HomographyTransform): string {
   const [h00, h01, h02, h10, h11, h12, h20, h21, h22] = t.matrix;
@@ -189,16 +178,14 @@ export function homographyToCssMatrix3d(t: HomographyTransform): string {
 
 export interface FitResidual {
   pairId: string;
-  /** Euclidean distance in reference-image px between predicted and actual. */
+  /** Distance between predicted and actual, in reference-image px. */
   error: number;
 }
 
 export interface FitSummary {
-  /** Per-pair errors. Empty if the transform doesn't apply. */
   residuals: FitResidual[];
-  /** Root-mean-square error across all pairs (in reference-image px). */
+  /** In reference-image px. */
   rmse: number;
-  /** Worst single-pair error. */
   maxError: number;
 }
 
@@ -230,11 +217,9 @@ type Matrix3x3 = [number, number, number,
                   number, number, number];
 
 /**
- * Hartley normalization: translate to centroid, scale so the average
- * distance from origin is √2. Returns normalized points plus the similarity
- * transform `T` such that `normalized = T · original`.
- *
- * Returns null if all points are coincident.
+ * Hartley normalization: translate to the centroid and scale so the mean
+ * distance from the origin is √2. Returns the points and the similarity `T`
+ * with `normalized = T · original`, or null if all points coincide.
  */
 function hartleyNormalize(points: Point2D[]): {
   points: Point2D[];
@@ -300,12 +285,8 @@ function invert3x3(M: Matrix3x3): Matrix3x3 | null {
 }
 
 /**
- * Smallest eigenvector of a 9×9 symmetric matrix via inverse power iteration.
- *
- * Adds a small shift σ so the matrix is invertible (the target eigenvalue is
- * near 0 by construction), factors via LU with partial pivoting, then
- * iterates `v ← M⁻¹ v` with normalization. Converges in 5–15 iterations
- * for well-conditioned input.
+ * Smallest eigenvector of a 9×9 symmetric matrix, by inverse power iteration
+ * on the matrix shifted by a small σ (LU with partial pivoting).
  */
 function smallestEigenvector9(M: Float64Array): Float64Array | null {
   const SIZE = 9;

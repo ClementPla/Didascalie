@@ -32,13 +32,9 @@ pub struct FrameImage {
   pub image_base64: String,
 }
 
-/// Bounded in-memory cache of generated thumbnails, keyed by (frame, size), so
-/// a frame's full image is decoded at most once per project — the gallery
-/// otherwise re-decodes the full (possibly 100+ MP) image on every scroll/hover.
-///
-/// Frame ids restart from 1 in every project, so the key says nothing about
-/// which project an entry came from: the cache must be [`clear`]ed whenever the
-/// open project changes, or the next project's gallery shows this one's images.
+/// Bounded in-memory cache of thumbnails, keyed by (frame, size). Frame ids
+/// restart from 1 in every project, so it must be [`clear`]ed when the open
+/// project changes.
 ///
 /// [`clear`]: ThumbnailCache::clear
 #[derive(Default)]
@@ -50,8 +46,7 @@ pub struct ThumbnailCache {
 struct ThumbnailCacheInner {
   map: std::collections::HashMap<(i64, u32), FrameImage>,
   order: std::collections::VecDeque<(i64, u32)>,
-  /// Bumped by `clear`. A thumbnail decoded for one project must not be stored
-  /// once another has been opened, so `put` drops anything started before.
+  /// Bumped by `clear`: `put` drops a thumbnail whose decoding started before.
   generation: u64,
 }
 
@@ -66,7 +61,6 @@ impl ThumbnailCache {
     self.inner.lock().map(|g| g.generation).unwrap_or(0)
   }
 
-  /// Store a thumbnail, unless the cache was cleared since `generation` was read.
   fn put(&self, generation: u64, frame_id: i64, size: u32, image: FrameImage) {
     let Ok(mut guard) = self.inner.lock() else { return };
     if guard.generation != generation {
@@ -83,7 +77,6 @@ impl ThumbnailCache {
     }
   }
 
-  /// Drop every thumbnail. Call when the open project changes.
   pub fn clear(&self) {
     let Ok(mut guard) = self.inner.lock() else { return };
     guard.map.clear();
@@ -117,13 +110,9 @@ pub fn read_frame_bytes(
     read_frame_bytes_with(db, frame_id, false)
 }
 
-/// [`read_frame_bytes`], for a caller going through a sequence in order
-/// (playback, loading a whole sequence).
-///
-/// A video frame is then decoded together with the ones that follow it, which
-/// costs far less per frame than decoding each on its own; see
-/// `crate::video::read_run`. Asking for a lone frame this way decodes dozens
-/// for nothing. An image frame is read as usual.
+/// [`read_frame_bytes`], for a caller going through a sequence in order: a
+/// video frame is decoded together with the ones that follow it (see
+/// `crate::video::read_run`).
 pub fn read_frame_bytes_ahead(
     db: &DbState,
     frame_id: i64,
@@ -152,8 +141,7 @@ fn read_frame_bytes_with(
     }
 
     let image_root = db.image_root();
-    // Only the row is read under the connection lock: decoding a video frame
-    // takes a while, and other frames are asked for in the meantime.
+    // Only the row is read under the connection lock: decoding can take a while.
     let (frame, source) = db.with_conn(|conn| {
         let row = conn.query_row(
             "SELECT f.id, f.sequence_id, f.frame_index, f.relative_path,
@@ -206,8 +194,7 @@ fn read_frame_bytes_with(
         } else if let (Some(video), Some(time)) = (&video_path, video_time) {
             let path = in_input_folder(video)?;
             let video_frame = video_frame.unwrap_or(0);
-            // The frames that follow are only looked up when this one has to
-            // be decoded: most calls of a playback find theirs in the cache.
+            // The following frames are looked up only when this one must be decoded.
             let following = if ahead && !crate::video::is_cached(&path, time) {
                 let limit = crate::video::run_length(width.max(0) as u32, height.max(0) as u32);
                 let mut stmt = conn.prepare_cached(
@@ -275,11 +262,8 @@ pub fn get_frame_image(db: State<DbState>, frame_id: i64) -> Result<FrameImage> 
     Ok(FrameImage { frame: meta.frame, image_base64 })
 }
 
-/// A display image for a frame, downsampled server-side so its longest side is
-/// ≤ `max_dim`. Images that already fit are returned unchanged. `frame.width` /
-/// `frame.height` are always the NATIVE dimensions, so the frontend keeps masks
-/// and coordinates at full resolution while displaying a decodable backdrop —
-/// this is what lets images too large for the browser to decode still open.
+/// A display image for a frame, downsampled so its longest side is ≤
+/// `max_dim`. `frame.width` / `frame.height` stay the native dimensions.
 #[tauri::command]
 pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Result<FrameImage> {
     let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
@@ -292,11 +276,8 @@ pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Re
         return Ok(FrameImage { frame: meta.frame, image_base64 });
     }
 
-    // JPEG uses DCT scale-on-decode (to ≥ max_dim) so a huge source isn't fully
-    // decoded just to shrink it; other formats decode fully.
     let img = decode_downscaled(&bytes, max_dim)?;
-    // Triangle (bilinear) keeps downsampling of a 100+ MP image fast; PNG keeps
-    // it lossless so no compression artefacts land on the annotation backdrop.
+    // PNG: no compression artefacts on the annotation backdrop.
     let scaled = img.resize(max_dim, max_dim, image::imageops::FilterType::Triangle);
     let mut out = Vec::new();
     scaled
@@ -306,13 +287,9 @@ pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Re
     Ok(FrameImage { frame: meta.frame, image_base64 })
 }
 
-/// Decode an image, using JPEG DCT scale-on-decode to avoid materializing the
-/// full-resolution bitmap when the caller only needs it near `max_dim` px. The
-/// returned image's longest side is ≥ `max_dim` (for JPEG, the nearest of 1/1,
-/// 1/2, 1/4, 1/8 that is ≥ target); the caller then resizes/thumbnails to the
-/// exact size. So a 100 MP JPEG never becomes a ~400 MB bitmap — sharply cutting
-/// peak memory and decode time. Other formats (PNG, TIFF, …) have no
-/// reduced-resolution decode, so they fall back to a full decode.
+/// Decode an image to a longest side ≥ `max_dim`. A JPEG is scaled during
+/// decoding (1/1, 1/2, 1/4 or 1/8), so a very large one is never fully
+/// decoded; other formats are.
 pub(crate) fn decode_downscaled(bytes: &[u8], max_dim: u32) -> Result<image::DynamicImage> {
   if detect_mime_type(bytes) == "image/jpeg" {
     if let Some(img) = decode_jpeg_downscaled(bytes, max_dim) {
@@ -323,14 +300,12 @@ pub(crate) fn decode_downscaled(bytes: &[u8], max_dim: u32) -> Result<image::Dyn
     .map_err(|e| AppError::Generic(format!("Failed to decode image: {}", e)))
 }
 
-/// Decode straight to a thumbnail no larger than `max` px on its longest side.
 fn decode_thumbnail(bytes: &[u8], max: u32) -> Result<image::DynamicImage> {
   Ok(decode_downscaled(bytes, max)?.thumbnail(max, max))
 }
 
-/// DCT-scaled JPEG decode to roughly `max` px. Returns None on an unsupported
-/// pixel format (CMYK / 16-bit) or any decode error, so the caller falls back to
-/// a full decode.
+/// DCT-scaled JPEG decode to roughly `max` px. None on an unsupported pixel
+/// format or a decode error.
 fn decode_jpeg_downscaled(bytes: &[u8], max: u32) -> Option<image::DynamicImage> {
   use jpeg_decoder::{Decoder, PixelFormat};
 
@@ -358,9 +333,6 @@ pub fn get_frame_thumbnail(
   }
   let generation = cache.generation();
 
-  // Read the raw file bytes directly — NOT via get_frame_image, which would
-  // base64-encode the whole full-resolution image just for us to decode it
-  // straight back (very slow for large images).
   let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
 
   let thumbnail = decode_thumbnail(&bytes, max_size)?;
@@ -380,17 +352,15 @@ pub fn get_frame_thumbnail(
 
 // ── Native tile server (large images) ──────────────────────────────────────
 
-/// Caches the decoded RGBA pixels of one frame so native-resolution tile
-/// requests don't re-decode the whole image each time. Holds a single frame
-/// (replaced when a different frame's tile is requested).
+/// The decoded RGBA pixels of one frame, so that tile requests do not decode
+/// the image again.
 #[derive(Default)]
 pub struct FrameImageCache {
     inner: Mutex<Option<CachedFrame>>,
 }
 
 impl FrameImageCache {
-    /// Drop the cached frame. Call when the open project changes: the frame id
-    /// alone does not tell two projects apart.
+    /// Call when the open project changes.
     pub fn clear(&self) {
         if let Ok(mut guard) = self.inner.lock() {
             *guard = None;
@@ -405,9 +375,8 @@ struct CachedFrame {
     height: u32,
 }
 
-/// Copy an RGBA rectangle out of a full-image buffer. The output is always
-/// `w*h*4` bytes; areas outside the image are left transparent, so edge tiles
-/// come back a consistent size.
+/// Copy an RGBA rectangle out of a full-image buffer. Always `w*h*4` bytes;
+/// areas outside the image are transparent.
 fn crop_rgba(raw: &[u8], img_w: u32, img_h: u32, x: u32, y: u32, w: u32, h: u32) -> Vec<u8> {
     let mut out = vec![0u8; (w as usize) * (h as usize) * 4];
     if x >= img_w {
@@ -427,9 +396,8 @@ fn crop_rgba(raw: &[u8], img_w: u32, img_h: u32, x: u32, y: u32, w: u32, h: u32)
     out
 }
 
-/// Return a native-resolution RGBA tile `(x, y, width, height)` of a frame as
-/// raw bytes (`width*height*4`, row-major). The first tile of a frame decodes
-/// the full image into the cache; later tiles are cheap crops.
+/// A native-resolution RGBA tile of a frame, as raw bytes (`width*height*4`,
+/// row-major).
 #[tauri::command]
 pub fn get_frame_tile(
     db: State<DbState>,
@@ -469,11 +437,7 @@ pub fn set_frames_reviewed(db: State<DbState>, frame_ids: Vec<i64>, reviewed: bo
   db.with_conn(|conn| mark_reviewed(conn, &frame_ids, reviewed))
 }
 
-/// Record (or withdraw) the current user's review of `frame_ids`.
-///
-/// A review is a row in `frame_reviews`, one per user: marking a frame reviewed
-/// is the annotator asserting *their* labels on it are finished, which says
-/// nothing about anyone else's.
+/// Record or withdraw the current user's review of `frame_ids`.
 pub fn mark_reviewed(conn: &rusqlite::Connection, frame_ids: &[i64], reviewed: bool) -> Result<()> {
   let user = crate::storage::queries::current_user_id(conn)?;
   let tx = conn.unchecked_transaction()?;
@@ -498,32 +462,27 @@ pub(crate) fn detect_mime_type(data: &[u8]) -> &'static str {
     return "application/octet-stream";
   }
 
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
   if data.starts_with(&[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) {
     return "image/png";
   }
 
-  // JPEG: FF D8 FF
   if data.starts_with(&[0xff, 0xd8, 0xff]) {
     return "image/jpeg";
   }
 
-  // GIF: GIF87a or GIF89a
   if data.starts_with(b"GIF87a") || data.starts_with(b"GIF89a") {
     return "image/gif";
   }
 
-  // BMP: BM
   if data.starts_with(b"BM") {
     return "image/bmp";
   }
 
-  // TIFF: II (little-endian) or MM (big-endian)
+  // TIFF, little- or big-endian.
   if data.starts_with(&[0x49, 0x49, 0x2a, 0x00]) || data.starts_with(&[0x4d, 0x4d, 0x00, 0x2a]) {
     return "image/tiff";
   }
 
-  // WebP: RIFF....WEBP
   if data.len() >= 12 && data.starts_with(b"RIFF") && &data[8..12] == b"WEBP" {
     return "image/webp";
   }
@@ -653,8 +612,6 @@ mod tests {
 
     #[test]
     fn overview_decode_shrinks_large_jpeg() {
-        // decode_downscaled must DCT-scale a large JPEG below native (so the
-        // overview never fully decodes it) while staying ≥ the requested size.
         let src = image::RgbImage::from_fn(800, 600, |x, y| {
             image::Rgb([(x % 256) as u8, (y % 256) as u8, 64])
         });

@@ -8,12 +8,9 @@ export interface PinchStep {
 }
 
 /**
- * Follows the fingers on one element and turns two of them into pan + pinch.
- *
- * Feed it every pointer event; it ignores mouse and pen, which keep their
- * desktop behaviour. `multi` stays true from the second finger going down
- * until every finger is lifted, so the finger left over after a pinch is not
- * mistaken for a tap or a drag.
+ * Turns two fingers on one element into pan + pinch. Feed it every pointer
+ * event; mouse and pen are ignored. `multi` stays true from the second finger
+ * going down until every finger is lifted.
  */
 export class TouchGesture {
   private readonly fingers = new Map<number, { x: number; y: number }>();

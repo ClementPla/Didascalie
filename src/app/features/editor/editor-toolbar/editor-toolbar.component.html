@@ -1,7 +1,4 @@
-<!-- One tool button: icon always, name only while that tool is selected. The
-     name is what made the row wrap onto a second line, so the tooltip carries
-     it, with the shortcut and, for tools that have one, a line on what the
-     tool does. -->
+<!-- One tool button: the name shows only while the tool is selected. -->
 <ng-template #toolItem let-item>
   <span
     class="tool-item"
@@ -27,9 +24,8 @@
 </ng-template>
 
 <p-toolbar class="py-0">
-  <!-- The drawing tools sit in `start`: `center` re-centred the whole row
-       whenever a contextual option appeared, so a change at one end moved the
-       buttons at the other. Left-aligned, only what follows a change moves. -->
+  <!-- In `start`: `center` re-centres the whole row whenever an option
+       appears. -->
   <ng-template pTemplate="start">
     <div class="toolbar-row">
       <div class="tool-group">
@@ -46,8 +42,8 @@
           </ng-template>
         </p-selectButton>
 
-        <!-- Kept in the DOM and merely hidden for tools with no brush, so the
-             groups after it do not shift every time the tool changes. -->
+        <!-- Hidden, not removed, for tools without a brush: the groups after it
+             do not shift. -->
         <div
           class="brush-size"
           [class.brush-size--idle]="!editorService.isToolWithBrushSize()"
@@ -72,8 +68,6 @@
         </div>
       </div>
 
-      <!-- These only affect the raster tools, so they sit with them rather
-           than at the end of the row. -->
       @if (editorService.isDrawingTool() || editorService.isEraser()) {
         <div class="tool-group">
           <span class="tool-group__label">Options</span>
@@ -159,8 +153,6 @@
     </div>
   </ng-template>
 
-  <!-- The model is not a drawing tool: it runs over the whole frame and can
-       replace what is there. Kept hard right, away from the brushes. -->
   <ng-template pTemplate="end">
     @if (!isAndroid) {
     <div class="tool-group tool-group--model">

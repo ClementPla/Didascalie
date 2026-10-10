@@ -15,16 +15,11 @@ import { SequenceNavigatorComponent } from '../sequence-navigator/sequence-navig
 import { EditorService } from '../services/editor.service';
 
 /**
- * The labels as a horizontal bar above the canvas, for a narrow portrait
- * screen where the side panel would leave the canvas half the width.
+ * The labels as a bar above the canvas, for a narrow portrait screen. It
+ * holds what is reached for while drawing; the rest of the side panel and
+ * the sequence list open from it as popovers, with the same components.
  *
- * It holds what is reached for while drawing: which label, which instance, what
- * is visible. Everything else the side panel offers (classification, text
- * fields, colours) and the sequence list open from it as popovers, showing the
- * very same components, so nothing exists in two versions.
- *
- * Not OnPush: the label state it reads lives in plain fields on
- * `LabelsService`, which the canvas and the shortcuts change as well.
+ * Not OnPush: `LabelsService` keeps its state in plain fields.
  */
 @Component({
   selector: 'app-label-bar',

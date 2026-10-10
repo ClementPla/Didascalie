@@ -22,17 +22,9 @@ import { BboxManagerService } from '../features/editor/drawable-canvas/service/b
 import { TiledImageService } from '../features/editor/drawable-canvas/service/tiled-image.service';
 
 /**
- * Services holding state that belongs to one project, cleared whenever the open
- * project changes. See `core/project-scoped.ts` for the contract.
- *
- * This list is the one place a new service can be forgotten. If something from
- * a previous project survives a switch, either its service is missing here or
- * its `resetForProject` does not go far enough.
- *
- * It lives here rather than in `app.config.ts` so that reaching into a
- * feature's internals — the canvas services are five directories down inside
- * `features/editor` — is contained in a file whose job is exactly that, instead
- * of being the bulk of the application's bootstrap.
+ * Services holding state that belongs to one project, cleared when the open
+ * project changes (see `core/project-scoped.ts`). A service missing from this
+ * list keeps the previous project's state.
  */
 const PROJECT_SCOPED_SERVICES = [
   UserService,
@@ -55,7 +47,6 @@ const PROJECT_SCOPED_SERVICES = [
   TiledImageService,
 ];
 
-/** Register every project-scoped service under the {@link PROJECT_SCOPED} token. */
 export function provideProjectScoped(): Provider[] {
   return PROJECT_SCOPED_SERVICES.map((useExisting) => ({
     provide: PROJECT_SCOPED,

@@ -1,15 +1,11 @@
 /**
- * Pixel operations for the uint8-per-label model.
+ * Pixel operations on label masks.
  *
  * Each label is a `width*height` `Uint8Array`: 0 = absent, 1 = present
- * (semantic), 1..255 = instance id. These helpers replace the old
- * canvas-compositing / OpenCV.js paths for the interactive drawing tools —
- * they are plain typed-array loops, so they run synchronously with no IPC.
- *
- * Strokes are still rasterized on a Canvas2D buffer (for round-capped,
- * pressure-scaled geometry). Callers read back only the stroke's bounding-box
- * region as RGBA and pass it here as `region` together with its integer
- * `rect`; a pixel counts as covered when its alpha clears `ALPHA_THRESHOLD`.
+ * (semantic), 1..255 = instance id. Strokes are rasterized on a Canvas2D
+ * buffer; callers pass the stroke's bounding-box region as RGBA (`region`)
+ * with its integer `rect`, and a pixel is covered when its alpha reaches
+ * `ALPHA_THRESHOLD`.
  */
 
 export interface Rect {
@@ -19,7 +15,6 @@ export interface Rect {
   height: number;
 }
 
-/** A stroke pixel counts as covered at or above this buffer alpha. */
 const ALPHA_THRESHOLD = 128;
 
 /** Integer bbox clamped to the image, or null if it collapses to nothing. */
@@ -32,7 +27,6 @@ export function intRect(bbox: Rect, w: number, h: number): Rect | null {
   return { x, y, width: x1 - x, height: y1 - y };
 }
 
-/** Iterate covered pixels of a region buffer, yielding the target mask index. */
 function forEachCovered(
   region: Uint8ClampedArray,
   rect: Rect,
@@ -48,7 +42,6 @@ function forEachCovered(
   }
 }
 
-/** Write `value` into `mask` wherever the stroke region covers. */
 export function commitStroke(
   mask: Uint8Array,
   maskW: number,
@@ -62,10 +55,9 @@ export function commitStroke(
 }
 
 /**
- * Reassign already-labelled pixels under the stroke to the active label — a
- * "fix a mistake" tool. Only pixels that currently belong to *some* label are
- * touched: they become `value` in the active mask and are cleared from every
- * other mask. Stroke pixels over background are left untouched.
+ * Reassign already-labelled pixels under the stroke to the active label:
+ * they become `value` in the active mask and are cleared from the others.
+ * Background pixels are left alone.
  */
 export function swapUnderStroke(
   masks: Uint8Array[],
@@ -90,7 +82,6 @@ export function swapUnderStroke(
   });
 }
 
-/** Clear stroke-covered pixels from each target mask (plain eraser). */
 export function eraseStrokeFromMasks(
   masks: Uint8Array[],
   maskW: number,
@@ -102,10 +93,7 @@ export function eraseStrokeFromMasks(
   });
 }
 
-/**
- * Write `value` where a full-image post-process result (nonzero) marks
- * foreground. `result` is single-channel, `width*height`, row-major.
- */
+/** Write `value` where a full-image result (`width*height`) is nonzero. */
 export function applyResultMask(
   mask: Uint8Array,
   result: Uint8Array | Uint8ClampedArray,
@@ -117,10 +105,7 @@ export function applyResultMask(
   }
 }
 
-/**
- * Write `value` where a bbox-region post-process result (nonzero) marks
- * foreground. `result` is single-channel, `rect.width*rect.height`, row-major.
- */
+/** Write `value` where a region result (`rect.width*rect.height`) is nonzero. */
 export function applyRegionResult(
   mask: Uint8Array,
   maskW: number,
@@ -149,9 +134,8 @@ export function unionPresence(masks: Uint8Array[], w: number, h: number): Uint8A
 }
 
 /**
- * Flood the connected components (8-connected over nonzero pixels) of
- * `presence` that any stroke-covered seed touches, returning the pixel indices
- * to clear. Backs the "erase connected component" post-process.
+ * The pixels of the 8-connected components of `presence` that the stroke
+ * touches.
  */
 export function componentsUnderStroke(
   presence: Uint8Array,
@@ -195,10 +179,9 @@ export function componentsUnderStroke(
 }
 
 /**
- * Zero the 8-connected component of `mask` whose pixels all share the value at
- * (x, y). Same-value flooding (not just nonzero) keeps touching instances
- * separate, so vectorizing one instance only clears that instance's pixels.
- * Returns false if (x, y) is out of range or background.
+ * Zero the 8-connected component of `mask` sharing the value at (x, y).
+ * Same-value flooding keeps touching instances separate. False if (x, y) is
+ * out of range or background.
  */
 export function clearValueComponentAt(
   mask: Uint8Array,
@@ -278,9 +261,8 @@ export function clearComponentAt(
 }
 
 /**
- * OR a mask's presence into a `step`-downsampled grid: a cell is set when any
- * pixel in its `step`×`step` block is nonzero. Pass `out` to accumulate several
- * masks into one grid (e.g. a combined-label union). Returns the grid + dims.
+ * OR a mask's presence into a `step`-downsampled grid. Pass `out` to
+ * accumulate several masks into one grid.
  */
 export function downsamplePresence(
   mask: Uint8Array,
@@ -303,10 +285,8 @@ export function downsamplePresence(
 }
 
 /**
- * Approximate bounding boxes for a large mask: find components on a
- * `step`-downsampled presence grid, then scale the boxes back up. Boxes are
- * accurate to ±`step` px — fine for an overlay — but avoids allocating a
- * full-size visited buffer and flood-filling 100M+ pixels.
+ * Approximate bounding boxes of a large mask, from components found on a
+ * `step`-downsampled grid. Accurate to ±`step` px.
  */
 export function connectedComponentBoxesDownsampled(
   mask: Uint8Array,
@@ -326,11 +306,7 @@ export function connectedComponentBoxesDownsampled(
   return boxes;
 }
 
-/**
- * Axis-aligned bounding boxes of the connected components (8-connected over
- * nonzero pixels) of `mask`. Drives the per-label bbox overlay; runs only when
- * that overlay is enabled.
- */
+/** Bounding boxes of the 8-connected components of `mask`. */
 export function connectedComponentBoxes(mask: Uint8Array, w: number, h: number): Rect[] {
   const visited = new Uint8Array(mask.length);
   const boxes: Rect[] = [];

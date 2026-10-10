@@ -1,4 +1,4 @@
-/** Decode a base64 string into raw bytes, e.g. a uint8 label mask from the backend. */
+/** Decode a base64 string into raw bytes. */
 export function base64ToUint8(b64: string): Uint8Array {
   const binary = atob(b64);
   const out = new Uint8Array(binary.length);

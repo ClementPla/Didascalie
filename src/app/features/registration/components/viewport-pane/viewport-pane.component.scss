@@ -77,9 +77,8 @@
   &.hovered { }
 }
 
-// Precision reticle: an open-center crosshair + thin ring, drawn in a group
-// scaled to screen pixels (see markerTransform). The dark halo keeps it
-// readable on any image; the open center never hides the target pixel.
+// Reticle: open-centre crosshair and thin ring, in a group scaled to screen
+// pixels (see markerTransform), with a dark halo.
 .reticle {
   .reticle-halo {
     fill: none;
@@ -104,9 +103,7 @@
     transform: scale(1.3);
   }
 
-  // Tentative markers (placed-but-unconfirmed point and its predicted match):
-  // a dashed ring signals "awaiting confirmation"; the crosshair stays solid
-  // so the exact position is still readable.
+  // Tentative markers: dashed ring, solid crosshair.
   &.tentative .reticle-ring {
     stroke-dasharray: 3 3.5;
   }

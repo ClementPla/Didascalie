@@ -29,7 +29,6 @@ pub fn load_classification(
     frame_id: i64,
 ) -> Result<Vec<ClassificationData>> {
     db.with_conn(|conn| {
-        // Load task order from project config to determine task_index
         let config_json: String = conn.query_row(
             "SELECT config FROM project WHERE id = 1",
             [],
@@ -41,7 +40,6 @@ pub fn load_classification(
 
         let mut task_index_map: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
         
-        // Multiclass tasks
         if let Some(tasks) = config.get("classification_tasks").and_then(|v| v.as_array()) {
             for (i, task) in tasks.iter().enumerate() {
                 if let Some(name) = task.get("name").and_then(|v| v.as_str()) {
@@ -50,7 +48,7 @@ pub fn load_classification(
             }
         }
 
-        // Multilabel task (use -1 or a special index)
+        // The multilabel task has index -1.
         if let Some(multilabel) = config.get("multilabel_task") {
             if let Some(name) = multilabel.get("name").and_then(|v| v.as_str()) {
                 task_index_map.insert(name.to_string(), -1);
@@ -177,8 +175,7 @@ pub struct SequenceClassificationAnswer {
     pub frame_count: i64,
 }
 
-/// Summarise the classification of a sequence without loading it frame by
-/// frame: a video is a sequence of thousands.
+/// Summarise the classification of a sequence without loading its frames.
 #[tauri::command]
 pub fn get_sequence_classification(
     db: State<DbState>,
@@ -218,9 +215,8 @@ fn sequence_classification(
     Ok(SequenceClassification { frame_count, answers })
 }
 
-/// Give every frame of a sequence the same answer to a task, replacing what
-/// each had. No class selected removes the answer. Returns the number of
-/// frames in the sequence.
+/// Give every frame of a sequence the same answer to a task. No class
+/// selected removes the answer. Returns the number of frames.
 #[tauri::command]
 pub fn save_sequence_classification(
     db: State<DbState>,

@@ -17,13 +17,11 @@ export class KeyboardShortcutService implements OnDestroy {
   private actions$ = new Subject<string>();
   public action$ = this.actions$.asObservable();
 
-  // Modifier tracking for hold-to-activate shortcuts
   private heldModifiers = new Set<string>();
   private modifierRelease$ = new Subject<string>();
   public modifierReleased$ = this.modifierRelease$.asObservable();
 
   private shortcuts: ShortcutConfig[] = [
-    // Tools
     { keys: ['1', 'p'], action: 'selectPen', description: 'Select pen tool', category: 'tools' },
     { keys: ['2', 'e'], action: 'selectEraser', description: 'Select eraser', category: 'tools' },
     { keys: ['3', 'shift+l'], action: 'selectLasso', description: 'Select lasso tool', category: 'tools' },
@@ -38,11 +36,9 @@ export class KeyboardShortcutService implements OnDestroy {
     { keys: ['v'], action: 'selectVectorize', description: 'Select vectorize tool', category: 'tools' },
     { keys: ['k'], action: 'selectSkeletonize', description: 'Select skeletonize tool', category: 'tools' },
 
-    // Edit
     { keys: ['ctrl+z'], action: 'undo', description: 'Undo', category: 'edit' },
     { keys: ['ctrl+y'], action: 'redo', description: 'Redo', category: 'edit' },
 
-    // View
     { keys: ['tab'], action: 'toggleAllVisibility', description: 'Toggle all labels visibility', category: 'view' },
     { keys: ['ctrl+tab'], action: 'nextLabel', description: 'Cycle to next label', category: 'view' },
     { keys: ['ctrl+shift+tab'], action: 'previousLabel', description: 'Cycle to previous label', category: 'view' },
@@ -52,18 +48,14 @@ export class KeyboardShortcutService implements OnDestroy {
     { keys: ['=', '+', 'shift++'], action: 'zoomIn', description: 'Zoom in', category: 'view' },
     { keys: ['-', '_', 'shift+_'], action: 'zoomOut', description: 'Zoom out', category: 'view' },
 
-    // File / Navigation
     { keys: ['ctrl+s'], action: 'save', description: 'Save annotations', category: 'file' },
-    // Left/right move between sequences, up/down between frames within one.
-    // Both live here rather than as component listeners so they work whenever
-    // the editor is focused and show up in the shortcut help.
+    // Left/right move between sequences, up/down between frames.
     { keys: ['arrowright'], action: 'nextSequence', description: 'Next sequence', category: 'navigation' },
     { keys: ['arrowleft'], action: 'previousSequence', description: 'Previous sequence', category: 'navigation' },
     { keys: ['arrowup'], action: 'nextFrame', description: 'Next frame in sequence', category: 'navigation' },
     { keys: ['arrowdown'], action: 'previousFrame', description: 'Previous frame in sequence', category: 'navigation' },
   ];
 
-  // Keys that trigger hold-to-activate behavior
   private holdKeys = new Map<string, string>([
     [' ', 'panMode'],      // Space for pan
     ['alt', 'quickMenu'],  // Alt for quick access menu
@@ -122,7 +114,6 @@ export class KeyboardShortcutService implements OnDestroy {
     fromEvent(window, 'blur')
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        // Release all held modifiers when window loses focus
         this.heldModifiers.forEach(key => {
           const holdAction = this.holdKeys.get(key);
           if (holdAction) {
@@ -168,9 +159,6 @@ export class KeyboardShortcutService implements OnDestroy {
     return tagName === 'INPUT' || tagName === 'TEXTAREA' || isEditable;
   }
 
-  /**
-   * Get shortcuts for UI display (e.g., help dialog)
-   */
   public getShortcutsByCategory(category: ShortcutConfig['category']): ShortcutConfig[] {
     return this.shortcuts.filter(s => s.category === category);
   }
@@ -179,9 +167,6 @@ export class KeyboardShortcutService implements OnDestroy {
     return [...this.shortcuts];
   }
 
-  /**
-   * Format shortcut key for display
-   */
   public formatKeyForDisplay(key: string): string {
     return key
       .replace('ctrl', '⌘/Ctrl')

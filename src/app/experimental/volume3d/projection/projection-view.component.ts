@@ -51,13 +51,12 @@ import { IS_MOBILE } from '../../../core/platform';
 
 /**
  * The projection between the two curves: arc length across, slices down.
- * Hovering a column highlights its segment on the slice, clicking jumps the
+ * Hovering a column highlights its segment on the slice; clicking jumps the
  * editor to the slice under the pointer.
  *
- * With the pencil on, it is a canvas for the editor's raster tools: the view
- * has its own instances of the editor's drawing services, bound to the
- * projected surface (see `provideSurfaceEditing`), and takes input through the
- * same directive as the slice.
+ * With the pencil on, it is a canvas for the editor's raster tools, through
+ * its own instances of the drawing services (see `provideSurfaceEditing`) and
+ * the same input directive as the slice.
  */
 @Component({
   selector: 'app-projection-view',
@@ -78,7 +77,7 @@ export class ProjectionViewComponent implements OnDestroy {
   readonly editor = inject(EditorService);
   private readonly settingsService = inject(Volume3dSettingsService);
   private readonly zone = inject(NgZone);
-  // This view's own instances: they work on the projected surface.
+  // This view's own instances.
   private readonly zoomPan = inject(ZoomPanService);
   private readonly surfaceState = inject(StateManagerService);
   private readonly surfaceCanvas = inject(CanvasManagerService) as SurfaceCanvasManager;
@@ -112,8 +111,8 @@ export class ProjectionViewComponent implements OnDestroy {
   private readonly viewportRef = viewChild<ElementRef<HTMLDivElement>>('viewport');
 
   private renderer: ProjectionRenderer | null = null;
-  /** Set in ngOnDestroy so a renderer is not built after teardown — the
-   *  three.js chunk is fetched asynchronously and can land too late. */
+  /** A renderer must not be built after teardown: three.js loads
+   *  asynchronously. */
   private destroyed = false;
   private stopObserving: (() => void) | null = null;
   /** Shown in a detached window: overlays attach to the view itself. */
@@ -159,11 +158,9 @@ export class ProjectionViewComponent implements OnDestroy {
   private pressAt: Point2D | null = null;
   private dragged = false;
 
-  /** The brush outline stands for the cursor: painting, with a tool that has
-   *  a size. */
+  /** The brush outline stands for the cursor. */
   readonly brushShown = computed(() => this.painter.editing() && this.editor.isToolWithBrushSize());
 
-  /** Brush outline diameter, in surface pixels. */
   readonly brushDiameter = computed(() => this.editor.lineWidth);
 
   /** Slice under the marker while it is being dragged (ahead of the editor,
@@ -243,8 +240,8 @@ export class ProjectionViewComponent implements OnDestroy {
       this.syncLut();
     });
 
-    // Not eased: the easing runs on the main window's frames, which stop while
-    // it is hidden, and this view may be detached.
+    // Not eased: the easing runs on the main window's frames, and this view may
+    // be detached.
     this.zoomPan.smooth = false;
     this.zoomPan.redrawRequest.pipe(takeUntilDestroyed()).subscribe(() => this.syncView());
     this.draw.previewPoints$
@@ -349,9 +346,8 @@ export class ProjectionViewComponent implements OnDestroy {
   }
 
   /**
-   * Wheel zooms around the pointer; Ctrl+wheel resizes the brush (as on the
-   * slice) and Shift+wheel moves the depth strokes are written at. Not Alt:
-   * holding it opens the editor's quick-access menu.
+   * Wheel zooms; Ctrl+wheel resizes the brush and Shift+wheel moves the depth
+   * strokes are written at. Not Alt, which opens the quick-access menu.
    */
   onWheel(event: WheelEvent): void {
     event.preventDefault();
@@ -430,13 +426,8 @@ export class ProjectionViewComponent implements OnDestroy {
 
   // ── Internals ────────────────────────────────────────────────────────────
 
-  /**
-   * Builds the WebGL renderer, fetching three.js on first use.
-   *
-   * The import is dynamic so three.js sits in its own chunk instead of the
-   * initial bundle: this view is behind an experimental flag, and most sessions
-   * never open it.
-   */
+  /** Builds the WebGL renderer. The import is dynamic, to keep three.js out of
+   *  the initial bundle. */
   private async createRenderer(): Promise<void> {
     const canvas = this.canvasRef()?.nativeElement;
     const viewport = this.viewportRef()?.nativeElement;

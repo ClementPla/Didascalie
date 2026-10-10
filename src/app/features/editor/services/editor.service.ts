@@ -5,29 +5,11 @@ import { Tool, Tools, PostProcessOption } from '../../../core/tools';
 /**
  * Editor-wide tool and rendering settings.
  *
- * # Why signals sit behind accessors here
- *
- * Every field below is read directly from templates and written from both
- * templates (`[(ngModel)]`, `[(checked)]`) and TypeScript. Plain fields cannot
- * support `OnPush`: reading one does not mark the view dirty, so a component
- * rendering from this service would simply stop repainting.
- *
- * Exposing `WritableSignal`s directly would be the more idiomatic API, but it
- * would also rewrite 224 call sites across eight components — and, because
- * `[(ngModel)]` desugars to an assignment, it cannot two-way bind to a signal
- * at all, so every one of those bindings would have to be split by hand.
- *
- * A signal behind a getter/setter gets the reactivity without any of that. The
- * getter runs *during* template evaluation, so the signal read is tracked and
- * the view updates; the setter keeps `[(ngModel)]` and every existing
- * assignment working unchanged. The trade is boilerplate in this file against
- * risk spread across the app, which is the right way round for a change no
- * compiler can verify.
- *
- * The same applies to `selectedTool`: the predicate methods below (`isEraser`,
- * `isDrawingTool`, …) read it, and templates call those methods. A signal read
- * inside a method still counts as a read during change detection, so those
- * calls become reactive too, with no change at their call sites.
+ * Each field is a signal behind a getter/setter: templates read and write
+ * them with `[(ngModel)]`, which cannot bind to a signal, and a plain field
+ * would not update an `OnPush` view. The predicate methods (`isEraser`,
+ * `isDrawingTool`, …) read the tool signal, so calling them from a template
+ * is reactive too.
  */
 /** What the pen's side button can be bound to. */
 export type PenButtonAction = 'none' | 'eraser' | 'pan' | 'picker';
@@ -44,7 +26,6 @@ export class EditorService {
   public redo: Subject<boolean> = new Subject<boolean>();
   public undo: Subject<boolean> = new Subject<boolean>();
 
-  /** Emits the new tool whenever the active tool changes (any source). */
   public readonly toolChanged$ = new Subject<Tool>();
 
   // ── Post-processing ──────────────────────────────────────────────────────
@@ -109,7 +90,7 @@ export class EditorService {
 
   // ── Pressure ─────────────────────────────────────────────────────────────
 
-  /** Scale the brush radius by pen/touch pressure while drawing. */
+  /** Scale the brush radius by pen pressure. */
   private readonly _pressureSensitivity = signal(false);
   get pressureSensitivity(): boolean { return this._pressureSensitivity(); }
   set pressureSensitivity(v: boolean) { this._pressureSensitivity.set(v); }
@@ -119,34 +100,29 @@ export class EditorService {
   get penOnlyDrawing(): boolean { return this._penOnlyDrawing(); }
   set penOnlyDrawing(v: boolean) { this._penOnlyDrawing.set(v); }
 
-  /** The "Touch & pen" section of the settings panel is open. Its options stay
-   *  in effect when it is closed. */
+  /** The "Touch & pen" section of the settings panel is open. */
   private readonly _touchSettingsOpen = signal(false);
   get touchSettingsOpen(): boolean { return this._touchSettingsOpen(); }
   set touchSettingsOpen(v: boolean) { this._touchSettingsOpen.set(v); }
 
-  /** Whether the pen's side button does something while it is held. */
   get penButtonEnabled(): boolean { return this._penButtonAction() !== 'none'; }
 
-  /** What a stroke made with the pen's side button held does instead. */
+  /** What a stroke made with the pen's side button held does. */
   private readonly _penButtonAction = signal<PenButtonAction>('none');
   get penButtonAction(): PenButtonAction { return this._penButtonAction(); }
   set penButtonAction(v: PenButtonAction) { this._penButtonAction.set(v); }
 
-  /** Live pointer pressure in [0, 1]. Updated per pointer event by the canvas
-   *  input directive, read by the drawing tools and cursor. */
+  /** Live pointer pressure in [0, 1], set by the canvas input directive. */
   private readonly _strokePressure = signal(1);
   get strokePressure(): number { return this._strokePressure(); }
   set strokePressure(v: number) { this._strokePressure.set(v); }
 
-  /** Whether the active pointer reports real pressure (pen/touch). Mouse does
-   *  not, so pressure scaling is skipped for it. */
+  /** The active pointer reports real pressure. A mouse does not. */
   private readonly _strokeIsPressure = signal(false);
   get strokeIsPressure(): boolean { return this._strokeIsPressure(); }
   set strokeIsPressure(v: boolean) { this._strokeIsPressure.set(v); }
 
-  /** Brush radius multiplier at full pressure. Higher = more amplification;
-   *  at 1.0 full pressure equals the base size. User-adjustable. */
+  /** Brush radius multiplier at full pressure. */
   private readonly _pressureGain = signal(2.5);
   get pressureGain(): number { return this._pressureGain(); }
   set pressureGain(v: number) { this._pressureGain.set(v); }
@@ -154,8 +130,8 @@ export class EditorService {
   /** Lowest radius multiplier, at zero pressure. */
   private static readonly PRESSURE_MIN_SCALE = 0.15;
 
-  /** Current brush-radius multiplier from pressure: `MIN..pressureGain` across
-   *  the pressure range. Returns 1 (no scaling) when disabled or on mouse. */
+  /** Brush-radius multiplier from pressure, `MIN..pressureGain`; 1 when
+   *  disabled or on a mouse. */
   public brushPressureScale(): number {
     if (!this.pressureSensitivity || !this.strokeIsPressure) return 1;
     const min = EditorService.PRESSURE_MIN_SCALE;
@@ -188,9 +164,8 @@ export class EditorService {
 
   // ── Rendering / navigation ───────────────────────────────────────────────
 
-  // On by default: the compositor self-tests at startup and reports itself
-  // unavailable (falling back to CPU) if WebGPU is missing or produces wrong
-  // output, so enabling this can't break rendering.
+  // On by default: the compositor tests itself at start-up and falls back to
+  // the CPU.
   private readonly _webGPURendering = signal(true);
   get webGPURendering(): boolean { return this._webGPURendering(); }
   set webGPURendering(v: boolean) { this._webGPURendering.set(v); }
@@ -203,17 +178,14 @@ export class EditorService {
 
   private readonly _selectedTool = signal<Tool>(Tools.PEN);
 
-  /** The active tool. Writing it (toolbar ngModel, selectTool, pan toggles)
-   *  emits toolChanged$ so listeners can react (e.g. finalize a vector draft). */
+  /** The active tool. Writing it emits `toolChanged$`. */
   get selectedTool(): Tool {
     return this._selectedTool();
   }
   set selectedTool(tool: Tool) {
     const previous = this._selectedTool();
     if (previous === tool) return;
-    // Pan is transient navigation (hold Space, or the Navigate toggle), so it
-    // never becomes the tool Alt swaps back to — otherwise a stray Space press
-    // would hijack the two-tool toggle.
+    // Pan is transient: it is never the tool Alt swaps back to.
     if (previous !== Tools.PAN && tool !== Tools.PAN) {
       this._previousTool.set(previous);
     }
@@ -227,8 +199,7 @@ export class EditorService {
     return this._previousTool();
   }
 
-  /** Flip between the current tool and the one before it — what tapping Alt
-   *  without aiming at anything in the quick-access wheel does. */
+  /** Flip between the current tool and the previous one. */
   public swapToPreviousTool(): void {
     this.selectedTool = this._previousTool();
   }
@@ -274,17 +245,14 @@ export class EditorService {
     return this.selectedTool === Tools.NODE;
   }
 
-  /** Select tool: pick / move / duplicate whole paths (object-level). */
   public isSelectTool(): boolean {
     return this.selectedTool === Tools.SELECT;
   }
 
-  /** Convert tool: click a connected pixel region to trace its outer contour. */
   public isVectorizeTool(): boolean {
     return this.selectedTool === Tools.VECTORIZE;
   }
 
-  /** Convert tool: click a connected pixel region to trace its centerline. */
   public isSkeletonizeTool(): boolean {
     return this.selectedTool === Tools.SKELETONIZE;
   }
@@ -293,14 +261,12 @@ export class EditorService {
     return this.selectedTool === Tools.ELLIPSE;
   }
 
-  /** Box / Ellipse: drag out a ready-made closed shape. */
   public isShapeTool(): boolean {
     return this.selectedTool === Tools.RECT || this.isEllipseTool();
   }
 
-  /** True for the shape-editing vector tools (Select/Path/Box/Ellipse/Node) —
-   *  routes pointer input to the SVG layer. Excludes Vectorize, which acts on
-   *  the raster masks. */
+  /** The tools that act on the SVG layer (Select, Path, Box, Ellipse, Node).
+   *  Not Vectorize, which acts on the masks. */
   public isVectorTool(): boolean {
     return (
       this.isPathTool() ||

@@ -61,57 +61,35 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   private tiledImage = inject(TiledImageService);
   private volume = inject(MaskVolumeService);
 
-  /** Interactive overlays contributed by experimental features. */
   readonly experimentalOverlays = experimentalCanvasOverlays();
 
-  // UI state
   public cursor: Point2D = { x: 0, y: 0 };          // viewport CSS px
   public viewBox: Viewbox = { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
   public rulerSize = 16;
-  // True while the pointer is over the actual image (not the surrounding
-  // padding). Drives whether the brush cursor / cursor-none applies, so the
-  // margin around a zoomed-out image keeps a regular, clickable cursor.
+  // The pointer is over the image, not the padding around it.
   public isCursorInsideImage = false;
 
   readonly labelMenu = viewChild<ContextMenu>('labelMenu');
-  /**
-   * Labels offered by the right-click picker.
-   *
-   * Rebuilt when the menu opens rather than read from a getter: PrimeNG menus
-   * are OnPush and react to the array's identity, so a fresh array on every
-   * change-detection pass rebuilds the overlay under the cursor and swallows
-   * the click. Labels only change when the project does, so building on open
-   * is both stable and always current.
-   */
+  /** Labels offered by the right-click picker (see `labelPickerItems`). */
   public labelMenuItems: MenuItem[] = [];
 
-  /**
-   * Open the label picker at the pointer.
-   *
-   * Ctrl+Tab / Ctrl+Shift+Tab step through labels, which is quick for a few;
-   * this is the direct route once a project has more than a handful.
-   */
   public openLabelPicker(event: MouseEvent): void {
     this.labelMenuItems = labelPickerItems(this.labelService);
     this.labelMenu()?.show(event);
   }
 
-  // Viewport CSS dimensions (drive both canvas style and internal resolution)
   public viewportWidth = 0;
   public viewportHeight = 0;
 
-  // Contexts
   private ctxImage: CanvasRenderingContext2D | null = null;
   private ctxLabel: CanvasRenderingContext2D | null = null;
   private ctxOverlay: CanvasRenderingContext2D | null = null;
   private dpr: number = Math.max(1, window.devicePixelRatio || 1);
 
-  // Brush wheel acceleration
   private lastWheelTime = 0;
   private wheelVelocity = 0;
   private wheelDecayTimeout?: number;
 
-  // Cleanup
   private edgeRecomputeTimeout?: number;
   private resizeObserver?: ResizeObserver;
   private destroy$ = new Subject<void>();
@@ -144,19 +122,16 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     const viewportRef = this.viewportRef();
     this.orchestrator.setViewportRef(viewportRef.nativeElement);
 
-    // ResizeObserver drives viewport size. Pushes into ZoomPanService and
-    // resizes display canvases to (CSS px × DPR) so the bitmap matches what's
-    // on screen. The image and label layers stay at native resolution offscreen.
+    // Display canvases are resized to CSS px × DPR; the image and label layers
+    // stay at native resolution off-screen.
     this.resizeObserver = new ResizeObserver(entries => {
       const rect = entries[0].contentRect;
       this.setViewportSize(rect.width, rect.height);
     });
     this.resizeObserver.observe(viewportRef.nativeElement);
 
-    // Initial size sync + first draw. Deferred out of the AfterViewInit check:
-    // setViewportSize triggers a redraw that updates view-bound state (viewBox,
-    // image dimensions), which would otherwise mutate values already rendered
-    // this pass and raise NG0100 (ExpressionChangedAfterItHasBeenChecked).
+    // Deferred: the first redraw changes view-bound state already rendered this
+    // pass (NG0100).
     setTimeout(() => {
       const r = this.viewportRef().nativeElement.getBoundingClientRect();
       this.setViewportSize(r.width, r.height);
@@ -180,8 +155,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.redrawAllCanvas());
 
-    // A native tile finished loading — redraw so it appears over the backdrop.
-    // Coalesce bursts (many tiles land together) into one redraw per frame.
+    // A native tile finished loading. One redraw per frame.
     this.tiledImage.tileLoaded$
       .pipe(auditTime(0, animationFrameScheduler), takeUntil(this.destroy$))
       .subscribe(() => this.redrawAllCanvas());
@@ -190,8 +164,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(ctx => {
         if (ctx && this.ctxLabel) {
-          // The stroke buffer goes through the same view transform as the label
-          // layer, drawn at its window origin (0,0 for small images).
+          // The stroke buffer, at its window origin, under the view transform.
           const origin = this.orchestrator.getBufferOrigin();
           this.applyLabelTransform();
           this.orchestrator.ensurePixelPerfectDrawing(this.ctxLabel);
@@ -211,7 +184,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.viewportHeight = height;
     this.dpr = Math.max(1, window.devicePixelRatio || 1);
 
-    // Display canvases: internal resolution = CSS px × DPR, CSS size = viewport.
     const setCanvas = (c: HTMLCanvasElement) => {
       c.width = Math.round(width * this.dpr);
       c.height = Math.round(height * this.dpr);
@@ -225,15 +197,12 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.orchestrator.setViewportSize(width, height);
     this.changeDetectorRef.detectChanges();
 
-    // Trigger a redraw with the new viewport. If no image is loaded yet,
-    // redrawAllCanvas no-ops.
     this.orchestrator.requestRedraw();
   }
 
   @HostListener('window:resize')
   public onWindowResize() {
-    // The ResizeObserver handles the viewport div; this catches DPR changes
-    // (e.g. user drags window between monitors with different scaling).
+    // DPR changes, e.g. the window moved to another monitor.
     const newDpr = Math.max(1, window.devicePixelRatio || 1);
     if (newDpr !== this.dpr) {
       this.dpr = newDpr;
@@ -252,9 +221,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       if (frameId != null && nativeWidth && nativeHeight) {
         this.tiledImage.setFrame(frameId, nativeWidth, nativeHeight);
       }
-      // Offscreen layers were resized inside the orchestrator.
-      // The display canvases follow the viewport, not the image, so no
-      // further sizing here.
       this.svg().setViewBox(this.orchestrator.getSVGViewBox());
       this.vectorLayer()?.setViewBox(this.orchestrator.getSVGViewBox());
       this.changeDetectorRef.detectChanges();
@@ -271,8 +237,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.cursor = data.cursor;
     this.zoomPanService.currentPixel = data.coords;
 
-    // Determine if the pointer is over the image itself (raw, unclamped),
-    // so the padding around a zoomed-out image keeps a normal cursor.
     const raw = this.zoomPanService.getImageCoordinatesRaw(data.event);
     this.isCursorInsideImage =
       raw.x >= 0 && raw.x < this.orchestrator.width &&
@@ -288,13 +252,11 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
         toggle: data.event.ctrlKey || data.event.metaKey,
       });
     } else if (this.editorService.isVectorizeTool()) {
-      // Click-only tool: nothing to render on move.
     } else {
       this.drawService.draw(data.event);
     }
   }
 
-  /** The cursor left the canvas: drop the brush cursor everywhere. */
   public onCursorLeave(): void {
     this.isCursorInsideImage = false;
     this.zoomPanService.cursorImage.set(null);
@@ -308,8 +270,8 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    // 3D mode: Shift+wheel scrolls through slices. Some platforms turn a
-    // shifted wheel into horizontal scrolling, so read either axis.
+    // 3D mode: Shift+wheel scrolls through slices. Some platforms turn a shifted
+    // wheel into horizontal scrolling, so either axis is read.
     if (event.shiftKey && this.volume.status() === 'ready') {
       const delta = event.deltaY || event.deltaX;
       if (delta !== 0) this.volume.sliceStepRequested$.next(Math.sign(delta));
@@ -366,15 +328,12 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   private async redrawAllCanvasInner() {
-    // Re-narrow: the null guard lives in the public wrapper, and that
-    // narrowing doesn't carry across the method boundary.
     if (!this.ctxImage || !this.ctxLabel) return;
 
     this.viewBox = this.orchestrator.getViewBox();
     this.svg().setViewBox(this.orchestrator.getSVGViewBox());
     this.vectorLayer()?.setViewBox(this.orchestrator.getSVGViewBox());
 
-    // Image layer
     this.clearDisplayCanvas(this.ctxImage);
     this.applyImageTransform();
     const processedImage = this.orchestrator.getProcessedImage();
@@ -382,10 +341,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.drawImageLayer(processedImage);
     this.ctxImage.resetTransform();
 
-    // Experimental overlay layer (image-native resolution, same view
-    // transform as the label layer). Features expose overlays through the
-    // registry (e.g. superpixel boundaries); nothing is drawn while the
-    // experimental switch is off.
+    // Overlays of experimental features, under the label layer's transform.
     if (this.ctxOverlay) {
       this.clearDisplayCanvas(this.ctxOverlay);
       const overlays = this.featureFlags.experimentalEnabled()
@@ -401,23 +357,18 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       }
     }
 
-    // Label layer. Large images composite the visible region directly into the
-    // display canvas (no native-size combined canvas); others draw the full
-    // combined canvas under the view transform.
+    // Label layer. Large images composite the visible region straight into the
+    // display canvas; others draw the combined canvas.
     if (this.orchestrator.usesViewportComposite) {
       this.clearDisplayCanvas(this.ctxLabel);
       this.orchestrator.compositeLabelLayer(this.ctxLabel, this.dpr);
-      // The combined-canvas path recomputes bboxes; the viewport path doesn't,
-      // so drive it here on mask change (debounced — it's an O(image) scan).
+      // This path does not recompute the bounding boxes: do it here, debounced.
       if (this.stateService.recomputeCanvasSum) {
         this.stateService.recomputeCanvasSum = false;
         this.scheduleViewportBboxRecompute();
       }
     } else {
-      // Recompute (async, WebGPU) BEFORE clearing, so the previous frame stays
-      // visible until the new one is ready. Clearing first would leave the label
-      // layer blank for the whole await — which made the eraser (a full
-      // recompute every move) flicker the masks away until the stroke ended.
+      // Recompute before clearing, so the previous frame stays visible meanwhile.
       const combined = await this.orchestrator.getCombinedLabelCanvas();
       this.clearDisplayCanvas(this.ctxLabel);
       if (combined) {
@@ -430,12 +381,9 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Draw the base image under the current view transform. For large images a
-   * display pyramid is available: draw the resolution level matched to the
-   * current zoom (scaled up to native size by the same transform), which is far
-   * cheaper than sampling the full native image — especially on software-
-   * rendered webviews. Falls back to the full processed image when there's no
-   * pyramid (small images, or the brief window before a rebuild lands).
+   * Draw the base image under the view transform. A large image has a display
+   * pyramid: the level matched to the zoom is drawn, scaled up by the
+   * transform.
    */
   private drawImageLayer(processedImage: CanvasImageSource): void {
     if (!this.ctxImage) return;
@@ -445,9 +393,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     const vpW = this.viewportWidth * this.dpr;
     const vpH = this.viewportHeight * this.dpr;
 
-    // Use a downsampled level only when it's crisp enough for the current zoom.
-    // Zoomed in past the finest stored level, draw the full-res source instead
-    // (the pyramid intentionally has no native-size copy — see the service).
+    // Past the finest stored level, draw the full-resolution source.
     if (pyramid && !this.pyramidService.needsNativeResolution(pyramid, scale, vpW, vpH)) {
       const level = this.pyramidService.getLevelForViewport(pyramid, scale, vpW, vpH);
       this.ctxImage.imageSmoothingEnabled = true;
@@ -466,22 +412,18 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
       );
     }
 
-    // Overlay crisp native tiles where zoomed in (large images only). Missing
-    // tiles let the (softer) backdrop above show through until they load.
+    // Native tiles over the backdrop, where zoomed in.
     this.drawNativeTiles(scale);
   }
 
-  /** Draw cached native-resolution tiles for the visible region over the
-   *  backdrop. No-op for small images or when too zoomed out. The image view
-   *  transform is already applied by the caller. */
+  /** Draw the cached native-resolution tiles of the visible region. */
   private drawNativeTiles(scale: number): void {
     if (!this.ctxImage || !this.orchestrator.usesViewportComposite) return;
     const frameId = this.sequenceService.currentFrame()?.id;
     if (frameId == null) return;
 
     const rect = this.orchestrator.getSVGViewBox(); // visible region, image space
-    // Bake the image adjustments into the tiles (when active) so zoomed-in
-    // detail matches the adjusted backdrop pyramid.
+    // Tiles get the image adjustments too, to match the backdrop.
     const adj = this.orchestrator.tileAdjustment();
     const tiles = this.tiledImage.tilesFor(rect, frameId, adj?.lut ?? null, adj?.version ?? 0);
     if (tiles.length === 0) return;
@@ -496,8 +438,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   private bboxRecomputeTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Recompute the bbox overlay for the viewport-composite (large image) path,
-   *  debounced so a burst of strokes doesn't trigger a scan each time. */
+  /** Recompute the bounding boxes on the large-image path, debounced. */
   private scheduleViewportBboxRecompute(): void {
     if (this.bboxRecomputeTimer) clearTimeout(this.bboxRecomputeTimer);
     this.bboxRecomputeTimer = setTimeout(() => {
@@ -523,8 +464,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   // ── UI helpers ───────────────────────────────────────────────────────────
 
   public getCursorSize(): number {
-    // Brush is in image px; convert to viewport CSS px. While drawing, reflect
-    // the live pressure scaling so the cursor matches the actual stroke width.
+    // Brush size in image px, to viewport CSS px, with the live pressure scaling.
     const pressureScale = this.stateService.isDrawing
       ? this.editorService.brushPressureScale()
       : 1;
@@ -539,7 +479,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     const size = this.getCursorSize();
     if (size <= 0) return {};
 
-    // Image-space cursor → viewport CSS px. Single conversion, no DOM scaling.
     const vp = this.zoomPanService.imageToViewport(this.zoomPanService.currentPixel);
 
     return {
@@ -555,10 +494,8 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   // ── Ruler ticks ──────────────────────────────────────────────────────────
 
-  /**
-   * Pick a "nice" tick interval (in image px) so that major ticks land
-   * roughly `targetPx` apart on screen at the current zoom.
-   */
+  /** A "nice" tick interval, in image px, putting major ticks about `targetPx`
+   *  apart on screen. */
   private niceStepImg(targetPx: number): number {
     const scale = Math.max(this.zoomPanService.getScale(), 1e-6);
     const raw = targetPx / scale;
@@ -568,11 +505,8 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     return nice * pow;
   }
 
-  /**
-   * Build the tick-mark background for a ruler. Minor ticks every 1/5 of a
-   * major step; both anchored to the inner edge and offset by the image
-   * origin so they pan/zoom in lock-step with the image.
-   */
+  /** The tick-mark background of a ruler: minor ticks every fifth of a major
+   *  step, offset by the image origin. */
   public getRulerTicks(axis: 'x' | 'y'): Record<string, string> {
     const scale = this.zoomPanService.getScale();
     const major = this.niceStepImg(80) * scale;

@@ -49,7 +49,6 @@ export class ToolSettingComponent {
 
   ppOption = PostProcessOption;
 
-  /** What a stroke made with the pen's side button held does instead. */
   readonly penButtonActions: { label: string; value: PenButtonAction }[] = [
     { label: 'Off', value: 'none' },
     { label: 'Eraser', value: 'eraser' },
@@ -57,14 +56,12 @@ export class ToolSettingComponent {
     { label: 'Labels', value: 'picker' },
   ];
 
-  /** Whether the selected mode goes through the shared invert / smooth /
-   *  connectivity refinement, which Otsu and flood fill both do. */
+  /** The selected mode has the invert / smooth / connectivity options. */
   isRefinable(): boolean {
     return REFINABLE_POST_PROCESS.includes(this.editorService.postProcessOption);
   }
 
-  /** The registry entry for the selected post-process mode when it is an
-   *  experimental one (rendered by the template's @default branch). */
+  /** The registry entry of the selected mode, when it is experimental. */
   get experimentalPostProcess(): ExperimentalPostProcess | null {
     return findExperimentalPostProcess(this.editorService.postProcessOption);
   }

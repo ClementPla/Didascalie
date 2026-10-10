@@ -43,9 +43,7 @@ p-toolbar {
   position: relative;     /* anchor for fixed overlays the registration might use */
 }
 
-/* Angular inserts the route component as a sibling of <router-outlet> inside
- * .route-host. Both the outlet (invisible, zero size) and the inserted
- * component sit here. We want the inserted component to fill the column. */
+/* Angular inserts the route component as a sibling of <router-outlet>. */
 .route-host > *:not(router-outlet) {
   flex: 1 1 0;
   min-height: 0;

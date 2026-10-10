@@ -26,9 +26,8 @@ pub struct RegistrationData {
     pub pairs: Vec<KeypointPair>,
 }
 
-/// One registration case in a sequence: a (reference, moving) frame pair with a
-/// summary of its state. A sequence can hold many, and a frame may appear in
-/// several (as reference and/or moving).
+/// One registration case in a sequence: a (reference, moving) frame pair. A
+/// frame may appear in several.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistrationSummary {
@@ -39,7 +38,6 @@ pub struct RegistrationSummary {
     pub pair_count: i64,
 }
 
-/// List every registration case stored for a sequence.
 #[tauri::command]
 pub fn list_registrations(
     db: State<DbState>,
@@ -100,7 +98,6 @@ pub fn save_registration(
              &homography_json, &data.transform_type),
         )?;
 
-        // Get the registration_id (either freshly inserted or pre-existing).
         let registration_id: i64 = conn.query_row(
             "SELECT id FROM registrations
              WHERE reference_frame_id = ?1 AND moving_frame_id = ?2",
@@ -108,9 +105,7 @@ pub fn save_registration(
             |row| row.get(0),
         )?;
 
-        // Replace-all strategy for pairs: clear the existing pairs for this
-        // registration, then insert the current set. Simpler than diffing
-        // and good enough — keypoint sets are small (< 100 typically).
+        // Replace all pairs: keypoint sets are small.
         conn.execute(
             "DELETE FROM keypoint_pairs WHERE registration_id = ?1",
             [registration_id],
@@ -195,7 +190,6 @@ pub fn delete_registration(
     moving_frame_id: i64,
 ) -> Result<()> {
     db.with_conn(|conn| {
-        // Cascade will delete the keypoint pairs.
         conn.execute(
             "DELETE FROM registrations
              WHERE reference_frame_id = ?1 AND moving_frame_id = ?2",

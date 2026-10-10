@@ -31,19 +31,14 @@ function storedEndpoint(): InferenceEndpoint {
       return { host: parsed.host, port: parsed.port };
     }
   } catch {
-    // Unreadable preference: fall back to the default.
   }
   return DEFAULT_ENDPOINT;
 }
 
 /**
- * The bridge to the user's Python process (`didascalie.com`): where it is, and
- * which functions it currently serves.
- *
- * Besides the explicit {@link connect}, a view can turn on *discovery*, which
- * quietly pings the endpoint every few seconds. That is what lets UI built on
- * the registered functions simply appear when the user starts `serve()` and
- * disappear when they stop it, with no connect step.
+ * The bridge to the user's Python process (`didascalie.com`): where it is and
+ * which functions it serves. Besides the explicit {@link connect}, a view can
+ * turn on discovery, which pings the endpoint every few seconds.
  */
 @Injectable({ providedIn: 'root' })
 export class InferenceClientService {
@@ -80,7 +75,7 @@ export class InferenceClientService {
   private discoveryTimer: ReturnType<typeof setInterval> | null = null;
   private discoveryUsers = 0;
   /** Calls in flight. The Python server answers one request at a time, so a
-   *  discovery ping sent meanwhile would time out and read as "gone". */
+   *  discovery ping sent meanwhile would time out. */
   private inFlight = 0;
 
   async connect(host: string, port: number): Promise<void> {
@@ -96,10 +91,8 @@ export class InferenceClientService {
     }
   }
 
-  /**
-   * Run a call to the Python server, holding discovery off until it settles.
-   * Every request made through the bridge should go through here.
-   */
+  /** Run a call to the Python server, holding discovery off until it settles.
+   *  Every request goes through here. */
   async track<T>(call: () => Promise<T>): Promise<T> {
     this.inFlight++;
     try {
@@ -112,8 +105,7 @@ export class InferenceClientService {
   /** Start polling the endpoint. Balanced by {@link stopDiscovery}. */
   startDiscovery(): void {
     if (this.discoveryUsers++ > 0) return;
-    // Outside the zone: a tick every few seconds must not run change detection
-    // across the editor when, almost always, nothing has changed.
+    // Outside the zone: the tick must not run change detection.
     this.zone.runOutsideAngular(() => {
       void this.discover();
       this.discoveryTimer = setInterval(
@@ -138,8 +130,8 @@ export class InferenceClientService {
       const reply = await api.inferenceConnect(host, port, true);
       this.zone.run(() => this.adopt(reply));
     } catch {
-      // Nobody listening is the normal case, not an error worth showing. An
-      // explicit connect's error is left alone so its dialog keeps the message.
+      // Nobody listening is the normal case. An explicit connect's error is kept
+      // for its dialog.
       if (this._status().kind === 'connected') {
         this.zone.run(() => this._status.set({ kind: 'disconnected' }));
       }
@@ -156,8 +148,7 @@ export class InferenceClientService {
       functions: reply.functions,
       protocolVersion: reply.protocol_version,
     };
-    // Discovery re-reads the same list every few seconds; replacing the signal
-    // each time would re-render everything derived from it.
+    // The signal is replaced only when the list changed.
     if (JSON.stringify(next) !== JSON.stringify(this._status())) {
       this._status.set(next);
     }
@@ -169,7 +160,6 @@ export class InferenceClientService {
     movFrameId: number,
     existing: KeypointPair[] | CorrespondencePair[],
   ): Promise<KeypointPair[]> {
-    // Check the type of existing pairs and convert if necessary to KeypointPair[]
     const convertedExisting = existing.map((p) => {
       if ('refX' in p) {
         return p;

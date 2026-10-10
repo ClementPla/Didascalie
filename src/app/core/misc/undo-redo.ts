@@ -31,7 +31,7 @@ export class UndoRedo<T> {
   private redoStack = new Stack<T>();
 
   undo(): T | undefined {
-    // Need at least 2 states: current state and previous state
+    // The current state and the one before it.
     if (this.undoStack.size() < 2) {
       return undefined;
     }
@@ -64,9 +64,8 @@ export class UndoRedo<T> {
   }
 
   /**
-   * Replace the current state without recording an action (the redo stack is
-   * kept). For when the state changed through something outside this history
-   * that is undone on its own.
+   * Replace the current state without recording an action, for a change made
+   * outside this history.
    */
   replaceCurrent(element: T): void {
     this.undoStack.pop();
@@ -85,16 +84,10 @@ export class UndoRedo<T> {
     return this.undoStack.size();
   }
 
-  /**
-   * Get the current state without modifying the stack
-   */
   peek(): T | undefined {
     return this.undoStack.peek();
   }
 
-  /**
-   * Check if the stack has any states
-   */
   isEmpty(): boolean {
     return this.undoStack.isEmpty();
   }

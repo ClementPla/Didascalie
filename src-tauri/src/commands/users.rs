@@ -1,18 +1,11 @@
 //! User accounts: who is annotating the open project.
 //!
-//! A project is one file that several people open in turn, each annotating the
-//! same frames independently. An account is how the app knows whose
-//! annotations to show and write: logging in points the connection's
-//! user-scoped views at that account (see `queries::install_user_scope`), and
-//! from then on every command in the app works on that user's data.
+//! Several people open one project file in turn and annotate the same frames
+//! independently. Logging in points the connection's user-scoped views at an
+//! account (see `queries::install_user_scope`).
 //!
-//! # What this is not
-//!
-//! Security. The file is an ordinary SQLite database on a disk the user
-//! controls, and passwords are stored as typed. A password stops a colleague
-//! from clicking the wrong account; a role stops an annotator from deleting a
-//! label by accident. Neither stops anyone who opens the file with another
-//! tool, and nothing here should be read as if it did.
+//! This is not security: the file is an ordinary SQLite database and
+//! passwords are stored as typed. Passwords and roles prevent mistakes.
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -52,8 +45,7 @@ impl Role {
     }
 }
 
-/// An account as the frontend sees it. The password never leaves the backend,
-/// only whether there is one.
+/// An account as the frontend sees it: the password never leaves the backend.
 #[derive(Serialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../src/app/lib/generated/")]
@@ -112,8 +104,7 @@ pub fn logout(db: State<DbState>) -> Result<()> {
     db.with_conn(|conn| queries::set_session_user(conn, None))
 }
 
-/// Create an editor account. Open to anyone who has the project: registering
-/// is how a new annotator joins, and it grants nothing over anyone else's work.
+/// Create an editor account. Open to anyone who has the project.
 #[tauri::command]
 pub fn register_user(
     db: State<DbState>,
@@ -198,10 +189,7 @@ pub fn log_in(conn: &Connection, user_id: i64, password: Option<&str>) -> Result
     Ok(user)
 }
 
-/// Log straight in when there is no one to choose between: a single account
-/// with no password. That is every project that predates accounts and every
-/// project one person works on alone, and for those nothing should have
-/// changed — no picker, no extra click.
+/// Log straight in when there is a single account with no password.
 pub fn auto_login(conn: &Connection) -> Result<Option<UserInfo>> {
     let users = all_users(conn)?;
     match users.as_slice() {
@@ -255,10 +243,9 @@ fn admin_count(conn: &Connection) -> Result<i64> {
     Ok(conn.query_row("SELECT COUNT(*) FROM users WHERE role = 'admin'", [], |r| r.get(0))?)
 }
 
-/// Apply `change` to `user_id`, on behalf of the logged-in user.
-///
-/// Anyone may rename themselves and set their own password. Everything else —
-/// touching another account, changing a role — takes an administrator.
+/// Apply `change` to `user_id`, on behalf of the logged-in user. Anyone may
+/// rename themselves and set their own password; the rest takes an
+/// administrator.
 pub fn change_user(conn: &Connection, user_id: i64, change: &UserChange) -> Result<UserInfo> {
     let actor = session_account(conn)?
         .ok_or_else(|| AppError::Other("Nobody is logged in.".into()))?;
@@ -290,8 +277,7 @@ pub fn change_user(conn: &Connection, user_id: i64, change: &UserChange) -> Resu
             if !is_admin {
                 return Err(AppError::Other("Only an administrator can change roles.".into()));
             }
-            // A project with no administrator could never get one back: nobody
-            // would be left who is allowed to grant the role.
+            // A project must keep an administrator.
             if target.role == Role::Admin && *role != Role::Admin && admin_count(conn)? <= 1 {
                 return Err(AppError::Other(
                     "A project needs at least one administrator.".into(),
@@ -331,8 +317,7 @@ pub fn footprint(conn: &Connection, user_id: i64) -> Result<UserFootprint> {
 pub fn remove_user(conn: &Connection, user_id: i64) -> Result<()> {
     let actor = require_admin(conn)?;
     let target = find_user(conn, user_id)?;
-    // Deleting the account you are logged in with would leave the session
-    // pointing at nothing, mid-click. Log in as someone else to do it.
+    // The logged-in account cannot delete itself.
     if actor.id == target.id {
         return Err(AppError::Other("You cannot delete the account you are using.".into()));
     }
@@ -415,7 +400,6 @@ mod tests {
         assert!(log_in(&conn, ben.id, None).is_ok());
     }
 
-    /// The point of the whole feature.
     #[test]
     fn each_user_sees_and_writes_only_their_own_annotations() {
         let conn = project();

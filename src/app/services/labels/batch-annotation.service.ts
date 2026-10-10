@@ -10,7 +10,6 @@ export interface BatchAnnotationResult {
   errors: string[];
 }
 
-/** Re-exported so existing importers of this service keep resolving it. */
 export type { BatchClassificationPayload };
 
 @Injectable({
@@ -20,9 +19,6 @@ export class BatchAnnotationService {
   private classificationService = inject(ClassificationService);
   private labelsService = inject(LabelsService);
 
-  /**
-   * Apply multiclass classification choices to multiple frames.
-   */
   public async applyBatchMulticlassToFrames(
     frameIds: number[],
     choices: (string | null)[]
@@ -80,9 +76,6 @@ export class BatchAnnotationService {
     return result;
   }
 
-  /**
-   * Apply multilabel choices to multiple frames.
-   */
   public async applyBatchMultilabelToFrames(
     frameIds: number[],
     values: string[]
@@ -126,9 +119,6 @@ export class BatchAnnotationService {
     return result;
   }
 
-  /**
-   * Mark multiple frames as reviewed.
-   */
   public async markFramesReviewed(
     frameIds: number[],
     reviewed = true

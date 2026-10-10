@@ -7,12 +7,11 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use crate::utils::error::{AppError, Result};
 
-/// Application database state - holds the open connection
 pub struct DbState {
     pub(crate) conn: Mutex<Option<Connection>>,
-    /// Where this computer finds the open project's image folder, when that
-    /// was worked out (`commands::project::resolve_image_folder`). None leaves
-    /// the folder named in the project's config.
+    /// Where this computer finds the open project's image folder
+    /// (`commands::project::resolve_image_folder`). None: the folder named in
+    /// the project's config.
     image_root: Mutex<Option<PathBuf>>,
 }
 
@@ -40,12 +39,9 @@ impl DbState {
     self.set_image_root(None);
     let mut guard = self.conn.lock().unwrap();
     if let Some(conn) = guard.take() { // .take() removes the connection from the Option
-        // Attempt to checkpoint WAL into the main DB file
-        // We ignore the error here because we are closing anyway
+        // Checkpoint the WAL into the main file. Errors are ignored: we are closing.
         let _ = conn.execute("PRAGMA wal_checkpoint(TRUNCATE);", []);
         
-        // Explicitly closing allows us to catch errors, 
-        // though dropping (which happens here) is usually sufficient.
         let _ = conn.close(); 
         println!("Database closed and checkpointed.");
     }
@@ -55,7 +51,6 @@ impl DbState {
         self.conn.lock().unwrap().is_some()
     }
     
-    /// Execute a function with the connection
     pub fn with_conn<F, T>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&Connection) -> Result<T>,

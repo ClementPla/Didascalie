@@ -123,7 +123,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public displayDownloadDialog = false;
   public downloadProgress = 0;
 
-  // Collapsible side panels
   public labelsCollapsed = false;
   public settingsCollapsed = false;
 
@@ -133,32 +132,24 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   public globalReviewed = 0;
   public globalTotal = 0;
 
-  /** Panes experimental features show beside the canvas (e.g. the 3D view). */
   readonly experimentalPanes = experimentalEditorPanes();
 
-  /** Open state of the propagation dialog (opened from the frame-nav popover). */
   readonly propagationVisible = signal(false);
   readonly clearSequenceVisible = signal(false);
   readonly clearingSequence = signal(false);
 
-  /**
-   * Erase every annotation in the open sequence, then reload the frame.
-   *
-   * Unlike clearing a label or a frame this is not undoable — it deletes rows
-   * for frames that are not loaded — which is why it is behind a confirmation.
-   */
+  /** Erase every annotation in the open sequence, then reload the frame. Not
+   *  undoable. */
   async clearSequence(): Promise<void> {
     const sequence = this.sequenceService.currentSequence();
     if (!sequence || this.clearingSequence()) return;
 
     this.clearingSequence.set(true);
     try {
-      // Before the delete, not after: autosave fires seconds after the last
-      // edit, so a pending write landing afterwards would restore the frame.
+      // First: a pending autosave landing afterwards would restore the frame.
       this.ioService.discardPendingSave();
       const frames = await api.clearSequenceAnnotations(sequence.id);
-      // Before reloading the canvas, so it reads the cleared frame from the
-      // project rather than its stale slice.
+      // Before reloading the canvas, which would read its stale slice.
       this.volume.reload();
       await this.loadCanvas();
       this.clearSequenceVisible.set(false);
@@ -175,7 +166,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /** Spells out what the one-click propagate button is about to overwrite. */
   get propagateTooltip(): string {
     const count = this.propagation.pendingTargetCount();
     if (count === 0) return 'No other frames to copy labels to';
@@ -189,19 +179,14 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return `Copy ${labels} to the ${frames}`;
   }
 
-  /**
-   * One-click propagation using the settings last confirmed in the dialog.
-   * Deliberately has no confirmation step — the tooltip states the exact
-   * effect, and the panel dialog remains the way to change the scope.
-   */
+  /** One-click propagation, with the settings last confirmed in the dialog. */
   public async propagateLabels(): Promise<void> {
     await this.propagation.propagate();
   }
 
   async ngOnInit() {
-    // Look for the user's Python server for as long as the editor is open, so
-    // its functions show up without a connect step. Before the first await, so
-    // it is always balanced by ngOnDestroy.
+    // Look for the user's Python server while the editor is open. Before the
+    // first await, so that ngOnDestroy always balances it.
     if (!IS_ANDROID) this.inferenceClient.startDiscovery();
     await this.tauriEvents.initialize();
     this.initSubscriptions();
@@ -212,7 +197,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   async ngAfterViewInit() {
     if (this.projectService.isOpen()) {
-      // Now frame should be loaded (loadSequences auto-selects first)
       const frameImage = this.sequenceService.currentFrameImage();
 
       if (frameImage) {
@@ -225,7 +209,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     if (!IS_ANDROID) this.inferenceClient.stopDiscovery();
-    // A volume is large; don't hold it while the editor is closed.
     this.volume.disable();
     window.removeEventListener(
       'mousemove',
@@ -246,8 +229,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
 
-    // Propagation writes other frames straight to the project, behind the
-    // volume's back.
+    // Propagation writes other frames straight to the project.
     this.propagation.propagated$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.volume.reload());
@@ -328,13 +310,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       'panMode:start': () => this.editorService.activatePanMode(),
       'panMode:end': () => this.editorService.restoreLastTool(),
-      // Alt is held, not toggled. Aim at an entry and it is already selected
-      // by the time the key comes back up; tap Alt without aiming and it
-      // flips to the previous tool instead, which is the fast way to bounce
-      // between two tools.
+      // Alt is held: aiming at an entry selects it on release; a tap without
+      // aiming flips to the previous tool.
       'quickMenu:start': () => {
-        // Guarded rather than `.required`: the shortcut is bound at the window,
-        // so it can fire before this view has initialised.
+        // The shortcut is bound at the window and can fire before this view exists.
         this.quickAccessMenu()?.open(this.mousePosition);
       },
       'quickMenu:end': () => {
@@ -361,7 +340,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.stateManagerService.width = frameImage.frame.width;
     this.stateManagerService.height = frameImage.frame.height;
-    // Allocate the per-label masks for this frame's dimensions.
     await this.canvasManagerService.updateCanvasesDimensions();
     await this.loadCanvas();
   }
@@ -388,8 +366,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   // ── Navigation ───────────────────────────────────────────────────────────
 
   public async navigateNext(): Promise<void> {
-    // Ignore presses while a navigation is already running, so save→clear→load
-    // cycles can't overlap and race the shared canvas.
+    // One navigation at a time: save, clear and load share the canvas.
     if (this.navInFlight) return;
     this.navInFlight = true;
     this.uiStateService.setLoading(true, 'Loading next sequence');
@@ -439,8 +416,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.changedOfFrame((((from + step) % total) + total) % total);
   }
 
-  /** Move `step` slices in 3D mode, stopping at the ends (scrolling through a
-   *  volume should not wrap around to the other side). */
+  /** Move `step` slices in 3D mode, without wrapping. */
   private stepSlice(step: number): void {
     const target = this.sequenceService.currentFrameIndex() + step;
     if (target < 0 || target >= this.sequenceService.frameCount()) return;
@@ -450,12 +426,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Latest slice asked for while a navigation was running (see goToSlice). */
   private pendingSlice: number | null = null;
 
-  /**
-   * Show slice `z` (3D mode: picked or dragged in the 3D / projection views).
-   * Dragging asks for slices faster than they load; rather than dropping the
-   * requests that arrive mid-load, keep the latest and go there next, so the
-   * editor always ends on the slice the drag ended on.
-   */
   /** Go to the frame a slider is being dragged over. Frames are asked for
    *  faster than they load; the latest request wins (see `goToSlice`). */
   public scrubToFrame(index: number): void {
@@ -473,11 +443,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /** Play the open sequence back in the inspector, from the current frame. */
   public async inspectSequence(): Promise<void> {
     const sequence = this.sequenceService.currentSequence();
     if (!sequence) return;
-    // The inspector reads the project: make sure it holds what is on screen.
+    // The inspector reads the project.
     await this.ioService.saveIfDirty();
     await this.inspection.open(
       [sequence.id],
@@ -485,7 +454,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  /** Turn 3D mode on or off (the View menu toggle). */
   public setVolumeMode(on: boolean): void {
     if (on) this.volume.enable();
     else this.volume.disable();
@@ -526,9 +494,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  /**
-   * Jump to a sequence chosen from the sequence-navigator panel.
-   */
   public async jumpToSequence(id: number): Promise<void> {
     if (this.sequenceService.sequences().length === 0) {
       await this.sequenceService.loadSequences();
@@ -547,8 +512,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       await this.canvasManagerService.updateCanvasesDimensions();
 
-      // Reload. `load()` clears the masks itself — except in 3D mode, where
-      // they are slices of the volume and must not be cleared.
+      // `load()` clears the masks, except in 3D mode, where they are slices of the
+      // volume.
       await this.ioService.load();
       this.orchestratorService.resetHistory();
       await this.orchestratorService.captureInitialHistory();
@@ -577,11 +542,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return success;
   }
 
-  /**
-   * Mark/unmark the open frame as reviewed. Saving marks it too; this is how
-   * you unmark one, or mark it without touching its annotations — which is
-   * what picking a subset of a sequence (e.g. slices to train on) needs.
-   */
+  /** Mark or unmark the open frame as reviewed, without touching its
+   *  annotations. */
   public async toggleFrameReviewed(reviewed: boolean): Promise<void> {
     try {
       await this.sequenceService.markCurrentReviewed(reviewed);
@@ -595,9 +557,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.sequenceService.isCurrentFrameReviewed();
   }
 
-  /**
-   * Mark/unmark every frame of the current sequence as reviewed.
-   */
   public async toggleSequenceReviewed(reviewed: boolean): Promise<void> {
     try {
       await this.sequenceService.markCurrentSequenceReviewed(reviewed);
@@ -610,8 +569,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   get isSequenceReviewed(): boolean {
     return this.sequenceService.isCurrentSequenceReviewed();
   }
-
-  // ── Progress Display ─────────────────────────────────────────────────────
 
   // ── Label Helpers ────────────────────────────────────────────────────────
 
@@ -651,7 +608,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       : '3D mode: annotate the sequence as a volume (Shift+wheel scrolls slices)';
   }
 
-  /** Short 3D-mode state for the status bar. */
   get volumeStatusText(): string {
     switch (this.volume.status()) {
       case 'loading':
@@ -669,11 +625,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.sequenceService.frameCount() > 1;
   }
 
-  /**
-   * The right settings panel appears whenever there is something to configure
-   * (image adjustments, post-processing, bounding boxes, or pen pressure), so
-   * the default state with nothing toggled is closed.
-   */
+  /** The settings panel shows when something to configure is toggled. */
   get showSettingsPanel(): boolean {
     return (
       this.editorService.useProcessing ||
@@ -684,8 +636,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  /** The right column holds the settings panel and, when a Python server is
-   *  serving segmentation functions, the list of them. */
   get showRightPanel(): boolean {
     return this.showSettingsPanel || this.pythonSegmentation.available();
   }
@@ -716,7 +666,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  /** Left column is shown if there are labels and/or multiple sequences to navigate. */
   get shouldShowLeftPanel(): boolean {
     return this.shouldShowLabels || this.totalSequences > 1;
   }
@@ -749,16 +698,13 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return Math.round((this.globalReviewed / this.globalTotal) * 100);
   }
 
-  // ── Update Progress Display (revised) ────────────────────────────────────
-
   private async updateProgressDisplay(): Promise<void> {
     const progress = await this.sequenceService.getProgress();
     this.globalReviewed = progress.reviewed;
     this.globalTotal = progress.total;
   }
 
-  /** Navigate group's pan toggle: on selects pan, off returns the
-   *  previous tool, matching what hold-Space does. */
+  /** Off returns to the previous tool, like releasing Space. */
   setPanTool(on: boolean): void {
     if (on) this.editorService.activatePanMode();
     else this.editorService.restoreLastTool();

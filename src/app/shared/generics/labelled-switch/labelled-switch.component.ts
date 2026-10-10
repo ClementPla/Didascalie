@@ -14,12 +14,7 @@ import { TooltipModule } from 'primeng/tooltip';
 export class LabelledSwitchComponent implements BlockableUI {
   private el = inject(ElementRef);
 
-  /**
-   * Two-way: callers bind `[(checked)]`. `model()` supplies the `checkedChange`
-   * output implicitly, so writing the signal is what notifies the parent — the
-   * previous explicit output plus a `(click)` handler emitted a second time,
-   * after ngModel had already written.
-   */
+  /** Two-way: callers bind `[(checked)]`. `model()` supplies `checkedChange`. */
   readonly checked = model(false);
   readonly tooltipLabel = input<string | null>(null);
 

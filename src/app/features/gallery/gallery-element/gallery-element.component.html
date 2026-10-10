@@ -1,7 +1,5 @@
 @if (listMode()) {
-  <!-- ============================================================ -->
-  <!-- List row                                                      -->
-  <!-- ============================================================ -->
+  <!-- List row -->
   <div
     class="cursor-pointer duration-200 flex gallery-row gap-3 items-center relative transition-colors w-full"
     [class]="cardStyleClass"
@@ -13,7 +11,6 @@
     (mouseenter)="onMouseEnter()"
     (mouseleave)="onMouseLeave()"
   >
-    <!-- Thumbnail -->
     <div
       class="flex-shrink-0 h-16 overflow-hidden relative rounded w-16"
       [style.background]="'var(--p-content-background)'"
@@ -43,7 +40,6 @@
       }
     </div>
 
-    <!-- Title + meta -->
     <div class="flex flex-col gap-1 min-w-0">
       <p class="font-medium m-0 truncate" [title]="displayTitle">
         {{ displayTitle }}
@@ -72,10 +68,8 @@
       </div>
     </div>
 
-    <!-- Spacer -->
     <span class="flex-1"></span>
 
-    <!-- Reviewed toggle + open -->
     @if (showReviewedToggle()) {
       <app-labelled-switch
         [checked]="isReviewed"
@@ -126,7 +120,6 @@
     (mouseenter)="onMouseEnter()"
     (mouseleave)="onMouseLeave()"
   >
-    <!-- Thumbnail Image -->
     <div
       class="overflow-hidden relative rounded-t-lg"
       [style.height.px]="imgSize()"
@@ -160,7 +153,6 @@
         />
       }
 
-      <!-- Status + Keypoint Badges (top-left, stacked) -->
       <div class="absolute flex flex-col gap-1 items-start left-2 top-2">
         <span
           class="font-medium px-2 py-1 rounded-full text-white text-xs"
@@ -178,7 +170,6 @@
         }
       </div>
 
-      <!-- Frame Count Badge -->
       @if (hasMultipleFrames) {
         <span
           class="absolute bg-blue-500 font-medium px-2 py-1 right-2 rounded-full text-white text-xs top-2"
@@ -187,8 +178,6 @@
         </span>
       }
 
-      <!-- Reviewed toggle. The list layout uses a labelled switch; a card has no
-           room for one, so it gets an icon that reads as its own state. -->
       @if (showReviewedToggle()) {
         <button
           type="button"
@@ -216,7 +205,6 @@
         </button>
       }
 
-      <!-- Selection Checkbox -->
       <div
         class="absolute border-2 bottom-2 flex h-6 items-center justify-center right-2 rounded transition-colors w-6"
         [class.bg-primary]="selected"
@@ -236,7 +224,6 @@
         }
       </div>
 
-      <!-- Hover Preview Indicator -->
       @if (hasMultipleFrames && isLooping) {
         <div class="absolute bottom-2 flex gap-1 left-2">
           @for (fId of previewFrameIds(); track fId; let i = $index) {
@@ -252,7 +239,6 @@
       }
     </div>
 
-    <!-- Title + actions -->
     <div class="flex items-center pl-2 pr-1 py-1 rounded-b-lg">
       <p class="flex-1 font-medium m-0 min-w-0 text-sm truncate" [title]="displayTitle">
         {{ displayTitle }}

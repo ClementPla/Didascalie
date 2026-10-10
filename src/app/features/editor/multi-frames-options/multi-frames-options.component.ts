@@ -30,13 +30,11 @@ export class MultiFramesOptionsComponent {
 
   readonly changeOfFrame = output<number>();
 
-  /** Asks the host to open the propagation dialog. The dialog cannot live in
-   *  this component: it is rendered inside a popover, which is destroyed the
-   *  moment it closes — and it closes as soon as the dialog takes focus. */
+  /** Asks the host to open the propagation dialog, which cannot live here: this
+   *  component is in a popover, destroyed when the dialog takes focus. */
   readonly propagateRequested = output<void>();
 
-  /** Asks the host to confirm erasing every annotation in this sequence. Same
-   *  reason as above: the dialog cannot live inside the popover. */
+  /** Asks the host to confirm erasing every annotation of this sequence. */
   readonly clearSequenceRequested = output<void>();
 
   // ── Getters for Template ─────────────────────────────────────────────────

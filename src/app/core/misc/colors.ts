@@ -28,11 +28,9 @@ export function from_hex_to_rgb(hex: string) {
 }
 
 /**
- * Build a 256-entry RGBA lookup table mapping a label's pixel values to display
- * colours. Index 0 stays transparent (background). For a semantic label every
- * value maps to `baseColor`; for an instance label (`shades` provided) value
- * `v` maps to `shades[v]`, falling back to `baseColor` when a shade is missing
- * or malformed. Returned as a flat `Uint8Array(256*4)`.
+ * A 256-entry RGBA lookup table from a label's pixel values to display
+ * colours, as a flat `Uint8Array(256*4)`. Index 0 is transparent. With
+ * `shades` (an instance label), value `v` maps to `shades[v]`.
  */
 export function buildLabelPalette(baseColor: string, shades: string[] | null): Uint8Array {
     const pal = new Uint8Array(256 * 4);
@@ -66,12 +64,10 @@ export function from_rgb_to_hex(r: number, g: number, b: number): string {
 }
 
 /**
- * Deterministic per-instance shades derived from a base colour. Same hue as the
- * base, with lightness spread by a golden-ratio low-discrepancy sequence so
- * consecutive instance ids look distinct. Fully deterministic — an instance id
- * always maps to the same colour across sessions (no random shuffle), so painted
- * instances never change colour on reload. Index `v` is the shade for pixel
- * value `v` (index 0 is unused; 0 = background).
+ * Per-instance shades of a base colour: same hue, lightness spread by a
+ * golden-ratio sequence so consecutive ids look distinct. Deterministic, so
+ * an instance keeps its colour across sessions. Index `v` is the shade of
+ * pixel value `v` (index 0 is unused).
  */
 export function generate_shades(hex: string, n: number): string[] {
     const [h, s] = rgbToHsl(...(from_hex_to_rgb(hex) as [number, number, number]));

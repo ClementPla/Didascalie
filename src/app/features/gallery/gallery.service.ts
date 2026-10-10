@@ -4,7 +4,6 @@ import { ProjectScoped } from '../../core/project-scoped';
 
 type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
 
-/** Keypoint presence filter: show all, only sequences with keypoints, or only those without. */
 export type KeypointFilter = 'all' | 'with' | 'without';
 
 @Injectable({
@@ -13,14 +12,10 @@ export type KeypointFilter = 'all' | 'with' | 'without';
 export class GalleryService implements ProjectScoped {
   private sequenceService = inject(SequenceService);
 
-  /**
-   * Signals rather than plain fields. The gallery template reads all of this
-   * directly, and reading a signal marks that view dirty when it changes —
-   * a plain property does not, so the component could not use OnPush.
-   */
+  /** Signals: the gallery template reads these directly, under OnPush. */
   readonly itemPerPage = signal(64);
 
-  // Persisted filter / view state (survives gallery <-> editor navigation)
+  // Filter and view state, kept across gallery <-> editor navigation.
   readonly filterTitle = signal('');
   readonly selectedStatuses = signal<SequenceStatus[]>([]);
   readonly keypointFilter = signal<KeypointFilter>('all');
@@ -30,28 +25,16 @@ export class GalleryService implements ProjectScoped {
   readonly showAdvancedFilters = signal(false);
   readonly imgSize = signal(256);
 
-  // Grid (thumbnail cards) vs list (rows) layout.
   readonly viewLayout = signal<'grid' | 'list'>('grid');
 
-  // Explicit page set by user pagination. null = fall back to active-frame.
+  // Page set by the user. null: the page of the active frame.
   private readonly explicitFirst = signal<number | null>(null);
-
-  /**
-    * No project I/O here: the service is `ProjectScoped`, so a reset can be what
-    * first constructs it, between one project closing and the next opening.
-    * The gallery loads its own sequences when it initialises.
-   */
 
   /**
    * @see ProjectScoped
    *
-   * Filters and paging describe *this project's* sequences — a status filter or
-   * a frame-count range carried into another project hides items for no visible
-   * reason, which is the "gallery is wrong after switching" symptom.
-   *
-   * `imgSize`, `viewLayout`, `sortKey` and `itemPerPage` are deliberately left
-   * alone. They are how the user likes the gallery to look, not facts about the
-   * project, and resetting them would be its own small annoyance.
+   * Filters and paging are reset. `imgSize`, `viewLayout`, `sortKey` and
+   * `itemPerPage` are user preferences and are kept.
    */
   resetForProject(): void {
     this.filterTitle.set('');

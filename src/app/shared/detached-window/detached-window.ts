@@ -1,26 +1,24 @@
 import { api } from '../../lib/api';
 
 /**
- * Show a piece of the UI in its own OS window, without leaving the app.
+ * Show a piece of the UI in its own OS window.
  *
- * `detachElement` opens a blank popup (`window.open`, answered natively by
- * `create_main_window` in `src-tauri/src/lib.rs`) and *moves* the element's
- * DOM into it. The element stays owned by the main window's Angular app and
- * JavaScript context: its component keeps running, bindings keep updating,
- * and any WebGL canvas, worker or large buffer it holds is not copied. When
- * the popup closes, the element goes back exactly where it was.
+ * `detachElement` opens a blank popup (answered natively by
+ * `create_main_window` in `src-tauri/src/lib.rs`) and moves the element's DOM
+ * into it. The element stays in the main window's Angular app and JavaScript
+ * context, and goes back in place when the popup closes.
  *
- * What the element must cope with, being in another document:
- * - `window`, `document`, `requestAnimationFrame` and `ResizeObserver` of the
- *   *main* window no longer describe it: use `ownerWindow(element)` instead
- *   (see `frameScheduler`, `observeSize`).
- * - Overlays that append to `document.body` (PrimeNG popovers, menus,
- *   tooltips) would open in the main window: append them to the element.
+ * In another document, the element must:
+ * - use `ownerWindow(element)` for `window`, `document`,
+ *   `requestAnimationFrame` and `ResizeObserver` (see `frameScheduler`,
+ *   `observeSize`);
+ * - append overlays (PrimeNG popovers, menus, tooltips) to itself, not to
+ *   `document.body`.
  */
 
 export interface DetachOptions {
-  /** Window title; also how the native window is found to close it, so it
-   *  must be unique among open detached windows. */
+  /** Window title, unique among detached windows: the native window is found
+   *  by it. */
   title: string;
   width: number;
   height: number;
@@ -39,10 +37,8 @@ export function ownerWindow(node: Node): Window {
   return node.ownerDocument?.defaultView ?? window;
 }
 
-/**
- * Move `element` into a new window until that window closes (or `close()` is
- * called). Null when the popup could not be opened.
- */
+/** Move `element` into a new window until it closes. Null when the popup
+ *  could not be opened. */
 export function detachElement(element: HTMLElement, options: DetachOptions): DetachedWindow | null {
   const parent = element.parentNode;
   if (!parent) return null;
@@ -55,8 +51,7 @@ export function detachElement(element: HTMLElement, options: DetachOptions): Det
   const stopMirroring = mirrorStyles(doc);
   const stopForwarding = forwardKeys(popup);
 
-  // A placeholder keeps the element's place (Angular's own anchors around it
-  // stay put, so change detection is unaffected).
+  // A placeholder keeps the element's place.
   const placeholder = document.createComment('detached view');
   parent.insertBefore(placeholder, element);
   doc.body.appendChild(element);
@@ -103,10 +98,8 @@ function mirrorDocumentShell(doc: Document): void {
     'margin:0;height:100vh;display:flex;overflow:hidden;user-select:none;-webkit-user-select:none;background:var(--p-content-background)';
 }
 
-/**
- * Copy the main document's stylesheets, and keep copying: Angular and PrimeNG
- * add `<style>` elements as components first render.
- */
+/** Copy the main document's stylesheets, and keep copying: Angular and
+ *  PrimeNG add `<style>` elements as components first render. */
 function mirrorStyles(doc: Document): () => void {
   const copy = (node: Node) => {
     if (node instanceof HTMLStyleElement) {
@@ -154,10 +147,8 @@ function forwardKeys(popup: Window): () => void {
   };
 }
 
-/**
- * Coalesce work to the next animation frame of the window currently showing
- * `element` (a detached window keeps animating when the main one is hidden).
- */
+/** Schedule work on the next animation frame of the window showing
+ *  `element`. */
 export function frameScheduler(element: () => Element | null | undefined): (callback: () => void) => void {
   return (callback) => {
     const el = element();
@@ -165,11 +156,8 @@ export function frameScheduler(element: () => Element | null | undefined): (call
   };
 }
 
-/**
- * Observe `element`'s size with the ResizeObserver of the window holding it.
- * Returns a function that stops observing. Call again after the element moves
- * to another window.
- */
+/** Observe `element`'s size with the ResizeObserver of its window. Returns a
+ *  function that stops observing. */
 export function observeSize(element: Element, callback: (width: number, height: number) => void): () => void {
   const Observer = (ownerWindow(element) as Window & typeof globalThis).ResizeObserver ?? ResizeObserver;
   const observer = new Observer(([entry]) => {

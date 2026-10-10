@@ -13,7 +13,6 @@
         <p-tabpanel [value]="tab.id">
           <div class="tab-content">
 
-            <!-- Sliders -->
             <div class="slider-group">
               <label class="slider-row">
                 <span class="slider-label">Brightness</span>
@@ -64,7 +63,6 @@
               </label>
             </div>
 
-            <!-- Curve editor -->
             <div class="curve-wrapper">
               <app-curve-editor
                 [curve]="curve(tab.curveTarget)"
@@ -77,7 +75,6 @@
               </div>
             </div>
 
-            <!-- Tab-level actions -->
             <div class="tab-actions">
               <p-button
                 size="small" severity="secondary"
@@ -92,7 +89,6 @@
     </p-tabpanels>
   </p-tabs>
 
-  <!-- Global action bar -->
   <div class="panel-actions">
     <p-button
       size="small"

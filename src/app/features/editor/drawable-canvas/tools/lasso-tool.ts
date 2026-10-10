@@ -52,12 +52,10 @@ export class LassoTool extends BaseTool {
   }
 
   private handleLassoEraser(context: ToolContext) {
-    // Draw the lasso shape onto the buffer as the erase mask.
     const ctxBuffer = context.canvasManager.getBufferCtx();
     this.fillShape(ctxBuffer, context.color);
 
-    // With eraserPostProcess the connected-component erase runs later in
-    // DrawService; here we just leave the shape on the buffer.
+    // With `eraserPostProcess`, DrawService erases the touched components.
     if (context.editorService.eraserPostProcess) return;
 
     this.eraseBufferFromTargets(context);

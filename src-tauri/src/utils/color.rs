@@ -1,9 +1,4 @@
-//! Shared color-space helpers.
-//!
-//! sRGB → CIELAB conversion and the CIEDE2000 perceptual color-difference
-//! metric. Lifted out of `commands/flood_fill.rs` so the superpixel refinement
-//! (and any future post-processing) can share the exact same feature space and
-//! similarity measure the flood-fill tool already uses.
+//! sRGB → CIELAB conversion and the CIEDE2000 colour difference.
 
 /// A CIELAB triple: `(L*, a*, b*)`.
 pub type Lab = (f32, f32, f32);
@@ -62,24 +57,20 @@ pub fn ciede2000(lab1: Lab, lab2: Lab) -> f32 {
     let (l1, a1, b1) = lab1;
     let (l2, a2, b2) = lab2;
 
-    // Calculate C (chroma) and h (hue)
     let c1 = (a1 * a1 + b1 * b1).sqrt();
     let c2 = (a2 * a2 + b2 * b2).sqrt();
     let c_avg = (c1 + c2) / 2.0;
 
-    // Calculate G factor for a' correction
+    // G factor of the a' correction.
     let c_avg_7 = c_avg.powi(7);
     let g = 0.5 * (1.0 - (c_avg_7 / (c_avg_7 + 25.0_f32.powi(7))).sqrt());
 
-    // Calculate a' (modified a)
     let a1_prime = a1 * (1.0 + g);
     let a2_prime = a2 * (1.0 + g);
 
-    // Calculate C' (modified chroma)
     let c1_prime = (a1_prime * a1_prime + b1 * b1).sqrt();
     let c2_prime = (a2_prime * a2_prime + b2 * b2).sqrt();
 
-    // Calculate h' (modified hue)
     let h1_prime = if b1 == 0.0 && a1_prime == 0.0 {
         0.0
     } else {
@@ -102,11 +93,9 @@ pub fn ciede2000(lab1: Lab, lab2: Lab) -> f32 {
         }
     };
 
-    // Calculate differences
     let delta_l = l2 - l1;
     let delta_c_prime = c2_prime - c1_prime;
 
-    // Calculate hue difference
     let delta_h_prime = if c1_prime * c2_prime == 0.0 {
         0.0
     } else {
@@ -123,7 +112,6 @@ pub fn ciede2000(lab1: Lab, lab2: Lab) -> f32 {
     let delta_big_h_prime =
         2.0 * (c1_prime * c2_prime).sqrt() * (delta_h_prime.to_radians() / 2.0).sin();
 
-    // Calculate averages for weighting factors
     let l_avg = (l1 + l2) / 2.0;
     let c_prime_avg = (c1_prime + c2_prime) / 2.0;
 
@@ -140,7 +128,7 @@ pub fn ciede2000(lab1: Lab, lab2: Lab) -> f32 {
         }
     };
 
-    // Calculate weighting factors
+    // Weighting factors.
     let t = 1.0 - 0.17 * ((h_prime_avg - 30.0).to_radians()).cos()
         + 0.24 * ((2.0 * h_prime_avg).to_radians()).cos()
         + 0.32 * ((3.0 * h_prime_avg + 6.0).to_radians()).cos()
@@ -156,7 +144,6 @@ pub fn ciede2000(lab1: Lab, lab2: Lab) -> f32 {
             .sin()
             .to_radians();
 
-    // Calculate final delta E
     let k_l = 1.0;
     let k_c = 1.0;
     let k_h = 1.0;

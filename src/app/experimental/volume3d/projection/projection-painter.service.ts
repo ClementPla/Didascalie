@@ -28,16 +28,14 @@ interface SliceDiff {
 /**
  * Painting on the projection view, written back into the volume.
  *
- * The view runs the editor's own tools on the surface at depth `t` of the A→B
- * segments (`projectionDepth`, 0 = on A, 1 = on B), flattened into an image
- * (see `Surface`). This service is the bridge to the volume: `sample` reads
- * the label volumes on that surface, and `commit` writes back what a stroke
- * changed there. A changed pixel is written along its segment, half the brush
- * size on each side of the surface, so a stroke is as thick as it is wide.
+ * The view runs the editor's tools on the surface at depth `t` of the A→B
+ * segments, flattened into an image (see `Surface`). `sample` reads the label
+ * volumes on that surface; `commit` writes back what a stroke changed, along
+ * each segment, half the brush size on each side of the surface.
  *
- * Every slice a stroke touches is persisted: the open frame through the usual
- * dirty/autosave path, the others through `MaskVolumeService.saveDirty()`.
- * A stroke is one entry of the editor's undo timeline.
+ * Every slice touched is persisted: the open frame through the usual dirty
+ * path, the others through `MaskVolumeService.saveDirty()`. A stroke is one
+ * entry of the editor's undo timeline.
  */
 @Injectable({ providedIn: 'root' })
 export class ProjectionPainterService implements ProjectScoped {
@@ -78,7 +76,6 @@ export class ProjectionPainterService implements ProjectScoped {
     const mode = this.settingsService.settings().projectionMode;
     if (on) {
       this.modeBefore = mode;
-      // Show the surface being painted, with its labels.
       this.settingsService.update({ projectionMode: 'depth', projectionLabels: true });
     } else {
       if (this.modeBefore && mode === 'depth') this.settingsService.update({ projectionMode: this.modeBefore });
@@ -86,12 +83,7 @@ export class ProjectionPainterService implements ProjectScoped {
     }
   }
 
-  /**
-   * @see ProjectScoped
-   *
-   * Painting mode is sticky (`setEditing(true)` forces depth mode and remembers
-   * what to restore), so it is dropped with the project.
-   */
+  /** @see ProjectScoped */
   resetForProject(): void {
     this.setEditing(false);
     this.pending.clear();
@@ -165,9 +157,8 @@ export class ProjectionPainterService implements ProjectScoped {
   // ── Propagating changes ──────────────────────────────────────────────────
 
   /**
-   * Tell everyone which slices changed: the open frame goes through the
-   * editor's dirty tracking (and is redrawn), other slices are marked dirty in
-   * the volume. Both reach the 3D views through `edited$`.
+   * Announce the slices that changed: the open frame through the editor's dirty
+   * tracking, the others as dirty in the volume.
    */
   private flush(): void {
     if (this.pending.size === 0) return;

@@ -17,21 +17,19 @@ import {
 } from '../../../../core/misc/label-ops';
 import { ProjectScoped } from '../../../../core/project-scoped';
 
-/** Longest side (px) past which we skip the native-size composite canvas and
- *  composite the label layer per-viewport instead (WebKit's 2D-canvas area cap
- *  is ~4096²; a native composite over it goes blank). */
+/** Longest side (px) past which the label layer is composited per viewport:
+ *  WebKit's 2D-canvas area cap is about 4096², and a canvas over it goes
+ *  blank. */
 const VIEWPORT_COMPOSITE_MIN_DIM = 4096;
 
-/** Max side (px) of the stroke scratch buffer — kept within WebKit's cap. On
- *  larger images the buffer becomes a per-stroke window into the image. */
+/** Max side (px) of the stroke buffer. On larger images it is a per-stroke
+ *  window into the image. */
 const BUFFER_MAX_DIM = 4096;
 
 /**
- * Owns the per-label pixel data as `Uint8Array` masks (0 = absent, 1 = present
- * for semantic labels, 1..255 = instance id) and composites them into the
- * displayed RGBA `combinedCanvas` via per-label colour palettes. Colour lives
- * only in the palette, so recolouring a label is a palette rebuild plus a
- * recomposite — the mask pixels never change.
+ * Owns the label masks (`Uint8Array`: 0 = absent, 1 = present, 1..255 =
+ * instance id) and composites them into the displayed `combinedCanvas`
+ * through per-label colour palettes. Colour lives only in the palette.
  */
 @Injectable({
   providedIn: 'root',
@@ -47,23 +45,19 @@ export class CanvasManagerService implements ProjectScoped {
 
   /** One value mask per segmentation label, row-major, `width*height`. */
   labelMasks: Uint8Array[] = [];
-  /** The masks are views borrowed from elsewhere (3D mode: slices of the mask
-   *  volume, see `bindMasks`), not arrays this service allocated. */
+  /** The masks are views borrowed from elsewhere (see `bindMasks`). */
   private masksBorrowed = false;
   /** One 256-entry RGBA lookup table per label (value -> display colour). */
   palettes: Uint8Array[] = [];
 
-  // Full-resolution RGBA composite of all label layers. Allocated only for
-  // images small enough to be a legal canvas (see `useViewportComposite`);
-  // large images composite straight into the viewport-sized display canvas
-  // instead, which is cheaper and dodges WebKit's canvas-size cap.
+  // Full-resolution RGBA composite of the label layers. Not allocated for large
+  // images (see `useViewportComposite`).
   combinedCanvas?: OffscreenCanvas;
   combinedCtx?: OffscreenCanvasRenderingContext2D;
 
-  /** Scratch canvas the drawing tools rasterize the in-progress stroke onto. On
-   *  large images it's a capped window; `bufferOrigin` is its top-left in image
-   *  space. The buffer context is translated by -origin so tools keep drawing in
-   *  image coordinates. */
+  /** The canvas the tools rasterize the stroke in progress onto. On large
+   *  images it is a window whose top-left is `bufferOrigin`; its context is
+   *  translated by -origin, so tools draw in image coordinates. */
   bufferCanvas: OffscreenCanvas;
   bufferCtx: OffscreenCanvasRenderingContext2D;
   private bufferOrigin = { x: 0, y: 0 };
@@ -71,8 +65,8 @@ export class CanvasManagerService implements ProjectScoped {
   requestRedraw: Subject<boolean> = new Subject<boolean>();
   private useWebGPU = false;
 
-  /** True for images too large for a native-size composite canvas: the label
-   *  layer is then composited per-viewport (see `compositeToDisplay`). */
+  /** The image is too large for a native-size composite canvas: the label
+   *  layer is composited per viewport (see `compositeToDisplay`). */
   protected useViewportComposite = false;
   get usesViewportComposite(): boolean {
     return this.useViewportComposite;
@@ -91,7 +85,6 @@ export class CanvasManagerService implements ProjectScoped {
 
   // ── Palettes ─────────────────────────────────────────────────────────────
 
-  /** Recompute every label's colour LUT from the current label definitions. */
   rebuildPalettes() {
     this.palettes = this.labelService.listSegmentationLabels.map((label) =>
       buildLabelPalette(label.color, label.shades)
@@ -118,9 +111,8 @@ export class CanvasManagerService implements ProjectScoped {
     this.renderStats.recordComposite(performance.now() - t0);
   }
 
-  /** Recompute the bbox overlay from the current masks (clears first). Public so
-   *  the viewport-composite path can drive it — computeCombinedCanvas, which
-   *  normally does this, is skipped for large images. */
+  /** Recompute the bounding boxes from the masks. `computeCombinedCanvas` does
+   *  it for small images; the large-image path calls this. */
   updateBoundingBoxes(): void {
     this.bboxManager.clear();
     if (this.editorService.showBoundingBox) {
@@ -133,9 +125,7 @@ export class CanvasManagerService implements ProjectScoped {
     const h = this.stateService.height;
     const labels = this.labelService.listSegmentationLabels;
 
-    // On big images (viewport-composite mode) find boxes on a downsampled
-    // presence grid (±step px) so we don't flood-fill 100M+ pixels per label on
-    // the main thread; smaller images stay exact.
+    // Large images: boxes from a downsampled presence grid (±step px).
     const step = this.useViewportComposite
       ? Math.max(1, Math.ceil(Math.max(w, h) / 2048))
       : 1;
@@ -207,8 +197,7 @@ export class CanvasManagerService implements ProjectScoped {
       ? Math.min(Math.max(1, Math.ceil(2 / this.zoomPan.getScale())), 10)
       : 0;
 
-    // Draw labels in order; later labels paint over earlier ones (masks are
-    // disjoint in practice, so this is just a value -> colour write).
+    // Later labels paint over earlier ones.
     for (let li = 0; li < this.labelMasks.length; li++) {
       if (!labels[li]?.isVisible) continue;
       const mask = this.labelMasks[li];
@@ -236,13 +225,12 @@ export class CanvasManagerService implements ProjectScoped {
   }
 
   /**
-   * Edge-only paint of a single label mask into `data`. Edges are found on the
-   * mask itself, before layers are flattened, so a label stacked under another
-   * keeps its own outline in its own colour. A pixel is an edge when a tap
-   * holds a different value (background, another instance) or falls outside
-   * the image. Taps are the 4 direct neighbours plus 8 at distance `radius`:
-   * constant cost per pixel whatever the outline thickness, at the price of a
-   * hole smaller than `radius` only getting a 1px outline.
+   * Paint only the edges of one label mask into `data`. Edges are found per
+   * mask, before flattening, so a label under another keeps its outline. A
+   * pixel is an edge when a tap holds a different value or falls outside the
+   * image. Taps are the 4 direct neighbours plus 8 at distance `radius`:
+   * constant cost whatever the thickness, but a hole smaller than `radius` only
+   * gets a 1px outline.
    */
   private paintLayerEdges(
     data: Uint8ClampedArray,
@@ -290,11 +278,9 @@ export class CanvasManagerService implements ProjectScoped {
   }
 
   /**
-   * Composite the visible label layer directly into a viewport-sized display
-   * context (device pixels), sampling each label mask through the view
-   * transform. Used for images too large for a native composite canvas: work is
-   * bounded by the viewport (not the image), and no over-cap canvas is
-   * allocated. `dpr` is the device-pixel ratio the display canvas is scaled by.
+   * Composite the visible label layer straight into a viewport-sized display
+   * context (device pixels), sampling each mask through the view transform.
+   * For images too large for a native composite canvas.
    */
   compositeToDisplay(ctx: CanvasRenderingContext2D, dpr: number): void {
     const dispW = ctx.canvas.width;   // device px
@@ -308,8 +294,8 @@ export class CanvasManagerService implements ProjectScoped {
 
     const scale = this.zoomPan.getScale() * dpr;
     if (scale <= 0) return;
-    // Match applyViewTransform's integer-snapped offset so labels line up with
-    // the image layer exactly.
+    // The integer-snapped offset of `applyViewTransform`, to line up with the
+    // image layer.
     const offX = Math.round(this.zoomPan.getOffset().x) * dpr;
     const offY = Math.round(this.zoomPan.getOffset().y) * dpr;
     const invScale = 1 / scale;
@@ -318,8 +304,8 @@ export class CanvasManagerService implements ProjectScoped {
     const data = out.data;
     const edges = this.editorService.edgesOnly;
 
-    // Source column per device column, padded by one on each side so the edge
-    // test can look at the neighbouring device pixels.
+    // Source column per device column, padded by one on each side for the edge
+    // test.
     const xs = new Int32Array(dispW + 2);
     for (let dx = -1; dx <= dispW; dx++) {
       xs[dx + 1] = Math.floor((dx + 0.5 - offX) * invScale);
@@ -342,7 +328,6 @@ export class CanvasManagerService implements ProjectScoped {
         const ixR = xs[dx + 2];
         const mi = maskRow + ix;
 
-        // Later labels paint over earlier ones (masks are disjoint in practice).
         for (let li = 0; li < masks.length; li++) {
           if (!labels[li]?.isVisible) continue;
           const mask = masks[li];
@@ -350,10 +335,8 @@ export class CanvasManagerService implements ProjectScoped {
           if (v === 0) continue;
           const pal = this.palettes[li];
           if (!pal) continue;
-          // Edge mode: tested per label in screen space (~1 device px outline),
-          // so a label stacked under another keeps its own outline. Interior
-          // pixels (all 4 neighbouring device pixels sample the same value) are
-          // skipped; leaving the image counts as a boundary.
+          // Edge mode, per label in screen space: interior pixels (the 4 neighbouring
+          // device pixels sample the same value) are skipped.
           if (
             edges &&
             yInside && ixL >= 0 && ixR < w &&
@@ -379,8 +362,6 @@ export class CanvasManagerService implements ProjectScoped {
 
   protected ensureAuxCanvases(width: number, height: number) {
     if (this.useViewportComposite) {
-      // Too large for a native composite canvas — release it (frees a lot of
-      // memory) and composite per-viewport instead.
       this.combinedCanvas = undefined;
       this.combinedCtx = undefined;
     } else {
@@ -397,11 +378,8 @@ export class CanvasManagerService implements ProjectScoped {
       }
     }
 
-    // The stroke scratch buffer holds only the in-progress stroke, so it's
-    // capped to a WebKit-legal size; on large images it's a moving window
-    // positioned per stroke (see beginStrokeBuffer). Small images get a
-    // native-size buffer at origin (0,0) — the pre-existing behaviour, byte for
-    // byte.
+    // The stroke buffer is capped; on large images it is a window positioned per
+    // stroke (see `beginStrokeBuffer`).
     const bw = Math.min(width, BUFFER_MAX_DIM);
     const bh = Math.min(height, BUFFER_MAX_DIM);
     if (!this.bufferCanvas) {
@@ -451,24 +429,23 @@ export class CanvasManagerService implements ProjectScoped {
   }
 
   /**
-   * Use `masks` as the label layers without copying — in 3D mode, views of the
-   * current slice of each label volume, so edits land in the volume. They must
-   * match the current label count and image size.
+   * Use `masks` as the label layers without copying: in 3D mode, views of the
+   * current slice of each label volume. They must match the label count and
+   * image size.
    */
   bindMasks(masks: Uint8Array[]) {
     this.labelMasks = masks;
     this.masksBorrowed = true;
   }
 
-  /** Replace borrowed layers by owned copies of their current contents, so
-   *  later writes (clearing, loading another frame) cannot reach the source. */
+  /** Replace borrowed layers by owned copies, so later writes cannot reach
+   *  the source. */
   detachMasks() {
     if (!this.masksBorrowed) return;
     this.labelMasks = this.labelMasks.map((m) => m.slice());
     this.masksBorrowed = false;
   }
 
-  /** Replace a label's mask contents from raw uint8 values (e.g. on load). */
   setMask(index: number, values: Uint8Array) {
     const mask = this.labelMasks[index];
     if (mask && mask.length === values.length) {
@@ -501,18 +478,15 @@ export class CanvasManagerService implements ProjectScoped {
     return this.bufferCtx;
   }
 
-  /** Top-left of the stroke buffer window in image space (0,0 for small images). */
+  /** Top-left of the stroke buffer window, in image space. */
   getBufferOrigin(): { x: number; y: number } {
     return { x: this.bufferOrigin.x, y: this.bufferOrigin.y };
   }
 
   /**
-   * Prepare the scratch buffer for a new stroke: clear it and position its
-   * window over the image. Tools then draw in image coordinates (the context is
-   * translated by -origin). On small images the window is the whole image at
-   * origin (0,0); on large images it's a `BUFFER_MAX_DIM` window centred on
-   * `center` (the stroke start), clamped to the image — a stroke straying beyond
-   * it is clipped, which is fine for the zoomed-in editing this targets.
+   * Clear the stroke buffer and position its window: the whole image when it
+   * fits, otherwise `BUFFER_MAX_DIM` pixels centred on `center`. A stroke
+   * straying beyond the window is clipped.
    */
   beginStrokeBuffer(center?: { x: number; y: number }): void {
     const w = this.stateService.width;
@@ -534,10 +508,8 @@ export class CanvasManagerService implements ProjectScoped {
     ctx.setTransform(1, 0, 0, 1, -ox, -oy); // tools draw in image space
   }
 
-  /**
-   * Read an image-space rectangle back from the stroke buffer as RGBA. Handles
-   * the buffer window offset; pixels outside the window come back transparent.
-   */
+  /** Read an image-space rectangle of the stroke buffer as RGBA. Pixels
+   *  outside the window are transparent. */
   readBufferRegion(rect: { x: number; y: number; width: number; height: number }): Uint8ClampedArray {
     return this.bufferCtx.getImageData(
       rect.x - this.bufferOrigin.x,

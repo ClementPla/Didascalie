@@ -12,16 +12,12 @@ export interface AppNotification {
   severity: NotificationSeverity;
   summary: string;
   detail?: string;
-  /** Toast lifetime in ms; overrides the default when set (e.g. a brief cue). */
+  /** Toast lifetime in ms. */
   life?: number;
 }
 
-/**
- * App-wide notification hub. Components emit user-facing toasts through here,
- * and the shell ([app.component]) renders them via a single global p-toast.
- * Also holds the fatal "critical error" state used for the blocking error
- * screen when the app cannot continue.
- */
+/** User-facing toasts, rendered by the shell through one global p-toast, and
+ *  the "critical error" state of the blocking error screen. */
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
   private readonly _toast = new Subject<AppNotification>();

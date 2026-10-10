@@ -1,10 +1,5 @@
-/// Writer for the legacy binary-mask RLE, kept only to exercise [`decode`].
-///
-/// Nothing in the application writes this format any more — `encode8` replaced
-/// it when masks became uint8 — but `decode` still has to read it, because
-/// projects created before that change are still out there. Gating the writer to
-/// tests keeps the round-trip coverage without shipping a second encoder that
-/// could silently drift from the one in use.
+/// Writer for the legacy binary-mask RLE, only to test [`decode`], which
+/// still reads projects made before `encode8`.
 #[cfg(test)]
 pub fn encode(mask: &[u8], width: usize, height: usize) -> Vec<u8> {
     let mut rle: Vec<u32> = Vec::new();
@@ -26,10 +21,8 @@ pub fn encode(mask: &[u8], width: usize, height: usize) -> Vec<u8> {
     }
     rle.push(count);
 
-    // NOTE: `decode` alternates starting from background (value 0). When the
-    // first pixel is foreground, the loop above already emits a leading `0`
-    // run, so the sequence is correct as-is. A previous version prepended an
-    // extra `0` here, which corrupted any mask whose top-left pixel was set.
+    // `decode` alternates starting from background: when the first pixel is
+    // foreground, the loop above has already emitted a leading `0` run.
 
     // Pack as bytes (u32 little-endian per run length).
     rle.iter().flat_map(|&n| n.to_le_bytes()).collect()
@@ -61,12 +54,8 @@ pub fn decode(data: &[u8], width: usize, height: usize) -> Vec<u8> {
 }
 
 // ---------------------------------------------------------------------------
-// Value-aware RLE (`rle8`) — the encoding used by the uint8-per-label model.
-//
-// Unlike the binary codec above, this preserves the actual pixel value: `0` is
-// background, `1` marks a semantic label, and `1..=255` are instance ids. Runs
-// are stored row-major as `[value: u8][count: u32 little-endian]`, so semantic
-// masks (value always 1) stay as compact as the old binary format.
+// Value-aware RLE (`rle8`): 0 is background, 1 a semantic label, 1..=255
+// instance ids. Runs are row-major, `[value: u8][count: u32 little-endian]`.
 // ---------------------------------------------------------------------------
 
 pub fn encode8(mask: &[u8]) -> Vec<u8> {
@@ -139,8 +128,7 @@ mod tests {
 
     #[test]
     fn roundtrip_top_left_pixel_set() {
-        // Regression: the old encoder prepended a spurious leading run when the
-        // first pixel was foreground, corrupting this case.
+        // The first pixel is foreground.
         let mut mask = vec![0u8; 2 * 2];
         mask[0] = 255;
         assert_roundtrip(&mask, 2, 2);

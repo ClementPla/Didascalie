@@ -29,14 +29,13 @@ export class ZoomPanService {
   public isDragging = false;
   private prevClient: Point2D | null = null;
 
-  /** Last image-space cursor, kept for the rulers. */
+  /** Last cursor position, in image space. */
   public currentPixel: Point2D = { x: 0, y: 0 };
-  /** Cursor in image coordinates, or null when it is off the image. Signal
-   *  form of `currentPixel`, for views that follow the cursor (3D mode). */
+  /** Cursor in image coordinates, or null when it is off the image. */
   public readonly cursorImage = signal<Point2D | null>(null);
 
-  /** Last cursor position in viewport CSS px, or null when the cursor is not
-   *  over the canvas. Used as the pivot for keyboard (+/-) zoom. */
+  /** Last cursor position in viewport CSS px, or null: the pivot of keyboard
+   *  zoom. */
   public lastCursorViewport: Point2D | null = null;
 
   private canZoom = true;
@@ -46,12 +45,11 @@ export class ZoomPanService {
 
   // ── Setup ────────────────────────────────────────────────────────────────
 
-  /** The element whose bounding rect is used for client→viewport math. */
+  /** The element viewport coordinates are relative to. */
   public setViewportRef(el: HTMLElement) {
     this.viewportRef = el;
   }
 
-  /** Pushed by a ResizeObserver in the component. */
   public setViewportSize(width: number, height: number) {
     this.viewportWidth = width;
     this.viewportHeight = height;
@@ -59,7 +57,7 @@ export class ZoomPanService {
 
   // ── Coordinate conversions ───────────────────────────────────────────────
 
-  /** Pointer position in viewport CSS px (relative to viewport top-left). */
+  /** Pointer position in viewport CSS px. */
   public getViewportCoordinates(event: MouseEvent | WheelEvent | Point2D): Point2D {
     const { clientX, clientY } = this.getClientCoords(event);
     if (!this.viewportRef) return { x: clientX, y: clientY };
@@ -67,7 +65,7 @@ export class ZoomPanService {
     return { x: clientX - rect.left, y: clientY - rect.top };
   }
 
-  /** Pointer position in image px, clamped to image bounds, integer. */
+  /** Pointer position in image px, clamped to the image, integer. */
   public getImageCoordinates(event: MouseEvent | WheelEvent | Point2D): Point2D {
     const vp = this.getViewportCoordinates(event);
     const ix = (vp.x - this.offset.x) / this.scale;
@@ -78,7 +76,7 @@ export class ZoomPanService {
     };
   }
 
-  /** Same as above but float and unclamped. */
+  /** The same, float and unclamped. */
   public getImageCoordinatesRaw(event: MouseEvent | WheelEvent | Point2D): Point2D {
     const vp = this.getViewportCoordinates(event);
     return {
@@ -103,12 +101,8 @@ export class ZoomPanService {
 
   // ── Transform application ────────────────────────────────────────────────
 
-  /**
-   * Apply the view transform to a display canvas context.
-   * After this call, drawing happens in image-space coordinates,
-   * mapped through view-scale and DPR. Offsets are snapped to integer
-   * CSS px to keep pixels crisp at integer zooms.
-   */
+  /** Apply the view transform to a display context: drawing is then in image
+   *  coordinates. Offsets are snapped to integer CSS px. */
   public applyViewTransform(ctx: CanvasRenderingContext2D, dpr: number) {
     const ox = Math.round(this.offset.x);
     const oy = Math.round(this.offset.y);
@@ -121,7 +115,7 @@ export class ZoomPanService {
 
   // ── Viewbox getters ──────────────────────────────────────────────────────
 
-  /** Where the image sits in viewport CSS px. Used by the rulers. */
+  /** Where the image sits in viewport CSS px. */
   public getViewBox(): Viewbox {
     return {
       xmin: Math.round(this.offset.x),
@@ -131,7 +125,7 @@ export class ZoomPanService {
     };
   }
 
-  /** SVG viewBox in image space, sized to the full viewport. */
+  /** SVG viewBox in image space, for the full viewport. */
   public getSVGViewBox(): Rect {
     if (this.scale <= 0) return { x: 0, y: 0, width: 1, height: 1 };
     return {
@@ -187,15 +181,11 @@ export class ZoomPanService {
     this.zoomAt(this.getZoomPivot(), 1 / factor);
   }
 
-  /** Pivot for keyboard zoom: the cursor if it's over the canvas, else center. */
   private getZoomPivot(): Point2D {
     return this.lastCursorViewport ?? this.getViewportCenter();
   }
 
-  /**
-   * Zoom by `factor`, keeping `pivotViewport` (in viewport CSS px) stationary.
-   * This is the only place that should compute offset from a zoom event.
-   */
+  /** Zoom by `factor`, keeping `pivotViewport` (viewport CSS px) in place. */
   private zoomAt(pivotViewport: Point2D, factor: number) {
     const pivotImage = this.viewportToImage(pivotViewport);
     let newScale = this.targetScale * factor;
@@ -211,10 +201,9 @@ export class ZoomPanService {
   }
 
   /**
-   * Immediate (non-eased) two-finger transform. Zooms by `factor` while
-   * anchoring the image point that sat under the previous gesture midpoint
-   * to the new midpoint — which folds pinch-zoom and two-finger pan into a
-   * single natural motion. Both midpoints are in viewport CSS px.
+   * Two-finger transform, not eased: zoom by `factor` while moving the image
+   * point under the previous midpoint to the new one. Midpoints are in viewport
+   * CSS px.
    */
   public pinch(
     prevMidViewport: Point2D,

@@ -1,20 +1,16 @@
 //! Superpixel-based brush refinement.
 //!
-//! A SLIC oversegmentation of the image is computed once per image (mirroring
-//! the SAM encoder-feature caching in `dl::feature_extract`) and held in Tauri
-//! managed state. When the user strokes a brush over a region, the refinement
-//! finds the dominant color under the stroke, seeds from the confidently-covered
-//! superpixels, and grows outward across the superpixel adjacency graph to every
-//! connected superpixel of the same color. This lets a short, light stroke
-//! select a whole homogeneous region instead of only the pixels drawn over,
-//! while still stopping at color edges so it doesn't bleed into other regions.
+//! A SLIC oversegmentation is computed once per image and kept in Tauri state.
+//! A stroke selects the superpixels it covers that share its dominant colour,
+//! then grows over the adjacency graph to connected superpixels of that
+//! colour, stopping at colour edges.
 
 use crate::utils::color::{ciede2000, rgb_to_lab, Lab};
 use ndarray::Array2;
 use rayon::prelude::*;
 use std::collections::VecDeque;
 
-/// A cached oversegmentation of one image plus per-superpixel statistics.
+/// The oversegmentation of one image, with per-superpixel statistics.
 pub struct SuperpixelMap {
     /// Per-pixel superpixel id, shape `(height, width)`.
     labels: Array2<u32>,
@@ -33,16 +29,12 @@ impl SuperpixelMap {
         self.lab_means.len()
     }
 
-    /// True when this map already matches the given image dimensions and can be
-    /// reused instead of recomputed.
+    /// Whether this map fits an image of these dimensions.
     pub fn matches(&self, width: usize, height: usize) -> bool {
         self.width == width && self.height == height
     }
 
-    /// Compute the oversegmentation for an RGBA image and cache per-superpixel
-    /// mean color, size, and adjacency.
-    ///
-    /// `target_count` is the desired (approximate) number of superpixels.
+    /// Oversegment an RGBA image into about `target_count` superpixels.
     pub fn compute(
         image_rgba: &[u8],
         width: usize,
@@ -59,7 +51,6 @@ impl SuperpixelMap {
             ));
         }
 
-        // Precompute per-pixel Lab once; reused by SLIC and the mean stats.
         let lab: Vec<Lab> = (0..width * height)
             .into_par_iter()
             .map(|i| {
@@ -70,7 +61,6 @@ impl SuperpixelMap {
 
         let (labels, num_superpixels) = slic(&lab, width, height, target_count);
 
-        // Accumulate per-superpixel Lab sums and counts in one pass.
         let mut lab_sums = vec![(0.0f64, 0.0f64, 0.0f64); num_superpixels];
         let mut sizes = vec![0u32; num_superpixels];
         for (i, &id) in labels.iter().enumerate() {
@@ -107,27 +97,18 @@ impl SuperpixelMap {
         })
     }
 
-    /// Refine a brush stroke into a region selection.
+    /// Refine a brush stroke into a region selection, as a per-pixel boolean
+    /// mask. `brush_rgba` is the stroke; a pixel is covered when its alpha is
+    /// `> 128`.
     ///
-    /// `brush_rgba` is the stroke rendered as an RGBA buffer; a pixel counts as
-    /// covered when its alpha byte is `> 128` (same convention as the mask
-    /// helpers elsewhere).
+    /// 1. The dominant colour is the overlap-weighted mean colour of the covered
+    ///    superpixels.
+    /// 2. Seeds are the superpixels covered by at least `min_overlap_fraction`
+    ///    and within `similarity_threshold` (CIEDE2000) of it.
+    /// 3. The selection grows over the adjacency graph within that threshold.
     ///
-    /// Returns a per-pixel boolean inclusion mask, row-major `height * width`.
-    ///
-    /// Algorithm:
-    /// 1. Tally stroke overlap per superpixel; the dominant color is the
-    ///    overlap-area-weighted mean color of the covered superpixels.
-    /// 2. Seed from superpixels the stroke covers by at least
-    ///    `min_overlap_fraction` whose mean color is within
-    ///    `similarity_threshold` (CIEDE2000) of the dominant.
-    /// 3. Grow the selection over the superpixel adjacency graph, adding any
-    ///    connected superpixel also within the color threshold. Growth stops at
-    ///    color edges, so the result is the connected same-color region the
-    ///    stroke lands in — even from a light stroke.
-    ///
-    /// If the stroke is too light to seed anything, falls back to every touched
-    /// superpixel within the color threshold (no growth).
+    /// A stroke too light to seed anything selects every touched superpixel
+    /// within the threshold, without growth.
     pub fn refine(
         &self,
         brush_rgba: &[u8],
@@ -147,7 +128,6 @@ impl SuperpixelMap {
 
         let n_sp = self.num_superpixels();
 
-        // 1. Tally how many stroke pixels fall in each superpixel.
         let mut overlap = vec![0u32; n_sp];
         for (i, &id) in self.labels.iter().enumerate() {
             if brush_rgba[i * 4 + 3] > 128 {
@@ -155,7 +135,6 @@ impl SuperpixelMap {
             }
         }
 
-        // 2. Dominant color = overlap-area-weighted mean of covered superpixels.
         let (mut wl, mut wa, mut wb, mut wsum) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
         for (id, &count) in overlap.iter().enumerate() {
             if count == 0 {
@@ -174,7 +153,6 @@ impl SuperpixelMap {
         let dominant: Lab = ((wl / wsum) as f32, (wa / wsum) as f32, (wb / wsum) as f32);
         let close = |id: usize| ciede2000(self.lab_means[id], dominant) < similarity_threshold;
 
-        // 3. Seed from confidently-covered, color-matching superpixels.
         let mut included = vec![false; n_sp];
         let mut queue: VecDeque<usize> = VecDeque::new();
         for id in 0..n_sp {
@@ -189,15 +167,14 @@ impl SuperpixelMap {
         }
 
         if queue.is_empty() {
-            // Fallback: nothing crossed the overlap threshold. Keep any touched
-            // superpixel that matches color, so a very light stroke still acts.
+            // Nothing crossed the overlap threshold: keep any touched superpixel of the
+            // right colour.
             for id in 0..n_sp {
                 if overlap[id] > 0 && close(id) {
                     included[id] = true;
                 }
             }
         } else {
-            // Grow across the adjacency graph within the color threshold.
             while let Some(id) = queue.pop_front() {
                 for &nb in &self.adjacency[id] {
                     let nb = nb as usize;
@@ -209,7 +186,6 @@ impl SuperpixelMap {
             }
         }
 
-        // 4. Rasterize included superpixels to a per-pixel mask.
         let out = self
             .labels
             .iter()
@@ -218,11 +194,8 @@ impl SuperpixelMap {
         Ok(out)
     }
 
-    /// Render superpixel boundaries as an RGBA overlay.
-    ///
-    /// A pixel is drawn when its right or bottom neighbor belongs to a different
-    /// superpixel, giving a thin 1px edge on one side of each boundary. Boundary
-    /// pixels get `color`; all others are fully transparent.
+    /// Superpixel boundaries as an RGBA overlay: a pixel is drawn when its right
+    /// or bottom neighbour belongs to another superpixel.
     pub fn boundary_overlay(&self, color: [u8; 4]) -> Vec<u8> {
         let (h, w) = (self.height, self.width);
         let labels = &self.labels;
@@ -243,11 +216,10 @@ impl SuperpixelMap {
     }
 }
 
-/// SLIC compactness `m`: higher values weight spatial proximity more, giving
-/// squarer, more regular superpixels; lower values follow color edges more
-/// tightly. 10 is the value recommended in the SLIC paper.
+/// SLIC compactness `m`: higher gives squarer superpixels, lower follows
+/// colour edges more closely. 10 is the paper's value.
 const SLIC_COMPACTNESS: f32 = 10.0;
-/// Number of assignment/update passes. SLIC converges quickly; 10 is standard.
+/// Assignment/update passes.
 const SLIC_ITERATIONS: usize = 10;
 
 #[derive(Clone, Copy)]
@@ -259,16 +231,11 @@ struct Center {
     y: f32,
 }
 
-/// SLIC superpixel oversegmentation (Achanta et al., 2012).
-///
-/// Operates on a precomputed per-pixel CIELAB buffer. Cluster centers are seeded
-/// on a regular `cols x rows` grid; each pass assigns every pixel to the nearest
-/// center among the 3x3 block of grid cells around it (centers drift at most ~S,
-/// so the true nearest is always in that block) under the combined color+space
-/// distance `D^2 = dc^2 + (m/S)^2 * ds^2`, then recomputes centers as the mean
-/// of their members. The assignment pass is parallelized over pixels with rayon.
-/// A final pass enforces connectivity and relabels segments contiguously.
-///
+/// SLIC superpixels (Achanta et al., 2012) on a per-pixel CIELAB buffer.
+/// Centres are seeded on a grid; each pass assigns every pixel to the nearest
+/// centre among the 3x3 block of grid cells around it, under
+/// `D^2 = dc^2 + (m/S)^2 * ds^2`, then moves the centres to the mean of their
+/// members. A last pass enforces connectivity and relabels contiguously.
 /// Returns the label map and the number of superpixels.
 fn slic(lab: &[Lab], width: usize, height: usize, target_count: usize) -> (Array2<u32>, usize) {
     let n = width * height;
@@ -280,7 +247,6 @@ fn slic(lab: &[Lab], width: usize, height: usize, target_count: usize) -> (Array
     let cell_w = width as f32 / cols as f32;
     let cell_h = height as f32 / rows as f32;
 
-    // Seed centers at the middle of each grid cell.
     let mut centers: Vec<Center> = Vec::with_capacity(rows * cols);
     for r in 0..rows {
         for c in 0..cols {
@@ -297,8 +263,6 @@ fn slic(lab: &[Lab], width: usize, height: usize, target_count: usize) -> (Array
     let mut labels = vec![0u32; n];
 
     for _ in 0..SLIC_ITERATIONS {
-        // Assignment: parallel over pixels, each independently picks the nearest
-        // center in its 3x3 grid-cell neighborhood.
         labels
             .par_iter_mut()
             .enumerate()
@@ -334,7 +298,6 @@ fn slic(lab: &[Lab], width: usize, height: usize, target_count: usize) -> (Array
                 *out = best_ci;
             });
 
-        // Recompute centers as the mean of their assigned pixels.
         let mut acc = vec![(0f64, 0f64, 0f64, 0f64, 0f64, 0u32); centers.len()];
         for (idx, &ci) in labels.iter().enumerate() {
             let (l, a, b) = lab[idx];
@@ -362,9 +325,8 @@ fn slic(lab: &[Lab], width: usize, height: usize, target_count: usize) -> (Array
     enforce_connectivity(&labels, width, height, k)
 }
 
-/// Merge orphaned/undersized segments so every superpixel is 4-connected, and
-/// relabel the result contiguously from 0. Small segments (below a fraction of
-/// the nominal superpixel area) are absorbed into an adjacent labeled segment.
+/// Make every superpixel 4-connected and relabel from 0. Segments below a
+/// fraction of the nominal area are absorbed into a neighbour.
 fn enforce_connectivity(
     old_labels: &[u32],
     width: usize,
@@ -385,8 +347,7 @@ fn enforce_connectivity(
             continue;
         }
 
-        // Find an already-labeled adjacent segment to merge into if this one
-        // turns out to be too small.
+        // A labelled neighbour to merge into, should this segment be too small.
         let mut adjacent = label.max(0);
         {
             let x = (start % width) as i32;
@@ -403,7 +364,6 @@ fn enforce_connectivity(
             }
         }
 
-        // Flood-fill the contiguous region sharing this old label.
         buffer.clear();
         buffer.push(start);
         new_labels[start] = label;
@@ -427,7 +387,6 @@ fn enforce_connectivity(
         }
 
         if buffer.len() <= min_size {
-            // Absorb the tiny segment into its neighbor; reuse this label id.
             for &idx in &buffer {
                 new_labels[idx] = adjacent;
             }
@@ -442,7 +401,6 @@ fn enforce_connectivity(
     (labels, num)
 }
 
-/// Build the 4-connected superpixel adjacency graph from the label map.
 fn build_adjacency(
     labels: &Array2<u32>,
     num_superpixels: usize,

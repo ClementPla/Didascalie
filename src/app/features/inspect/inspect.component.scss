@@ -55,8 +55,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  // Rows share the height equally, so every pane of a comparison is the same
-  // size and "fit" means the same zoom in each.
+  // Rows share the height equally, so "fit" is the same zoom in every pane.
   grid-template-columns: repeat(var(--columns, 1), minmax(0, 1fr));
   grid-auto-rows: minmax(0, 1fr);
   gap: 0.5rem;

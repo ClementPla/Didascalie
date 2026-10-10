@@ -1,7 +1,5 @@
 <div class="flex flex-col gallery gap-2 h-full p-2 w-full">
 
-  <!-- Shown for any selection: review marking applies to every project; only
-       the classification controls inside need a classification project. -->
   @if (hasSelection) {
   <p-panel
     [header]="'Batch actions · ' + selectedCount + ' selected'"
@@ -10,7 +8,6 @@
   >
     <div class="flex flex-col gap-4">
       @if (projectService.isClassification()) {
-      <!-- Multiclass tasks -->
       @for (task of labelsService.listClassificationTasks; track task.taskName;
       let i = $index) {
       <div>
@@ -25,7 +22,6 @@
       </div>
       }
 
-      <!-- Multilabel task -->
       @if (labelsService.multiLabelTask) {
       <div>
         <label class="block font-bold mb-2">{{
@@ -43,7 +39,6 @@
 
       }
 
-      <!-- Actions -->
       <div class="flex flex-wrap gap-2">
         @if (projectService.isClassification()) {
         <p-button
@@ -106,7 +101,6 @@
     <ng-template #header>
       <div class="gallery-toolbar">
 
-        <!-- Primary row: search / status / sort / view controls -->
         <div class="toolbar-row">
           <p-iconfield class="search-field">
             <p-inputicon styleClass="pi pi-search" />
@@ -202,7 +196,6 @@
           </p-selectbutton>
         </div>
 
-        <!-- Advanced row: frame-count range + reset -->
         @if (galleryService.showAdvancedFilters()) {
         <div class="advanced-row toolbar-row">
           <span class="advanced-label">Frame count</span>
@@ -244,7 +237,6 @@
         </div>
         }
 
-        <!-- Selection bar (classification projects only) -->
         @if (projectService.config().classification_enabled) {
         <div class="selection-bar" [class.is-active]="hasSelection">
           <i
@@ -286,9 +278,7 @@
       </div>
     </ng-template>
 
-    <!-- ============================================================ -->
-    <!-- Grid                                                          -->
-    <!-- ============================================================ -->
+    <!-- Grid -->
     <ng-template #grid let-items>
       <div
         class="flex flex-row flex-wrap gallery-scroll h-full justify-center overflow-x-clip overflow-y-auto"
@@ -314,9 +304,7 @@
       </div>
     </ng-template>
 
-    <!-- ============================================================ -->
-    <!-- List                                                          -->
-    <!-- ============================================================ -->
+    <!-- List -->
     <ng-template #list let-items>
       <div
         class="flex flex-col gallery-scroll gap-2 h-full overflow-y-auto w-full"
@@ -340,9 +328,7 @@
       </div>
     </ng-template>
 
-    <!-- ============================================================ -->
-    <!-- Empty state                                                   -->
-    <!-- ============================================================ -->
+    <!-- Empty state -->
     <ng-template #empty>
       <div class="gallery-empty">
         <i class="pi pi-inbox"></i>
@@ -362,9 +348,7 @@
       </div>
     </ng-template>
 
-    <!-- ============================================================ -->
-    <!-- Footer                                                        -->
-    <!-- ============================================================ -->
+    <!-- Footer -->
     <ng-template #footer>
       <div class="gallery-footer">
         <small>

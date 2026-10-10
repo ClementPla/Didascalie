@@ -1,15 +1,8 @@
 //! Read-only frame fetches for the sequence inspector.
 //!
-//! The inspector plays a sequence back like a video, so it asks for frames far
-//! faster than the editor does and never edits them. Both commands therefore
-//! return raw bytes (`Response`), never JSON or base64, and both work at a
-//! *preview* resolution: the longest side is capped at `max_dim`, which bounds
-//! what crosses the IPC boundary and what the frontend keeps cached per frame.
-//!
-//! The image and its labels are separate commands because they decode
-//! differently on the other side: the image stays encoded (the webview decodes
-//! JPEG/PNG off the main thread), while the labels arrive already composited to
-//! RGBA, ready to become a bitmap.
+//! The inspector plays a sequence back, so both commands return raw bytes at a
+//! preview resolution capped at `max_dim`. The image stays encoded, for the
+//! webview to decode; the labels arrive composited to RGBA.
 
 use rayon::prelude::*;
 use serde::Deserialize;
@@ -20,24 +13,21 @@ use crate::commands::annotation::decode_to_uint8;
 use crate::commands::frame::{decode_downscaled, detect_mime_type, read_frame_bytes_ahead};
 use crate::storage::{queries, DbState};
 
-/// JPEG quality of a re-encoded preview: playback, not an annotation backdrop,
-/// so encode speed and size matter more than being lossless.
 const PREVIEW_JPEG_QUALITY: u8 = 85;
 
-/// Entries in a label palette: one RGBA colour per uint8 mask value.
+/// One RGBA colour per uint8 mask value.
 const PALETTE_LEN: usize = 256 * 4;
 
-/// One label to draw, with the colour of each of its mask values (`256*4`
-/// RGBA bytes, as built by the frontend's `buildLabelPalette`).
+/// One label to draw, with the colour of each of its mask values (as built by
+/// the frontend's `buildLabelPalette`).
 #[derive(Deserialize, Debug)]
 pub struct OverlayLabel {
     pub id: i64,
     pub palette: Vec<u8>,
 }
 
-/// The size a `width×height` frame is previewed at: unchanged when it already
-/// fits `max_dim` (or `max_dim` is 0, meaning "no cap"), otherwise scaled so
-/// its longest side is exactly `max_dim`.
+/// The size a `width×height` frame is previewed at: its longest side is at
+/// most `max_dim` (0 = no cap).
 fn preview_dimensions(width: u32, height: u32, max_dim: u32) -> (u32, u32) {
     let longest = width.max(height);
     if max_dim == 0 || longest <= max_dim {
@@ -47,7 +37,7 @@ fn preview_dimensions(width: u32, height: u32, max_dim: u32) -> (u32, u32) {
     (scale(width), scale(height))
 }
 
-/// Formats the webview decodes by itself, so their bytes can be passed through.
+/// Formats the webview decodes by itself.
 fn is_browser_decodable(mime: &str) -> bool {
     matches!(
         mime,
@@ -55,10 +45,9 @@ fn is_browser_decodable(mime: &str) -> bool {
     )
 }
 
-/// A frame's image as *encoded* bytes, no larger than `max_dim` on its longest
-/// side. A frame that already fits and that the webview can decode is returned
-/// untouched (no decode at all on this side); anything else is downsampled and
-/// re-encoded as JPEG.
+/// A frame's image as encoded bytes, no larger than `max_dim` on its longest
+/// side. A frame that fits and that the webview can decode is passed through;
+/// anything else is downsampled and re-encoded as JPEG.
 #[tauri::command]
 pub async fn get_frame_preview(
     db: State<'_, DbState>,
@@ -93,28 +82,20 @@ pub async fn get_frame_preview(
     Ok(Response::new(out))
 }
 
-/// Outline thickness in "show only edges" mode, in preview pixels. A preview
-/// is about as large as the pane it is shown in, so this is close to the
-/// editor's two screen pixels until the user zooms in.
+/// Outline thickness in "show only edges" mode, in preview pixels.
 const EDGE_RADIUS: usize = 2;
 
-/// How labels are drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum OverlayMode {
-    /// Every labelled pixel takes its label's colour.
     Fill,
-    /// Only the outline of each region, this many output pixels thick.
+    /// Outlines only, this many output pixels thick.
     Edges(usize),
 }
 
 /// Flatten `layers` (a `width×height` uint8 mask and its palette each) into
-/// `out_w×out_h` RGBA, sampling the masks nearest-neighbour. Layers are given
-/// bottom to top: where several are set, the last one shows, as in the editor.
-///
-/// In [`OverlayMode::Edges`] the outlines are found per layer, before
-/// flattening, so a label lying under another keeps its own outline in its own
-/// colour. They are found on the *sampled* mask, which keeps their thickness
-/// constant on screen whatever the frame's native size.
+/// `out_w×out_h` RGBA, nearest-neighbour. Layers are bottom to top. In
+/// [`OverlayMode::Edges`], outlines are found per layer on the sampled mask,
+/// so each label keeps its own and their thickness is constant on screen.
 fn compose_overlay(
     layers: &[(&[u8], &[u8])],
     width: u32,
@@ -160,9 +141,8 @@ fn compose_overlay(
 }
 
 /// Whether `(x, y)`, which holds `v`, is on the outline of its region: a tap
-/// holds another value (background, another instance) or falls outside the
-/// image. Taps are the 4 direct neighbours plus 8 at distance `radius` — the
-/// editor's rule, constant cost per pixel whatever the thickness.
+/// holds another value or falls outside the image. Taps are the 4 direct
+/// neighbours plus 8 at distance `radius`, as in the editor.
 #[allow(clippy::too_many_arguments)]
 fn is_edge(
     sample: impl Fn(usize, usize) -> u8,
@@ -193,14 +173,10 @@ fn is_edge(
         .any(|(dx, dy)| differs(dx, dy))
 }
 
-/// The labels of a frame composited to RGBA at preview resolution.
-///
-/// `labels` lists what to draw, bottom to top; a label left out is not drawn,
-/// which is how the caller hides one. With `edges_only`, regions are outlined
-/// instead of filled. The reply is an 8-byte header — output
-/// width and height as little-endian `u32` — followed by `width*height*4` RGBA
-/// bytes. A frame with nothing to draw replies with no bytes at all, so the
-/// caller can skip the overlay instead of holding a transparent bitmap.
+/// The labels of a frame composited to RGBA at preview resolution. `labels`
+/// lists what to draw, bottom to top. The reply is an 8-byte header (width
+/// and height as little-endian `u32`) followed by `width*height*4` RGBA
+/// bytes, or nothing at all when there is nothing to draw.
 #[tauri::command]
 pub async fn render_label_overlay(
     db: State<'_, DbState>,
@@ -227,8 +203,7 @@ pub async fn render_label_overlay(
         })
         .map_err(|e| e.to_string())?;
 
-    // Decoding is the expensive part; one mask per requested label, in the
-    // caller's order, dropping the ones that turn out empty.
+    // One mask per requested label, in the caller's order, minus the empty ones.
     let masks: Vec<(usize, Vec<u8>)> = labels
         .par_iter()
         .enumerate()
@@ -337,7 +312,6 @@ mod tests {
 
     #[test]
     fn a_mask_shorter_than_the_frame_reads_as_background() {
-        // A ragged annotation must not panic the whole frame.
         let mask = [1u8];
         let red = palette([255, 0, 0]);
         let out = compose_overlay(&[(&mask, &red)], 2, 1, 2, 1, OverlayMode::Fill);
@@ -398,8 +372,7 @@ mod tests {
 
     #[test]
     fn two_instances_of_a_label_are_outlined_separately() {
-        // Left half is instance 1, right half instance 2: the seam is an edge
-        // on both sides even though no pixel there is background.
+        // Two instances side by side: the seam is an edge on both sides.
         let mask = [1u8, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2];
         let red = palette([255, 0, 0]);
         let out = compose_overlay(&[(&mask, &red)], 4, 3, 4, 3, OverlayMode::Edges(1));
@@ -408,9 +381,7 @@ mod tests {
 
     #[test]
     fn a_label_under_another_keeps_its_outline() {
-        // A small blue square over the middle of a larger red one: red's
-        // inside is empty there, so only blue's outline shows — but red's own
-        // outline, which blue does not cover, is still drawn in red.
+        // A small blue square over a larger red one: each keeps its own outline.
         let below = square(7, 0, 7, 1);
         let above = square(7, 2, 5, 1);
         let red = palette([255, 0, 0]);
