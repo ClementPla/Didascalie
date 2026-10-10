@@ -92,20 +92,32 @@ The gear menu selects how the image is reduced along each segment: maximum,
 mean, minimum, or the value at a single depth.
 
 The horizontal line across the projection marks the current slice. Drag it to
-change slice. Wheel zooms; right- or middle-drag pans.
+change slice. Wheel zooms; drag pans (middle-drag while painting).
 
 <!-- SCREENSHOT: slice canvas with curves A and B drawn and the dashed rulings between them. -->
 <!-- SCREENSHOT: the resulting projection view, with the current-slice line visible. -->
 
 ### Painting on the projection
 
-The pencil button turns the projection into a canvas. It uses the editor's
-active label, brush size and eraser.
+The pencil button turns the projection into a canvas for the editor's raster
+tools: pen, line, lasso and the erasers, with the active label and brush size.
+Refining a stroke with Otsu or flood fill, erasing whole components and the
+[touch and pen options](android.md#tablet-controls) work as on the slice, and
+the image adjustments apply to the projection too. Right-click, or a long
+press, opens the label picker.
+
+Vector tools and the model-based refinements (MedSAM, superpixels) need a
+frame, so they do nothing here; with one of those refinements selected, a
+stroke is kept as drawn.
 
 A projection pixel stands for a whole segment between A and B, so you choose
 where along it the paint lands: the **depth** slider goes from A (0) to B (1).
 ++shift++ + wheel moves it, ++ctrl++ + wheel changes the brush size. The
 "at depth" projection mode shows exactly the surface you are painting on.
+
+What you draw is written half the brush size on each side of that surface,
+along the segment: a wide brush makes a thick sheet, and a lasso is as thick
+as the current brush.
 
 One stroke can touch many slices. They are all saved with the frame, and the
 stroke is a single step in the editor's undo history.
@@ -116,7 +128,7 @@ stroke is a single step in the editor's undo history.
 
 Each view can fill the editor area (++esc++ to go back) or open in its own
 window, for a second monitor. A detached view stays live: it follows edits and
-slice changes like the docked one.
+slice changes like the docked one. There is no separate window on a tablet.
 
 <!-- SCREENSHOT: 3D view detached into its own window next to the main window. -->
 

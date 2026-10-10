@@ -29,6 +29,7 @@ import { MeshDetail, Volume3dSettings, Volume3dSettingsService } from './volume3
 import type { VolumeScene } from './volume-scene';
 import { VolumeLayoutService } from './volume-layout.service';
 import { frameScheduler, observeSize } from '../../shared/detached-window/detached-window';
+import { IS_MOBILE } from '../../core/platform';
 
 /** Brick edge in grid voxels: small enough that an edit remeshes little,
  *  large enough that the brick count (draw calls) stays modest. */
@@ -59,6 +60,7 @@ const BRICK = 32;
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Volume3dViewComponent implements OnDestroy {
+  readonly isMobile = IS_MOBILE;
   readonly volume = inject(MaskVolumeService);
   private readonly labels = inject(LabelsService);
   private readonly sequences = inject(SequenceService);

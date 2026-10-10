@@ -32,6 +32,9 @@ export interface ProjectionStyle {
  * volume (bit `l` = label `l` present), and the lowest visible label found is
  * tinted over the image.
  *
+ * The editor's image adjustments apply as a lookup table on the reduced value,
+ * before the intensity window.
+ *
  * The image and the label bits are 2D array textures, one layer per slice,
  * so an edit re-uploads only the slice it touched.
  *
@@ -49,6 +52,7 @@ export class ProjectionRenderer {
   private image: THREE.DataArrayTexture | null = null;
   private labels: THREE.DataArrayTexture | null = null;
   private ends: THREE.DataTexture | null = null;
+  private lut: THREE.DataTexture | null = null;
   private columns = 0;
   private depth = 0;
   private renderPending = false;
@@ -76,6 +80,8 @@ export class ProjectionRenderer {
         uVisible: { value: 0 },
         uLabelOpacity: { value: 0.5 },
         uDepth: { value: 0.5 },
+        uLut: { value: null },
+        uHasLut: { value: false },
         uColors: {
           value: Array.from({ length: MAX_PROJECTED_LABELS }, () => new THREE.Color()),
         },
@@ -177,6 +183,36 @@ export class ProjectionRenderer {
     this.requestRender();
   }
 
+  /** The editor's image adjustments, as 256 RGBA entries, or null for none. */
+  setLut(packed: Uint8Array | null): void {
+    this.lut?.dispose();
+    this.lut = null;
+    if (packed) {
+      this.lut = new THREE.DataTexture(packed, 256, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+      this.lut.minFilter = THREE.NearestFilter;
+      this.lut.magFilter = THREE.NearestFilter;
+      this.lut.needsUpdate = true;
+    }
+    this.material.uniforms['uLut'].value = this.lut;
+    this.material.uniforms['uHasLut'].value = this.lut !== null;
+    this.requestRender();
+  }
+
+  /**
+   * The projection without its labels, as the post-processing reads it.
+   * Valid until the end of the current task: draw it somewhere at once.
+   */
+  renderImage(): HTMLCanvasElement | null {
+    if (!(this.columns > 0 && this.depth > 0 && this.image)) return null;
+    const labels = this.material.uniforms['uHasLabels'];
+    const shown = labels.value;
+    labels.value = false;
+    this.renderer.render(this.scene, this.camera);
+    labels.value = shown;
+    this.requestRender();
+    return this.renderer.domElement;
+  }
+
   setStyle(style: ProjectionStyle): void {
     const u = this.material.uniforms;
     u['uMode'].value = { max: 0, mean: 1, min: 2, depth: 3 }[style.mode];
@@ -212,6 +248,7 @@ export class ProjectionRenderer {
   dispose(): void {
     this.clearVolume();
     this.ends?.dispose();
+    this.lut?.dispose();
     this.material.dispose();
     this.renderer.dispose();
   }
@@ -255,6 +292,8 @@ const FRAGMENT = /* glsl */ `
   uniform int uVisible;
   uniform float uLabelOpacity;
   uniform float uDepth;
+  uniform sampler2D uLut;
+  uniform bool uHasLut;
   uniform vec3 uColors[${MAX_PROJECTED_LABELS}];
   varying vec2 vUv;
 
@@ -290,8 +329,9 @@ const FRAGMENT = /* glsl */ `
       return;
     }
     if (uMode == 1) acc /= count;
-    float g = clamp((acc * 255.0 - uWindow.x) / (uWindow.y - uWindow.x), 0.0, 1.0);
-    vec3 color = vec3(g);
+    vec3 color = vec3(acc);
+    if (uHasLut) color = texelFetch(uLut, ivec2(int(clamp(acc, 0.0, 1.0) * 255.0 + 0.5), 0), 0).rgb;
+    color = clamp((color * 255.0 - uWindow.x) / (uWindow.y - uWindow.x), 0.0, 1.0);
 
     bits &= uVisible;
     if (bits != 0) {

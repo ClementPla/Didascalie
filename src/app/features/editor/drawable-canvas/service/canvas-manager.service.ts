@@ -73,7 +73,7 @@ export class CanvasManagerService implements ProjectScoped {
 
   /** True for images too large for a native-size composite canvas: the label
    *  layer is then composited per-viewport (see `compositeToDisplay`). */
-  private useViewportComposite = false;
+  protected useViewportComposite = false;
   get usesViewportComposite(): boolean {
     return this.useViewportComposite;
   }
@@ -82,7 +82,7 @@ export class CanvasManagerService implements ProjectScoped {
     this.initializeWebGPU();
   }
 
-  private async initializeWebGPU(): Promise<void> {
+  protected async initializeWebGPU(): Promise<void> {
     this.useWebGPU = await this.webgpuCompositor.initialize();
     console.log(
       `Using ${this.useWebGPU ? 'WebGPU' : 'CPU'} for canvas composition`
@@ -377,7 +377,7 @@ export class CanvasManagerService implements ProjectScoped {
 
   // ── Allocation / lifecycle ───────────────────────────────────────────────
 
-  private ensureAuxCanvases(width: number, height: number) {
+  protected ensureAuxCanvases(width: number, height: number) {
     if (this.useViewportComposite) {
       // Too large for a native composite canvas — release it (frees a lot of
       // memory) and composite per-viewport instead.

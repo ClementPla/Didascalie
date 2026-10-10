@@ -18,6 +18,7 @@ import { SVGElementsComponent } from './svgelements/svgelements.component';
 import { VectorLayerComponent } from './vector-layer/vector-layer.component';
 import { VectorEditorService } from '../service/vector-editor.service';
 import { CanvasInputDirective } from '../directives/canvas-input.directive';
+import { labelPickerItems } from '../label-picker';
 import { Button } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { SelectModule } from 'primeng/select';
@@ -91,15 +92,7 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
    * this is the direct route once a project has more than a handful.
    */
   public openLabelPicker(event: MouseEvent): void {
-    const active = this.labelService.activeLabel;
-    this.labelMenuItems = this.labelService.listSegmentationLabels.map(
-      (label) => ({
-        label: label.label,
-        icon: label === active ? 'pi pi-check' : 'pi pi-fw',
-        style: { 'border-left': `4px solid ${label.color}` },
-        command: () => this.labelService.activate(label),
-      }),
-    );
+    this.labelMenuItems = labelPickerItems(this.labelService);
     this.labelMenu()?.show(event);
   }
 

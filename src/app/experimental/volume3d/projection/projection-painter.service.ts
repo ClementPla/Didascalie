@@ -1,13 +1,11 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { ProjectScoped } from '../../../core/project-scoped';
 
 import { IOService } from '../../../services/io.service';
-import { LabelsService } from '../../../services/labels/labels.service';
 import { MaskVolumeService } from '../../../services/mask-volume.service';
 import { SequenceService } from '../../../services/sequence.service';
 import { CanvasManagerService } from '../../../features/editor/drawable-canvas/service/canvas-manager.service';
-import { DrawService } from '../../../features/editor/drawable-canvas/service/draw.service';
 import {
   ExternalAction,
   UndoRedoService,
@@ -15,37 +13,27 @@ import {
 import { EditorService } from '../../../features/editor/services/editor.service';
 import { ProjectionReduce, Volume3dSettingsService } from '../volume3d-settings.service';
 import { ProjectionService } from './projection.service';
-import { forEachDabPoint } from './projection-brush';
+import { Surface, buildSurface, forEachColumnVoxel, sampleSurface, sliceToRow } from './projection-surface';
 
 /** Voxels one stroke changed in one slice of one label. */
 interface SliceDiff {
   z: number;
   label: number;
-  indices: number[];
-  before: number[];
-  after: number[];
-  /** Slice-local flags: voxel already recorded in this stroke. */
-  seen: Uint8Array;
-}
-
-interface Stroke {
-  /** Volume version the stroke was made on; undo is void once it changes. */
-  version: number;
-  targets: number[];
-  value: number;
-  diffs: Map<string, SliceDiff>;
-  last: { col: number; z: number } | null;
+  /** Offsets in the label's volume. */
+  indices: Uint32Array;
+  before: Uint8Array;
+  after: Uint8Array;
 }
 
 /**
  * Painting on the projection view, written back into the volume.
  *
- * A projection pixel stands for a whole A→B segment of one slice; strokes are
- * written at depth `t` along those segments (`projectionDepth`, 0 = on A,
- * 1 = on B). Each dab is a ball of the brush's radius, in image pixels: along
- * the curves (columns), across slices (scaled by the slice spacing) and along
- * the segment. The active label and instance are painted; with the eraser
- * tool the dab clears the active label (or every label with "erase all").
+ * The view runs the editor's own tools on the surface at depth `t` of the A→B
+ * segments (`projectionDepth`, 0 = on A, 1 = on B), flattened into an image
+ * (see `Surface`). This service is the bridge to the volume: `sample` reads
+ * the label volumes on that surface, and `commit` writes back what a stroke
+ * changed there. A changed pixel is written along its segment, half the brush
+ * size on each side of the surface, so a stroke is as thick as it is wide.
  *
  * Every slice a stroke touches is persisted: the open frame through the usual
  * dirty/autosave path, the others through `MaskVolumeService.saveDirty()`.
@@ -57,8 +45,6 @@ export class ProjectionPainterService implements ProjectScoped {
   private readonly projection = inject(ProjectionService);
   private readonly settingsService = inject(Volume3dSettingsService);
   private readonly editor = inject(EditorService);
-  private readonly draw = inject(DrawService);
-  private readonly labels = inject(LabelsService);
   private readonly sequences = inject(SequenceService);
   private readonly canvasManager = inject(CanvasManagerService);
   private readonly io = inject(IOService);
@@ -71,10 +57,19 @@ export class ProjectionPainterService implements ProjectScoped {
   /** Display mode to restore when painting ends. */
   private modeBefore: ProjectionReduce | null = null;
 
-  private stroke: Stroke | null = null;
   /** Slices written since the last flush, `z:label`. */
   private readonly pending = new Set<string>();
-  private flushScheduled = false;
+
+  /** The surface strokes are written on, or null until both curves exist and
+   *  the volume is resident. */
+  readonly surface = computed<Surface | null>(() => {
+    const columns = this.projection.columns();
+    const { zSpacing, projectionDepth } = this.settingsService.settings();
+    this.volume.version();
+    if (!columns || this.volume.status() !== 'ready') return null;
+    const { width, height, depth } = this.volume;
+    return buildSurface(columns.ends, columns.count, width, height, depth, zSpacing, projectionDepth);
+  });
 
   /** Painting shows the surface being painted, and restores the mode after. */
   setEditing(on: boolean): void {
@@ -86,7 +81,6 @@ export class ProjectionPainterService implements ProjectScoped {
       // Show the surface being painted, with its labels.
       this.settingsService.update({ projectionMode: 'depth', projectionLabels: true });
     } else {
-      this.end();
       if (this.modeBefore && mode === 'depth') this.settingsService.update({ projectionMode: this.modeBefore });
       this.modeBefore = null;
     }
@@ -95,144 +89,80 @@ export class ProjectionPainterService implements ProjectScoped {
   /**
    * @see ProjectScoped
    *
-    * Painting mode is sticky (`setEditing(true)` forces depth mode and remembers
-    * what to restore), so it is dropped with the project, along with any stroke
-    * still queued for flush.
+   * Painting mode is sticky (`setEditing(true)` forces depth mode and remembers
+   * what to restore), so it is dropped with the project.
    */
   resetForProject(): void {
     this.setEditing(false);
-    this.stroke = null;
     this.pending.clear();
-    this.flushScheduled = false;
     this.lastStrokeSlices.set(null);
   }
 
-  get painting(): boolean {
-    return this.stroke !== null;
+  /** The label volumes on the surface, one `columns * rows` image each. */
+  sample(surface: Surface): Uint8Array[] {
+    return this.volume.masks.map((mask) => {
+      const sheet = new Uint8Array(surface.columns * surface.rows);
+      sampleSurface(mask, surface, sheet);
+      return sheet;
+    });
   }
 
-  /** Start a stroke at projection position (`col`, `z`), both fractional. */
-  begin(col: number, z: number): void {
-    if (!this.editing() || this.volume.status() !== 'ready' || !this.projection.columns()) return;
-    const erase = this.editor.isEraser();
-    const active = this.labels.getActiveIndex();
-    const targets =
-      erase && this.editor.eraseAll ? this.volume.masks.map((_, i) => i) : [active];
-    if (targets.some((i) => !this.volume.masks[i])) return;
-    this.stroke = {
-      version: this.volume.version(),
-      targets,
-      value: erase ? 0 : this.draw.getActiveValue(),
-      diffs: new Map(),
-      last: null,
-    };
-    this.moveTo(col, z);
-  }
+  /**
+   * Write back what a stroke changed: `sheets` are the label images the tools
+   * drew on, compared with the volume as it is now.
+   */
+  commit(sheets: Uint8Array[]): void {
+    const surface = this.surface();
+    if (!surface) return;
+    const { columns, depth } = surface;
+    const sliceSize = this.volume.sliceSize;
+    const radius = Math.max(0.5, this.editor.lineWidth / 2);
+    const before = this.sample(surface);
+    const diffs: SliceDiff[] = [];
+    // Voxels of the slice being written that are already recorded.
+    const seen = new Uint8Array(sliceSize);
+    const indices = new Growable(Uint32Array);
+    const old = new Growable(Uint8Array);
 
-  /** Continue the stroke: dabs spaced along the segment from the last point. */
-  moveTo(col: number, z: number): void {
-    const stroke = this.stroke;
-    if (!stroke) return;
-    const zs = this.settingsService.settings().zSpacing;
-    const radius = this.radius();
-    const from = stroke.last ?? { col, z };
-    // Distance in image pixels (slices scaled by their spacing).
-    const distance = Math.hypot(col - from.col, (z - from.z) * zs);
-    const steps = Math.max(1, Math.ceil(distance / Math.max(0.5, radius / 3)));
-    for (let i = stroke.last ? 1 : 0; i <= steps; i++) {
-      const f = i / steps;
-      this.dab(from.col + (col - from.col) * f, from.z + (z - from.z) * f);
+    for (let z = 0; z < depth; z++) {
+      const row = sliceToRow(z, surface) * columns;
+      const base = z * sliceSize;
+      for (let label = 0; label < before.length && label < sheets.length; label++) {
+        const sheet = sheets[label];
+        const was = before[label];
+        const mask = this.volume.masks[label];
+        for (let c = 0; c < columns; c++) {
+          const value = sheet[row + c];
+          if (value === was[row + c]) continue;
+          forEachColumnVoxel(surface, c, radius, (local) => {
+            if (!seen[local]) {
+              seen[local] = 1;
+              indices.push(base + local);
+              old.push(mask[base + local]);
+            }
+            mask[base + local] = value;
+          });
+        }
+        if (indices.length === 0) continue;
+        const touched = indices.take();
+        for (const index of touched) seen[index - base] = 0;
+        diffs.push({
+          z,
+          label,
+          indices: touched,
+          before: old.take(),
+          after: Uint8Array.from(touched, (index) => mask[index]),
+        });
+        this.pending.add(`${z}:${label}`);
+      }
     }
-    stroke.last = { col, z };
-    this.scheduleFlush();
-  }
-
-  /** Finish the stroke and record it for undo. */
-  end(): void {
-    const stroke = this.stroke;
-    this.stroke = null;
-    if (!stroke || stroke.diffs.size === 0) return;
+    if (diffs.length === 0) return;
     this.flush();
-
-    const diffs = [...stroke.diffs.values()];
     this.lastStrokeSlices.set(new Set(diffs.map((d) => d.z)).size);
-    for (const diff of diffs) {
-      diff.after = diff.indices.map(() => stroke.value);
-      diff.seen = new Uint8Array(0); // only needed while painting
-    }
-    this.undoRedo.pushExternal(this.undoAction(stroke.version, diffs), this.currentLayers(diffs));
-  }
-
-  // ── Writing ──────────────────────────────────────────────────────────────
-
-  private radius(): number {
-    return Math.max(0.5, this.editor.lineWidth / 2);
-  }
-
-  private dab(col: number, zf: number): void {
-    const columns = this.projection.columns();
-    if (!columns || !this.stroke) return;
-    const { zSpacing, projectionDepth } = this.settingsService.settings();
-    forEachDabPoint(
-      columns.ends,
-      columns.count,
-      this.volume.depth,
-      col,
-      zf,
-      this.radius(),
-      zSpacing,
-      projectionDepth,
-      (x, y, z) => this.write(x, y, z),
-    );
-  }
-
-  private write(x: number, y: number, z: number): void {
-    const stroke = this.stroke!;
-    const { width, height, sliceSize } = this.volume;
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    if (xi < 0 || yi < 0 || xi >= width || yi >= height) return;
-    const local = yi * width + xi;
-    const index = z * sliceSize + local;
-    for (const label of stroke.targets) {
-      const mask = this.volume.masks[label];
-      if (mask[index] === stroke.value) continue;
-      const key = `${z}:${label}`;
-      let diff = stroke.diffs.get(key);
-      if (!diff) {
-        diff = { z, label, indices: [], before: [], after: [], seen: new Uint8Array(sliceSize) };
-        stroke.diffs.set(key, diff);
-      }
-      if (!diff.seen[local]) {
-        diff.seen[local] = 1;
-        diff.indices.push(index);
-        diff.before.push(mask[index]);
-      }
-      mask[index] = stroke.value;
-      this.pending.add(key);
-    }
+    this.undoRedo.pushExternal(this.undoAction(this.volume.version(), diffs), this.currentLayers(diffs));
   }
 
   // ── Propagating changes ──────────────────────────────────────────────────
-
-  /**
-   * Flush once per burst of pointer events. Scheduled as a task, not an
-   * animation frame: the main window's frames stop while it is hidden, and
-   * the projection may be painted from a detached window.
-   */
-  private scheduleFlush(): void {
-    if (this.flushScheduled) return;
-    this.flushScheduled = true;
-    this.flushChannel.port2.postMessage(null);
-  }
-  private readonly flushChannel = (() => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      this.flushScheduled = false;
-      this.flush();
-    };
-    return channel;
-  })();
 
   /**
    * Tell everyone which slices changed: the open frame goes through the
@@ -279,8 +209,9 @@ export class ProjectionPainterService implements ProjectScoped {
       for (const diff of diffs) {
         const mask = this.volume.masks[diff.label];
         if (!mask) return null;
+        const { indices } = diff;
         const values = diff[which];
-        for (let i = 0; i < diff.indices.length; i++) mask[diff.indices[i]] = values[i];
+        for (let i = 0; i < indices.length; i++) mask[indices[i]] = values[i];
         this.pending.add(`${diff.z}:${diff.label}`);
       }
       const layers = this.currentLayers(diffs);
@@ -288,5 +219,30 @@ export class ProjectionPainterService implements ProjectScoped {
       return layers;
     };
     return { undo: () => apply('before'), redo: () => apply('after') };
+  }
+}
+
+/** An append-only typed array that is handed over, then reused. */
+class Growable<T extends Uint8Array | Uint32Array> {
+  private data: T;
+  length = 0;
+
+  constructor(private readonly type: new (length: number) => T) {
+    this.data = new type(1024);
+  }
+
+  push(value: number): void {
+    if (this.length === this.data.length) {
+      const grown = new this.type(this.data.length * 2);
+      grown.set(this.data);
+      this.data = grown;
+    }
+    this.data[this.length++] = value;
+  }
+
+  take(): T {
+    const out = this.data.slice(0, this.length) as T;
+    this.length = 0;
+    return out;
   }
 }

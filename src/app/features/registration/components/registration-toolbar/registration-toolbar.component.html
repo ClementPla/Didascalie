@@ -86,12 +86,14 @@
         pTooltip="Press Tab to toggle"
         tooltipPosition="bottom"
       ></p-button>
-      <p-button
-        icon="pi pi-external-link"
-        size="small"
-        [label]='"Composite view in new window"'
-        (click)="onOpenComposite()"
-      ></p-button>
+      @if (!isMobile) {
+        <p-button
+          icon="pi pi-external-link"
+          size="small"
+          [label]='"Composite view in new window"'
+          (click)="onOpenComposite()"
+        ></p-button>
+      }
     </div>
   }
 <div class="nav-control">

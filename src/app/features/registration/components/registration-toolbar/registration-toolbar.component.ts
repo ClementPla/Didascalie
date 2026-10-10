@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 
 import { ButtonModule } from 'primeng/button';
 import { SliderModule } from 'primeng/slider';
+import { IS_MOBILE } from '../../../../core/platform';
 
 import {
   RegistrationStateService,
@@ -25,6 +26,7 @@ interface ModeOption {
   styleUrl: './registration-toolbar.component.scss',
 })
 export class RegistrationToolbarComponent {
+  readonly isMobile = IS_MOBILE;
   // registration-toolbar.component.ts — add
   readonly previousClicked = output<void>();
   readonly nextClicked = output<void>();

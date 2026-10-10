@@ -1,6 +1,6 @@
 import { Tools } from '../../../../core/tools';
 import { LONG_PRESS_MS, TAP_SLOP } from '../../../../core/touch';
-import { Directive, HostListener, inject, output } from '@angular/core';
+import { Directive, HostListener, inject, input, output } from '@angular/core';
 import { ZoomPanService } from '../service/zoom-pan.service';
 import { EditorService } from '../../services/editor.service';
 import { DrawService } from '../service/draw.service';
@@ -18,6 +18,15 @@ export class CanvasInputDirective {
   private drawService = inject(DrawService);
   private vectorEditor = inject(VectorEditorService);
   private convertService = inject(ConvertService);
+
+  /**
+   * What a press on this canvas may do: everything (`editor`), the raster
+   * tools only (`raster`: a canvas with no vector layer), or nothing but
+   * moving the view (`view`).
+   */
+  readonly scope = input<'editor' | 'raster' | 'view'>('editor', {
+    alias: 'appCanvasInputScope',
+  });
 
   readonly canvasMove = output<{
     event: MouseEvent;
@@ -40,7 +49,7 @@ export class CanvasInputDirective {
   onContextMenu(event: MouseEvent) {
     event.preventDefault();
     // A finger resting on the canvas: Android reports the long press itself.
-    if (this.longPressBlocked) return;
+    if (this.longPressBlocked || this.scope() === 'view') return;
     // A pen held with its side button reports a right click; when the button
     // is bound to something else, that is not a request for the picker.
     if (
@@ -71,7 +80,7 @@ export class CanvasInputDirective {
 
   @HostListener('dblclick', ['$event'])
   onDoubleClick(event: MouseEvent) {
-    if (event.button !== 0 || !this.editorService.isVectorTool()) return;
+    if (event.button !== 0 || !this.usesVectorTool()) return;
     this.vectorEditor.onDoubleClick(
       this.zoomPanService.getImageCoordinatesRaw(event),
     );
@@ -166,12 +175,14 @@ export class CanvasInputDirective {
 
   private armLongPress(touch: Touch) {
     this.disarmLongPress();
+    if (this.scope() === 'view') return;
     // Only for tools whose press can be taken back: a vector tool has already
     // placed its node, and the convert tools have already run.
     if (
-      this.editorService.isVectorTool() ||
-      this.editorService.isVectorizeTool() ||
-      this.editorService.isSkeletonizeTool()
+      this.scope() === 'editor' &&
+      (this.editorService.isVectorTool() ||
+        this.editorService.isVectorizeTool() ||
+        this.editorService.isSkeletonizeTool())
     ) {
       this.longPressBlocked = true;
       return;
@@ -287,7 +298,16 @@ export class CanvasInputDirective {
     return left;
   }
 
+  /** A vector tool is selected and this canvas has a vector layer. */
+  private usesVectorTool(): boolean {
+    return this.scope() === 'editor' && this.editorService.isVectorTool();
+  }
+
   private pointerDown(event: MouseEvent) {
+    if (this.scope() === 'view') {
+      if (event.button !== 2) this.zoomPanService.startDrag(event);
+      return;
+    }
     if (this.penButtonHeld && this.editorService.penButtonEnabled) {
       const action = this.editorService.penButtonAction;
       if (action === 'picker') {
@@ -326,6 +346,16 @@ export class CanvasInputDirective {
 
     if (this.editorService.canPan()) {
       this.zoomPanService.startDrag(event);
+      return;
+    }
+
+    // Tools that need the vector layer do nothing on a raster-only canvas.
+    if (
+      this.scope() !== 'editor' &&
+      (this.editorService.isVectorTool() ||
+        this.editorService.isVectorizeTool() ||
+        this.editorService.isSkeletonizeTool())
+    ) {
       return;
     }
 
@@ -384,7 +414,7 @@ export class CanvasInputDirective {
       if (this.editorService.canPan()) return;
 
       if (this.editorService.isVectorTool()) {
-        this.vectorEditor.onPointerUp();
+        if (this.usesVectorTool()) this.vectorEditor.onPointerUp();
         return;
       }
 
@@ -450,7 +480,9 @@ export class CanvasInputDirective {
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   private isTouchEvent(event: MouseEvent | TouchEvent): event is TouchEvent {
-    return typeof TouchEvent !== 'undefined' && event instanceof TouchEvent;
+    // Not `instanceof`: the canvas may be in another window, whose events are
+    // built from that window's own classes.
+    return 'touches' in event;
   }
 
   private normalizeEvent(event: MouseEvent | TouchEvent): MouseEvent | null {

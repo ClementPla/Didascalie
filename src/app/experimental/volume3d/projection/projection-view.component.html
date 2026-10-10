@@ -79,9 +79,9 @@
     size="small"
     [text]="true"
     severity="secondary"
-    [disabled]="zoom() === 1 && pan().x === 0 && pan().y === 0"
+    [disabled]="fitted()"
     [tooltipDisabled]="detached()"
-    pTooltip="Fit the projection (wheel zooms, right- or middle-drag pans)"
+    pTooltip="Fit the projection (wheel zooms, middle-drag pans)"
     tooltipPosition="bottom"
     ariaLabel="Fit the projection"
     (onClick)="resetView()"
@@ -109,25 +109,27 @@
       (onClick)="panelLayout.toggleMaximized('projection')"
     />
   }
-  <p-button
-    [icon]="mode() === 'detached' ? 'pi pi-sign-in' : 'pi pi-external-link'"
-    size="small"
-    [text]="true"
-    severity="secondary"
-    [tooltipDisabled]="detached()"
-    [pTooltip]="
-      mode() === 'detached'
-        ? 'Put back in the editor'
-        : 'Open in its own window'
-    "
-    tooltipPosition="bottom"
-    [ariaLabel]="
-      mode() === 'detached'
-        ? 'Put back in the editor'
-        : 'Open in its own window'
-    "
-    (onClick)="panelLayout.toggleDetached('projection')"
-  />
+  @if (!isMobile) {
+    <p-button
+      [icon]="mode() === 'detached' ? 'pi pi-sign-in' : 'pi pi-external-link'"
+      size="small"
+      [text]="true"
+      severity="secondary"
+      [tooltipDisabled]="detached()"
+      [pTooltip]="
+        mode() === 'detached'
+          ? 'Put back in the editor'
+          : 'Open in its own window'
+      "
+      tooltipPosition="bottom"
+      [ariaLabel]="
+        mode() === 'detached'
+          ? 'Put back in the editor'
+          : 'Open in its own window'
+      "
+      (onClick)="panelLayout.toggleDetached('projection')"
+    />
+  }
   <p-button
     icon="pi pi-cog"
     size="small"
@@ -166,16 +168,14 @@
 
 <div
   #viewport
-  class="flex flex-1 items-center justify-center min-h-0 overflow-hidden relative select-none"
+  class="flex-1 min-h-0 overflow-hidden relative select-none"
   [class.hidden]="!expanded()"
-  [class.cursor-grabbing]="panning()"
   (wheel)="onWheel($event)"
-  (pointerdown)="onViewportPointerDown($event)"
   (contextmenu)="$event.preventDefault()"
 >
   <div
     #output
-    class="relative shrink-0"
+    class="absolute left-0 top-0"
     style="transform-origin: 0 0"
     [style.width.px]="display().width"
     [style.height.px]="display().height"
@@ -184,15 +184,24 @@
     <canvas
       #canvas
       class="block h-full touch-none w-full"
-      [class.cursor-crosshair]="!painter.editing()"
-      [class.cursor-none]="painter.editing()"
+      appCanvasInput
+      [appCanvasInputScope]="painter.editing() ? 'raster' : 'view'"
+      [class.cursor-crosshair]="!brushShown()"
+      [class.cursor-none]="brushShown()"
       style="image-rendering: pixelated"
-      (pointerdown)="onPointerDown($event)"
-      (pointermove)="onPointerMove($event)"
-      (pointerup)="onPointerUp()"
-      (pointercancel)="onPointerUp()"
-      (pointerleave)="onPointerLeave()"
-      (click)="onClick($event)"
+      (canvasMove)="onCanvasMove($any($event))"
+      (contextMenu)="openLabelPicker($any($event))"
+      (pointerdown)="onPress($event)"
+      (mouseleave)="onPointerLeave()"
+      (click)="onClick()"
+    ></canvas>
+    <!-- The stroke in progress, until the volume's labels catch up. -->
+    <canvas
+      #stroke
+      class="absolute h-full inset-0 opacity-60 pointer-events-none w-full"
+      style="image-rendering: pixelated"
+      [attr.width]="display().width"
+      [attr.height]="display().height"
     ></canvas>
     @if (sliceMarker(); as y) {
       <!-- The current slice: drag it to change slices. -->
@@ -215,8 +224,8 @@
         ></div>
       </div>
     }
-    <!-- The stroke in progress, until the volume's labels catch up. -->
-    @if (trail(); as points) {
+    <!-- Outline of the lasso or line being drawn. -->
+    @if (preview(); as points) {
       <svg
         class="absolute h-full inset-0 overflow-visible pointer-events-none w-full"
       >
@@ -224,14 +233,12 @@
           [attr.points]="points"
           fill="none"
           [attr.stroke]="brushColor()"
-          stroke-opacity="0.55"
-          [attr.stroke-width]="brushDiameter()"
-          stroke-linecap="round"
+          [attr.stroke-width]="2 / zoom()"
           stroke-linejoin="round"
         />
       </svg>
     }
-    @if (painter.editing() && pointer(); as p) {
+    @if (brushShown() && pointer(); as p) {
       <div
         class="absolute pointer-events-none rounded-full"
         [style.width.px]="brushDiameter()"
@@ -282,6 +289,12 @@
     </div>
   }
 </div>
+
+<p-contextMenu
+  #labelMenu
+  [model]="labelMenuItems"
+  [appendTo]="detached() ? 'self' : 'body'"
+/>
 
 <p-popover #projectionSettings [appendTo]="detached() ? 'self' : 'body'">
   <div class="flex flex-col gap-3 text-sm w-64">

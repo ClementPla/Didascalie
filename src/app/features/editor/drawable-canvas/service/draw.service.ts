@@ -219,7 +219,7 @@ export class DrawService implements OnDestroy {
 
   // ── Subscriptions ────────────────────────────────────────────────────────
 
-  private initializeSubscriptions(): void {
+  protected initializeSubscriptions(): void {
     this.editorService.canvasSumRefresh
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {

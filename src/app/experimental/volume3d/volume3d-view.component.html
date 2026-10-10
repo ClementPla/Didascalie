@@ -90,25 +90,27 @@
       (onClick)="layout.toggleMaximized('3d')"
     />
   }
-  <p-button
-    [icon]="mode() === 'detached' ? 'pi pi-sign-in' : 'pi pi-external-link'"
-    size="small"
-    [text]="true"
-    severity="secondary"
-    [tooltipDisabled]="detached()"
-    [pTooltip]="
-      mode() === 'detached'
-        ? 'Put back in the editor'
-        : 'Open in its own window'
-    "
-    tooltipPosition="bottom"
-    [ariaLabel]="
-      mode() === 'detached'
-        ? 'Put back in the editor'
-        : 'Open in its own window'
-    "
-    (onClick)="layout.toggleDetached('3d')"
-  />
+  @if (!isMobile) {
+    <p-button
+      [icon]="mode() === 'detached' ? 'pi pi-sign-in' : 'pi pi-external-link'"
+      size="small"
+      [text]="true"
+      severity="secondary"
+      [tooltipDisabled]="detached()"
+      [pTooltip]="
+        mode() === 'detached'
+          ? 'Put back in the editor'
+          : 'Open in its own window'
+      "
+      tooltipPosition="bottom"
+      [ariaLabel]="
+        mode() === 'detached'
+          ? 'Put back in the editor'
+          : 'Open in its own window'
+      "
+      (onClick)="layout.toggleDetached('3d')"
+    />
+  }
   <p-button
     icon="pi pi-cog"
     size="small"
