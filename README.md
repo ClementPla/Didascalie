@@ -23,6 +23,7 @@
   <a href="https://didascalie.readthedocs.io/quickstart/">Quickstart</a>
   ·
   <a href="https://github.com/ClementPla/Didascalie/releases">Releases</a>
+  <a href="https://joss.theoj.org/papers/670f32788d6c54fef4e7993d74aa0161"><img src="https://joss.theoj.org/papers/670f32788d6c54fef4e7993d74aa0161/status.svg"></a>
 </p>
 
 ---
