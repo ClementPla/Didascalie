@@ -4,6 +4,17 @@ on:
   push:
     branches:
       - release
+    # A push that changes only these files does not rebuild the app. Read the
+    # Docs and draft-pdf.yml build the docs and the paper on their own.
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "paper.bib"
+      - "mkdocs.yml"
+      - ".readthedocs.yaml"
+      - ".github/scripts/**"
+  # "Run workflow" button in the Actions tab, to build anyway.
+  workflow_dispatch:
 
 # This workflow will trigger on each push to the `release` branch to create or update a GitHub release, build your app, and upload the artifacts to the release.
 
@@ -107,7 +118,6 @@ jobs:
         with:
           tagName: didascalie-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: "Didascalie v__VERSION__"
-          releaseBody: "Download the installer for your platform from the assets below."
           # Publish directly (not as a draft) so GitHub's /releases/latest — which
           # the updater's endpoint resolves — points at the new version and clients
           # auto-update. A draft is invisible to /releases/latest.
@@ -222,5 +232,23 @@ jobs:
           cp "$APK" "Didascalie_${VERSION}_android_arm64.apk"
           gh release view "$TAG" > /dev/null 2>&1 || \
             gh release create "$TAG" --title "Didascalie v$VERSION" \
-              --notes "Download the installer for your platform from the assets below."
+              --notes ""
           gh release upload "$TAG" "Didascalie_${VERSION}_android_arm64.apk" --clobber
+
+  # A download table, grouped by platform, at the top of the release notes:
+  # GitHub lists the assets alphabetically, with the updater files mixed in.
+  release-notes:
+    needs: [publish-tauri, publish-android]
+    if: ${{ !cancelled() }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: write the download table
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          python3 .github/scripts/release_downloads.py "didascalie-v$VERSION"
