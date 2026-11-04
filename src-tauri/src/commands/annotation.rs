@@ -2,6 +2,7 @@ use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use tauri::ipc::{InvokeBody, Request};
 use tauri::State;
@@ -15,9 +16,8 @@ use crate::types::image::{AnnotationResponse, MaskEncoding, LabelId};
 /// The legacy encodings (`rle`, instance `png`) are still read.
 #[tauri::command]
 pub fn save_annotation(db: State<DbState>, request: Request<'_>) -> Result<()> {
-    let InvokeBody::Raw(encoded) = request.body() else {
-        return Err(AppError::Other("save_annotation expects the encoded mask as raw bytes".into()));
-    };
+    let encoded = body_bytes(request.body())?;
+    let encoded = encoded.as_ref();
     let header = |name: &str| -> Result<i64> {
         request
             .headers()
@@ -37,6 +37,24 @@ pub fn save_annotation(db: State<DbState>, request: Request<'_>) -> Result<()> {
         }
         queries::save_annotation(conn, frame_id, label_id, encoded, MaskEncoding::Rle8)
     })
+}
+
+/// The bytes of a raw request body. On Android, Tauri sends every command
+/// through `postMessage`, which turns a `Uint8Array` into a JSON array of
+/// numbers; elsewhere the bytes arrive as they are.
+fn body_bytes(body: &InvokeBody) -> Result<Cow<'_, [u8]>> {
+    match body {
+        InvokeBody::Raw(bytes) => Ok(Cow::Borrowed(bytes)),
+        InvokeBody::Json(serde_json::Value::Array(values)) => values
+            .iter()
+            .map(|v| v.as_u64().and_then(|b| u8::try_from(b).ok()))
+            .collect::<Option<Vec<u8>>>()
+            .map(Cow::Owned)
+            .ok_or_else(|| AppError::Other("save_annotation expects an array of bytes".into())),
+        InvokeBody::Json(_) => {
+            Err(AppError::Other("save_annotation expects the encoded mask as bytes".into()))
+        }
+    }
 }
 
 /// Erase every annotation on every frame of a sequence, returning how many
@@ -163,4 +181,23 @@ pub fn get_labels(db: State<DbState>) -> Result<Vec<LabelInfo>> {
         
         Ok(labels)
     })
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn body_bytes_takes_raw_and_android_json() {
+        let raw = InvokeBody::Raw(vec![0, 7, 255]);
+        assert_eq!(body_bytes(&raw).unwrap().as_ref(), &[0, 7, 255]);
+
+        // What Android's postMessage turns a Uint8Array into.
+        let android = InvokeBody::Json(json!([0, 7, 255]));
+        assert_eq!(body_bytes(&android).unwrap().as_ref(), &[0, 7, 255]);
+
+        assert!(body_bytes(&InvokeBody::Json(json!([256]))).is_err());
+        assert!(body_bytes(&InvokeBody::Json(json!([-1]))).is_err());
+        assert!(body_bytes(&InvokeBody::Json(json!({ "frameId": 1 }))).is_err());
+    }
 }
