@@ -1,8 +1,8 @@
 # Android tablets
 
 Didascalie runs on Android tablets, with finger and pen input. This is recent:
-it works, but there is no prebuilt APK yet, so you build it yourself. It has
-been tested on one device, a Samsung Galaxy Tab S9 FE with Android 16.
+it works, but it has been tested on one device, a Samsung Galaxy Tab S9 FE with
+Android 16.
 
 ![The editor on a tablet held upright, with the labels in a bar above the canvas.](assets/screenshots/android_portrait.jpg){ width="420" }
 
@@ -57,7 +57,22 @@ on that copy:
     - pen side button: a stroke with the button held erases, pans or opens the
       label picker. Hold the button before the pen touches the screen.
 
-## Building and installing
+## Installing the APK
+
+Each [release](https://github.com/ClementPla/Didascalie/releases/latest) has an
+APK for 64-bit ARM tablets, which covers recent ones:
+`Didascalie_<version>_android_arm64.apk`.
+
+1. Download it on the tablet, or copy it there.
+2. Open it from the file manager or the browser's downloads. Android asks to
+   allow installing apps from that source: allow it, then install.
+
+The application does not update itself on Android. To update, install the APK
+of the new release over the old one: the projects on the tablet are kept. An
+app such as [Obtainium](https://github.com/ImranR98/Obtainium) can watch the
+releases and install new versions for you.
+
+## Building from source
 
 ### Requirements
 
@@ -91,7 +106,11 @@ The first build takes a while. The result is an unsigned APK:
 
 ### Sign
 
-Android only installs signed APKs. Create a key once:
+Android only installs signed APKs. An APK you build yourself cannot update one
+installed from a release, which is signed with another key: uninstall that one
+first.
+
+Create a key once:
 
 ```bash
 keytool -genkeypair -keystore my-key.jks -alias didascalie -keyalg RSA -keysize 2048 -validity 10000
@@ -108,6 +127,18 @@ apksigner sign --ks my-key.jks didascalie.apk
 Keep the key: an update must be signed with the same one, or Android refuses it
 until the application is uninstalled, which deletes the projects stored on the
 tablet.
+
+To have the build sign the APK itself, write the key's details in
+`src-tauri/gen/android/keystore.properties`, which git ignores:
+
+```properties
+storeFile=/path/to/my-key.jks
+storePassword=...
+keyAlias=didascalie
+keyPassword=...
+```
+
+The build then produces `app-universal-release.apk`, already signed.
 
 ### Install
 

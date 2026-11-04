@@ -114,3 +114,113 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }} --config src-tauri/tauri.microscopy.conf.json
+
+  # Signed APK for Android tablets, attached to the release the desktop job
+  # made. Runs after it so the release exists. Needs four repository secrets:
+  #   ANDROID_KEYSTORE_BASE64    the keystore file: base64 -w0 didascalie.jks
+  #   ANDROID_KEYSTORE_PASSWORD
+  #   ANDROID_KEY_ALIAS
+  #   ANDROID_KEY_PASSWORD
+  # Without them the job only logs a warning. Always sign with the same key:
+  # Android refuses an update signed with another one.
+  publish-android:
+    needs: publish-tauri
+    # Still attach the APK when one desktop build failed.
+    if: ${{ !cancelled() }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    env:
+      NDK_VERSION: 28.0.12916984
+    steps:
+      - name: check for the signing key
+        id: key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: the APK is not built."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.present == 'true'
+
+      - name: setup node
+        if: steps.key.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: setup java
+        if: steps.key.outputs.present == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: setup the Android SDK and NDK
+        if: steps.key.outputs.present == 'true'
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-36 build-tools;35.0.1 ndk;${{ env.NDK_VERSION }}"
+
+      - name: install Rust stable
+        if: steps.key.outputs.present == 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: cache cargo
+        if: steps.key.outputs.present == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: android-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: install frontend dependencies
+        if: steps.key.outputs.present == 'true'
+        run: npm install
+
+      - name: write the signing key
+        if: steps.key.outputs.present == 'true'
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/didascalie.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/didascalie.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > src-tauri/gen/android/keystore.properties
+
+      - name: build the APK
+        if: steps.key.outputs.present == 'true'
+        run: |
+          export NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          npx tauri android build --apk --target aarch64
+
+      - name: attach the APK to the release
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="didascalie-v$VERSION"
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*-release.apk' | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No signed APK found."; exit 1
+          fi
+          cp "$APK" "Didascalie_${VERSION}_android_arm64.apk"
+          gh release view "$TAG" > /dev/null 2>&1 || \
+            gh release create "$TAG" --title "Didascalie v$VERSION" \
+              --notes "Download the installer for your platform from the assets below."
+          gh release upload "$TAG" "Didascalie_${VERSION}_android_arm64.apk" --clobber

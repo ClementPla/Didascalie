@@ -13,8 +13,28 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Release signing key, from src-tauri/gen/android/keystore.properties (not
+// committed): storeFile, storePassword, keyAlias, keyPassword. CI writes it
+// from repository secrets. Without it, the release APK is left unsigned.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 36
+    if (!keystoreProperties.isEmpty) {
+        signingConfigs {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
     namespace = "io.github.clementpla.didascalie"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -37,6 +57,9 @@ android {
             }
         }
         getByName("release") {
+            if (!keystoreProperties.isEmpty) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }

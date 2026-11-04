@@ -17,3 +17,7 @@ key.properties
 
 /.tauri
 /tauri.settings.gradle
+# Release signing key (see app/build.gradle.kts)
+keystore.properties
+*.jks
+*.keystore

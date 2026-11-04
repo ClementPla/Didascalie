@@ -33,8 +33,8 @@ Didascalie checks for new releases on start-up and can update itself in place.
 
 ## Android tablets
 
-There is no prebuilt APK yet. The application does run on Android tablets when
-built from source: see [Android tablets](android.md).
+Each release has an APK for Android tablets. See [Android tablets](android.md)
+for installing it and for what works on a tablet.
 
 ## Optional: GPU training
 
