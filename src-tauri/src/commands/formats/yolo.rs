@@ -13,7 +13,7 @@ use crate::utils::AppError;
 
 pub struct Yolo;
 
-const IMAGE_EXTS: [&str; 6] = ["png", "jpg", "jpeg", "bmp", "tif", "tiff"];
+const IMAGE_EXTS: [&str; 7] = ["png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"];
 
 fn is_segment(opts: &OptionValues) -> bool {
     get_str(opts, "task", "segment") == "segment"

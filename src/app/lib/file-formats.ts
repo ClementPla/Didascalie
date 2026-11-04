@@ -22,6 +22,7 @@ export const FILE_FORMAT_GROUPS: readonly FileFormatGroup[] = [
       { label: 'JPEG', extensions: ['jpg', 'jpeg'] },
       { label: 'BMP', extensions: ['bmp'] },
       { label: 'TIFF / OME-TIFF', extensions: ['tif', 'tiff'] },
+      { label: 'WebP', extensions: ['webp'] },
     ],
   },
   {

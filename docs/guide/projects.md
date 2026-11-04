@@ -17,7 +17,7 @@ is open, `-wal` and `-shm` files sit next to it and hold the latest changes.
 
 | Group | Formats | Extensions |
 | --- | --- | --- |
-| Images | PNG, JPEG, BMP, TIFF | `.png` `.jpg` `.jpeg` `.bmp` `.tif` `.tiff` |
+| Images | PNG, JPEG, BMP, TIFF, WebP | `.png` `.jpg` `.jpeg` `.bmp` `.tif` `.tiff` `.webp` |
 | Videos | MP4, MOV, MKV, WebM, AVI | `.mp4` `.m4v` `.mov` `.mkv` `.webm` `.avi` |
 | Microscopy | Zeiss CZI, LSM and ZVI; Leica LIF; Nikon ND2; Olympus OIB/OIF and VSI; Imaris IMS; whole-slide SVS, NDPI, SCN and BIF; DeltaVision; Gatan DM; MetaMorph STK; OME-TIFF | `.czi` `.lsm` `.zvi` `.lif` `.nd2` `.oib` `.oif` `.vsi` `.ims` `.svs` `.ndpi` `.scn` `.bif` `.dv` `.r3d` `.dm3` `.dm4` `.stk` `.ome.tif` `.ome.tiff` |
 
@@ -47,7 +47,7 @@ out of how many, and the file last finished.
 
 ### Images
 
-PNG, JPEG, TIFF and BMP images are imported as they are: 8-bit RGB or
+PNG, JPEG, TIFF, BMP and WebP images are imported as they are: 8-bit RGB or
 greyscale, and **16-bit** or float greyscale and RGB too. A TIFF whose pages
 are greyscale images of one size is read as **one image with a channel per
 page**.

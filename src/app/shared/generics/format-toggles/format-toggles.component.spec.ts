@@ -48,7 +48,7 @@ describe('FormatTogglesComponent', () => {
     expect(toggles.groupState(images)).toBe('all');
     toggles.toggleGroup(videos);
     expect(toggles.groupState(videos)).toBe('none');
-    expect(toggles.extensions()).toEqual(['png', 'jpg', 'jpeg', 'bmp', 'tif', 'tiff']);
+    expect(toggles.extensions()).toEqual(['png', 'jpg', 'jpeg', 'bmp', 'tif', 'tiff', 'webp']);
   });
 
   it('toggles one format and keeps the rest of its group', () => {

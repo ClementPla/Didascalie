@@ -79,7 +79,7 @@ pub struct ProjectConfig {
 }
 
 /// Image file extensions a folder scan can take.
-pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "tif", "tiff"];
+pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "bmp", "tif", "tiff", "webp"];
 
 /// Microscopy file extensions, read through Bio-Formats: single-file formats
 /// with an extension of their own (OME-TIFF goes with TIFF).
