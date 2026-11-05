@@ -14,6 +14,14 @@ import { Tool, Tools, PostProcessOption } from '../../../core/tools';
 /** What the pen's side button can be bound to. */
 export type PenButtonAction = 'none' | 'eraser' | 'pan' | 'picker';
 
+/** How a drawing stroke treats labels already under it. `swap`: only pixels
+ *  a target label holds move to the active label. `swapDraw`: the same, and
+ *  the rest of the stroke is drawn as usual. */
+export type SwapMode = 'off' | 'swap' | 'swapDraw';
+
+/** Which labels a swap may take pixels from. */
+export type SwapTarget = 'all' | 'visible' | 'selected';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -58,9 +66,42 @@ export class EditorService {
   set postProcessOption(v: PostProcessOption) { this._postProcessOption.set(v); }
 
 
+  /** Outline mode: labels show as a fill and a contour band, each with its
+   *  own visibility and opacity (below). Its defaults show the edges only. */
   private readonly _edgesOnly = signal(false);
   get edgesOnly(): boolean { return this._edgesOnly(); }
   set edgesOnly(v: boolean) { this._edgesOnly.set(v); }
+
+  private readonly _outlineShowFill = signal(false);
+  get outlineShowFill(): boolean { return this._outlineShowFill(); }
+  set outlineShowFill(v: boolean) { this._outlineShowFill.set(v); }
+
+  private readonly _outlineFillOpacity = signal(0.3);
+  get outlineFillOpacity(): number { return this._outlineFillOpacity(); }
+  set outlineFillOpacity(v: number) { this._outlineFillOpacity.set(v); }
+
+  private readonly _outlineShowContour = signal(true);
+  get outlineShowContour(): boolean { return this._outlineShowContour(); }
+  set outlineShowContour(v: boolean) { this._outlineShowContour.set(v); }
+
+  private readonly _outlineContourOpacity = signal(1);
+  get outlineContourOpacity(): number { return this._outlineContourOpacity(); }
+  set outlineContourOpacity(v: number) { this._outlineContourOpacity.set(v); }
+
+  /** Contour band thickness, in screen pixels. */
+  private readonly _outlineContourWidth = signal(2);
+  get outlineContourWidth(): number { return this._outlineContourWidth(); }
+  set outlineContourWidth(v: number) { this._outlineContourWidth.set(v); }
+
+  /** Fill and contour opacities in outline mode, 0 where hidden; null when
+   *  labels are drawn plainly. */
+  public outlineAlphas(): { fillAlpha: number; contourAlpha: number } | null {
+    if (!this.edgesOnly) return null;
+    return {
+      fillAlpha: this.outlineShowFill ? this.outlineFillOpacity : 0,
+      contourAlpha: this.outlineShowContour ? this.outlineContourOpacity : 0,
+    };
+  }
 
   private readonly _enforceConnectivity = signal(false);
   get enforceConnectivity(): boolean { return this._enforceConnectivity(); }
@@ -84,9 +125,43 @@ export class EditorService {
   get lineWidth(): number { return this._lineWidth(); }
   set lineWidth(v: number) { this._lineWidth.set(v); }
 
-  private readonly _swapMarkers = signal(false);
-  get swapMarkers(): boolean { return this._swapMarkers(); }
-  set swapMarkers(v: boolean) { this._swapMarkers.set(v); }
+  /** Smooth pen, eraser and lasso strokes (strengths below). */
+  private readonly _smoothStrokes = signal(false);
+  get smoothStrokes(): boolean { return this._smoothStrokes(); }
+  set smoothStrokes(v: boolean) { this._smoothStrokes.set(v); }
+
+  /** Pen and eraser stabilizer: the brush trails the pointer on a string this
+   *  long, in screen pixels. */
+  private readonly _brushStabilizer = signal(8);
+  get brushStabilizer(): number { return this._smoothStrokes() ? this._brushStabilizer() : 0; }
+  set brushStabilizer(v: number) { this._brushStabilizer.set(v); }
+
+  /** Lasso outline smoothing radius, in screen pixels. */
+  private readonly _lassoSmoothing = signal(6);
+  get lassoSmoothing(): number { return this._smoothStrokes() ? this._lassoSmoothing() : 0; }
+  set lassoSmoothing(v: number) { this._lassoSmoothing.set(v); }
+
+  private readonly _swapMode = signal<SwapMode>('off');
+  get swapMode(): SwapMode { return this._swapMode(); }
+  set swapMode(v: SwapMode) {
+    if (v !== 'off') this.lastSwapMode = v;
+    this._swapMode.set(v);
+  }
+  /** The mode a plain on/off toggle turns back on. */
+  private lastSwapMode: Exclude<SwapMode, 'off'> = 'swap';
+
+  /** Swap is on, in either mode. Setting it on restores the last mode. */
+  get swapMarkers(): boolean { return this._swapMode() !== 'off'; }
+  set swapMarkers(v: boolean) { this.swapMode = v ? this.lastSwapMode : 'off'; }
+
+  private readonly _swapTarget = signal<SwapTarget>('visible');
+  get swapTarget(): SwapTarget { return this._swapTarget(); }
+  set swapTarget(v: SwapTarget) { this._swapTarget.set(v); }
+
+  /** Label ids a `selected` swap may take pixels from. */
+  private readonly _swapTargetLabels = signal<number[]>([]);
+  get swapTargetLabels(): number[] { return this._swapTargetLabels(); }
+  set swapTargetLabels(v: number[]) { this._swapTargetLabels.set(v); }
 
   private readonly _incrementAfterStroke = signal(false);
   get incrementAfterStroke(): boolean { return this._incrementAfterStroke(); }
@@ -105,12 +180,12 @@ export class EditorService {
   // ── Pressure ─────────────────────────────────────────────────────────────
 
   /** Scale the brush radius by pen pressure. */
-  private readonly _pressureSensitivity = signal(false);
+  private readonly _pressureSensitivity = signal(true);
   get pressureSensitivity(): boolean { return this._pressureSensitivity(); }
   set pressureSensitivity(v: boolean) { this._pressureSensitivity.set(v); }
 
   /** Only the pen draws; a finger pans instead. */
-  private readonly _penOnlyDrawing = signal(false);
+  private readonly _penOnlyDrawing = signal(true);
   get penOnlyDrawing(): boolean { return this._penOnlyDrawing(); }
   set penOnlyDrawing(v: boolean) { this._penOnlyDrawing.set(v); }
 

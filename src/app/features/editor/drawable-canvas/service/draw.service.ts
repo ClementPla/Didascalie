@@ -148,6 +148,7 @@ export class DrawService implements OnDestroy {
       color: this.getFillColor(),
       value: this.getActiveValue(),
       getCoords: (e) => this.zoomPanService.getImageCoordinates(e),
+      imagePxPerScreenPx: () => 1 / (this.zoomPanService.scale || 1),
       swapMarkers: () => this.swapMarkers(),
       singleDrawRequest: (ctx) => this.singleDrawRequest.next(ctx),
       redrawRequest: () => this.redrawRequest.next(true),
@@ -170,9 +171,26 @@ export class DrawService implements OnDestroy {
       w,
       region,
       rect,
-      this.getActiveValue()
+      this.getActiveValue(),
+      this.swapTargets(),
+      this.editorService.swapMode === 'swapDraw'
     );
     this.stateService.recomputeCanvasSum = true;
+  }
+
+  /** Per label, whether a swap may take its pixels; null for all. */
+  private swapTargets(): boolean[] | null {
+    const labels = this.labelService.listSegmentationLabels;
+    switch (this.editorService.swapTarget) {
+      case 'visible':
+        return labels.map((l) => l.isVisible);
+      case 'selected': {
+        const ids = new Set(this.editorService.swapTargetLabels);
+        return labels.map((l) => ids.has(l.id));
+      }
+      default:
+        return null;
+    }
   }
 
   private async handleGlobalPostProcessing(): Promise<void> {

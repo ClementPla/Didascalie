@@ -617,8 +617,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.editorService.useProcessing ||
       this.editorService.penPostProcess ||
       this.editorService.eraserPostProcess ||
-      this.editorService.showBoundingBox ||
-      this.editorService.touchSettingsOpen
+      this.editorService.touchSettingsOpen ||
+      this.editorService.smoothStrokes ||
+      this.editorService.edgesOnly
     );
   }
 
@@ -682,9 +683,5 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /** Off returns to the previous tool, like releasing Space. */
-  setPanTool(on: boolean): void {
-    if (on) this.editorService.activatePanMode();
-    else this.editorService.restoreLastTool();
-  }
 
 }

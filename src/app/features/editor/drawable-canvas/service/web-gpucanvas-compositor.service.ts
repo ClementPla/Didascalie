@@ -1,10 +1,12 @@
 import { Injectable } from '@angular/core';
+import { OutlineStyle, diagonalReach } from './outline-raster';
 
 /**
  * GPU compositor of the label masks. Each mask is a layer of an `r8uint`
  * texture array, with a 256-entry palette per layer. The shader writes the
- * colour of the top-most nonzero layer, like the CPU path; in edge mode it
- * keeps only the pixels on each layer's own outline.
+ * colour of the top-most nonzero layer, like the CPU path. In outline mode
+ * each layer's contour band and interior get their own opacity and are
+ * blended over the layers below (see `outline-raster.ts`, which it matches).
  */
 @Injectable({ providedIn: 'root' })
 export class WebGPUCanvasCompositorService {
@@ -111,7 +113,7 @@ export class WebGPUCanvasCompositorService {
         [true, true],
         n,
         n,
-        true
+        { fillAlpha: 0, contourAlpha: 1, radius: 1 }
       );
       const epx = (x: number, y: number) => {
         const i = (y * n + x) * 4;
@@ -199,7 +201,7 @@ export class WebGPUCanvasCompositorService {
     });
 
     this.uniformBuffer = this.device.createBuffer({
-      size: 16,
+      size: 32,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -242,7 +244,11 @@ export class WebGPUCanvasCompositorService {
         width: u32,
         height: u32,
         layerCount: u32,
-        edgesOnly: u32,
+        outline: u32,
+        radius: u32,
+        diagonal: u32,
+        fillAlpha: f32,
+        contourAlpha: f32,
       }
 
       @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -260,40 +266,66 @@ export class WebGPUCanvasCompositorService {
         );
       }
 
+      // The pixel at c + d*k holds v; outside the image never does.
+      fn same(c: vec2<i32>, d: vec2<i32>, k: i32, layer: i32, v: u32) -> bool {
+        let p = c + d * k;
+        if (p.x < 0 || p.y < 0 || p.x >= i32(uniforms.width) || p.y >= i32(uniforms.height)) {
+          return false;
+        }
+        return textureLoad(masks, p, layer, 0).r == v;
+      }
+
+      // Edges are found per layer, before flattening, so a label stacked under
+      // another keeps its own outline. Interior: the 8 rays out to the radius
+      // (axes) and the diagonal reach hold v. Nearest taps first, so an edge
+      // pixel exits early.
+      fn interior(c: vec2<i32>, layer: i32, v: u32) -> bool {
+        let r = i32(uniforms.radius);
+        let s = i32(uniforms.diagonal);
+        for (var k = 1; k <= r; k++) {
+          if (!same(c, vec2<i32>(1, 0), k, layer, v) || !same(c, vec2<i32>(-1, 0), k, layer, v) ||
+              !same(c, vec2<i32>(0, 1), k, layer, v) || !same(c, vec2<i32>(0, -1), k, layer, v)) {
+            return false;
+          }
+          if (k <= s) {
+            if (!same(c, vec2<i32>(1, 1), k, layer, v) || !same(c, vec2<i32>(-1, 1), k, layer, v) ||
+                !same(c, vec2<i32>(1, -1), k, layer, v) || !same(c, vec2<i32>(-1, -1), k, layer, v)) {
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+
       @compute @workgroup_size(8, 8)
       fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let x = global_id.x;
         let y = global_id.y;
         if (x >= uniforms.width || y >= uniforms.height) { return; }
+        let c = vec2<i32>(i32(x), i32(y));
 
         var finalColor = vec4<f32>(0.0, 0.0, 0.0, 0.0);
         for (var i = 0u; i < uniforms.layerCount; i++) {
           if (visibilityFlags[i] == 0u) { continue; }
-          let v = textureLoad(masks, vec2<i32>(i32(x), i32(y)), i32(i), 0).r;
+          let v = textureLoad(masks, c, i32(i), 0).r;
           if (v == 0u) { continue; }
           let color = unpack(palette[i * 256u + v]);
-          if (uniforms.edgesOnly != 0u) {
-            // Edges are found per layer, before flattening, so a label stacked
-            // under another keeps its own outline. A pixel is an edge when a
-            // 4-neighbour of the same layer holds a different value (background
-            // or another instance) or lies outside the image.
-            let onBorder = x == 0u || y == 0u ||
-              x + 1u >= uniforms.width || y + 1u >= uniforms.height;
-            if (!onBorder) {
-              let c = vec2<i32>(i32(x), i32(y));
-              let l = textureLoad(masks, c + vec2<i32>(-1, 0), i32(i), 0).r;
-              let r = textureLoad(masks, c + vec2<i32>(1, 0), i32(i), 0).r;
-              let u = textureLoad(masks, c + vec2<i32>(0, -1), i32(i), 0).r;
-              let d = textureLoad(masks, c + vec2<i32>(0, 1), i32(i), 0).r;
-              if (l == v && r == v && u == v && d == v) { continue; }
-            }
-            finalColor = vec4<f32>(color.rgb, 1.0);
+          if (uniforms.outline == 0u) {
+            // Later (higher-index) layers paint over earlier ones.
+            finalColor = color;
             continue;
           }
-          // Later (higher-index) layers paint over earlier ones.
-          finalColor = color;
+          var a = color.a * uniforms.fillAlpha;
+          if (uniforms.contourAlpha > 0.0 && !interior(c, i32(i), v)) {
+            a = uniforms.contourAlpha;
+          }
+          if (a <= 0.0) { continue; }
+          // Straight-alpha "over".
+          let keep = finalColor.a * (1.0 - a);
+          let outA = a + keep;
+          finalColor = vec4<f32>((color.rgb * a + finalColor.rgb * keep) / outA, outA);
         }
-        textureStore(outputTexture, vec2<i32>(i32(x), i32(y)), finalColor);
+        textureStore(outputTexture, c, finalColor);
       }
     `;
 
@@ -312,7 +344,7 @@ export class WebGPUCanvasCompositorService {
     visibilityFlags: boolean[],
     width: number,
     height: number,
-    edgesOnly = false
+    outline: OutlineStyle | null = null
   ): Promise<ImageData> {
     if (this.isProcessing) {
       await this.waitForCompletion();
@@ -371,13 +403,19 @@ export class WebGPUCanvasCompositorService {
 
       const encoder = this.device.createCommandEncoder();
 
-      const compositeUniforms = new Uint32Array([
-        width,
-        height,
-        masks.length,
-        edgesOnly ? 1 : 0,
-      ]);
-      this.device.queue.writeBuffer(this.uniformBuffer!, 0, compositeUniforms);
+      const uniformData = new ArrayBuffer(32);
+      const u32 = new Uint32Array(uniformData);
+      const f32 = new Float32Array(uniformData);
+      const radius = outline ? Math.max(1, Math.round(outline.radius)) : 0;
+      u32[0] = width;
+      u32[1] = height;
+      u32[2] = masks.length;
+      u32[3] = outline ? 1 : 0;
+      u32[4] = radius;
+      u32[5] = diagonalReach(radius);
+      f32[6] = outline ? outline.fillAlpha : 0;
+      f32[7] = outline ? outline.contourAlpha : 0;
+      this.device.queue.writeBuffer(this.uniformBuffer!, 0, uniformData);
 
       const compositeBindGroup = this.device.createBindGroup({
         layout: this.compositePipeline!.getBindGroupLayout(0),

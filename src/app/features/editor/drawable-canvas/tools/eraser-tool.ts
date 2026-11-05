@@ -1,5 +1,5 @@
 import { BaseTool } from './base-tool';
-import { ToolContext } from '../interface';
+import { Point2D, ToolContext } from '../interface';
 
 export class EraserTool extends BaseTool {
 
@@ -9,23 +9,31 @@ export class EraserTool extends BaseTool {
   }
 
   draw(event: MouseEvent, context: ToolContext) {
-    const point = context.getCoords(event);
+    const point = this.stabilizedPoint(context, context.getCoords(event));
+    this.eraseSegment(context, context.stateService.previousPoint, point);
+
+    context.stateService.updatePreviousPoint(point);
+    context.stateService.updateCurrentPoint(point);
+  }
+
+  async end(context: ToolContext) {
+    const tail = this.catchUpSegment(context);
+    if (tail) this.eraseSegment(context, tail.from, tail.to);
+  }
+
+  private eraseSegment(context: ToolContext, prev: Point2D, point: Point2D) {
     const ctx = context.canvasManager.getBufferCtx();
-    const prev = context.stateService.previousPoint;
 
     ctx.globalCompositeOperation = 'source-over';
     ctx.lineCap = 'round';
     ctx.lineWidth =
       context.editorService.lineWidth * context.editorService.brushPressureScale();
-    ctx.strokeStyle = context.color; 
-    
+    ctx.strokeStyle = context.color;
+
     ctx.beginPath();
     ctx.moveTo(prev.x, prev.y);
     ctx.lineTo(point.x, point.y);
     ctx.stroke();
-
-    context.stateService.updatePreviousPoint(point);
-    context.stateService.updateCurrentPoint(point);
 
     // With `eraserPostProcess`, DrawService erases the touched components when
     // the stroke ends.
@@ -33,8 +41,5 @@ export class EraserTool extends BaseTool {
       this.eraseBufferFromTargets(context);
     }
     context.redrawRequest();
-  }
-
-  async end(context: ToolContext) {
   }
 }

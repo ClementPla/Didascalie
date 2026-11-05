@@ -23,6 +23,10 @@ import { ToggleButtonModule } from 'primeng/togglebutton';
 import { TooltipModule } from 'primeng/tooltip';
 import { SplitButtonModule } from 'primeng/splitbutton';
 import { MenuItem } from 'primeng/api';
+import { SelectModule } from 'primeng/select';
+import { MultiSelectModule } from 'primeng/multiselect';
+import { LabelsService } from '../../../services/labels/labels.service';
+import { SwapMode, SwapTarget } from '../services/editor.service';
 
 type PredictOutput = 'pixels' | 'paths' | 'centerlines';
 
@@ -49,6 +53,8 @@ const OUTPUTS: { id: PredictOutput; label: string; icon: string }[] = [
         ToggleButtonModule,
         TooltipModule,
         SplitButtonModule,
+        SelectModule,
+        MultiSelectModule,
     ],
     templateUrl: './editor-toolbar.component.html',
     styleUrl: './editor-toolbar.component.scss'
@@ -60,6 +66,24 @@ export class EditorToolbarComponent {
   vectorEditor = inject(VectorEditorService);
   prediction = inject(PredictionService);
   private convertService = inject(ConvertService);
+  labels = inject(LabelsService);
+
+  readonly swapModes: { label: string; value: SwapMode; tooltip: string }[] = [
+    { label: 'Draw', value: 'off', tooltip: 'Draw over the active label only; other labels stay as they are' },
+    { label: 'Swap', value: 'swap', tooltip: 'Only where the stroke crosses other labels: those pixels move to the active label' },
+    { label: 'Swap + draw', value: 'swapDraw', tooltip: 'Draw the stroke, and move the pixels of other labels it crosses to the active label' },
+  ];
+
+  readonly swapTargets: { label: string; value: SwapTarget }[] = [
+    { label: 'Visible labels', value: 'visible' },
+    { label: 'All labels', value: 'all' },
+    { label: 'Chosen labels', value: 'selected' },
+  ];
+
+  setPan(on: boolean): void {
+    if (on) this.editorService.activatePanMode();
+    else this.editorService.restoreLastTool();
+  }
 
   rasterTools = RASTER_TOOLS;
   vectorTools = VECTOR_TOOLS;

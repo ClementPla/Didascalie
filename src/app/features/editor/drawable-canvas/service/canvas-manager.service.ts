@@ -16,6 +16,12 @@ import {
   unionPresence,
 } from '../../../../core/misc/label-ops';
 import { ProjectScoped } from '../../../../core/project-scoped';
+import {
+  MAX_OUTLINE_RADIUS,
+  OutlineScratch,
+  OutlineStyle,
+  paintLayerOutlined,
+} from './outline-raster';
 
 /** Longest side (px) past which the label layer is composited per viewport:
  *  WebKit's 2D-canvas area cap is about 4096², and a canvas over it goes
@@ -65,6 +71,14 @@ export class CanvasManagerService implements ProjectScoped {
   requestRedraw: Subject<boolean> = new Subject<boolean>();
   private useWebGPU = false;
 
+  /** Work buffers of the CPU outline paths. */
+  private outlineScratch = new OutlineScratch();
+  /** One label layer sampled on the device-pixel grid (viewport path). */
+  private viewportGrid = new Uint8Array(0);
+  /** Contour radius (image px) the combined canvas was last composited with,
+   *  0 for none. */
+  private compositedRadius = 0;
+
   /** The image is too large for a native-size composite canvas: the label
    *  layer is composited per viewport (see `compositeToDisplay`). */
   protected useViewportComposite = false;
@@ -92,6 +106,33 @@ export class CanvasManagerService implements ProjectScoped {
   }
 
   // ── Composition ──────────────────────────────────────────────────────────
+
+  /** The outline style on a grid where one screen pixel is `gridPxPerScreenPx`
+   *  grid pixels; null when labels are drawn plainly. */
+  private outlineStyle(gridPxPerScreenPx: number): OutlineStyle | null {
+    const alphas = this.editorService.outlineAlphas();
+    if (!alphas) return null;
+    const radius =
+      alphas.contourAlpha > 0
+        ? Math.min(
+            MAX_OUTLINE_RADIUS,
+            Math.max(1, Math.round(this.editorService.outlineContourWidth * gridPxPerScreenPx))
+          )
+        : 0;
+    return { ...alphas, radius };
+  }
+
+  /** The outline style at image resolution, for the current zoom. */
+  private imageOutlineStyle(): OutlineStyle | null {
+    const scale = this.zoomPan.getScale();
+    return this.outlineStyle(scale > 0 ? 1 / scale : 1);
+  }
+
+  /** The zoom changed the contour radius since the last composite. */
+  get outlineStale(): boolean {
+    if (this.useViewportComposite) return false; // composited every frame
+    return (this.imageOutlineStyle()?.radius ?? 0) !== this.compositedRadius;
+  }
 
   async computeCombinedCanvas() {
     const t0 = performance.now();
@@ -167,15 +208,17 @@ export class CanvasManagerService implements ProjectScoped {
     const height = this.stateService.height;
     try {
       const visibility = this.labelService.listSegmentationLabels.map((l) => l.isVisible);
+      const style = this.imageOutlineStyle();
       const imageData = await this.webgpuCompositor.compositeMasks(
         this.labelMasks,
         this.palettes,
         visibility,
         width,
         height,
-        this.editorService.edgesOnly
+        style
       );
       this.combinedCtx?.putImageData(imageData, 0, 0);
+      this.compositedRadius = style?.radius ?? 0;
     } catch (error) {
       console.error('WebGPU composition failed, falling back to CPU:', error);
       this.computeCombinedCanvasCPU();
@@ -191,11 +234,7 @@ export class CanvasManagerService implements ProjectScoped {
     const img = this.combinedCtx.createImageData(w, h);
     const data = img.data;
 
-    const edges = this.editorService.edgesOnly;
-    // Target ~2px on screen -> need ceil(2/scale) px in image space.
-    const radius = edges
-      ? Math.min(Math.max(1, Math.ceil(2 / this.zoomPan.getScale())), 10)
-      : 0;
+    const style = this.imageOutlineStyle();
 
     // Later labels paint over earlier ones.
     for (let li = 0; li < this.labelMasks.length; li++) {
@@ -204,8 +243,8 @@ export class CanvasManagerService implements ProjectScoped {
       const pal = this.palettes[li];
       if (!mask || !pal) continue;
 
-      if (edges) {
-        this.paintLayerEdges(data, mask, pal, w, h, radius);
+      if (style) {
+        paintLayerOutlined(data, mask, pal, w, h, style, this.outlineScratch);
         continue;
       }
 
@@ -222,59 +261,7 @@ export class CanvasManagerService implements ProjectScoped {
     }
 
     this.combinedCtx.putImageData(img, 0, 0);
-  }
-
-  /**
-   * Paint only the edges of one label mask into `data`. Edges are found per
-   * mask, before flattening, so a label under another keeps its outline. A
-   * pixel is an edge when a tap holds a different value or falls outside the
-   * image. Taps are the 4 direct neighbours plus 8 at distance `radius`:
-   * constant cost whatever the thickness, but a hole smaller than `radius` only
-   * gets a 1px outline.
-   */
-  private paintLayerEdges(
-    data: Uint8ClampedArray,
-    mask: Uint8Array,
-    pal: Uint8Array,
-    w: number,
-    h: number,
-    radius: number
-  ): void {
-    const r = radius;
-    const rw = r * w;
-
-    for (let y = 0; y < h; y++) {
-      const row = y * w;
-      const yNear = y >= 1 && y < h - 1;
-      const yFar = y >= r && y < h - r;
-      for (let x = 0; x < w; x++) {
-        const i = row + x;
-        const v = mask[i];
-        if (v === 0) continue;
-
-        let edge =
-          !yNear || x < 1 || x >= w - 1 ||
-          mask[i - 1] !== v || mask[i + 1] !== v ||
-          mask[i - w] !== v || mask[i + w] !== v;
-
-        if (!edge && r > 1) {
-          edge =
-            !yFar || x < r || x >= w - r ||
-            mask[i - r] !== v || mask[i + r] !== v ||
-            mask[i - rw] !== v || mask[i + rw] !== v ||
-            mask[i - rw - r] !== v || mask[i - rw + r] !== v ||
-            mask[i + rw - r] !== v || mask[i + rw + r] !== v;
-        }
-        if (!edge) continue;
-
-        const o = i * 4;
-        const p = v * 4;
-        data[o] = pal[p];
-        data[o + 1] = pal[p + 1];
-        data[o + 2] = pal[p + 2];
-        data[o + 3] = 255;
-      }
-    }
+    this.compositedRadius = style?.radius ?? 0;
   }
 
   /**
@@ -302,49 +289,77 @@ export class CanvasManagerService implements ProjectScoped {
 
     const out = ctx.createImageData(dispW, dispH);
     const data = out.data;
-    const edges = this.editorService.edgesOnly;
+    // Outline radius in device pixels: this grid is the screen.
+    const style = this.outlineStyle(dpr);
 
-    // Source column per device column, padded by one on each side for the edge
-    // test.
-    const xs = new Int32Array(dispW + 2);
-    for (let dx = -1; dx <= dispW; dx++) {
-      xs[dx + 1] = Math.floor((dx + 0.5 - offX) * invScale);
+    // Source column per device column, and source row per device row; -1
+    // outside the image.
+    const xs = new Int32Array(dispW);
+    for (let dx = 0; dx < dispW; dx++) {
+      const ix = Math.floor((dx + 0.5 - offX) * invScale);
+      xs[dx] = ix >= 0 && ix < w ? ix : -1;
+    }
+    const ys = new Int32Array(dispH);
+    for (let dy = 0; dy < dispH; dy++) {
+      const iy = Math.floor((dy + 0.5 - offY) * invScale);
+      ys[dy] = iy >= 0 && iy < h ? iy : -1;
+    }
+
+    if (style) {
+      // Outline mode: each label sampled onto the device grid, then outlined
+      // there, so the band is measured in screen pixels. This runs every pan
+      // frame and a thick band costs about 2x a 1px one. If it lags: draw 1px
+      // while the view moves and the full width once it settles, or move this
+      // path to the GPU.
+      const n = dispW * dispH;
+      if (this.viewportGrid.length < n) this.viewportGrid = new Uint8Array(n);
+      const grid = this.viewportGrid.subarray(0, n);
+      for (let li = 0; li < masks.length; li++) {
+        if (!labels[li]?.isVisible) continue;
+        const mask = masks[li];
+        const pal = this.palettes[li];
+        if (!mask || !pal) continue;
+        let any = false;
+        for (let dy = 0; dy < dispH; dy++) {
+          const outRow = dy * dispW;
+          const iy = ys[dy];
+          if (iy < 0) {
+            grid.fill(0, outRow, outRow + dispW);
+            continue;
+          }
+          const maskRow = iy * w;
+          for (let dx = 0; dx < dispW; dx++) {
+            const ix = xs[dx];
+            const v = ix < 0 ? 0 : mask[maskRow + ix];
+            grid[outRow + dx] = v;
+            if (v !== 0) any = true;
+          }
+        }
+        if (any) {
+          paintLayerOutlined(data, grid, pal, dispW, dispH, style, this.outlineScratch);
+        }
+      }
+      ctx.putImageData(out, 0, 0);
+      return;
     }
 
     for (let dy = 0; dy < dispH; dy++) {
-      const iy = Math.floor((dy + 0.5 - offY) * invScale);
-      if (iy < 0 || iy >= h) continue;
-      const iyU = Math.floor((dy - 0.5 - offY) * invScale);
-      const iyD = Math.floor((dy + 1.5 - offY) * invScale);
-      const yInside = iyU >= 0 && iyD < h;
+      const iy = ys[dy];
+      if (iy < 0) continue;
       const maskRow = iy * w;
-      const rowU = iyU * w;
-      const rowD = iyD * w;
       const outRow = dy * dispW;
       for (let dx = 0; dx < dispW; dx++) {
-        const ix = xs[dx + 1];
-        if (ix < 0 || ix >= w) continue;
-        const ixL = xs[dx];
-        const ixR = xs[dx + 2];
+        const ix = xs[dx];
+        if (ix < 0) continue;
         const mi = maskRow + ix;
 
+        // Later labels paint over earlier ones.
         for (let li = 0; li < masks.length; li++) {
           if (!labels[li]?.isVisible) continue;
-          const mask = masks[li];
-          const v = mask[mi];
+          const v = masks[li][mi];
           if (v === 0) continue;
           const pal = this.palettes[li];
           if (!pal) continue;
-          // Edge mode, per label in screen space: interior pixels (the 4 neighbouring
-          // device pixels sample the same value) are skipped.
-          if (
-            edges &&
-            yInside && ixL >= 0 && ixR < w &&
-            mask[maskRow + ixL] === v && mask[maskRow + ixR] === v &&
-            mask[rowU + ix] === v && mask[rowD + ix] === v
-          ) {
-            continue;
-          }
           const o = (outRow + dx) * 4;
           const p = v * 4;
           data[o] = pal[p];

@@ -1,8 +1,8 @@
 import { BaseTool } from './base-tool';
-import { ToolContext } from '../interface';
+import { Point2D, ToolContext } from '../interface';
 
 export class PenTool extends BaseTool {
-  
+
   start(event: MouseEvent, context: ToolContext) {
     const point = context.getCoords(event);
     context.stateService.updatePreviousPoint(point);
@@ -10,9 +10,23 @@ export class PenTool extends BaseTool {
   }
 
   draw(event: MouseEvent, context: ToolContext) {
-    const point = context.getCoords(event);
-    const ctx = context.canvasManager.getBufferCtx();
+    const point = this.stabilizedPoint(context, context.getCoords(event));
     const prev = context.stateService.previousPoint;
+    this.paintSegment(context, prev, point);
+
+    context.stateService.updatePreviousPoint(point);
+    context.stateService.updateCurrentPoint(point);
+  }
+
+  async end(context: ToolContext) {
+    const tail = this.catchUpSegment(context);
+    if (tail) this.paintSegment(context, tail.from, tail.to);
+
+    if (!context.editorService.penPostProcess) this.commitDrawStroke(context);
+  }
+
+  private paintSegment(context: ToolContext, prev: Point2D, point: Point2D) {
+    const ctx = context.canvasManager.getBufferCtx();
 
     // The radius scales with pen pressure.
     ctx.globalCompositeOperation = 'source-over';
@@ -23,32 +37,17 @@ export class PenTool extends BaseTool {
     ctx.fillStyle = context.color;
 
     ctx.beginPath();
-    
+
     // A point that did not move is drawn as a dot.
     if (prev.x === point.x && prev.y === point.y) {
        ctx.moveTo(prev.x, prev.y);
-       ctx.lineTo(point.x + 0.1, point.y + 0.1); 
+       ctx.lineTo(point.x + 0.1, point.y + 0.1);
     } else {
        ctx.moveTo(prev.x, prev.y);
        ctx.lineTo(point.x, point.y);
     }
-    
+
     ctx.stroke();
-
-    context.stateService.updatePreviousPoint(point);
-    context.stateService.updateCurrentPoint(point);
-    
     context.singleDrawRequest(ctx);
-  }
-
-  async end(context: ToolContext) {
-
-    if (!context.editorService.penPostProcess) {
-      if (context.editorService.swapMarkers) {
-        context.swapMarkers();
-      } else {
-        this.commitBufferToActive(context);
-      }
-    }
   }
 }

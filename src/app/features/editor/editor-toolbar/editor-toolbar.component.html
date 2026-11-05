@@ -29,6 +29,22 @@
   <ng-template pTemplate="start">
     <div class="toolbar-row">
       <div class="tool-group">
+        <span class="tool-group__label">View</span>
+        <p-togglebutton
+          class="icon-toggle"
+          [ngModel]="editorService.canPan()"
+          (onChange)="setPan(!!$event.checked)"
+          onIcon="pi pi-arrows-alt"
+          offIcon="pi pi-arrows-alt"
+          [onLabel]="''"
+          [offLabel]="''"
+          pTooltip="Pan the image · G, or hold Space with any tool"
+          tooltipPosition="bottom"
+          ariaLabel="Pan tool"
+        ></p-togglebutton>
+      </div>
+
+      <div class="tool-group">
         <span class="tool-group__label">Raster</span>
         <p-selectButton
           [options]="rasterTools"
@@ -68,21 +84,56 @@
         </div>
       </div>
 
-      @if (editorService.isDrawingTool() || editorService.isEraser()) {
+      @if (editorService.isDrawingTool()) {
+        <div class="tool-group">
+          <span class="tool-group__label">Boolean</span>
+          <p-selectButton
+            [options]="swapModes"
+            [(ngModel)]="editorService.swapMode"
+            optionLabel="label"
+            optionValue="value"
+            [allowEmpty]="false"
+            size="small"
+            aria-label="What the stroke does to labels already under it"
+          >
+            <ng-template #item let-item>
+              <span [pTooltip]="item.tooltip" tooltipPosition="bottom">{{ item.label }}</span>
+            </ng-template>
+          </p-selectButton>
+
+          @if (editorService.swapMode !== 'off') {
+            <p-select
+              [options]="swapTargets"
+              [(ngModel)]="editorService.swapTarget"
+              optionLabel="label"
+              optionValue="value"
+              size="small"
+              appendTo="body"
+              pTooltip="Which labels the stroke may take pixels from"
+              tooltipPosition="bottom"
+              ariaLabel="Swap target"
+            ></p-select>
+            @if (editorService.swapTarget === 'selected') {
+              <p-multiselect
+                [options]="labels.listSegmentationLabels"
+                [(ngModel)]="editorService.swapTargetLabels"
+                optionLabel="label"
+                optionValue="id"
+                placeholder="Pick labels"
+                [maxSelectedLabels]="2"
+                selectedItemsLabel="{0} labels"
+                size="small"
+                appendTo="body"
+                ariaLabel="Labels the stroke may take pixels from"
+              ></p-multiselect>
+            }
+          }
+        </div>
+      }
+
+      @if (editorService.isEraser()) {
         <div class="tool-group">
           <span class="tool-group__label">Options</span>
-
-          @if (editorService.isDrawingTool()) {
-            <p-togglebutton
-              [(ngModel)]="editorService.swapMarkers"
-              onIcon="pi pi-arrow-right-arrow-left"
-              offIcon="pi pi-arrow-right-arrow-left"
-              onLabel="Swap labels"
-              offLabel="Swap labels"
-              pTooltip="Overwrite labels already drawn under the stroke"
-              tooltipPosition="bottom"
-            ></p-togglebutton>
-          }
 
           @if (editorService.isEraser()) {
             <p-togglebutton

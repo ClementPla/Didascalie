@@ -11,6 +11,8 @@ export interface ToolContext {
   value: number;   // active mask value written on commit (1 = semantic, id = instance)
 
   getCoords: (event: MouseEvent | Point2D) => Point2D;
+  /** Image pixels per screen pixel at the current zoom. */
+  imagePxPerScreenPx: () => number;
   swapMarkers: () => void;
   singleDrawRequest: (ctx: OffscreenCanvasRenderingContext2D | null) => void;
   redrawRequest: () => void;

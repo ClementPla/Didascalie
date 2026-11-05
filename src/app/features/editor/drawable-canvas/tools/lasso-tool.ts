@@ -1,6 +1,7 @@
 import { BaseTool } from './base-tool';
 import { ToolContext } from '../interface';
 import { Point2D } from '../interface';
+import { smoothPath } from './stroke-smoothing';
 
 export class LassoTool extends BaseTool {
   protected points: Point2D[] = [];
@@ -16,10 +17,17 @@ export class LassoTool extends BaseTool {
   }
 
   draw(event: MouseEvent, context: ToolContext) {
-    const points =  context.getCoords(event)
-    this.points.push(points);
+    this.points.push(context.getCoords(event));
+    // Smoothed as an open path, so the preview ends under the pointer.
+    context.updatePreviewPoints(this.smoothed(context, false));
+  }
 
-    context.updatePreviewPoints(this.points);
+  /** The outline with `lassoSmoothing` applied, or the raw points when off. */
+  protected smoothed(context: ToolContext, closed: boolean): Point2D[] {
+    const scale = context.imagePxPerScreenPx();
+    const radius = context.editorService.lassoSmoothing * scale;
+    // One sample every 2 screen pixels: finer than the eye, cheap per move.
+    return smoothPath(this.points, radius, 2 * scale, closed);
   }
 
   async end(context: ToolContext) {
@@ -28,6 +36,7 @@ export class LassoTool extends BaseTool {
       return;
     }
 
+    this.points = this.smoothed(context, true);
     if (this.isEraser) {
       this.handleLassoEraser(context);
     } else {
@@ -42,13 +51,7 @@ export class LassoTool extends BaseTool {
     const ctx = context.canvasManager.getBufferCtx();
     this.fillShape(ctx, context.color); // Fill buffer
 
-    if (!context.editorService.penPostProcess) {
-       if (context.editorService.swapMarkers) {
-         context.swapMarkers();
-       } else {
-         this.commitBufferToActive(context);
-       }
-    }
+    if (!context.editorService.penPostProcess) this.commitDrawStroke(context);
   }
 
   private handleLassoEraser(context: ToolContext) {

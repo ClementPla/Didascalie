@@ -9,7 +9,6 @@ pub mod annotation;
 pub mod project;
 pub mod users;
 pub mod agreement;
-#[cfg(not(target_os = "android"))]
 pub mod project_edit;
 pub mod classification;
 pub mod text_description;

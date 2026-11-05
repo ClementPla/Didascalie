@@ -9,6 +9,7 @@ export class LassoEraserTool extends LassoTool {
       return;
     }
 
+    this.points = this.smoothed(context, true);
     const bufferCtx = context.canvasManager.getBufferCtx();
     this.fillShape(bufferCtx, context.color);
 

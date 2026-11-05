@@ -219,17 +219,6 @@
       ></button>
     </ng-template>
     <ng-template [appMenuGroup]="'Navigate'">
-      <p-togglebutton
-        [ngModel]="editorService.canPan()"
-        (onChange)="setPanTool(!!$event.checked)"
-        onIcon="pi pi-arrows-alt"
-        offIcon="pi pi-arrows-alt"
-        [onLabel]="''"
-        [offLabel]="''"
-        pTooltip="Pan the image · G, or hold Space with any tool"
-        tooltipPosition="left"
-        ariaLabel="Pan tool"
-      ></p-togglebutton>
       <button
         pButton
         type="button"
@@ -343,6 +332,19 @@
       ></p-togglebutton>
     </ng-template>
 
+    <ng-template [appMenuGroup]="'Stroke'">
+      <p-togglebutton
+        [(ngModel)]="editorService.smoothStrokes"
+        onIcon="pi pi-wave-pulse"
+        offIcon="pi pi-wave-pulse"
+        [onLabel]="''"
+        [offLabel]="''"
+        pTooltip="Smooth pen, eraser and lasso strokes (settings in the panel)"
+        tooltipPosition="left"
+        ariaLabel="Smooth strokes"
+      ></p-togglebutton>
+    </ng-template>
+
     <ng-template [appMenuGroup]="'Auto'">
       <p-togglebutton
         [(ngModel)]="editorService.penPostProcess"
@@ -375,44 +377,10 @@
         offIcon="pi pi-stop-circle"
         [onLabel]="''"
         [offLabel]="''"
-        pTooltip="Show only edges (Ctrl+E)"
+        pTooltip="Outline mode: contours and fill set apart (Ctrl+E, settings in the panel)"
         tooltipPosition="left"
-        ariaLabel="Show only edges"
+        ariaLabel="Outline mode"
       ></p-togglebutton>
-      <p-togglebutton
-        [(ngModel)]="editorService.showBoundingBox"
-        (onChange)="editorService.requestCanvasRedraw()"
-        onIcon="pi pi-stop"
-        offIcon="pi pi-stop"
-        [onLabel]="''"
-        [offLabel]="''"
-        pTooltip="Show bounding boxes"
-        tooltipPosition="left"
-        ariaLabel="Show bounding boxes"
-      ></p-togglebutton>
-      @if (editorService.showBoundingBox) {
-        <p-togglebutton
-          [(ngModel)]="editorService.labelledCombinedBoundingBox"
-          (onChange)="editorService.requestCanvasRedraw()"
-          onIcon="pi pi-clone"
-          offIcon="pi pi-clone"
-          [onLabel]="''"
-          [offLabel]="''"
-          pTooltip="Merge boxes across labels"
-          tooltipPosition="left"
-          ariaLabel="Merge boxes across labels"
-        ></p-togglebutton>
-        <p-togglebutton
-          [(ngModel)]="editorService.eraseOnClick"
-          onIcon="pi pi-eraser"
-          offIcon="pi pi-eraser"
-          [onLabel]="''"
-          [offLabel]="''"
-          pTooltip="Erase an object by clicking its bounding box"
-          tooltipPosition="left"
-          ariaLabel="Click a box to erase it"
-        ></p-togglebutton>
-      }
     </ng-template>
 
     <ng-template [appMenuGroup]="'View'">

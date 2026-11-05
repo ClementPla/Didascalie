@@ -260,8 +260,22 @@ export class OrchestratorService {
     if (this.state.recomputeCanvasSum) {
       await this.canvasManager.computeCombinedCanvas();
       this.state.recomputeCanvasSum = false;
+    } else if (this.canvasManager.outlineStale) {
+      this.scheduleOutlineRecompute();
     }
     return this.canvasManager.getCombinedCanvas();
+  }
+
+  private outlineTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** The zoom changed the contour thickness: recomposite once it settles, not
+   *  on every zoom step. */
+  private scheduleOutlineRecompute(): void {
+    if (this.outlineTimer) clearTimeout(this.outlineTimer);
+    this.outlineTimer = setTimeout(() => {
+      this.outlineTimer = null;
+      if (this.canvasManager.outlineStale) this.requestRedrawAllCanvas();
+    }, 150);
   }
 
   public get usesViewportComposite(): boolean {

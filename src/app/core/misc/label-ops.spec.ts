@@ -3,6 +3,7 @@ import {
   clearValueComponentAt,
   componentsUnderStroke,
   connectedComponentBoxes,
+  swapUnderStroke,
 } from './label-ops';
 
 /** A mask from rows of digits; '.' is 0. */
@@ -85,5 +86,39 @@ describe('label-ops connected components', () => {
     // Over (0,0): the whole diagonal-joined blob.
     const all = componentsUnderStroke(mask, w, h, region, { x: 0, y: 0, width: 1, height: 1 });
     expect(all.sort((a, b) => a - b)).toEqual([0, 1, 8, 9, 17, 24, 25]);
+  });
+});
+
+describe('swapUnderStroke', () => {
+  // A 4x1 strip; the stroke covers the middle two pixels.
+  const rect = { x: 1, y: 0, width: 2, height: 1 };
+  const region = new Uint8ClampedArray([0, 0, 0, 255, 0, 0, 0, 255]);
+  const masks = () => [
+    Uint8Array.from([1, 1, 0, 0]), // active
+    Uint8Array.from([0, 0, 1, 0]), // target
+    Uint8Array.from([0, 1, 1, 0]), // not a target
+  ];
+
+  it('swap: takes over only what the targets hold', () => {
+    const m = masks();
+    swapUnderStroke(m, 0, 4, region, rect, 1, [true, true, false]);
+    expect([...m[0]]).toEqual([1, 1, 1, 0]);
+    expect([...m[1]]).toEqual([0, 0, 0, 0]);
+    expect([...m[2]]).toEqual([0, 1, 1, 0]); // untouched
+  });
+
+  it('swap and draw: also paints the rest of the stroke', () => {
+    const m = masks();
+    m[1][2] = 0; // nothing under the stroke for the targets
+    swapUnderStroke(m, 0, 4, region, rect, 1, [true, true, false], true);
+    expect([...m[0]]).toEqual([1, 1, 1, 0]);
+    expect([...m[2]]).toEqual([0, 1, 1, 0]);
+  });
+
+  it('with no target list, every label takes part', () => {
+    const m = masks();
+    swapUnderStroke(m, 0, 4, region, rect, 1);
+    expect([...m[0]]).toEqual([1, 1, 1, 0]);
+    expect([...m[2]]).toEqual([0, 0, 0, 0]);
   });
 });

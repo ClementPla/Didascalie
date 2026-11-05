@@ -1,10 +1,128 @@
 <p-panel header="Settings">
-  <p-accordion [value]="['0', '1', '2', '3', '4']" [multiple]="true">
+  <p-accordion [value]="['0', '1', '2', '3', '4', '5', '6']" [multiple]="true">
     @if (sequenceService.currentPixelInfo()) {
       <p-accordion-panel value="0">
         <p-accordion-header>Channels</p-accordion-header>
         <p-accordion-content>
           <app-channels-panel></app-channels-panel>
+        </p-accordion-content>
+      </p-accordion-panel>
+    }
+
+    @if (editorService.edgesOnly) {
+      <p-accordion-panel value="6">
+        <p-accordion-header>Outline</p-accordion-header>
+        <p-accordion-content>
+          <div class="settings-section">
+            <div class="switch-row" pTooltip="Show the inside of each label.">
+              <label class="switch-row__label" for="outline-fill">Fill</label>
+              <p-toggleswitch
+                inputId="outline-fill"
+                [(ngModel)]="editorService.outlineShowFill"
+                (ngModelChange)="editorService.requestCanvasRedraw()"
+              ></p-toggleswitch>
+            </div>
+            @if (editorService.outlineShowFill) {
+              <div class="setting-row">
+                <span class="setting-row__label">Opacity</span>
+                <p-slider
+                  [(ngModel)]="editorService.outlineFillOpacity"
+                  (ngModelChange)="editorService.requestCanvasRedraw()"
+                  [min]="0.05"
+                  [max]="1"
+                  [step]="0.05"
+                  ariaLabel="Fill opacity"
+                ></p-slider>
+                <span class="setting-row__value setting-row__value--readonly"
+                  >{{ editorService.outlineFillOpacity * 100 | number: '1.0-0' }} %</span
+                >
+              </div>
+            }
+
+            <div class="switch-row" pTooltip="Show the edge of each label.">
+              <label class="switch-row__label" for="outline-contour">Contour</label>
+              <p-toggleswitch
+                inputId="outline-contour"
+                [(ngModel)]="editorService.outlineShowContour"
+                (ngModelChange)="editorService.requestCanvasRedraw()"
+              ></p-toggleswitch>
+            </div>
+            @if (editorService.outlineShowContour) {
+              <div class="setting-row">
+                <span class="setting-row__label">Opacity</span>
+                <p-slider
+                  [(ngModel)]="editorService.outlineContourOpacity"
+                  (ngModelChange)="editorService.requestCanvasRedraw()"
+                  [min]="0.05"
+                  [max]="1"
+                  [step]="0.05"
+                  ariaLabel="Contour opacity"
+                ></p-slider>
+                <span class="setting-row__value setting-row__value--readonly"
+                  >{{ editorService.outlineContourOpacity * 100 | number: '1.0-0' }} %</span
+                >
+              </div>
+              <div
+                class="setting-row"
+                pTooltip="Thickness of the contour, drawn inside the label. Measured on screen, so it stays the same at any zoom."
+              >
+                <span class="setting-row__label">Width</span>
+                <p-slider
+                  [(ngModel)]="editorService.outlineContourWidth"
+                  (ngModelChange)="editorService.requestCanvasRedraw()"
+                  [min]="1"
+                  [max]="10"
+                  [step]="1"
+                  ariaLabel="Contour width"
+                ></p-slider>
+                <span class="setting-row__value setting-row__value--readonly"
+                  >{{ editorService.outlineContourWidth }} px</span
+                >
+              </div>
+            }
+          </div>
+        </p-accordion-content>
+      </p-accordion-panel>
+    }
+
+    @if (editorService.smoothStrokes) {
+      <p-accordion-panel value="5">
+        <p-accordion-header>Stroke</p-accordion-header>
+        <p-accordion-content>
+          <div class="settings-section">
+            <div
+                class="setting-row"
+                pTooltip="Pen and eraser: the brush trails the pointer on a string this long and only moves once it is taut, so a shaky hand draws a steady line (measured on screen, so it feels the same at any zoom)."
+              >
+                <span class="setting-row__label">Brush</span>
+                <p-slider
+                  [(ngModel)]="editorService.brushStabilizer"
+                  [min]="1"
+                  [max]="40"
+                  [step]="1"
+                  ariaLabel="Brush stabilizer"
+                ></p-slider>
+                <span class="setting-row__value setting-row__value--readonly">{{
+                  editorService.brushStabilizer + ' px'
+                }}</span>
+              </div>
+              <div
+                class="setting-row"
+                pTooltip="Lasso: even out wiggles smaller than this before the outline is filled (measured on screen, so it feels the same at any zoom)."
+              >
+                <span class="setting-row__label">Lasso</span>
+                <p-slider
+                  [(ngModel)]="editorService.lassoSmoothing"
+                  [min]="1"
+                  [max]="30"
+                  [step]="1"
+                  ariaLabel="Lasso smoothing"
+                ></p-slider>
+                <span class="setting-row__value setting-row__value--readonly">{{
+                  editorService.lassoSmoothing + ' px'
+                }}</span>
+              </div>
+          </div>
         </p-accordion-content>
       </p-accordion-panel>
     }
@@ -172,37 +290,6 @@
                 </div>
               }
             }
-          </div>
-        </p-accordion-content>
-      </p-accordion-panel>
-    }
-
-    @if (editorService.showBoundingBox) {
-      <p-accordion-panel value="1">
-        <p-accordion-header>Bounding boxes</p-accordion-header>
-        <p-accordion-content>
-          <div class="settings-section">
-            <div class="setting-row">
-              <label class="setting-row__label" for="bbx-opacity"
-                >Box opacity</label
-              >
-              <p-slider
-                [(ngModel)]="editorService.bbxOpacity"
-                [min]="0"
-                [max]="1"
-                [step]="0.01"
-              ></p-slider>
-              <input
-                id="bbx-opacity"
-                type="number"
-                pInputText
-                class="setting-row__value"
-                [(ngModel)]="editorService.bbxOpacity"
-                min="0"
-                max="1"
-                step="0.01"
-              />
-            </div>
           </div>
         </p-accordion-content>
       </p-accordion-panel>

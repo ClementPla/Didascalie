@@ -55,9 +55,13 @@ export function commitStroke(
 }
 
 /**
- * Reassign already-labelled pixels under the stroke to the active label:
- * they become `value` in the active mask and are cleared from the others.
- * Background pixels are left alone.
+ * Reassign labelled pixels under the stroke to the active label: they become
+ * `value` in the active mask and are cleared from the target masks.
+ *
+ * `targets[m]` says whether mask `m` takes part (null: all of them); the
+ * active mask always does. Masks outside the targets are left as they are.
+ * With `drawOutside`, the rest of the stroke is painted too ("swap and
+ * draw"); otherwise only pixels a target already holds change.
  */
 export function swapUnderStroke(
   masks: Uint8Array[],
@@ -65,19 +69,20 @@ export function swapUnderStroke(
   maskW: number,
   region: Uint8ClampedArray,
   rect: Rect,
-  value: number
+  value: number,
+  targets: readonly boolean[] | null = null,
+  drawOutside = false
 ): void {
+  const inTarget = (m: number) => m === activeIndex || !targets || !!targets[m];
   forEachCovered(region, rect, maskW, (idx) => {
-    let occupied = false;
-    for (let m = 0; m < masks.length; m++) {
-      if (masks[m][idx] !== 0) {
-        occupied = true;
-        break;
-      }
+    let occupied = drawOutside;
+    for (let m = 0; !occupied && m < masks.length; m++) {
+      if (inTarget(m) && masks[m][idx] !== 0) occupied = true;
     }
     if (!occupied) return;
     for (let m = 0; m < masks.length; m++) {
-      masks[m][idx] = m === activeIndex ? value : 0;
+      if (m === activeIndex) masks[m][idx] = value;
+      else if (inTarget(m)) masks[m][idx] = 0;
     }
   });
 }

@@ -90,7 +90,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   private wheelVelocity = 0;
   private wheelDecayTimeout?: number;
 
-  private edgeRecomputeTimeout?: number;
   private resizeObserver?: ResizeObserver;
   private destroy$ = new Subject<void>();
 
@@ -146,7 +145,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
     this.destroy$.complete();
     this.resizeObserver?.disconnect();
     clearTimeout(this.wheelDecayTimeout);
-    clearTimeout(this.edgeRecomputeTimeout);
     if (this.bboxRecomputeTimer) clearTimeout(this.bboxRecomputeTimer);
   }
 
@@ -282,13 +280,6 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
     this.orchestrator.handleWheel(event);
     this.viewBox = this.orchestrator.getViewBox();
-
-    if (this.editorService.edgesOnly) {
-      clearTimeout(this.edgeRecomputeTimeout);
-      this.edgeRecomputeTimeout = window.setTimeout(() => {
-        this.orchestrator.requestRedrawAllCanvas();
-      }, 150);
-    }
   }
 
   private handleBrushSizeWheel(event: WheelEvent) {

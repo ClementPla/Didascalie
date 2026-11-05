@@ -53,23 +53,32 @@
     projectService.isInstanceSegmentation()){
 
     <p-fieldset legend="Pixel-level" [toggleable]="true" class="m-0">
-      <div class="flex flex-row gap-4 items-center">
-        @if(labelsService.showAllLabels){
+      <!-- Visibility: show/hide all sits right by the opacity it pairs with,
+           labelled, so it reads at a glance on a tablet too (no Tab key). -->
+      <div class="flex flex-row gap-3 items-center">
         <p-button
-          icon="pi pi-eye"
+          [icon]="labelsService.showAllLabels ? 'pi pi-eye' : 'pi pi-eye-slash'"
+          [label]="labelsService.showAllLabels ? 'Hide all' : 'Show all'"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
           (click)="changeAllVisibility()"
-          [rounded]="true"
-          ariaLabel="Hide all labels"
+          pTooltip="Show or hide every label · Tab"
+          tooltipPosition="bottom"
+          [ariaLabel]="labelsService.showAllLabels ? 'Hide all labels' : 'Show all labels'"
         ></p-button>
-        } @else {
-        <p-button
-          icon="pi pi-eye-slash"
-          (click)="changeAllVisibility()"
-          [rounded]="true"
-          ariaLabel="Show all labels"
-        ></p-button>
-        }
-
+        <p-slider
+          class="flex-1"
+          [(ngModel)]="editorService.labelOpacity"
+          [min]="0"
+          [max]="1"
+          [step]="0.01"
+          (onChange)="updateOpacity()"
+          ariaLabel="Label opacity"
+        />
+        <small class="text-right w-10"
+          >{{ editorService.labelOpacity * 100 | number: '1.0-0' }} %</small
+        >
         <p-button
           icon="pi pi-trash"
           severity="danger"
@@ -80,23 +89,44 @@
           ariaLabel="Clear every label on this frame"
           (click)="clearFrame()"
         ></p-button>
-        <p class="flex flex-col gap-2">
-          <input
-            type="text"
-            pInputText
-            [(ngModel)]="editorService.labelOpacity"
-            (onChange)="updateOpacity()"
-            class="mb-3 w-full"
-          />
-          <p-slider
-            [(ngModel)]="editorService.labelOpacity"
-            [min]="0"
-            [max]="1"
-            [step]="0.01"
-            (onChange)="updateOpacity()"
-          />
-          <small>Opacity</small>
-        </p>
+      </div>
+      <div class="bbox-settings mt-2">
+        <div class="flex flex-row flex-wrap gap-4 items-start">
+          <app-labelled-switch
+            [(checked)]="editorService.showBoundingBox"
+            (checkedChange)="updateOpacity()"
+            tooltipLabel="Draw a box around each labelled object"
+          >
+            Bounding boxes
+          </app-labelled-switch>
+          @if (editorService.showBoundingBox) {
+            <app-labelled-switch
+              [(checked)]="editorService.labelledCombinedBoundingBox"
+              (checkedChange)="updateOpacity()"
+              tooltipLabel="One box per object whatever its label, instead of one per label"
+            >
+              Merge labels
+            </app-labelled-switch>
+            <app-labelled-switch
+              [(checked)]="editorService.eraseOnClick"
+              tooltipLabel="With the eraser, clicking a box erases its object"
+            >
+              Click to erase
+            </app-labelled-switch>
+          }
+        </div>
+        @if (editorService.showBoundingBox) {
+          <p class="flex flex-col gap-2 mt-2">
+            <p-slider
+              [(ngModel)]="editorService.bbxOpacity"
+              [min]="0"
+              [max]="1"
+              [step]="0.01"
+              ariaLabel="Box opacity"
+            />
+            <small>Box opacity</small>
+          </p>
+        }
       </div>
       @if (projectService.isInstanceSegmentation()) {
         <div class="mt-2">

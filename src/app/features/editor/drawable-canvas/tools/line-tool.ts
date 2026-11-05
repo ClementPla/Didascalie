@@ -33,7 +33,7 @@ export class LineTool extends BaseTool {
     ctx.lineTo(endPoint.x, endPoint.y);
     ctx.stroke();
 
-    this.commitBufferToActive(context);
+    this.commitDrawStroke(context);
 
     this.startPoint = null;
   }

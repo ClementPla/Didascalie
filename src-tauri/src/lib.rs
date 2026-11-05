@@ -125,9 +125,7 @@ pub fn run() {
             commands::agreement::intergrader_report,
             commands::agreement::intergrader_cases,
             commands::agreement::intergrader_case_image,
-            #[cfg(not(target_os = "android"))]
             commands::project_edit::project_edit_impact,
-            #[cfg(not(target_os = "android"))]
             commands::project_edit::apply_project_edit,
             commands::device_files::import_project_file,
             commands::device_files::take_incoming_project,
