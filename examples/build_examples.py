@@ -517,12 +517,12 @@ def liver():
 
 
 BUILDERS = {
-    "fundus": fundus,
-    "graders": graders,
-    "skin": skin,
-    "nuclei": nuclei,
-    "registration": registration,
-    "laparoscopy": laparoscopy,
+    # "fundus": fundus,
+    # "graders": graders,
+    # "skin": skin,
+    # "nuclei": nuclei,
+    # "registration": registration,
+    # "laparoscopy": laparoscopy,
     "echo": echo,
     "brain": brain,
     "liver": liver,
