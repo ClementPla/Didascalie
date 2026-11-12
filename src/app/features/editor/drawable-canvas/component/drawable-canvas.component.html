@@ -96,18 +96,93 @@
       [ngClass]="{ invisible: !isLoading, visible: isLoading }"
     ></div>
 
-    <div class="absolute flex gap-2 items-center left-5 top-2 z-40">
-      <p-button
-        [rounded]="true" [raised]="true"
-        (click)="zoomPanService.resetZoomAndPan(true, true)"
-        icon="pi pi-refresh" severity="help"
-        ariaLabel="Reset zoom and pan"
-      ></p-button>
+    <!-- View controls, pinned to the top right of the canvas. -->
+    <div class="canvas-chips canvas-chips--top z-40">
+      @if (labelService.listSegmentationLabels.length > 0) {
+        <button
+          type="button"
+          class="canvas-chip"
+          [class.is-on]="labelsHidden"
+          [attr.aria-pressed]="labelsHidden"
+          [attr.aria-label]="labelsHidden ? 'Show labels' : 'Hide labels'"
+          [pTooltip]="isAndroid ? '' : 'Show or hide every label (Tab)'"
+          tooltipPosition="bottom"
+          (click)="toggleLabels()"
+        >
+          <span class="material-symbols-outlined">{{
+            labelsHidden ? 'visibility_off' : 'visibility'
+          }}</span>
+          <span class="canvas-chip__label">{{
+            labelsHidden ? 'Show labels' : 'Hide labels'
+          }}</span>
+          @if (!isAndroid) {
+            <kbd>Tab</kbd>
+          }
+        </button>
+        <button
+          type="button"
+          class="canvas-chip"
+          [class.is-on]="editorService.edgesOnly"
+          [attr.aria-pressed]="editorService.edgesOnly"
+          aria-label="Outline mode"
+          [pTooltip]="isAndroid ? '' : 'Contours and fill set apart (Ctrl+E)'"
+          tooltipPosition="bottom"
+          (click)="toggleOutline()"
+        >
+          <span class="material-symbols-outlined">adjust</span>
+          <span class="canvas-chip__label">Outline</span>
+          @if (!isAndroid) {
+            <kbd>Ctrl E</kbd>
+          }
+        </button>
+      }
+      <button
+        type="button"
+        class="canvas-chip"
+        aria-label="Fit the image to the view"
+        [pTooltip]="isAndroid ? '' : 'Fit the image to the view'"
+        tooltipPosition="bottom"
+        (click)="fit()"
+      >
+        <span class="material-symbols-outlined">fit_screen</span>
+        <span class="canvas-chip__label">Fit</span>
+      </button>
+    </div>
+
+    <!-- Where the pointer is, in image pixels. No pointer hovers on a tablet. -->
+    @if (isCursorInsideImage) {
+      <div class="canvas-readout canvas-readout--coords z-40" aria-hidden="true">
+        <span>x {{ zoomPanService.currentPixel.x | number: '1.0-0' }}</span>
+        <span>y {{ zoomPanService.currentPixel.y | number: '1.0-0' }}</span>
+        <span class="canvas-readout__muted">
+          {{ orchestrator.width }} × {{ orchestrator.height }}
+        </span>
+      </div>
+    }
+
+    <div class="canvas-chips canvas-chips--zoom z-40">
+      <button
+        type="button"
+        class="canvas-chip canvas-chip--icon"
+        aria-label="Zoom out"
+        (click)="zoomPanService.zoomOut(1.2)"
+      >
+        <span class="material-symbols-outlined">remove</span>
+      </button>
+      <span class="canvas-zoom" aria-live="polite">{{ zoomPercent }} %</span>
+      <button
+        type="button"
+        class="canvas-chip canvas-chip--icon"
+        aria-label="Zoom in"
+        (click)="zoomPanService.zoomIn(1.2)"
+      >
+        <span class="material-symbols-outlined">add</span>
+      </button>
     </div>
 
     <!-- Properties of the shape selected with the Node tool -->
     @if (editorService.isNodeTool() && vectorEditor.selectedShape(); as shape) {
-      <div class="absolute flex gap-2 items-center right-5 top-2 z-40">
+      <div class="absolute flex gap-2 items-center left-5 top-2 z-40">
         <p-select
           [options]="labelService.listSegmentationLabels"
           optionLabel="label"

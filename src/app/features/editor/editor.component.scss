@@ -110,3 +110,191 @@
   gap: 0.75rem;
   max-width: 18rem;
 }
+
+// ── Sequence and frame bar, under the canvas ────────────────────────────────
+
+.frame-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--p-content-border-color);
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+
+  &__nav {
+    display: flex;
+    gap: 0.15rem;
+    flex-shrink: 0;
+  }
+
+  &__step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--p-text-color);
+    cursor: pointer;
+
+    .material-symbols-outlined {
+      font-size: 1.3rem;
+    }
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      background: var(--p-content-hover-background);
+      outline: none;
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
+  }
+
+  &__title {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-width: 16rem;
+    flex-shrink: 1;
+  }
+
+  &__name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  &__index {
+    font-weight: 400;
+    color: var(--p-text-muted-color);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__sub {
+    font-size: 0.75rem;
+    color: var(--p-text-muted-color);
+    white-space: nowrap;
+  }
+
+  &__progress {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--p-text-muted-color);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__track {
+    width: 5rem;
+    height: 6px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--p-text-color) 12%, transparent);
+  }
+
+  &__fill {
+    height: 100%;
+    border-radius: inherit;
+    background: #22c55e;
+    transition: width 0.3s;
+  }
+}
+
+// One cell per frame: filled when reviewed, the current one numbered.
+.frame-strip {
+  display: flex;
+  flex: 1 1 0;
+  gap: 4px;
+  min-width: 0;
+  height: 1.9rem;
+  align-items: stretch;
+
+  &--slider {
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__slider {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+.frame-cell {
+  flex: 1 1 0;
+  min-width: 3px;
+  max-width: 4.5rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--p-text-color) 22%, transparent);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--p-primary-contrast-color, #fff);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+
+  &.is-reviewed {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--p-text-color) 62%, transparent);
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--p-primary-color);
+    outline: none;
+  }
+
+  &.is-current {
+    flex-grow: 1.2;
+    min-width: 1.6rem;
+    border-color: var(--p-primary-color);
+    background: var(--p-primary-color);
+  }
+}
+
+// Portrait tablet and narrow windows: the title shrinks first.
+@media (max-width: 900px) {
+  .frame-bar {
+    gap: 0.6rem;
+
+    &__title {
+      max-width: 9rem;
+    }
+    &__track {
+      width: 3rem;
+    }
+  }
+}
+
+@media (pointer: coarse) {
+  .frame-bar__step {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+  .frame-strip {
+    height: 2.4rem;
+  }
+}
+
+// Rail icons (Material Symbols), sized like PrimeIcons.
+.rail-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}

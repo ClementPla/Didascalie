@@ -121,28 +121,93 @@
         <ng-container *ngComponentOutlet="pane" />
       }
     </div>
-    <div
-      class="backdrop-blur-sm bg-black/70 bottom-0 left-0 p-2 right-0 sticky z-10"
-    >
-      <div class="flex gap-4 items-center justify-between text-sm text-white">
-        <span class="font-semibold truncate">
+    <!-- Sequence and frame navigation, under the canvas. -->
+    <div class="frame-bar">
+      <div class="frame-bar__nav">
+        <button
+          type="button"
+          class="frame-bar__step"
+          aria-label="Previous sequence"
+          [pTooltip]="isAndroid ? '' : 'Previous sequence (Left)'"
+          tooltipPosition="top"
+          [disabled]="!hasPreviousSequence"
+          (click)="navigatePrevious()"
+        >
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <button
+          type="button"
+          class="frame-bar__step"
+          aria-label="Next sequence"
+          [pTooltip]="isAndroid ? '' : 'Next sequence (Right)'"
+          tooltipPosition="top"
+          [disabled]="!hasNextSequence"
+          (click)="navigateNext()"
+        >
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
+
+      <div class="frame-bar__title">
+        <span class="frame-bar__name" [title]="currentSequenceName">
+          @if (sequencePosition; as position) {
+            <span class="frame-bar__index">{{ position.index }} / {{ position.total }} ·</span>
+          }
           {{ currentSequenceName }}
         </span>
-        <!-- A tablet has no arrow keys. -->
-        @if (isAndroid && !narrowPortrait() && totalFrames > 1) {
-          <div class="frame-scrubber">
+        <span class="frame-bar__sub">
+          @if (totalFrames > 1) {
+            frame {{ currentFrameIndex + 1 }} of {{ totalFrames }}
+          } @else {
+            single frame
+          }
+          @if (volume.enabled()) {
+            <span
+              [class.text-red-500]="volume.status() === 'error'"
+              [pTooltip]="volume.error() ?? ''"
+            >
+              · {{ volumeStatusText }}
+            </span>
+          }
+        </span>
+      </div>
+
+      <!-- The portrait tablet has its frame bar down the left edge. -->
+      @if (totalFrames > 1 && !(isAndroid && narrowPortrait())) {
+        @if (totalFrames <= maxFrameCells) {
+          <div class="frame-strip" role="group" aria-label="Frames">
+            @for (frame of sequenceService.frames(); track frame.id; let i = $index) {
+              <button
+                type="button"
+                class="frame-cell"
+                [class.is-current]="i === currentFrameIndex"
+                [class.is-reviewed]="frame.reviewed"
+                [attr.aria-label]="
+                  'Frame ' + (i + 1) + (frame.reviewed ? ', reviewed' : '')
+                "
+                [attr.aria-current]="i === currentFrameIndex ? 'true' : null"
+                [title]="'Frame ' + (i + 1) + (frame.reviewed ? ' · reviewed' : '')"
+                (click)="scrubToFrame(i)"
+              >
+                @if (i === currentFrameIndex) {
+                  {{ i + 1 }}
+                }
+              </button>
+            }
+          </div>
+        } @else {
+          <!-- Too many frames for one cell each. -->
+          <div class="frame-strip frame-strip--slider">
             <button
-              pButton
               type="button"
-              icon="pi pi-step-backward"
-              severity="secondary"
-              [text]="true"
-              size="small"
+              class="frame-bar__step"
               aria-label="Previous frame"
               (click)="stepFrame(-1)"
-            ></button>
+            >
+              <span class="material-symbols-outlined">skip_previous</span>
+            </button>
             <p-slider
-              class="frame-scrubber__slider"
+              class="frame-strip__slider"
               [ngModel]="currentFrameIndex"
               (ngModelChange)="scrubToFrame($event)"
               [min]="0"
@@ -151,47 +216,31 @@
               ariaLabel="Frame"
             />
             <button
-              pButton
               type="button"
-              icon="pi pi-step-forward"
-              severity="secondary"
-              [text]="true"
-              size="small"
+              class="frame-bar__step"
               aria-label="Next frame"
               (click)="stepFrame(1)"
-            ></button>
+            >
+              <span class="material-symbols-outlined">skip_next</span>
+            </button>
           </div>
         }
-        <div class="flex flex-shrink-0 gap-4 items-center">
-          @if (volume.enabled()) {
-            <span
-              class="text-xs"
-              [ngClass]="
-                volume.status() === 'error' ? 'text-red-300' : 'text-white/70'
-              "
-              [pTooltip]="volume.error() ?? ''"
-            >
-              {{ volumeStatusText }}
-            </span>
-          }
-          <span class="text-white/70 text-xs">
-            Frame {{ currentFrameIndex + 1 }}/{{ totalFrames }}
-          </span>
-          <span class="text-white/70 text-xs">
-            Seq {{ currentSequenceIndex + 1 }}/{{ totalSequences }}
-          </span>
-          <div class="flex gap-2 items-center">
-            <div class="bg-white/30 h-1.5 overflow-hidden rounded-full w-24">
-              <div
-                class="bg-green-400 duration-300 h-full transition-all"
-                [style.width.%]="globalProgressPercent"
-              ></div>
-            </div>
-            <span class="text-right text-xs w-10"
-              >{{ globalProgressPercent }}%</span
-            >
-          </div>
+      } @else {
+        <span class="flex-1"></span>
+      }
+
+      <div
+        class="frame-bar__progress"
+        [pTooltip]="'Frames reviewed in the project: ' + globalProgressPercent + '%'"
+        tooltipPosition="top"
+      >
+        <div class="frame-bar__track">
+          <div
+            class="frame-bar__fill"
+            [style.width.%]="globalProgressPercent"
+          ></div>
         </div>
+        <span>{{ globalProgressPercent }}%</span>
       </div>
     </div>
   </div>
@@ -201,73 +250,78 @@
       <button
         pButton
         type="button"
-        icon="pi pi-undo"
         [raised]="true"
         (click)="editorService.requestUndo()"
         pTooltip="Undo (Ctrl+Z)"
         aria-label="Undo"
-      ></button>
+      >
+        <span class="material-symbols-outlined rail-icon">undo</span>
+      </button>
       <button
         pButton
         type="button"
-        icon="pi pi-refresh"
         [raised]="true"
         (click)="editorService.requestRedo()"
         pTooltip="Redo (Ctrl+Y)"
         tooltipPosition="left"
         aria-label="Redo"
-      ></button>
+      >
+        <span class="material-symbols-outlined rail-icon">redo</span>
+      </button>
     </ng-template>
     <ng-template [appMenuGroup]="'Navigate'">
       <button
         pButton
         type="button"
-        icon="pi pi-chevron-left"
         severity="secondary"
         [raised]="true"
         pTooltip="Previous sequence"
         tooltipPosition="left"
         aria-label="Previous sequence"
         (click)="navigatePrevious()"
-      ></button>
+      >
+        <span class="material-symbols-outlined rail-icon">chevron_left</span>
+      </button>
       <button
         pButton
         type="button"
-        icon="pi pi-save"
         severity="secondary"
         [raised]="true"
         pTooltip="Save (Ctrl+S)"
         tooltipPosition="left"
         aria-label="Save"
         (click)="save()"
-      ></button>
+      >
+        <span class="material-symbols-outlined rail-icon">save</span>
+      </button>
       <button
         pButton
         type="button"
-        icon="pi pi-chevron-right"
         severity="secondary"
         [raised]="true"
         pTooltip="Next sequence"
         tooltipPosition="left"
         aria-label="Next sequence"
         (click)="navigateNext()"
-      ></button>
+      >
+        <span class="material-symbols-outlined rail-icon">chevron_right</span>
+      </button>
       @if (isMultiframeActive) {
         <button
           pButton
           type="button"
-          icon="pi pi-images"
           severity="secondary"
           [raised]="true"
           pTooltip="Frames and sequence actions: jump to a frame, propagate labels, clear the sequence"
           tooltipPosition="left"
           aria-label="Frame navigation"
           (click)="frameNavPopover.toggle($event)"
-        ></button>
+        >
+        <span class="material-symbols-outlined rail-icon">view_carousel</span>
+      </button>
         <button
           pButton
           type="button"
-          icon="pi pi-copy"
           severity="secondary"
           [raised]="true"
           [disabled]="propagation.pendingTargetCount() === 0"
@@ -275,24 +329,25 @@
           tooltipPosition="left"
           aria-label="Propagate labels"
           (click)="propagateConfirm.toggle($event)"
-        ></button>
+        >
+        <span class="material-symbols-outlined rail-icon">content_copy</span>
+      </button>
         <button
           pButton
           type="button"
-          icon="pi pi-video"
           severity="secondary"
           [raised]="true"
           pTooltip="Inspect sequence: play it back with its labels"
           tooltipPosition="left"
           aria-label="Inspect sequence"
           (click)="inspectSequence()"
-        ></button>
+        >
+        <span class="material-symbols-outlined rail-icon">videocam</span>
+      </button>
       }
       <p-togglebutton
         [ngModel]="isFrameReviewed"
         (onChange)="toggleFrameReviewed(!!$event.checked)"
-        onIcon="pi pi-check-circle"
-        offIcon="pi pi-circle"
         [onLabel]="''"
         [offLabel]="''"
         [pTooltip]="
@@ -308,12 +363,14 @@
         "
         severity="primary"
         fluid
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">task_alt</span>
+        </ng-template>
+      </p-togglebutton>
       <p-togglebutton
         [ngModel]="isSequenceReviewed"
         (onChange)="toggleSequenceReviewed(!!$event.checked)"
-        onIcon="pi pi-verified"
-        offIcon="pi pi-verified"
         [onLabel]="''"
         [offLabel]="''"
         [pTooltip]="
@@ -329,95 +386,113 @@
         "
         severity="primary"
         fluid
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">verified</span>
+        </ng-template>
+      </p-togglebutton>
     </ng-template>
 
     <ng-template [appMenuGroup]="'Stroke'">
       <p-togglebutton
         [(ngModel)]="editorService.smoothStrokes"
-        onIcon="pi pi-wave-pulse"
-        offIcon="pi pi-wave-pulse"
         [onLabel]="''"
         [offLabel]="''"
         pTooltip="Smooth pen, eraser and lasso strokes (settings in the panel)"
         tooltipPosition="left"
         ariaLabel="Smooth strokes"
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">gesture</span>
+        </ng-template>
+      </p-togglebutton>
     </ng-template>
 
     <ng-template [appMenuGroup]="'Auto'">
       <p-togglebutton
         [(ngModel)]="editorService.penPostProcess"
-        onIcon="pi pi-sparkles"
-        offIcon="pi pi-sparkles"
         [onLabel]="''"
         [offLabel]="''"
         pTooltip="Auto-segment the stroke (settings in the panel)"
         tooltipPosition="left"
         ariaLabel="Auto-segment the stroke"
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">auto_fix_high</span>
+        </ng-template>
+      </p-togglebutton>
     </ng-template>
 
     <ng-template [appMenuGroup]="'Display'">
       <p-togglebutton
         [(ngModel)]="editorService.useProcessing"
         (onChange)="editorService.requestCanvasRedraw()"
-        onIcon="pi pi-sliders-h"
-        offIcon="pi pi-sliders-h"
         [onLabel]="''"
         [offLabel]="''"
         pTooltip="Apply image adjustments (settings in the panel)"
         tooltipPosition="left"
         ariaLabel="Image adjustments"
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">contrast</span>
+        </ng-template>
+      </p-togglebutton>
       <p-togglebutton
         [(ngModel)]="editorService.edgesOnly"
         (onChange)="editorService.requestCanvasRedraw()"
-        onIcon="pi pi-stop-circle"
-        offIcon="pi pi-stop-circle"
         [onLabel]="''"
         [offLabel]="''"
         pTooltip="Outline mode: contours and fill set apart (Ctrl+E, settings in the panel)"
         tooltipPosition="left"
         ariaLabel="Outline mode"
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">adjust</span>
+        </ng-template>
+      </p-togglebutton>
     </ng-template>
 
     <ng-template [appMenuGroup]="'View'">
       <p-togglebutton
         [(ngModel)]="editorService.resetZoomAfterNavigation"
-        onIcon="pi pi-arrows-alt"
-        offIcon="pi pi-arrows-alt"
         [onLabel]="''"
         [offLabel]="''"
         pTooltip="Fit to view after navigation"
         tooltipPosition="left"
         ariaLabel="Fit to view after navigation"
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">crop_free</span>
+        </ng-template>
+      </p-togglebutton>
       <p-togglebutton
         [(ngModel)]="editorService.webGPURendering"
         (onChange)="editorService.requestCanvasRedraw()"
-        onIcon="pi pi-bolt"
-        offIcon="pi pi-bolt"
         [onLabel]="''"
         [offLabel]="''"
         pTooltip="GPU rendering (faster on large images)"
         tooltipPosition="left"
         ariaLabel="GPU rendering"
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">bolt</span>
+        </ng-template>
+      </p-togglebutton>
       @if (isMultiframeActive) {
         <p-togglebutton
           *experimental="'volume3d'"
           [ngModel]="volume.enabled()"
           (onChange)="setVolumeMode(!!$event.checked)"
-          onIcon="pi pi-box"
-          offIcon="pi pi-box"
           [onLabel]="''"
           [offLabel]="''"
           [pTooltip]="volumeTooltip"
           tooltipPosition="left"
           ariaLabel="3D volume mode"
-        ></p-togglebutton>
+        >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">deployed_code</span>
+        </ng-template>
+      </p-togglebutton>
       }
     </ng-template>
 
@@ -425,14 +500,16 @@
     <ng-template [appMenuGroup]="'Touch'">
       <p-togglebutton
         [(ngModel)]="editorService.touchSettingsOpen"
-        onIcon="pi pi-pencil"
-        offIcon="pi pi-pencil"
         [onLabel]="''"
         [offLabel]="''"
         pTooltip="Touch and pen options (settings in the panel)"
         tooltipPosition="left"
         ariaLabel="Touch and pen options"
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <span class="material-symbols-outlined rail-icon">touch_app</span>
+        </ng-template>
+      </p-togglebutton>
     </ng-template>
   </app-vertical-menu>
 

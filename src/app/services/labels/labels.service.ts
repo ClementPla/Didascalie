@@ -164,9 +164,11 @@ export class LabelsService implements ProjectScoped {
     this._treeNode = constructLabelTreeNode(this.listSegmentationLabels);
   }
 
+  /** Hide every segmentation label, or show them all when all are hidden. */
   switchVisibilityAllSegLabels() {
-    this.showAllLabels = !this.showAllLabels;
-    this.listSegmentationLabels.forEach((label) => {
+    const labels = this.listSegmentationLabels;
+    this.showAllLabels = labels.length > 0 && labels.every((l) => !l.isVisible);
+    labels.forEach((label) => {
       label.isVisible = this.showAllLabels;
     });
   }

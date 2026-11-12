@@ -34,6 +34,7 @@ import { EditorService } from './services/editor.service';
 import { LabelsService } from '../../services/labels/labels.service';
 import { PropagationService } from '../../services/labels/propagation.service';
 import { SequenceService } from '../../services/sequence.service';
+import { WorklistService } from '../../services/worklist.service';
 import { UIStateService } from '../../services/uistate.service';
 import { ProjectService } from '../../services/project/project.service';
 import { ZoomPanService } from './drawable-canvas/service/zoom-pan.service';
@@ -110,6 +111,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   volume = inject(MaskVolumeService);
   /** A tablet held upright: the labels go in a bar above the canvas. */
   readonly narrowPortrait = NARROW_PORTRAIT;
+  private worklist = inject(WorklistService);
+  /** Most frames shown one cell each in the frame bar; past it, a slider. */
+  readonly maxFrameCells = 120;
   readonly isAndroid = IS_ANDROID;
   pythonSegmentation = inject(PythonSegmentationService);
   private inferenceClient = inject(InferenceClientService);
@@ -669,6 +673,27 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   get totalSequences(): number {
     return this.sequenceService.sequences().length;
+  }
+
+  /** "12 / 87": the open sequence's place in the gallery's list when it is
+   *  on it (next/previous follow that list), else in the project. */
+  get sequencePosition(): { index: number; total: number } | null {
+    const id = this.sequenceService.currentSequence()?.id;
+    const inList = this.worklist.indexOf(id);
+    if (inList >= 0) return { index: inList + 1, total: this.worklist.size() };
+    const index = this.currentSequenceIndex;
+    if (index < 0 || this.totalSequences < 2) return null;
+    return { index: index + 1, total: this.totalSequences };
+  }
+
+  get hasPreviousSequence(): boolean {
+    const position = this.sequencePosition;
+    return !!position && position.index > 1;
+  }
+
+  get hasNextSequence(): boolean {
+    const position = this.sequencePosition;
+    return !!position && position.index < position.total;
   }
 
   get globalProgressPercent(): number {

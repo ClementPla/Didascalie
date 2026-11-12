@@ -35,6 +35,7 @@ import { RenderStatsService } from '../../../../shared/fps-display/render-stats.
 import { PyramidService } from '../../../../services/pyramid.service';
 import { MaskVolumeService } from '../../../../services/mask-volume.service';
 import { TiledImageService } from '../service/tiled-image.service';
+import { IS_ANDROID } from '../../../../core/platform';
 
 @Component({
   selector: 'app-drawable-canvas',
@@ -62,6 +63,35 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
   private volume = inject(MaskVolumeService);
 
   readonly experimentalOverlays = experimentalCanvasOverlays();
+  readonly isAndroid = IS_ANDROID;
+
+  // ── View controls over the canvas ────────────────────────────────────────
+
+  /** Every segmentation label is hidden. */
+  get labelsHidden(): boolean {
+    const labels = this.labelService.listSegmentationLabels;
+    return labels.length > 0 && labels.every((label) => !label.isVisible);
+  }
+
+  /** Hide every label, or show them all when all are hidden (Tab). */
+  toggleLabels(): void {
+    this.labelService.switchVisibilityAllSegLabels();
+    this.editorService.requestCanvasRedraw();
+  }
+
+  toggleOutline(): void {
+    this.editorService.edgesOnly = !this.editorService.edgesOnly;
+    this.editorService.requestCanvasRedraw();
+  }
+
+  fit(): void {
+    this.zoomPanService.resetZoomAndPan(true, true);
+  }
+
+  /** Screen pixels per image pixel, in percent. */
+  get zoomPercent(): number {
+    return Math.round(this.zoomPanService.scale * 100);
+  }
 
   public cursor: Point2D = { x: 0, y: 0 };          // viewport CSS px
   public viewBox: Viewbox = { xmin: 0, ymin: 0, xmax: 0, ymax: 0 };
