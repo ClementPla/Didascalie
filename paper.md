@@ -26,6 +26,7 @@ Didascalie is a desktop application for annotating biomedical images, covering a
 the people or models that labelled them. Didascalie runs entirely on the user’s device and never communicates with the outside world, so no image ever leaves it. It ships as a single executable for desktop and mobile platforms alike, and each project is stored in one self-contained file. A researcher or clinician simply installs it, opens the project and starts annotating, with no server to set up and no programming environment to maintain.
 
 The same editor and tools handle 2D images, videos and 3D volumes. Structures can be outlined with a brush, a lasso or vector shapes, and a rough stroke can be automatically snapped to the boundary of the underlying structure (\autoref{fig:editor}). Beyond segmentation, frames can be classified, annotated with keypoints and registered to one another. Several annotators can work on the same project, each under their own account, and the application quantifies their agreement. Didascalie runs on Windows, macOS and Linux, and an Android build brings touchscreen annotation to tablets.
+
 ![The editor: three structures segmented on an echocardiography frame, with the labels and the sequences of the project on the left.\label{fig:editor}](docs/assets/screenshots/editor.jpg)
 
 # Statement of need
@@ -64,7 +65,7 @@ The application is built with Tauri. A Rust core handles image decoding, mask en
 
 Images too large for a webview to decode are stored as a resolution pyramid. The viewer draws the coarsest level that still provides at least one image pixel per screen pixel, and loads full-resolution tiles only for the region being inspected. Editing always takes place at the image’s native resolution.
 
-Microscopy and whole-slide formats are read through bioformats-rs [@henriksson2026staticanalysisguidedagenticai], a Rust port of the original Bio-Formats library [@10.1083/jcb.201004104], which gives Didsacalie direct access to most of the common microscopy files without a Java runtime.
+Microscopy and whole-slide formats are read through bioformats-rs [@henriksson2026staticanalysisguidedagenticai], a Rust port of the original Bio-Formats library [@linkert2010bioformats], which gives Didascalie direct access to most of the common microscopy files without a Java runtime.
 
 ## Annotation assistance
 
@@ -78,7 +79,8 @@ Registration between two images is done by placing pairs of keypoints; Didascali
 Overlay and checkerboard views show the current alignment as points are added.
 
 ## Running user models
-Importing models directly into the application would require a common exchange format such as ONNX, and research architectures often fail to export to one. Didascalie instead connects locally to a Python process run by the user (optionnally). The user writes a function that takes the image as an array and returns one mask per label, adds a decorator, and runs the script:
+
+Importing models directly into the application would require a common exchange format such as ONNX, and research architectures often fail to export to one. Didascalie instead connects locally to a Python process run by the user (optionally). The user writes a function that takes the image as an array and returns one mask per label, adds a decorator, and runs the script:
 
 ```python
 from didascalie.com import register_seg, serve
@@ -92,7 +94,8 @@ serve()
 
 The function then appears in the editor, where it can be run on the current frame or on the whole sequence. A second decorator registers functions that propose keypoint correspondences for registration. Beyond its input and output types, Didascalie places no constraints on what the function does, and it runs in the user’s own Python environment.
 
-This function is not available on mobile device.
+This function is not available on mobile devices.
+
 # Research impact statement
 
 Didascalie has been used in several clinical and laboratory settings since 2024,
@@ -115,7 +118,7 @@ user documentation at <https://didascalie.readthedocs.io>.
 
 Development began in 2024, without generative AI.
 Since 2026, Claude Code (Anthropic), with the Claude Sonnet and Opus models available at the time, up to Claude Opus 5.5, has been used to implement features, write tests, fix defects and draft the documentation, from requirements and design decisions set by the author. It also assisted in revising the language of the manuscript. The author reviewed the generated code and text, and edited or rejected them where needed.
-In addiition, generated code was validated by the unit tests and continuous integration of the repository, and by use of the application on real data, by the author and by the
+In addition, generated code was validated by the unit tests and continuous integration of the repository, and by use of the application on real data, by the author and by the
 clinicians who annotate with it. The author takes responsibility for all of the software and of this paper.
 
 # Acknowledgements
