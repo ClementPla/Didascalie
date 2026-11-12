@@ -62,7 +62,11 @@ export class DrawService implements OnDestroy {
 
   // ── Core lifecycle ───────────────────────────────────────────────────────
 
+  /** The pointer moved since the stroke started. */
+  private strokeMoved = false;
+
   public startDraw(event: MouseEvent): void {
+    this.strokeMoved = false;
     this.stateService.reset();
     this.stateService.isDrawing = true;
 
@@ -82,6 +86,7 @@ export class DrawService implements OnDestroy {
 
     const tool = this.tools.get(this.editorService.selectedTool);
     if (!tool || !this.currentToolContext) return;
+    this.strokeMoved = true;
 
     const imageCoord = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updatePreviousPoint(this.stateService.currentPoint);
@@ -110,6 +115,13 @@ export class DrawService implements OnDestroy {
 
   public async endDraw(event: MouseEvent): Promise<void> {
     if (!this.stateService.isDrawing) return;
+
+    // A click without moving: the brushes paint only on move, so give them
+    // one, at the press point. It makes a dot.
+    const brush =
+      this.editorService.selectedTool === Tools.PEN ||
+      this.editorService.selectedTool === Tools.ERASER;
+    if (brush && !this.strokeMoved) this.draw(event);
 
     const imageCoord = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updateCurrentPoint(imageCoord);

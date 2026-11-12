@@ -32,7 +32,13 @@ export class EraserTool extends BaseTool {
 
     ctx.beginPath();
     ctx.moveTo(prev.x, prev.y);
-    ctx.lineTo(point.x, point.y);
+    // A point that did not move is erased as a dot (a zero-length line draws
+    // nothing).
+    if (prev.x === point.x && prev.y === point.y) {
+      ctx.lineTo(point.x + 0.1, point.y + 0.1);
+    } else {
+      ctx.lineTo(point.x, point.y);
+    }
     ctx.stroke();
 
     // With `eraserPostProcess`, DrawService erases the touched components when
