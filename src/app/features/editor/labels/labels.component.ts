@@ -205,11 +205,6 @@ export class LabelsComponent implements OnInit, OnDestroy {
     this.editorService.requestCanvasRedraw();
   }
 
-  public changeAllVisibility(): void {
-    this.labelsService.switchVisibilityAllSegLabels();
-    this.editorService.requestCanvasRedraw();
-  }
-
   public updateOpacity(): void {
     this.editorService.requestCanvasRedraw();
   }

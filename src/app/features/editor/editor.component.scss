@@ -221,12 +221,12 @@
   height: 1.9rem;
   align-items: stretch;
 
-  &--slider {
+  &--map {
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.35rem;
   }
 
-  &__slider {
+  &__map {
     flex: 1 1 0;
     min-width: 0;
   }
@@ -312,5 +312,25 @@ p-togglebutton.p-togglebutton-checked {
   ::ng-deep .p-togglebutton-content {
     background: transparent;
     box-shadow: none;
+  }
+}
+
+// Type a frame number to go to it (long sequences).
+.frame-jump {
+  width: 4.2rem;
+  height: 1.9rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 6px;
+  background: var(--p-content-background);
+  color: var(--p-text-color);
+  font: inherit;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 1px;
   }
 }

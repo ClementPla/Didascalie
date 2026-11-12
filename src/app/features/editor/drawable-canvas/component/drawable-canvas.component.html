@@ -98,7 +98,7 @@
 
     <!-- View controls, pinned to the top right of the canvas. -->
     <div class="canvas-chips canvas-chips--top z-40">
-      @if (labelService.listSegmentationLabels.length > 0) {
+      @if (isSegmentationProject) {
         <button
           type="button"
           class="canvas-chip"
@@ -134,6 +134,19 @@
           @if (!isAndroid) {
             <kbd>Ctrl E</kbd>
           }
+        </button>
+        <button
+          type="button"
+          class="canvas-chip"
+          [class.is-on]="editorService.showBoundingBox"
+          [attr.aria-pressed]="editorService.showBoundingBox"
+          aria-label="Bounding boxes"
+          [pTooltip]="isAndroid ? '' : 'A box around each labelled object (options in the settings panel)'"
+          tooltipPosition="bottom"
+          (click)="toggleBoundingBoxes()"
+        >
+          <span class="material-symbols-outlined">select</span>
+          <span class="canvas-chip__label">Boxes</span>
         </button>
       }
       <button

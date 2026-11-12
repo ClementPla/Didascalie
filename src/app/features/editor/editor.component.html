@@ -196,33 +196,46 @@
             }
           </div>
         } @else {
-          <!-- Too many frames for one cell each. -->
-          <div class="frame-strip frame-strip--slider">
+          <!-- Too many frames for one cell each (a video): one bar, shaded
+               where reviewed, to drag along; and a box to type a frame. -->
+          <div class="frame-strip frame-strip--map">
             <button
               type="button"
               class="frame-bar__step"
               aria-label="Previous frame"
+              [pTooltip]="isAndroid ? '' : 'Previous frame (Down)'"
+              tooltipPosition="top"
               (click)="stepFrame(-1)"
             >
               <span class="material-symbols-outlined">skip_previous</span>
             </button>
-            <p-slider
-              class="frame-strip__slider"
-              [ngModel]="currentFrameIndex"
-              (ngModelChange)="scrubToFrame($event)"
-              [min]="0"
-              [max]="totalFrames - 1"
-              [step]="1"
-              ariaLabel="Frame"
-            />
+            <app-frame-map
+              class="frame-strip__map"
+              [frames]="sequenceService.frames()"
+              [current]="currentFrameIndex"
+              (frameSelected)="scrubToFrame($event)"
+            ></app-frame-map>
             <button
               type="button"
               class="frame-bar__step"
               aria-label="Next frame"
+              [pTooltip]="isAndroid ? '' : 'Next frame (Up)'"
+              tooltipPosition="top"
               (click)="stepFrame(1)"
             >
               <span class="material-symbols-outlined">skip_next</span>
             </button>
+            <input
+              class="frame-jump"
+              type="number"
+              inputmode="numeric"
+              aria-label="Go to frame"
+              [min]="1"
+              [max]="totalFrames"
+              [value]="currentFrameIndex + 1"
+              (change)="jumpToFrame($any($event.target))"
+              (keydown.enter)="$any($event.target).blur()"
+            />
           </div>
         }
       } @else {
@@ -406,6 +419,20 @@
           <span class="material-symbols-outlined rail-icon">gesture</span>
         </ng-template>
       </p-togglebutton>
+      @if (isSegmentationProject) {
+        <p-togglebutton
+          [(ngModel)]="editorService.showMaskOps"
+          [onLabel]="''"
+          [offLabel]="''"
+          pTooltip="Boolean: invert, subtract, fill holes, dilate, erode, smooth (in the settings panel)"
+          tooltipPosition="left"
+          ariaLabel="Boolean operations"
+        >
+          <ng-template #icon>
+            <span class="material-symbols-outlined rail-icon">join</span>
+          </ng-template>
+        </p-togglebutton>
+      }
     </ng-template>
 
     <ng-template [appMenuGroup]="'Auto'">

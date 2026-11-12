@@ -32,7 +32,9 @@
             height="36"
           >
             <div xmlns="http://www.w3.org/1999/xhtml" class="child__body">
-              @if (childItem.materialIcon) {
+              @if (childItem.svgIcon) {
+                <app-icon class="child__icon" [name]="childItem.svgIcon"></app-icon>
+              } @else if (childItem.materialIcon) {
                 <span class="material-symbols-outlined child__icon">{{
                   childItem.materialIcon
                 }}</span>
@@ -60,7 +62,9 @@
         height="44"
       >
         <div xmlns="http://www.w3.org/1999/xhtml" class="slice__body">
-          @if (item.materialIcon) {
+          @if (item.svgIcon) {
+            <app-icon class="slice__icon" [name]="item.svgIcon"></app-icon>
+          } @else if (item.materialIcon) {
             <span class="material-symbols-outlined slice__icon">{{
               item.materialIcon
             }}</span>

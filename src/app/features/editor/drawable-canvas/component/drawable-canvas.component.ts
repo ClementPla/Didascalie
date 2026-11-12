@@ -36,6 +36,7 @@ import { PyramidService } from '../../../../services/pyramid.service';
 import { MaskVolumeService } from '../../../../services/mask-volume.service';
 import { TiledImageService } from '../service/tiled-image.service';
 import { IS_ANDROID } from '../../../../core/platform';
+import { ProjectService } from '../../../../services/project/project.service';
 
 @Component({
   selector: 'app-drawable-canvas',
@@ -64,6 +65,15 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   readonly experimentalOverlays = experimentalCanvasOverlays();
   readonly isAndroid = IS_ANDROID;
+  private projectService = inject(ProjectService);
+
+  /** The label buttons over the canvas are for pixel-level projects. */
+  get isSegmentationProject(): boolean {
+    return (
+      this.projectService.isSegmentation() ||
+      this.projectService.isInstanceSegmentation()
+    );
+  }
 
   // ── View controls over the canvas ────────────────────────────────────────
 
@@ -81,6 +91,11 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   toggleOutline(): void {
     this.editorService.edgesOnly = !this.editorService.edgesOnly;
+    this.editorService.requestCanvasRedraw();
+  }
+
+  toggleBoundingBoxes(): void {
+    this.editorService.showBoundingBox = !this.editorService.showBoundingBox;
     this.editorService.requestCanvasRedraw();
   }
 

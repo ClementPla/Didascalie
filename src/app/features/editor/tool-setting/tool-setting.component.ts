@@ -22,6 +22,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { CommonModule } from '@angular/common';
 import { ImageAdjustmentsComponent } from "./image-processing/image-adjustments/image-adjustments.component";
 import { ChannelsPanelComponent } from "./channels-panel/channels-panel.component";
+import { MaskOpsPanelComponent } from './mask-ops-panel/mask-ops-panel.component';
 import { SequenceService } from "../../../services/sequence.service";
 import { ChannelsService } from "../services/channels.service";
 
@@ -40,6 +41,7 @@ import { ChannelsService } from "../services/channels.service";
     AccordionModule,
     ImageAdjustmentsComponent,
     ChannelsPanelComponent,
+    MaskOpsPanelComponent,
 ],
     templateUrl: './tool-setting.component.html',
     styleUrl: './tool-setting.component.scss',
@@ -69,6 +71,14 @@ export class ToolSettingComponent {
   flags = inject(FeatureFlagsService);
 
   ppOption = PostProcessOption;
+
+  /** Pixel-level projects: the Boolean section applies. */
+  get isSegmentationProject(): boolean {
+    return (
+      this.projectService.isSegmentation() ||
+      this.projectService.isInstanceSegmentation()
+    );
+  }
 
   readonly penButtonActions: { label: string; value: PenButtonAction }[] = [
     { label: 'Off', value: 'none' },

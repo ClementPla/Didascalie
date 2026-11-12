@@ -1,3 +1,5 @@
+import type { IconName } from '../shared/generics/icon/icon.component';
+
 export class Tool {
   public id: number;
   public name: string;
@@ -12,6 +14,8 @@ export class Tool {
   /** Material Symbols ligature, preferred over `icon` where the toolbar
    *  supports it. The quick-access wheel uses `icon`. */
   public materialIcon: string | null = null;
+  /** Line icon from the redesign, preferred over both of the above. */
+  public svgIcon: IconName | null = null;
   constructor(
     id: number,
     name: string,
@@ -154,6 +158,23 @@ export class Tools {
     'route'
   );
 }
+
+// The redesign's line icons.
+const SVG_ICONS: [Tool, IconName][] = [
+  [Tools.PAN, 'pan'],
+  [Tools.LINE, 'line'],
+  [Tools.ERASER, 'eraser'],
+  [Tools.LASSO, 'lasso'],
+  [Tools.LASSO_ERASER, 'lassox'],
+  [Tools.SELECT, 'select'],
+  [Tools.PATH, 'shape'],
+  [Tools.RECT, 'box'],
+  [Tools.ELLIPSE, 'ellipse'],
+  [Tools.NODE, 'nodes'],
+  [Tools.VECTORIZE, 'trace'],
+  [Tools.SKELETONIZE, 'center'],
+];
+for (const [tool, name] of SVG_ICONS) tool.svgIcon = name;
 
 export const RASTER_TOOLS = [
   Tools.PEN,

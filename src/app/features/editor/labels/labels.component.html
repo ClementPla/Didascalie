@@ -53,20 +53,10 @@
     projectService.isInstanceSegmentation()){
 
     <p-fieldset legend="Pixel-level" [toggleable]="true" class="m-0">
-      <!-- Visibility: show/hide all sits right by the opacity it pairs with,
-           labelled, so it reads at a glance on a tablet too (no Tab key). -->
+      <!-- Showing or hiding every label, and the bounding boxes, are buttons
+           over the canvas. -->
       <div class="flex flex-row gap-3 items-center">
-        <p-button
-          [icon]="labelsService.showAllLabels ? 'pi pi-eye' : 'pi pi-eye-slash'"
-          [label]="labelsService.showAllLabels ? 'Hide all' : 'Show all'"
-          severity="secondary"
-          [outlined]="true"
-          size="small"
-          (click)="changeAllVisibility()"
-          pTooltip="Show or hide every label · Tab"
-          tooltipPosition="bottom"
-          [ariaLabel]="labelsService.showAllLabels ? 'Hide all labels' : 'Show all labels'"
-        ></p-button>
+        <span class="text-sm">Opacity</span>
         <p-slider
           class="flex-1"
           [(ngModel)]="editorService.labelOpacity"
@@ -89,44 +79,6 @@
           ariaLabel="Clear every label on this frame"
           (click)="clearFrame()"
         ></p-button>
-      </div>
-      <div class="bbox-settings mt-2">
-        <div class="flex flex-row flex-wrap gap-4 items-start">
-          <app-labelled-switch
-            [(checked)]="editorService.showBoundingBox"
-            (checkedChange)="updateOpacity()"
-            tooltipLabel="Draw a box around each labelled object"
-          >
-            Bounding boxes
-          </app-labelled-switch>
-          @if (editorService.showBoundingBox) {
-            <app-labelled-switch
-              [(checked)]="editorService.labelledCombinedBoundingBox"
-              (checkedChange)="updateOpacity()"
-              tooltipLabel="One box per object whatever its label, instead of one per label"
-            >
-              Merge labels
-            </app-labelled-switch>
-            <app-labelled-switch
-              [(checked)]="editorService.eraseOnClick"
-              tooltipLabel="With the eraser, clicking a box erases its object"
-            >
-              Click to erase
-            </app-labelled-switch>
-          }
-        </div>
-        @if (editorService.showBoundingBox) {
-          <p class="flex flex-col gap-2 mt-2">
-            <p-slider
-              [(ngModel)]="editorService.bbxOpacity"
-              [min]="0"
-              [max]="1"
-              [step]="0.01"
-              ariaLabel="Box opacity"
-            />
-            <small>Box opacity</small>
-          </p>
-        }
       </div>
       @if (projectService.isInstanceSegmentation()) {
         <div class="mt-2">

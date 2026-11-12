@@ -6,14 +6,16 @@
     tooltipPosition="bottom"
   >
     <span class="tool-item__icon">
-      @if (item.materialIcon) {
+      @if (item.svgIcon) {
+        <app-icon class="svg-icon" [name]="item.svgIcon"></app-icon>
+      } @else if (item.materialIcon) {
         <span class="material-symbols-outlined ms-icon">{{
           item.materialIcon
         }}</span>
       } @else {
         <i [class]="item.icon"></i>
       }
-      @if (item.overlayIcon) {
+      @if (item.overlayIcon && !item.svgIcon) {
         <i [class]="item.overlayIcon" class="tool-item__badge"></i>
       }
     </span>
@@ -34,14 +36,16 @@
           class="icon-toggle"
           [ngModel]="editorService.canPan()"
           (onChange)="setPan(!!$event.checked)"
-          onIcon="pi pi-arrows-alt"
-          offIcon="pi pi-arrows-alt"
           [onLabel]="''"
           [offLabel]="''"
           pTooltip="Pan the image · G, or hold Space with any tool"
           tooltipPosition="bottom"
           ariaLabel="Pan tool"
-        ></p-togglebutton>
+        >
+          <ng-template #icon>
+            <app-icon class="svg-icon" name="pan"></app-icon>
+          </ng-template>
+        </p-togglebutton>
       </div>
 
       <div class="tool-group">
@@ -138,13 +142,15 @@
           @if (editorService.isEraser()) {
             <p-togglebutton
               [(ngModel)]="editorService.eraseAll"
-              onIcon="pi pi-clone"
-              offIcon="pi pi-clone"
               onLabel="All labels"
               offLabel="All labels"
               pTooltip="Erase every label, not only the active one"
               tooltipPosition="bottom"
-            ></p-togglebutton>
+            >
+              <ng-template #icon>
+                <app-icon class="svg-icon" name="layers"></app-icon>
+              </ng-template>
+            </p-togglebutton>
 
             <p-togglebutton
               [(ngModel)]="editorService.eraserPostProcess"
@@ -197,7 +203,7 @@
           (onClick)="rasterize()"
           ariaLabel="Rasterize shapes into the mask"
         >
-          <span class="material-symbols-outlined ms-icon">imagesearch_roller</span>
+          <app-icon class="svg-icon" name="raster"></app-icon>
         </p-button>
       </div>
 
@@ -210,7 +216,6 @@
       <span class="tool-group__label">Model</span>
       <p-splitButton
         [label]="predictLabel"
-        [icon]="prediction.running() ? 'pi pi-spin pi-spinner' : 'pi pi-bolt'"
         severity="secondary"
         [outlined]="true"
         [model]="outputMenu"
@@ -218,19 +223,30 @@
         (onClick)="predict()"
         pTooltip="Predict this frame with the trained head. The arrow picks what you get back: painted pixels, editable region outlines, or centerlines."
         tooltipPosition="bottom"
-      />
+      >
+        <ng-template #content>
+          @if (!prediction.running()) {
+            <app-icon class="svg-icon" name="spark"></app-icon>
+          } @else {
+            <i class="pi pi-spin pi-spinner"></i>
+          }
+          <span>{{ predictLabel }}</span>
+        </ng-template>
+      </p-splitButton>
 
       <p-togglebutton
         class="icon-toggle"
         [(ngModel)]="useScribbles"
-        onIcon="pi pi-pencil"
-        offIcon="pi pi-pencil"
         [onLabel]="''"
         [offLabel]="''"
         pTooltip="Use what you have already drawn as hints. Turn it off to see what the model does unaided."
         tooltipPosition="bottom"
         ariaLabel="Use strokes as hints"
-      ></p-togglebutton>
+      >
+        <ng-template #icon>
+          <app-icon class="svg-icon" name="hint"></app-icon>
+        </ng-template>
+      </p-togglebutton>
     </div>
     }
   </ng-template>

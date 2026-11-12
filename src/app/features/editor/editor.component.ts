@@ -29,6 +29,7 @@ import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames
 import { PropagationDialogComponent } from './multi-frames-options/propagation-dialog/propagation-dialog.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
 import { SequenceNavigatorComponent } from './sequence-navigator/sequence-navigator.component';
+import { FrameMapComponent } from './frame-map/frame-map.component';
 
 import { EditorService } from './services/editor.service';
 import { LabelsService } from '../../services/labels/labels.service';
@@ -83,6 +84,7 @@ import { experimentalEditorPanes } from '../../experimental/registry';
     PropagationDialogComponent,
     QuickAccessMenuComponent,
     SequenceNavigatorComponent,
+    FrameMapComponent,
     VerticalMenuComponent,
     MenuGroupDirective,
     ExperimentalDirective,
@@ -422,6 +424,16 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     void this.goToSlice(index);
   }
 
+  /** Go to the frame typed in the frame bar (1-based); a bad entry is reset. */
+  public jumpToFrame(field: HTMLInputElement): void {
+    const typed = Math.round(Number(field.value));
+    if (!Number.isFinite(typed) || typed < 1 || typed > this.totalFrames) {
+      field.value = String(this.currentFrameIndex + 1);
+      return;
+    }
+    this.scrubToFrame(typed - 1);
+  }
+
   private async goToSlice(z: number): Promise<void> {
     if (this.navInFlight) {
       this.pendingSlice = z;
@@ -623,7 +635,17 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       this.editorService.eraserPostProcess ||
       this.editorService.touchSettingsOpen ||
       this.editorService.smoothStrokes ||
-      this.editorService.edgesOnly
+      this.editorService.edgesOnly ||
+      this.editorService.showBoundingBox ||
+      (this.editorService.showMaskOps && this.isSegmentationProject)
+    );
+  }
+
+  /** Pixel-level projects: the mask tools apply. */
+  get isSegmentationProject(): boolean {
+    return (
+      this.projectService.isSegmentation() ||
+      this.projectService.isInstanceSegmentation()
     );
   }
 

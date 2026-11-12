@@ -1,0 +1,274 @@
+@let op = selectedOp();
+
+<div class="mask-ops" [class.is-busy]="busy">
+  <!-- ── Where ──────────────────────────────────────────────────────────── -->
+  @if (frameCount() > 1) {
+    <div class="seg" role="radiogroup" aria-label="Frames to apply to">
+      @for (s of scopes; track s.label) {
+        <button
+          type="button"
+          class="seg__item"
+          role="radio"
+          [attr.aria-checked]="ops.allFrames() === s.value"
+          [class.is-on]="ops.allFrames() === s.value"
+          [pTooltip]="tip(s.hint)"
+          tooltipPosition="bottom"
+          (click)="ops.allFrames.set(s.value)"
+        >
+          <span class="material-symbols-outlined">{{ s.icon }}</span>
+          <span>{{ s.label }}</span>
+        </button>
+      }
+    </div>
+    @if (ops.allFrames() && !busy) {
+      <p class="note note--warn">
+        <span class="material-symbols-outlined">info</span>
+        All {{ frameCount() }} frames are changed and saved. Only this frame can be undone.
+      </p>
+    }
+  }
+  @if (ops.progress(); as p) {
+    <div class="progress" role="status">
+      <div class="progress__bar">
+        <div class="progress__fill" [style.width.%]="(100 * p.done) / p.total"></div>
+      </div>
+      <span>Frame {{ p.done }} of {{ p.total }}</span>
+    </div>
+  }
+
+  <!-- ── Active label ───────────────────────────────────────────────────── -->
+  <section class="block">
+    <header class="block__head">
+      <span class="block__title">Active label</span>
+      @if (labels.activeLabel; as active) {
+        <span class="label-chip">
+          <span class="label-chip__dot" [style.background]="active.color"></span>
+          {{ active.label }}
+        </span>
+      } @else {
+        <span class="block__hint">none</span>
+      }
+    </header>
+
+    <div class="seg seg--small" role="radiogroup" aria-label="How to invert">
+      @for (m of invertModes; track m.value) {
+        <button
+          type="button"
+          class="seg__item"
+          role="radio"
+          [attr.aria-checked]="ops.invertMode() === m.value"
+          [class.is-on]="ops.invertMode() === m.value"
+          [pTooltip]="tip(m.hint)"
+          tooltipPosition="bottom"
+          (click)="ops.invertMode.set(m.value)"
+        >
+          <span>{{ m.label }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="actions">
+      <button
+        type="button"
+        class="action"
+        [disabled]="busy || !labels.activeLabel"
+        [pTooltip]="tip(ops.invertMode() === 'whole' ? 'Swap the label and everything else' : 'Swap the label and the free space')"
+        tooltipPosition="bottom"
+        (click)="ops.invert()"
+      >
+        <span class="material-symbols-outlined action__icon">invert_colors</span>
+        <span class="action__label">Invert</span>
+      </button>
+      <button
+        type="button"
+        class="action"
+        [disabled]="busy || !labels.activeLabel"
+        [pTooltip]="tip('Remove what this label covers from every other label')"
+        tooltipPosition="bottom"
+        (click)="ops.subtractActive()"
+      >
+        <span class="material-symbols-outlined action__icon">deselect</span>
+        <span class="action__label">Cut from others</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ── Clean up ───────────────────────────────────────────────────────── -->
+  <section class="block">
+    <header class="block__head">
+      <span class="block__title">Clean up</span>
+    </header>
+
+    <div class="field">
+      <span class="field__label">Apply to</span>
+      <div class="seg" role="radiogroup" aria-label="Labels to apply to">
+        @for (t of targets; track t.value) {
+          <button
+            type="button"
+            class="seg__item seg__item--stack"
+            role="radio"
+            [attr.aria-checked]="ops.target() === t.value"
+            [class.is-on]="ops.target() === t.value"
+            [pTooltip]="tip(t.hint)"
+            tooltipPosition="bottom"
+            (click)="ops.target.set(t.value)"
+          >
+            <span class="material-symbols-outlined">{{ t.icon }}</span>
+            <span>{{ t.label }}</span>
+          </button>
+        }
+      </div>
+      @if (ops.target() === 'selected') {
+        <p-multiselect
+          [options]="labels.listSegmentationLabels"
+          [ngModel]="ops.selectedLabels()"
+          (ngModelChange)="ops.selectedLabels.set($event)"
+          optionLabel="label"
+          optionValue="id"
+          placeholder="Pick labels"
+          [maxSelectedLabels]="2"
+          selectedItemsLabel="{0} labels"
+          size="small"
+          appendTo="body"
+          styleClass="w-full"
+          ariaLabel="Labels to apply to"
+        >
+          <ng-template #item let-label>
+            <span class="label-chip">
+              <span class="label-chip__dot" [style.background]="label.color"></span>
+              {{ label.label }}
+            </span>
+          </ng-template>
+        </p-multiselect>
+      }
+    </div>
+
+    <div class="tiles" role="radiogroup" aria-label="Operation">
+      @for (o of cleanOps; track o.value) {
+        <button
+          type="button"
+          class="tile"
+          role="radio"
+          [attr.aria-checked]="op.value === o.value"
+          [class.is-on]="op.value === o.value"
+          [pTooltip]="tip(o.hint)"
+          tooltipPosition="bottom"
+          (click)="ops.cleanOp.set(o.value)"
+        >
+          <span class="material-symbols-outlined tile__icon">{{ o.icon }}</span>
+          <span class="tile__label">{{ o.label }}</span>
+        </button>
+      }
+    </div>
+
+    <!-- The picked operation: what it does, its setting, Apply. -->
+    <div class="card">
+      <p class="card__hint">{{ op.hint }}</p>
+
+      @switch (op.param) {
+        @case ('holeArea') {
+          <div class="param">
+            <span class="param__label">Up to</span>
+            <p-inputnumber
+              [ngModel]="ops.holeArea()"
+              (ngModelChange)="ops.holeArea.set($event ?? 0)"
+              [min]="0"
+              suffix=" px²"
+              size="small"
+              inputStyleClass="param__number"
+              ariaLabel="Largest hole to fill, in pixels"
+            ></p-inputnumber>
+            <span class="param__aside">0 = any size</span>
+          </div>
+        }
+        @case ('islandArea') {
+          <div class="param">
+            <span class="param__label">Up to</span>
+            <p-inputnumber
+              [ngModel]="ops.islandArea()"
+              (ngModelChange)="ops.islandArea.set($event ?? 0)"
+              [min]="0"
+              suffix=" px²"
+              size="small"
+              inputStyleClass="param__number"
+              ariaLabel="Largest island to remove, in pixels"
+            ></p-inputnumber>
+          </div>
+        }
+        @case ('radius') {
+          <div class="param">
+            <span class="param__label">Radius</span>
+            <p-slider
+              [ngModel]="ops.radius()"
+              (ngModelChange)="ops.radius.set($event)"
+              [min]="1"
+              [max]="50"
+              ariaLabel="Radius, in pixels"
+            ></p-slider>
+            <span class="param__value">{{ ops.radius() }} px</span>
+          </div>
+        }
+        @case ('smoothing') {
+          <div class="param">
+            <span class="param__label">Strength</span>
+            <p-slider
+              [ngModel]="ops.smoothing()"
+              (ngModelChange)="ops.smoothing.set($event)"
+              [min]="0.5"
+              [max]="20"
+              [step]="0.5"
+              ariaLabel="Smoothing strength, in pixels"
+            ></p-slider>
+            <span class="param__value">{{ ops.smoothing() }} px</span>
+          </div>
+        }
+        @case ('gapWidth') {
+          <div class="param">
+            <span class="param__label">Gap up to</span>
+            <p-slider
+              [ngModel]="ops.gapWidth()"
+              (ngModelChange)="ops.gapWidth.set($event)"
+              [min]="1"
+              [max]="30"
+              ariaLabel="Widest gap to fill, in pixels"
+            ></p-slider>
+            <span class="param__value">{{ ops.gapWidth() }} px</span>
+          </div>
+        }
+      }
+
+      @if (op.adds) {
+        <label class="check" [pTooltip]="tip('The pixels a label gains are taken from the labels that had them, so labels do not overlap')" tooltipPosition="bottom">
+          <p-toggleswitch
+            [ngModel]="ops.takeFromOthers()"
+            (ngModelChange)="ops.takeFromOthers.set($event)"
+            ariaLabel="Take from other labels"
+          ></p-toggleswitch>
+          <span>Take from other labels</span>
+        </label>
+      }
+      @if (op.value === 'gaps' && project.isInstanceSegmentation()) {
+        <label class="check" [pTooltip]="tip('Also fill between two instances of the same label')" tooltipPosition="bottom">
+          <p-toggleswitch
+            [ngModel]="ops.gapsBetweenInstances()"
+            (ngModelChange)="ops.gapsBetweenInstances.set($event)"
+            ariaLabel="Between instances"
+          ></p-toggleswitch>
+          <span>Between instances too</span>
+        </label>
+      }
+
+      <p-button
+        styleClass="w-full"
+        size="small"
+        [disabled]="busy"
+        (onClick)="apply()"
+        [ariaLabel]="op.label + ' on ' + targetSummary"
+      >
+        <span class="material-symbols-outlined apply__icon">{{ op.icon }}</span>
+        <span class="apply__label">{{ op.label }}</span>
+        <span class="apply__target">· {{ targetSummary }}{{ ops.allFrames() ? ', all frames' : '' }}</span>
+      </p-button>
+    </div>
+  </section>
+</div>

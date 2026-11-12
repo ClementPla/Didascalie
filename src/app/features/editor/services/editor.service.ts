@@ -125,6 +125,11 @@ export class EditorService {
   get lineWidth(): number { return this._lineWidth(); }
   set lineWidth(v: number) { this._lineWidth.set(v); }
 
+  /** The Boolean section of the settings panel is open. */
+  private readonly _showMaskOps = signal(false);
+  get showMaskOps(): boolean { return this._showMaskOps(); }
+  set showMaskOps(v: boolean) { this._showMaskOps.set(v); }
+
   /** Smooth pen, eraser and lasso strokes (strengths below). */
   private readonly _smoothStrokes = signal(false);
   get smoothStrokes(): boolean { return this._smoothStrokes(); }

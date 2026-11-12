@@ -22,6 +22,7 @@ import { PanelModule } from 'primeng/panel';
 import { ToggleButtonModule } from 'primeng/togglebutton';
 import { TooltipModule } from 'primeng/tooltip';
 import { SplitButtonModule } from 'primeng/splitbutton';
+import { IconComponent } from '../../../shared/generics/icon/icon.component';
 import { MenuItem } from 'primeng/api';
 import { SelectModule } from 'primeng/select';
 import { MultiSelectModule } from 'primeng/multiselect';
@@ -53,6 +54,7 @@ const OUTPUTS: { id: PredictOutput; label: string; icon: string }[] = [
         ToggleButtonModule,
         TooltipModule,
         SplitButtonModule,
+    IconComponent,
         SelectModule,
         MultiSelectModule,
     ],

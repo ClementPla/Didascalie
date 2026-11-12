@@ -47,6 +47,7 @@ export class QuickAccessMenuComponent {
       label: tool.name,
       icon: tool.icon,
       materialIcon: tool.materialIcon ?? undefined,
+      svgIcon: tool.svgIcon ?? undefined,
       command: () => this.editorService.selectTool(tool),
       active: () => this.editorService.selectedTool === tool,
       children,
@@ -58,6 +59,7 @@ export class QuickAccessMenuComponent {
       {
         label: 'All labels',
         icon: 'pi pi-clone',
+        svgIcon: 'layers',
         type: SegmentType.toggle,
         checked: () => this.editorService.eraseAll,
         command: () =>
@@ -130,6 +132,7 @@ export class QuickAccessMenuComponent {
           label: 'Rasterize',
           icon: 'pi pi-th-large',
           materialIcon: 'imagesearch_roller',
+          svgIcon: 'raster',
           type: SegmentType.button,
           command: () => this.convertService.rasterize(),
         },

@@ -11,6 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { IconComponent, IconName } from '../icon/icon.component';
 
 export enum SegmentType {
   toggle = 'toggle',
@@ -23,6 +24,8 @@ export interface MenuItem {
   icon: string;
   /** Material Symbols ligature, preferred over `icon`. */
   materialIcon?: string;
+  /** Line icon from the redesign, preferred over both. */
+  svgIcon?: IconName;
   /** Options of this entry, drawn as an outer ring while it is aimed at. */
   children?: MenuItem[];
   command?: () => void;
@@ -60,7 +63,7 @@ const DEG = Math.PI / 180;
  */
 @Component({
   selector: 'app-wheel-menu',
-  imports: [CommonModule],
+  imports: [CommonModule, IconComponent],
   templateUrl: './wheel-menu.component.html',
   styleUrl: './wheel-menu.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

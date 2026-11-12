@@ -1,5 +1,5 @@
 <p-panel header="Settings">
-  <p-accordion [value]="['0', '1', '2', '3', '4', '5', '6']" [multiple]="true">
+  <p-accordion [value]="['0', '1', '2', '3', '4', '5', '6', '7', '8']" [multiple]="true">
     @if (sequenceService.currentPixelInfo()) {
       <p-accordion-panel value="0">
         <p-accordion-header>Channels</p-accordion-header>
@@ -80,6 +80,60 @@
                 >
               </div>
             }
+          </div>
+        </p-accordion-content>
+      </p-accordion-panel>
+    }
+
+    @if (editorService.showMaskOps && isSegmentationProject) {
+      <p-accordion-panel value="8">
+        <p-accordion-header>Boolean</p-accordion-header>
+        <p-accordion-content>
+          <app-mask-ops-panel></app-mask-ops-panel>
+        </p-accordion-content>
+      </p-accordion-panel>
+    }
+
+    @if (editorService.showBoundingBox) {
+      <p-accordion-panel value="7">
+        <p-accordion-header>Bounding boxes</p-accordion-header>
+        <p-accordion-content>
+          <div class="settings-section">
+            <div
+              class="switch-row"
+              pTooltip="One box per object whatever its label, instead of one per label."
+            >
+              <label class="switch-row__label" for="bbox-merge">Merge labels</label>
+              <p-toggleswitch
+                inputId="bbox-merge"
+                [(ngModel)]="editorService.labelledCombinedBoundingBox"
+                (ngModelChange)="editorService.requestCanvasRedraw()"
+              ></p-toggleswitch>
+            </div>
+            <div
+              class="switch-row"
+              pTooltip="With the eraser, clicking a box erases its object."
+            >
+              <label class="switch-row__label" for="bbox-erase">Click to erase</label>
+              <p-toggleswitch
+                inputId="bbox-erase"
+                [(ngModel)]="editorService.eraseOnClick"
+              ></p-toggleswitch>
+            </div>
+            <div class="setting-row">
+              <span class="setting-row__label">Opacity</span>
+              <p-slider
+                [(ngModel)]="editorService.bbxOpacity"
+                (ngModelChange)="editorService.requestCanvasRedraw()"
+                [min]="0"
+                [max]="1"
+                [step]="0.01"
+                ariaLabel="Box opacity"
+              ></p-slider>
+              <span class="setting-row__value setting-row__value--readonly"
+                >{{ editorService.bbxOpacity * 100 | number: '1.0-0' }} %</span
+              >
+            </div>
           </div>
         </p-accordion-content>
       </p-accordion-panel>
