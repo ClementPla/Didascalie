@@ -62,11 +62,6 @@ export class LabelBarComponent {
     this.editor.requestCanvasRedraw();
   }
 
-  toggleAllVisibility(): void {
-    this.labels.switchVisibilityAllSegLabels();
-    this.editor.requestCanvasRedraw();
-  }
-
   /** Erase the active label on this frame. Undoable. */
   clearActive(): void {
     const active = this.labels.activeLabel;

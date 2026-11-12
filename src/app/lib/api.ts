@@ -30,6 +30,7 @@ import type { KeypointPair as KeypointPairWire } from './generated/KeypointPair'
 import type { LabelInfo } from './generated/LabelInfo';
 import type { PropagationMode } from './generated/PropagationMode';
 import type { PropagationReport } from './generated/PropagationReport';
+import type { RestoreReport } from './generated/RestoreReport';
 import type { RegistrationData } from './generated/RegistrationData';
 import type { RegistrationSummary } from './generated/RegistrationSummary';
 import type { Sequence } from './generated/Sequence';
@@ -103,6 +104,7 @@ export type {
   LabelInfo,
   PropagationMode,
   PropagationReport,
+  RestoreReport,
   RegistrationData,
   RegistrationSummary,
   Sequence,
@@ -268,6 +270,16 @@ export const api = {
 
   /** Erase every annotation on every frame of a sequence, returning how many
    *  frames carried one. Not undoable. */
+  /** Copy the stored annotations of these frames (undo of multi-frame
+   *  operations); returns the snapshot's id. */
+  snapshotTake: (frameIds: number[]) => invoke<number>('snapshot_take', { frameIds }),
+  /** Put snapshot `target` back on its frames, except those that no longer
+   *  match snapshot `expected` (edited since). */
+  snapshotRestore: (target: number, expected: number) =>
+    invoke<RestoreReport>('snapshot_restore', { target, expected }),
+  snapshotDrop: (ids: number[]) => invoke<void>('snapshot_drop', { ids }),
+  snapshotClear: () => invoke<void>('snapshot_clear'),
+
   clearSequenceAnnotations: (sequenceId: number) =>
     invoke<number>('clear_sequence_annotations', { sequenceId }),
 

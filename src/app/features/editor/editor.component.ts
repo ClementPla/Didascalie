@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, NgZone, OnDestroy, OnInit, signal, inject, viewChild } from '@angular/core';
+import { AfterViewInit, Component, NgZone, OnDestroy, OnInit, signal, inject, viewChild, computed } from '@angular/core';
 import { CommonModule, NgComponentOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
@@ -11,7 +11,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { SliderModule } from 'primeng/slider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { ToggleButtonModule } from 'primeng/togglebutton';
-import { PopoverModule } from 'primeng/popover';
+import { MenuModule } from 'primeng/menu';
+import { MenuItem } from 'primeng/api';
 import { MeterGroupModule } from 'primeng/metergroup';
 import { DialogModule } from 'primeng/dialog';
 import { ProgressBarModule } from 'primeng/progressbar';
@@ -25,7 +26,6 @@ import { PythonSegmentationService } from './python-functions/python-segmentatio
 import { InferenceClientService } from '../../services/inference-client.service';
 import { IS_ANDROID, NARROW_PORTRAIT } from '../../core/platform';
 import { LabelBarComponent } from './label-bar/label-bar.component';
-import { MultiFramesOptionsComponent } from './multi-frames-options/multi-frames-options.component';
 import { PropagationDialogComponent } from './multi-frames-options/propagation-dialog/propagation-dialog.component';
 import { QuickAccessMenuComponent } from './quick-access-menu/quick-access-menu.component';
 import { SequenceNavigatorComponent } from './sequence-navigator/sequence-navigator.component';
@@ -34,6 +34,7 @@ import { FrameMapComponent } from './frame-map/frame-map.component';
 import { EditorService } from './services/editor.service';
 import { LabelsService } from '../../services/labels/labels.service';
 import { PropagationService } from '../../services/labels/propagation.service';
+import { SequenceUndoService } from './services/sequence-undo.service';
 import { SequenceService } from '../../services/sequence.service';
 import { WorklistService } from '../../services/worklist.service';
 import { UIStateService } from '../../services/uistate.service';
@@ -70,7 +71,7 @@ import { experimentalEditorPanes } from '../../experimental/registry';
     TooltipModule,
     ToggleSwitchModule,
     ToggleButtonModule,
-    PopoverModule,
+    MenuModule,
     MeterGroupModule,
     DialogModule,
     ProgressBarModule,
@@ -80,7 +81,6 @@ import { experimentalEditorPanes } from '../../experimental/registry';
     ToolSettingComponent,
     PythonFunctionsComponent,
     LabelBarComponent,
-    MultiFramesOptionsComponent,
     PropagationDialogComponent,
     QuickAccessMenuComponent,
     SequenceNavigatorComponent,
@@ -109,6 +109,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private orchestratorService = inject(OrchestratorService);
   private ngZone = inject(NgZone);
   propagation = inject(PropagationService);
+  private sequenceUndo = inject(SequenceUndoService);
   private notifications = inject(NotificationService);
   volume = inject(MaskVolumeService);
   /** A tablet held upright: the labels go in a bar above the canvas. */
@@ -121,7 +122,6 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   private inferenceClient = inject(InferenceClientService);
 
   readonly canvas = viewChild(DrawableCanvasComponent);
-  readonly multiFramesOptions = viewChild(MultiFramesOptionsComponent);
   readonly quickAccessMenu = viewChild<QuickAccessMenuComponent>('quickAccessMenu');
 
   public displayDownloadDialog = false;
@@ -139,28 +139,58 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly experimentalPanes = experimentalEditorPanes();
 
   readonly propagationVisible = signal(false);
+  /** The copy button is hovered: its target frames are marked. */
+  readonly copyPreview = signal(false);
+  /** The frames Copy would write to. */
+  readonly copyTargets = computed(
+    () => new Set(this.propagation.targetFrameIds(this.propagation.settings().scope)),
+  );
+  /** The frame bar's ⋯ menu. */
+  readonly sequenceMenuItems: MenuItem[] = [
+    {
+      label: 'Copy settings…',
+      icon: 'pi pi-copy',
+      command: () => this.propagationVisible.set(true),
+    },
+    {
+      label: 'Play the sequence',
+      icon: 'pi pi-play',
+      command: () => void this.inspectSequence(),
+    },
+    { separator: true },
+    {
+      label: 'Clear the sequence…',
+      icon: 'pi pi-trash',
+      styleClass: 'menu-item--danger',
+      command: () => this.clearSequenceVisible.set(true),
+    },
+  ];
   readonly clearSequenceVisible = signal(false);
   readonly clearingSequence = signal(false);
 
-  /** Erase every annotation in the open sequence, then reload the frame. Not
-   *  undoable. */
+  /** Erase every annotation in the open sequence, then reload the frame.
+   *  One undo step. */
   async clearSequence(): Promise<void> {
     const sequence = this.sequenceService.currentSequence();
     if (!sequence || this.clearingSequence()) return;
 
     this.clearingSequence.set(true);
     try {
-      // First: a pending autosave landing afterwards would restore the frame.
-      this.ioService.discardPendingSave();
-      const frames = await api.clearSequenceAnnotations(sequence.id);
-      // Before reloading the canvas, which would read its stale slice.
-      this.volume.reload();
-      await this.loadCanvas();
+      const frameIds = this.sequenceService.frames().map((f) => f.id);
+      const frames = await this.sequenceUndo.record('clear sequence', frameIds, async () => {
+        // A pending autosave landing afterwards would restore the frame.
+        this.ioService.discardPendingSave();
+        const erased = await api.clearSequenceAnnotations(sequence.id);
+        // Before reloading the canvas, which would read its stale slice.
+        this.volume.reload();
+        await this.loadCanvas();
+        return erased;
+      });
       this.clearSequenceVisible.set(false);
       this.notifications.notify({
         severity: 'success',
         summary: 'Sequence cleared',
-        detail: `${frames} annotated frame${frames === 1 ? '' : 's'} erased`,
+        detail: `${frames} annotated frame${frames === 1 ? '' : 's'} erased. Ctrl+Z to undo.`,
         life: 4000,
       });
     } catch (error) {
@@ -364,7 +394,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.uiStateService.setLoading(true, 'Loading next sequence');
 
     try {
-      await this.ioService.saveIfDirty();
+      if (!(await this.ioService.saveIfDirty())) return;
 
       const moved = await this.sequenceService.nextSequence();
 
@@ -385,7 +415,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.uiStateService.setLoading(true, 'Loading previous sequence');
 
     try {
-      await this.ioService.saveIfDirty();
+      if (!(await this.ioService.saveIfDirty())) return;
 
       const moved = await this.sequenceService.prevSequence();
 
@@ -449,7 +479,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     const sequence = this.sequenceService.currentSequence();
     if (!sequence) return;
     // The inspector reads the project.
-    await this.ioService.saveIfDirty();
+    if (!(await this.ioService.saveIfDirty())) return;
     await this.inspection.open(
       [sequence.id],
       this.sequenceService.currentFrameIndex(),
@@ -465,7 +495,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.navInFlight) return;
     this.navInFlight = true;
     try {
-      await this.ioService.saveIfDirty();
+      if (!(await this.ioService.saveIfDirty())) return;
       await this.sequenceService.selectFrame(newFrameIndex);
       await this.handleNavigationSuccess();
     } catch (error) {
@@ -486,7 +516,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.navInFlight) return;
     this.navInFlight = true;
     try {
-      await this.ioService.saveIfDirty();
+      if (!(await this.ioService.saveIfDirty())) return;
       await this.sequenceService.selectSequence(sequence);
       await this.handleNavigationSuccess();
     } catch (error) {
@@ -521,17 +551,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.orchestratorService.captureInitialHistory();
     }
 
-    this.resetFrameIfNeeded();
     this.orchestratorService.requestRedraw();
     await this.updateProgressDisplay();
-  }
-
-  private resetFrameIfNeeded() {
-    const multiFramesOptions = this.multiFramesOptions();
-    if (multiFramesOptions) {
-      multiFramesOptions.currentFrame =
-        this.sequenceService.currentFrameIndex();
-    }
   }
 
   // ── Save ─────────────────────────────────────────────────────────────────

@@ -330,14 +330,15 @@ pub fn sync_labels_from_config(conn: &Connection, config: &ProjectConfig) -> Res
         )?;
     }
 
-    // Remove labels not in config (only if no annotations reference them)
+    // Remove labels not in config, unless masks or shapes reference them.
     let label_names: Vec<String> = labels.iter().map(|l| l.name.clone()).collect();
     if !label_names.is_empty() {
         let placeholders = label_names.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
             "DELETE FROM labels 
              WHERE name NOT IN ({}) 
-             AND id NOT IN (SELECT DISTINCT label_id FROM main.annotations)",
+             AND id NOT IN (SELECT DISTINCT label_id FROM main.annotations)
+             AND id NOT IN (SELECT DISTINCT label_id FROM main.vector_annotations)",
             placeholders
         );
         let params: Vec<&dyn rusqlite::ToSql> = label_names

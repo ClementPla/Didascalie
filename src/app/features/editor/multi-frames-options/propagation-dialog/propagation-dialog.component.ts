@@ -20,7 +20,7 @@ import {
 } from '../../../../services/labels/propagation.service';
 
 /** Confirmation dialog for copying the current frame's labels onto the rest
- *  of its sequence, which cannot be undone. */
+ *  of its sequence (one undo step while the sequence is open). */
 @Component({
   selector: 'app-propagation-dialog',
   standalone: true,

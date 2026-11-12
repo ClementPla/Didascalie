@@ -269,8 +269,10 @@ export class DrawService implements OnDestroy {
     const labelId = this.labelService.listSegmentationLabels[index]?.id;
 
     this.undoRedoService.beginGroup();
-    this.undoRedoService.snapshotLayers([index]);
     this.canvasManagerService.clearMaskAtIndex(index);
+    // The state after the action, as for a stroke: undo steps back to the
+    // previous one, redo comes back to this.
+    this.undoRedoService.snapshotLayers([index]);
     if (labelId != null) this.vectorEditor.deleteShapesForLabel(labelId);
     this.undoRedoService.endGroup();
 
@@ -283,8 +285,8 @@ export class DrawService implements OnDestroy {
     if (indices.length === 0) return;
 
     this.undoRedoService.beginGroup();
-    this.undoRedoService.snapshotLayers(indices);
     indices.forEach((i) => this.canvasManagerService.clearMaskAtIndex(i));
+    this.undoRedoService.snapshotLayers(indices); // after: see clearLabel
     this.vectorEditor.deleteAllShapes();
     this.undoRedoService.endGroup();
 

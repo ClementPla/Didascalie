@@ -92,6 +92,7 @@ pub fn run() {
 
     let app = app.manage(DbState::new())
         .manage(commands::superpixel::SuperpixelState::default())
+        .manage(commands::snapshot::SnapshotStore::default())
         .manage(commands::frame::FrameImageCache::default())
         .manage(pixels::cache::RawFrameCache::default())
         .manage(commands::frame::ThumbnailCache::default())
@@ -170,6 +171,10 @@ pub fn run() {
             commands::vector::save_vector_annotations,
             commands::vector::load_vector_annotations,
             commands::propagation::propagate_annotations,
+            commands::snapshot::snapshot_take,
+            commands::snapshot::snapshot_restore,
+            commands::snapshot::snapshot_drop,
+            commands::snapshot::snapshot_clear,
             commands::vectorize::vectorize_component,
             commands::vectorize::vectorize_mask,
             commands::skeletonize::skeletonize_component,

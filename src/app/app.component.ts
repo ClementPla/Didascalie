@@ -4,6 +4,7 @@ import { ToolbarModule } from 'primeng/toolbar';
 import { LoadingComponent } from './features/loading/loading.component';
 import { Router, RouterOutlet, RouterModule } from '@angular/router';
 import { save } from '@tauri-apps/plugin-dialog';
+import { confirmDiscardUnsaved } from './guards/unsaved-changes.guard';
 import { api } from './lib/api';
 import { EditorService } from './features/editor/services/editor.service';
 import { TauriEventService } from './services/tauri-event';
@@ -116,12 +117,15 @@ export class AppComponent implements OnInit, OnDestroy {
       this.unlistenClose = await appWindow.onCloseRequested(async (event) => {
         if (!this.ioService.isDirty()) return;
         event.preventDefault();
+        let saved = false;
         try {
-          await this.ioService.saveIfDirty();
+          saved = await this.ioService.saveIfDirty();
         } catch (error) {
           console.error('Failed to save before closing:', error);
         }
-        await appWindow.destroy();
+        if (saved || (await confirmDiscardUnsaved('Close'))) {
+          await appWindow.destroy();
+        }
       });
     } catch {
       // Not running under Tauri.

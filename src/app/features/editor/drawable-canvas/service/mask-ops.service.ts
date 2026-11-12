@@ -24,6 +24,7 @@ import { IOService } from '../../../../services/io.service';
 import { SequenceService } from '../../../../services/sequence.service';
 import { MaskVolumeService } from '../../../../services/mask-volume.service';
 import { NotificationService } from '../../../../services/notification.service';
+import { SequenceUndoService } from '../../services/sequence-undo.service';
 
 export type InvertMode = 'whole' | 'unlabelled';
 export type MaskOpsTarget = 'active' | 'all' | 'visible' | 'selected';
@@ -43,7 +44,7 @@ type FrameOp = (frame: FrameMasks) => void;
 
 /**
  * The Boolean panel: whole-mask operations on the open frame (one undo step),
- * or on every frame of the sequence (only the open frame can be undone).
+ * or on every frame of the sequence (one undo step while it stays open).
  * Raster only: vector shapes are left as they are.
  */
 @Injectable({ providedIn: 'root' })
@@ -57,6 +58,7 @@ export class MaskOpsService {
   private sequence = inject(SequenceService);
   private volume = inject(MaskVolumeService);
   private notifications = inject(NotificationService);
+  private sequenceUndo = inject(SequenceUndoService);
 
   // ── Panel state (outlives the panel, which closes with the settings) ─────
   readonly invertMode = signal<InvertMode>('unlabelled');
@@ -176,19 +178,26 @@ export class MaskOpsService {
 
   private async run(op: FrameOp): Promise<void> {
     if (this.progress()) return;
-    this.applyToOpenFrame(op);
-    if (this.allFrames()) await this.applyToOtherFrames(op);
+    if (!this.allFrames()) {
+      this.applyToOpenFrame(op, true);
+      return;
+    }
+    const frameIds = this.sequence.frames().map((f) => f.id);
+    await this.sequenceUndo.record('Boolean on all frames', frameIds, async () => {
+      this.applyToOpenFrame(op, false);
+      await this.applyToOtherFrames(op);
+    });
   }
 
-  /** The open frame, as one undo step. */
-  private applyToOpenFrame(op: FrameOp): void {
+  /** The open frame; its own undo step unless part of a sequence-wide one. */
+  private applyToOpenFrame(op: FrameOp, undoable: boolean): void {
     const masks = this.canvasManager.getAllMasks();
     if (masks.length === 0) return;
     const before = masks.map((m) => m.slice());
     op({ masks, w: this.state.width, h: this.state.height });
     const changed = changedLayers(before, masks);
     if (changed.length === 0) return;
-    this.undoRedo.snapshotLayers(changed);
+    if (undoable) this.undoRedo.snapshotLayers(changed);
     this.state.recomputeCanvasSum = true;
     this.canvasManager.requestRedraw.next(true);
     this.io.markDirty();

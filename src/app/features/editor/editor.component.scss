@@ -212,6 +212,65 @@
   }
 }
 
+// Sequence actions, at the right of the frame bar.
+.frame-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.frame-bar__split {
+  display: flex;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 6px;
+
+  .frame-bar__action {
+    border-radius: 0;
+  }
+
+  .frame-bar__action:first-child {
+    border-radius: 5px 0 0 5px;
+  }
+}
+
+.frame-bar__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.55rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--p-text-color);
+  font: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+
+  .material-symbols-outlined {
+    font-size: 1.2rem;
+  }
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    background: var(--p-content-hover-background);
+    outline: none;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &--caret {
+    padding: 0 0.2rem;
+    border-left: 1px solid var(--p-content-border-color);
+    border-radius: 0 5px 5px 0 !important;
+  }
+}
+
 // One cell per frame: filled when reviewed, the current one numbered.
 .frame-strip {
   display: flex;
@@ -261,6 +320,12 @@
     outline: none;
   }
 
+  // What Copy would overwrite, while its button is hovered.
+  &.is-copy-target {
+    border-color: var(--p-primary-color);
+    background: color-mix(in srgb, var(--p-primary-color) 30%, transparent);
+  }
+
   &.is-current {
     flex-grow: 1.2;
     min-width: 1.6rem;
@@ -277,6 +342,9 @@
     &__title {
       max-width: 9rem;
     }
+    &__action-label {
+      display: none;
+    }
     &__track {
       width: 3rem;
     }
@@ -284,6 +352,9 @@
 }
 
 @media (pointer: coarse) {
+  .frame-bar__action {
+    height: 2.6rem;
+  }
   .frame-bar__step {
     width: 2.6rem;
     height: 2.6rem;

@@ -6,6 +6,7 @@ import { IOService } from '../io.service';
 import { LabelsService } from './labels.service';
 import { NotificationService } from '../notification.service';
 import { SequenceService } from '../sequence.service';
+import { SequenceUndoService } from '../../features/editor/services/sequence-undo.service';
 
 export type PropagationScope = 'following' | 'allOthers';
 
@@ -27,6 +28,7 @@ export class PropagationService {
   private readonly ioService = inject(IOService);
   private readonly labelsService = inject(LabelsService);
   private readonly notifications = inject(NotificationService);
+  private readonly sequenceUndo = inject(SequenceUndoService);
 
   /** The ids of frames whose annotations changed without being displayed. */
   readonly propagated$ = new Subject<number[]>();
@@ -69,11 +71,9 @@ export class PropagationService {
     await this.ioService.saveIfDirty();
 
     try {
-      const report = await api.propagateAnnotations(
-        source.id,
-        targets,
-        this.labelIdsFor(request.labelScope),
-        'replace',
+      const labelIds = this.labelIdsFor(request.labelScope);
+      const report = await this.sequenceUndo.record('copy to frames', targets, () =>
+        api.propagateAnnotations(source.id, targets, labelIds, 'replace'),
       );
       this.propagated$.next(report.applied);
       this.notifyResult(report);

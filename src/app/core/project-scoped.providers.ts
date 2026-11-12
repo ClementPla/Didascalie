@@ -19,6 +19,7 @@ import { CanvasManagerService } from '../features/editor/drawable-canvas/service
 import { StateManagerService } from '../features/editor/drawable-canvas/service/state-manager.service';
 import { VectorEditorService } from '../features/editor/drawable-canvas/service/vector-editor.service';
 import { UndoRedoService } from '../features/editor/drawable-canvas/service/undo-redo.service';
+import { SequenceUndoService } from '../features/editor/services/sequence-undo.service';
 import { BboxManagerService } from '../features/editor/drawable-canvas/service/bbox-manager.service';
 import { TiledImageService } from '../features/editor/drawable-canvas/service/tiled-image.service';
 
@@ -45,6 +46,7 @@ const PROJECT_SCOPED_SERVICES = [
   StateManagerService,
   VectorEditorService,
   UndoRedoService,
+  SequenceUndoService,
   BboxManagerService,
   TiledImageService,
 ];

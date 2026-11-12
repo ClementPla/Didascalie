@@ -31,7 +31,7 @@ export class NavigationService {
 
   public async navigateToNextSequenceForRegistration(): Promise<NavigationResult | null> {
     try {
-      await this.saveIfNeeded();
+      if (!(await this.saveIfNeeded())) return null;
       const success = await this.sequenceService.nextSequence();
       if (!success) return null;
 
@@ -46,7 +46,7 @@ export class NavigationService {
 
   public async navigateToPrevSequenceForRegistration(): Promise<NavigationResult | null> {
     try {
-      await this.saveIfNeeded();
+      if (!(await this.saveIfNeeded())) return null;
       const success = await this.sequenceService.prevSequence();
       if (!success) return null;
 

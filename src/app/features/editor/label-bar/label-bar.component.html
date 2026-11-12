@@ -1,15 +1,8 @@
 <div class="label-bar">
   <div class="label-bar__row">
     @if (hasSegmentation) {
-      <p-button
-        [icon]="labels.showAllLabels ? 'pi pi-eye' : 'pi pi-eye-slash'"
-        severity="secondary"
-        [rounded]="true"
-        [text]="true"
-        size="small"
-        [ariaLabel]="labels.showAllLabels ? 'Hide all labels' : 'Show all labels'"
-        (onClick)="toggleAllVisibility()"
-      />
+      <!-- Hiding every label is the Hide labels button over the canvas. -->
+      <span class="material-symbols-outlined label-bar__opacity-icon" aria-hidden="true">opacity</span>
       <p-slider
         class="label-bar__opacity"
         [(ngModel)]="editor.labelOpacity"

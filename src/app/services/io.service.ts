@@ -77,7 +77,7 @@ export class IOService implements OnDestroy, ProjectScoped {
    *  that did: a full mask is large. */
   public markLabelDirty(index: number): void {
     if (index >= 0) this.dirtyLabels.add(index);
-    const frameId = this.sequenceService.currentFrame()?.id;
+    const frameId = this.loadedFrameId;
     if (frameId != null && index >= 0) this.volume.markEdited(frameId, index);
     this.markDirty();
   }
@@ -125,6 +125,16 @@ export class IOService implements OnDestroy, ProjectScoped {
     const frame = this.sequenceService.currentFrame();
     if (!frame) {
       return;
+    }
+
+    // The canvas still holds the previous frame: write its changes before they
+    // are cleared. Navigation saves first; this covers every other way here.
+    if (this.dirty || this.dirtyLabels.size > 0) {
+      if (!(await this.saveIfDirty())) {
+        console.error(`Unsaved changes of frame ${this.loadedFrameId} were dropped`);
+      }
+    } else {
+      await this.saveChain;
     }
 
     try {
@@ -194,56 +204,68 @@ export class IOService implements OnDestroy, ProjectScoped {
     }
   }
 
-  /** Persist vector shapes, once per label, so that a label left without
-   *  shapes has its row cleared. */
-  private async saveVectors(frameId: number): Promise<void> {
-    const byLabel = this.vectorEditor.shapesByLabel();
-    for (const label of this.labelService.listSegmentationLabels) {
-      await api.saveVectorAnnotations(
-        frameId,
-        label.id,
-        byLabel.get(label.id) ?? []
-      );
-    }
+  /**
+   * Write the loaded frame's changes. Saves run one at a time; each writes to
+   * the frame the canvas holds (not the frame navigation is moving to), and a
+   * failed save keeps its changes queued and says so.
+   */
+  public save(): Promise<boolean> {
+    const run = this.saveChain.then(() => this.saveNow());
+    this.saveChain = run.catch(() => undefined);
+    return run;
   }
 
-  public async save(): Promise<boolean> {
-    const frame = this.sequenceService.currentFrame();
-    if (!frame) {
-      return false;
-    }
+  /** Save if anything changed; true when nothing is left unsaved. */
+  public async saveIfDirty(): Promise<boolean> {
+    // A save in flight may have taken the changes: wait for its outcome.
+    await this.saveChain;
+    return this.dirty ? this.save() : true;
+  }
+
+  /** The saves queued one after the other (see `save`). */
+  private saveChain: Promise<unknown> = Promise.resolve();
+
+  private async saveNow(): Promise<boolean> {
+    const frameId = this.loadedFrameId;
+    if (frameId == null) return !this.dirty;
+
+    // What to write, taken now: edits made while it is written are queued
+    // again by markLabelDirty for the next save.
+    const labels = this.labelService.listSegmentationLabels;
+    const dirty = [...this.dirtyLabels];
+    const shapes = this.vectorEditor.shapesByLabel();
+    this.dirtyLabels.clear();
+    this.dirty = false;
+    this.cancelAutosave();
 
     try {
-      const labels = this.labelService.listSegmentationLabels;
-
-      // Only the masks that changed since the last save.
-      const dirty = [...this.dirtyLabels];
-      this.dirtyLabels.clear();
       for (const i of dirty) {
         const mask = this.canvasManagerService.labelMasks[i];
         if (!mask || !labels[i]) continue;
-        await api.saveAnnotation(frame.id, labels[i].id, mask);
-        this.volume.syncSaved(frame.id, labels[i].id, mask);
+        // Encoded before the call returns: later edits do not reach this write.
+        await api.saveAnnotation(frameId, labels[i].id, mask);
+        this.volume.syncSaved(frameId, labels[i].id, mask);
       }
-
-      await this.saveVectors(frame.id);
+      for (const label of labels) {
+        await api.saveVectorAnnotations(frameId, label.id, shapes.get(label.id) ?? []);
+      }
       // 3D mode: other slices written through the volume (projection view).
       await this.volume.saveDirty();
-
-      this.dirty = false;
-      this.cancelAutosave();
       return true;
     } catch (error) {
       console.error('Failed to save annotations:', error);
+      // Keep the changes queued, unless the canvas has moved on (load waits for
+      // saves, so it should not have).
+      if (this.loadedFrameId === frameId) {
+        dirty.forEach((i) => this.dirtyLabels.add(i));
+        this.dirty = true;
+      }
+      this.notifications.error(
+        'Could not save the annotations',
+        `${error instanceof Error ? error.message : String(error)}. They are kept: the next save tries again.`,
+      );
       return false;
     }
-  }
-
-  public async saveIfDirty(): Promise<boolean> {
-    if (this.dirty) {
-      return this.save();
-    }
-    return true;
   }
 
 }

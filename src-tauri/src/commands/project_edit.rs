@@ -570,6 +570,19 @@ fn replace_class(classes: &mut Vec<String>, from: &str, to: Option<&str>) {
 /// Rebuild `config.segmentation_labels` from the `labels` table:
 /// `sync_labels_from_config` replays the config, by name, on the next open.
 /// `renamed` is `(old, new)`, so a renamed label keeps its stored shades.
+/// Write the label table into the stored config, after labels were added
+/// outside [`apply_edit`] (a dataset import). Opening the project syncs the
+/// table from the config, so a label missing from it would be lost.
+pub fn store_labels_in_config(conn: &Connection) -> Result<()> {
+    let mut config = queries::get_project_config(conn)?;
+    write_labels_to_config(conn, &mut config, None)?;
+    conn.execute(
+        "UPDATE project SET config = ?1 WHERE id = 1",
+        params![serde_json::to_string(&config)?],
+    )?;
+    Ok(())
+}
+
 fn write_labels_to_config(
     conn: &Connection,
     config: &mut ProjectConfig,
@@ -727,6 +740,45 @@ mod tests {
         )
         .optional()
         .unwrap()
+    }
+
+    /// Labels an import creates are in the config, so reopening keeps them;
+    /// and a label with shapes only is not deleted by the sync.
+    #[test]
+    fn imported_labels_survive_a_reopen() {
+        use crate::commands::formats::storage::write_dataset;
+        use crate::types::dataset::{Dataset, LabelDef};
+        let conn = project();
+        let dataset = Dataset {
+            name: "d".into(),
+            labels: vec![
+                LabelDef { index: 1, name: "cell".into(), color: "#ff0000".into(), is_instance: false },
+                LabelDef { index: 2, name: "tumour".into(), color: "#0000ff".into(), is_instance: false },
+            ],
+            frames: vec![],
+        };
+        let result = write_dataset(&conn, &dataset).unwrap();
+        assert_eq!(result.labels_created, 1);
+        let tumour: i64 = conn
+            .query_row("SELECT id FROM labels WHERE name = 'tumour'", [], |r| r.get(0))
+            .unwrap();
+        conn.execute(
+            "INSERT INTO main.vector_annotations (frame_id, label_id, shapes) VALUES (1, ?1, '[{}]')",
+            params![tumour],
+        )
+        .unwrap();
+
+        // What `open_project` does.
+        let reopened = queries::get_project_config(&conn).unwrap();
+        assert_eq!(config_label_names(&reopened), ["cell", "vessel", "tumour"]);
+        queries::sync_labels_from_config(&conn, &reopened).unwrap();
+        assert_eq!(label_names(&conn), ["cell", "vessel", "tumour"]);
+
+        // An older file whose config lacks the label: its shapes keep it.
+        let mut stale = reopened.clone();
+        stale.segmentation_labels.as_mut().unwrap().pop();
+        queries::sync_labels_from_config(&conn, &stale).unwrap();
+        assert!(label_names(&conn).contains(&"tumour".to_string()));
     }
 
     /// A rename must survive the name-based label sync that runs on every open.

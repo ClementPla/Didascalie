@@ -98,3 +98,10 @@
   max-height: 70vh;
   overflow-y: auto;
 }
+
+.label-bar__opacity-icon {
+  flex: none;
+  padding-inline: 0.35rem;
+  font-size: 1.15rem;
+  color: var(--p-text-muted-color);
+}

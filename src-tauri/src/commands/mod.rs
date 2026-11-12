@@ -24,6 +24,7 @@ pub mod registration;
 pub mod python;
 pub mod skeletonize;
 pub mod propagation;
+pub mod snapshot;
 /// Scribble-conditioned segmentation head. Depends on `ort` and `burn`.
 #[cfg(not(target_os = "android"))]
 pub mod ml;

@@ -94,6 +94,9 @@ export class FrameMapComponent implements AfterViewInit, OnDestroy {
   readonly frames = input.required<readonly FrameMapFrame[]>();
   /** Index of the current frame. */
   readonly current = input.required<number>();
+  /** Frames to mark (what an action would write): those after the current
+   *  one, or all but it. */
+  readonly highlight = input<'following' | 'allOthers' | null>(null);
   /** A frame was picked; emitted on every move while dragging. */
   readonly frameSelected = output<number>();
 
@@ -110,6 +113,7 @@ export class FrameMapComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       this.frames();
       this.current();
+      this.highlight();
       this.draw();
     });
   }
@@ -170,6 +174,19 @@ export class FrameMapComponent implements AfterViewInit, OnDestroy {
       if (reviewed === 0) continue;
       ctx.globalAlpha = 0.6 * (reviewed / (last - first));
       ctx.fillRect(x, 0, 1, pxHeight);
+    }
+
+    // Marked frames.
+    const highlight = this.highlight();
+    if (highlight) {
+      const at = Math.min(Math.max(this.current(), 0), count - 1);
+      const after = Math.round(((at + 1) * pxWidth) / count);
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = primary;
+      ctx.fillRect(after, 0, pxWidth - after, pxHeight);
+      if (highlight === 'allOthers') {
+        ctx.fillRect(0, 0, Math.round((at * pxWidth) / count), pxHeight);
+      }
     }
 
     // Current frame.

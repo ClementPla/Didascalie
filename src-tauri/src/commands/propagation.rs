@@ -8,7 +8,7 @@
 //! 2. Replace deletes labels the source does not have, or the target would
 //!    keep stale ones.
 
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use tauri::State;
@@ -172,17 +172,19 @@ fn read_source(conn: &Connection, frame_id: i64, scope: &[i64]) -> Result<Vec<So
 
     let mut out = Vec::with_capacity(scope.len());
     for &label_id in scope {
+        // No row is "nothing to copy"; a failed read must stop the copy, or the
+        // targets would be cleared.
         let mask = raster
             .query_row(params![frame_id, label_id], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
             })
-            .ok();
+            .optional()?;
 
         let shapes = match vectors
             .query_row(params![frame_id, label_id], |row| row.get::<_, String>(0))
-            .ok()
+            .optional()?
         {
-            Some(json) => serde_json::from_str::<serde_json::Value>(&json).ok(),
+            Some(json) => Some(serde_json::from_str::<serde_json::Value>(&json)?),
             None => None,
         };
 

@@ -182,6 +182,7 @@
                 class="frame-cell"
                 [class.is-current]="i === currentFrameIndex"
                 [class.is-reviewed]="frame.reviewed"
+                [class.is-copy-target]="copyPreview() && copyTargets().has(frame.id)"
                 [attr.aria-label]="
                   'Frame ' + (i + 1) + (frame.reviewed ? ', reviewed' : '')
                 "
@@ -213,6 +214,7 @@
               class="frame-strip__map"
               [frames]="sequenceService.frames()"
               [current]="currentFrameIndex"
+              [highlight]="copyPreview() ? propagation.settings().scope : null"
               (frameSelected)="scrubToFrame($event)"
             ></app-frame-map>
             <button
@@ -240,6 +242,62 @@
         }
       } @else {
         <span class="flex-1"></span>
+      }
+
+      <!-- What acts on the whole sequence. -->
+      @if (totalFrames > 1) {
+        <div class="frame-bar__actions" role="group" aria-label="Sequence actions">
+          <div class="frame-bar__split">
+            <button
+              type="button"
+              class="frame-bar__action"
+              [disabled]="propagation.pendingTargetCount() === 0"
+              [pTooltip]="isAndroid ? '' : propagateTooltip + ' · Ctrl+Z undoes it'"
+              tooltipPosition="top"
+              (mouseenter)="copyPreview.set(true)"
+              (mouseleave)="copyPreview.set(false)"
+              (focus)="copyPreview.set(true)"
+              (blur)="copyPreview.set(false)"
+              (click)="copyPreview.set(false); propagateLabels()"
+            >
+              <span class="material-symbols-outlined">content_copy</span>
+              <span class="frame-bar__action-label">
+                Copy to {{ propagation.pendingTargetCount() }}
+              </span>
+            </button>
+            <button
+              type="button"
+              class="frame-bar__action frame-bar__action--caret"
+              aria-label="Copy settings"
+              [pTooltip]="isAndroid ? '' : 'What to copy, and where'"
+              tooltipPosition="top"
+              (click)="propagationVisible.set(true)"
+            >
+              <span class="material-symbols-outlined">expand_more</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            class="frame-bar__action"
+            aria-label="Play the sequence"
+            [pTooltip]="isAndroid ? '' : 'Play the sequence with its labels'"
+            tooltipPosition="top"
+            (click)="inspectSequence()"
+          >
+            <span class="material-symbols-outlined">play_circle</span>
+            <span class="frame-bar__action-label">Play</span>
+          </button>
+          <button
+            type="button"
+            class="frame-bar__action"
+            aria-label="More sequence actions"
+            aria-haspopup="menu"
+            (click)="sequenceMenu.toggle($event)"
+          >
+            <span class="material-symbols-outlined">more_horiz</span>
+          </button>
+          <p-menu #sequenceMenu [model]="sequenceMenuItems" [popup]="true" appendTo="body" />
+        </div>
       }
 
       <div
@@ -319,45 +377,6 @@
       >
         <span class="material-symbols-outlined rail-icon">chevron_right</span>
       </button>
-      @if (isMultiframeActive) {
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          [raised]="true"
-          pTooltip="Frames and sequence actions: jump to a frame, propagate labels, clear the sequence"
-          tooltipPosition="left"
-          aria-label="Frame navigation"
-          (click)="frameNavPopover.toggle($event)"
-        >
-        <span class="material-symbols-outlined rail-icon">view_carousel</span>
-      </button>
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          [raised]="true"
-          [disabled]="propagation.pendingTargetCount() === 0"
-          [pTooltip]="propagateTooltip"
-          tooltipPosition="left"
-          aria-label="Propagate labels"
-          (click)="propagateConfirm.toggle($event)"
-        >
-        <span class="material-symbols-outlined rail-icon">content_copy</span>
-      </button>
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          [raised]="true"
-          pTooltip="Inspect sequence: play it back with its labels"
-          tooltipPosition="left"
-          aria-label="Inspect sequence"
-          (click)="inspectSequence()"
-        >
-        <span class="material-symbols-outlined rail-icon">videocam</span>
-      </button>
-      }
       <p-togglebutton
         [ngModel]="isFrameReviewed"
         (onChange)="toggleFrameReviewed(!!$event.checked)"
@@ -558,37 +577,6 @@
 <!-- Overlays are outside the row above: inside it, each is a zero-width flex
      item with the row's gap around it. -->
 
-<!-- The copy button sits among others and is easy to hit by mistake. -->
-<p-popover #propagateConfirm>
-  <div class="propagate-confirm">
-    <p class="m-0">{{ propagateTooltip }}?</p>
-    <div class="flex gap-2 justify-end">
-      <p-button
-        label="Cancel"
-        severity="secondary"
-        [text]="true"
-        (click)="propagateConfirm.hide()"
-      />
-      <p-button
-        label="Copy"
-        icon="pi pi-copy"
-        (click)="propagateConfirm.hide(); propagateLabels()"
-      />
-    </div>
-  </div>
-</p-popover>
-
-<p-popover #frameNavPopover>
-  <app-multi-frames-options
-    (changeOfFrame)="changedOfFrame($event)"
-    (propagateRequested)="
-      propagationVisible.set(true); frameNavPopover.hide()
-    "
-    (clearSequenceRequested)="
-      clearSequenceVisible.set(true); frameNavPopover.hide()
-    "
-  ></app-multi-frames-options>
-</p-popover>
 
 <!-- Outside the popover, which is destroyed when it loses focus. -->
 <app-propagation-dialog [(visible)]="propagationVisible" />
@@ -607,7 +595,7 @@
     >, including frames that are not open.
   </p>
   <p class="mt-3 opacity-70 text-sm">
-    This writes straight to the project and cannot be undone.
+    This writes straight to the project. Ctrl+Z undoes it while this sequence is open.
   </p>
   <ng-template pTemplate="footer">
     <p-button

@@ -103,3 +103,9 @@ body {
 .darkTheme{
     
 }
+
+// A destructive entry of a popup menu (appended to the body).
+.menu-item--danger .p-menu-item-label,
+.menu-item--danger .p-menu-item-icon {
+  color: var(--p-red-500, #ef4444);
+}

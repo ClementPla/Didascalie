@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use rusqlite::Connection;
 
 use crate::commands::annotation::decode_to_uint8;
+use crate::commands::project_edit;
 use crate::commands::vector::{self, flatten_shape, VectorNode, VectorShape};
 use crate::storage::{queries, rle};
 use crate::types::dataset::{Classification, Dataset, FrameData, LabelDef, LabelMask, PolygonShape};
@@ -174,6 +175,9 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
             }
         };
         db_label_by_index.insert(label.index, id);
+    }
+    if result.labels_created > 0 {
+        project_edit::store_labels_in_config(conn)?;
     }
 
     // Frame lookup by relative path and by bare filename.

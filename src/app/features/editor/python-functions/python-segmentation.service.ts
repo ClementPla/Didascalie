@@ -12,6 +12,7 @@ import { SequenceService } from '../../../services/sequence.service';
 import { CanvasManagerService } from '../drawable-canvas/service/canvas-manager.service';
 import { OrchestratorService } from '../drawable-canvas/service/orchestrator.service';
 import { UndoRedoService } from '../drawable-canvas/service/undo-redo.service';
+import { SequenceUndoService } from '../services/sequence-undo.service';
 import { base64ToUint8 } from '../../../core/misc/base64';
 import { decodeRle8 } from '../../../lib/rle8';
 
@@ -32,6 +33,7 @@ export interface SequenceRunProgress {
 @Injectable({ providedIn: 'root' })
 export class PythonSegmentationService {
   private readonly inference = inject(InferenceClientService);
+  private readonly sequenceUndo = inject(SequenceUndoService);
   private readonly sequenceService = inject(SequenceService);
   private readonly labelService = inject(LabelsService);
   private readonly canvasManager = inject(CanvasManagerService);
@@ -183,15 +185,15 @@ export class PythonSegmentationService {
     this.running.set(fn.name);
     this.progress.set(null);
     try {
-      // The result is merged with what is stored.
-      await this.io.saveIfDirty();
-
-      const report = await this.inference.track(() =>
-        api.pythonSegmentSequence(
-          fn.name,
-          frameIds,
-          this.sequenceService.currentFrame()?.id ?? null,
-          this.context(fn),
+      // The result is merged with what is stored (`record` saves first).
+      const report = await this.sequenceUndo.record(fn.name, frameIds, () =>
+        this.inference.track(() =>
+          api.pythonSegmentSequence(
+            fn.name,
+            frameIds,
+            this.sequenceService.currentFrame()?.id ?? null,
+            this.context(fn),
+          ),
         ),
       );
 

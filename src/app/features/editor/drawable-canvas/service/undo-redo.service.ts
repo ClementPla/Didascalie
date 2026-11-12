@@ -20,10 +20,13 @@ interface LayerUndoRedoState {
  *
  * `undo` / `redo` return the indices of the current frame's layers they
  * modified, or `null` when the action no longer applies: it is then dropped.
+ * They may be asynchronous (an operation stored in the project).
  */
 export interface ExternalAction {
-  undo(): number[] | null;
-  redo(): number[] | null;
+  undo(): number[] | null | Promise<number[] | null>;
+  redo(): number[] | null | Promise<number[] | null>;
+  /** Groups actions to drop together (`dropExternals`). */
+  tag?: string;
 }
 
 /** One entry of the undo timeline. A raster action records which layers it
@@ -110,9 +113,16 @@ export class UndoRedoService implements ProjectScoped {
     }
   }
 
+  /** Forget the external actions tagged `tag` (their context is gone). */
+  dropExternals(tag: string): void {
+    const keep = (t: UndoToken) => !(t.kind === 'external' && t.action.tag === tag);
+    this.actionOrder = this.actionOrder.filter(keep);
+    this.redoOrder = this.redoOrder.filter(keep);
+  }
+
   /** Run an external action's undo or redo; false when it is stale. */
-  private runExternal(action: ExternalAction, direction: 'undo' | 'redo'): boolean {
-    const layers = direction === 'undo' ? action.undo() : action.redo();
+  private async runExternal(action: ExternalAction, direction: 'undo' | 'redo'): Promise<boolean> {
+    const layers = await (direction === 'undo' ? action.undo() : action.redo());
     if (layers === null) return false;
     this.rebaseLayers(layers);
     this.afterRestore();
@@ -141,7 +151,30 @@ export class UndoRedoService implements ProjectScoped {
 
   // ── Unified dispatch (raster + vector) ───────────────────────────────────
 
+  /** An undo or redo is running (an external one can take a while). */
+  private running = false;
+
   async undo(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.undoStep();
+    } finally {
+      this.running = false;
+    }
+  }
+
+  async redo(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.redoStep();
+    } finally {
+      this.running = false;
+    }
+  }
+
+  private async undoStep(): Promise<void> {
     while (this.actionOrder.length > 0) {
       const token = this.actionOrder[this.actionOrder.length - 1];
       if (token.kind === 'vector') {
@@ -155,7 +188,7 @@ export class UndoRedoService implements ProjectScoped {
       }
       if (token.kind === 'external') {
         this.actionOrder.pop();
-        if (this.runExternal(token.action, 'undo')) {
+        if (await this.runExternal(token.action, 'undo')) {
           this.redoOrder.push(token);
           return;
         }
@@ -178,7 +211,7 @@ export class UndoRedoService implements ProjectScoped {
     }
   }
 
-  async redo(): Promise<void> {
+  private async redoStep(): Promise<void> {
     while (this.redoOrder.length > 0) {
       const token = this.redoOrder[this.redoOrder.length - 1];
       if (token.kind === 'vector') {
@@ -192,7 +225,7 @@ export class UndoRedoService implements ProjectScoped {
       }
       if (token.kind === 'external') {
         this.redoOrder.pop();
-        if (this.runExternal(token.action, 'redo')) {
+        if (await this.runExternal(token.action, 'redo')) {
           this.actionOrder.push(token);
           return;
         }

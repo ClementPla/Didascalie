@@ -6,6 +6,7 @@ import {
   projectOpenGuard,
   projectStartedGuard,
 } from './guards/project-started.guard';
+import { saveBeforeLeavingGuard } from './guards/unsaved-changes.guard';
 import { EditorComponent } from './features/editor/editor.component';
 import { ExportComponent } from './features/export/export.component';
 import { LauncherComponent } from './features/launcher/launcher.component';
@@ -26,6 +27,7 @@ export const routes: Routes = [
     path: 'editor',
     component: EditorComponent,
     canActivate: [projectStartedGuard],
+    canDeactivate: [saveBeforeLeavingGuard],
   },
   {
     path: 'export',
