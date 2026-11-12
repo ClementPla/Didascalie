@@ -448,15 +448,15 @@ export class VectorEditorService implements ProjectScoped {
 
   // ── Selected-shape property actions (properties panel) ────────────────────
 
+  /** Delete every selected shape, as one undoable action. */
   deleteSelectedShape(): void {
-    const shape = this.selectedShape();
-    if (shape) this.deleteShape(shape.id);
+    this.deleteShapesByIds([...this._selectedIds()]);
   }
 
-  /** Move the selected shape to another label. */
+  /** Move the selected shapes to another label. */
   moveSelectedToLabel(labelId: number): void {
     if (this.labels.listSegmentationLabels.some((l) => l.id === labelId)) {
-      this.mutateSelected((s) => ({ ...s, labelId }));
+      this.mutateAllSelected((s) => ({ ...s, labelId }));
     }
   }
 
@@ -483,12 +483,23 @@ export class VectorEditorService implements ProjectScoped {
     this.commit();
   }
 
+  /** Fill the selected closed shapes, or empty them when all are filled. */
   toggleFilled(): void {
-    this.mutateSelected((s) => ({ ...s, filled: s.closed ? !s.filled : false }));
+    const closed = this.selectedShapes().filter((s) => s.closed);
+    if (closed.length === 0) return;
+    const fill = !closed.every((s) => s.filled);
+    this.mutateAllSelected((s) => (s.closed ? { ...s, filled: fill } : s));
   }
 
+  /** Close the selected paths (filled), or open them when all are closed
+   *  (an open path has no fill). */
   toggleClosed(): void {
-    this.mutateSelected((s) => ({ ...s, closed: !s.closed }));
+    const selected = this.selectedShapes();
+    if (selected.length === 0) return;
+    const close = !selected.every((s) => s.closed);
+    this.mutateAllSelected((s) =>
+      s.closed === close ? s : { ...s, closed: close, filled: close },
+    );
   }
 
   // ── Pen tool ──────────────────────────────────────────────────────────────
@@ -562,7 +573,8 @@ export class VectorEditorService implements ProjectScoped {
     const shape: VectorShape = {
       ...draft,
       closed,
-      filled: closed ? draft.filled : false,
+      // A closed shape is filled; the fill can be turned off afterwards.
+      filled: closed,
     };
     this._shapes.update((list) => [...list, shape]);
     this._draft.set(null);
@@ -815,7 +827,7 @@ export class VectorEditorService implements ProjectScoped {
       id: drag.id,
       labelId: drag.labelId,
       closed: true,
-      filled: false,
+      filled: true,
       nodes: drag.ellipse ? ellipseNodes(a, b) : rectNodes(a, b),
     });
   }
@@ -1096,13 +1108,12 @@ export class VectorEditorService implements ProjectScoped {
     this.commit();
   }
 
-  /** Transform the single selected shape and commit. */
-  private mutateSelected(fn: (s: VectorShape) => VectorShape): void {
-    const id = this.primaryId();
-    if (!id) return;
-    this._shapes.update((list) =>
-      list.map((s) => (s.id === id ? fn(s) : s)),
-    );
+
+  /** Apply `fn` to every selected shape, as one committed action. */
+  private mutateAllSelected(fn: (s: VectorShape) => VectorShape): void {
+    const ids = new Set(this._selectedIds());
+    if (ids.size === 0) return;
+    this._shapes.update((list) => list.map((s) => (ids.has(s.id) ? fn(s) : s)));
     this.commit();
   }
 

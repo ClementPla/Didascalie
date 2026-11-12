@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, Injector, OnDestroy, effect, inject, viewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, Injector, OnDestroy, computed, effect, inject, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { animationFrameScheduler, Subject } from 'rxjs';
@@ -19,7 +19,6 @@ import { VectorLayerComponent } from './vector-layer/vector-layer.component';
 import { VectorEditorService } from '../service/vector-editor.service';
 import { CanvasInputDirective } from '../directives/canvas-input.directive';
 import { labelPickerItems } from '../label-picker';
-import { Button } from 'primeng/button';
 import { TooltipModule } from 'primeng/tooltip';
 import { SelectModule } from 'primeng/select';
 import { ContextMenu, ContextMenuModule } from 'primeng/contextmenu';
@@ -40,7 +39,7 @@ import { ProjectService } from '../../../../services/project/project.service';
 
 @Component({
   selector: 'app-drawable-canvas',
-  imports: [CommonModule, FormsModule, Button, TooltipModule, SelectModule, ContextMenuModule, SVGElementsComponent, VectorLayerComponent, CanvasInputDirective],
+  imports: [CommonModule, FormsModule, TooltipModule, SelectModule, ContextMenuModule, SVGElementsComponent, VectorLayerComponent, CanvasInputDirective],
   templateUrl: './drawable-canvas.component.html',
   styleUrl: './drawable-canvas.component.scss',
   standalone: true,
@@ -65,6 +64,25 @@ export class DrawableCanvasComponent implements AfterViewInit, OnDestroy {
 
   readonly experimentalOverlays = experimentalCanvasOverlays();
   readonly isAndroid = IS_ANDROID;
+
+  /** What the selected-shapes bar shows; null hides it (no vector tool, or
+   *  nothing selected). */
+  readonly shapeBar = computed(() => {
+    if (!this.editorService.isVectorTool()) return null;
+    const shapes = this.vectorEditor.selectedShapes();
+    if (shapes.length === 0) return null;
+    const closed = shapes.filter((s) => s.closed);
+    const labelId = shapes.every((s) => s.labelId === shapes[0].labelId)
+      ? shapes[0].labelId
+      : null;
+    return {
+      count: shapes.length,
+      labelId,
+      allClosed: closed.length === shapes.length,
+      anyClosed: closed.length > 0,
+      allFilled: closed.length > 0 && closed.every((s) => s.filled),
+    };
+  });
   private projectService = inject(ProjectService);
 
   /** The label buttons over the canvas are for pixel-level projects. */

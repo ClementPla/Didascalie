@@ -193,42 +193,76 @@
       </button>
     </div>
 
-    <!-- Properties of the shape selected with the Node tool -->
-    @if (editorService.isNodeTool() && vectorEditor.selectedShape(); as shape) {
-      <div class="absolute flex gap-2 items-center left-5 top-2 z-40">
+    <!-- The selected shapes, with any vector tool: label, fill, open or
+         closed, delete. -->
+    @if (shapeBar(); as bar) {
+      <div class="canvas-chips canvas-chips--shape z-40" role="toolbar" aria-label="Selected shapes">
+        @if (bar.count > 1) {
+          <span class="shape-count">{{ bar.count }} shapes</span>
+        }
         <p-select
+          class="shape-label"
           [options]="labelService.listSegmentationLabels"
           optionLabel="label"
           optionValue="id"
-          [ngModel]="shape.labelId"
+          [ngModel]="bar.labelId"
           (onChange)="vectorEditor.moveSelectedToLabel($event.value)"
+          [placeholder]="bar.labelId === null ? 'Mixed labels' : 'Label'"
           appendTo="body"
-          pTooltip="Move to label layer"
-          [style]="{ 'min-width': '9rem' }"
-          ariaLabel="Move shape to label layer"
-        ></p-select>
-        <p-button
-          [rounded]="true" [raised]="true" severity="danger"
-          icon="pi pi-trash" pTooltip="Delete shape (Del)"
-          (click)="vectorEditor.deleteSelectedShape()"
-          ariaLabel="Delete shape"
-        ></p-button>
-        @if (shape.closed) {
-          <p-button
-            [rounded]="true" [raised]="true"
-            [severity]="shape.filled ? 'success' : 'secondary'"
-            icon="pi pi-stop" pTooltip="Toggle fill"
-            (click)="vectorEditor.toggleFilled()"
-            ariaLabel="Toggle fill"
-          ></p-button>
-        }
-        <p-button
-          [rounded]="true" [raised]="true" severity="help"
-          [icon]="shape.closed ? 'pi pi-circle' : 'pi pi-minus'"
-          [pTooltip]="shape.closed ? 'Open path' : 'Close path'"
+          size="small"
+          [pTooltip]="isAndroid ? '' : 'Move to another label'"
+          tooltipPosition="bottom"
+          ariaLabel="Label of the selected shapes"
+        >
+          <ng-template #selectedItem let-label>
+            <span class="shape-label__item">
+              <span class="shape-label__dot" [style.background]="label.color"></span>
+              {{ label.label }}
+            </span>
+          </ng-template>
+          <ng-template #item let-label>
+            <span class="shape-label__item">
+              <span class="shape-label__dot" [style.background]="label.color"></span>
+              {{ label.label }}
+            </span>
+          </ng-template>
+        </p-select>
+        <button
+          type="button"
+          class="canvas-chip canvas-chip--flat"
+          [class.is-on]="bar.allClosed"
+          [attr.aria-pressed]="bar.allClosed"
+          [pTooltip]="isAndroid ? '' : bar.allClosed ? 'Open the path (removes the fill)' : 'Close the path'"
+          tooltipPosition="bottom"
           (click)="vectorEditor.toggleClosed()"
-          ariaLabel="Toggle open or closed"
-        ></p-button>
+        >
+          <span class="material-symbols-outlined">{{ bar.allClosed ? 'pentagon' : 'polyline' }}</span>
+          <span class="canvas-chip__label">{{ bar.allClosed ? 'Closed' : 'Open' }}</span>
+        </button>
+        <button
+          type="button"
+          class="canvas-chip canvas-chip--flat"
+          [class.is-on]="bar.allFilled"
+          [attr.aria-pressed]="bar.allFilled"
+          [disabled]="!bar.anyClosed"
+          [pTooltip]="isAndroid ? '' : bar.anyClosed ? 'Fill the shape, or keep only its outline' : 'Only a closed path can be filled'"
+          tooltipPosition="bottom"
+          (click)="vectorEditor.toggleFilled()"
+        >
+          <span class="material-symbols-outlined">{{ bar.allFilled ? 'format_color_fill' : 'format_color_reset' }}</span>
+          <span class="canvas-chip__label">{{ bar.allFilled ? 'Filled' : 'Outline' }}</span>
+        </button>
+        <span class="shape-sep" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="canvas-chip canvas-chip--flat canvas-chip--danger"
+          [attr.aria-label]="bar.count > 1 ? 'Delete the selected shapes' : 'Delete the shape'"
+          [pTooltip]="isAndroid ? '' : 'Delete (Del)'"
+          tooltipPosition="bottom"
+          (click)="vectorEditor.deleteSelectedShape()"
+        >
+          <span class="material-symbols-outlined">delete</span>
+        </button>
       </div>
     }
   </div>

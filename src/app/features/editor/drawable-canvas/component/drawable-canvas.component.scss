@@ -141,6 +141,19 @@ $chip-border: color-mix(in srgb, var(--p-text-color) 16%, transparent);
     right: 0.75rem;
   }
 
+  // The selected shapes' bar, top left.
+  &--shape {
+    top: 0.6rem;
+    left: 0.75rem;
+    max-width: calc(100% - 1.5rem);
+    gap: 0.15rem;
+    padding: 0.2rem;
+    border: 1px solid $chip-border;
+    border-radius: 8px;
+    background: $chip-surface;
+    backdrop-filter: blur(6px);
+  }
+
   &--zoom {
     bottom: 0.6rem;
     right: 0.75rem;
@@ -194,6 +207,28 @@ $chip-border: color-mix(in srgb, var(--p-text-color) 16%, transparent);
   &.is-on {
     border-color: var(--p-primary-color);
     background: color-mix(in srgb, var(--p-primary-color) 22%, $chip-surface);
+  }
+
+  // Inside a bar: borderless.
+  &--flat {
+    height: 1.9rem;
+    padding: 0 0.55rem;
+    border-color: transparent;
+    background: transparent;
+    backdrop-filter: none;
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: default;
+      border-color: transparent;
+    }
+  }
+
+  &--danger:hover,
+  &--danger:focus-visible {
+    border-color: transparent;
+    background: color-mix(in srgb, #ef4444 18%, transparent);
+    color: #ef4444;
   }
 
   // Inside the zoom group: borderless square buttons.
@@ -257,4 +292,42 @@ $chip-border: color-mix(in srgb, var(--p-text-color) 16%, transparent);
   .canvas-chip kbd {
     display: none;
   }
+}
+
+.shape-count {
+  padding: 0 0.5rem;
+  font-size: 0.78rem;
+  color: var(--p-text-muted-color);
+  white-space: nowrap;
+}
+
+.shape-label {
+  min-width: 9rem;
+
+  ::ng-deep .p-select {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+.shape-label__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.shape-label__dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.shape-sep {
+  width: 1px;
+  height: 1.3rem;
+  margin: 0 0.15rem;
+  background: $chip-border;
 }
