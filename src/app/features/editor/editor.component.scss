@@ -298,3 +298,19 @@
   font-size: 1.2rem;
   line-height: 1;
 }
+
+// An active rail toggle is tinted, as in the redesign: the theme's own
+// "checked" pill is hard to see behind an icon alone.
+p-togglebutton.p-togglebutton-checked {
+  background: color-mix(in srgb, var(--p-primary-color) 18%, transparent);
+  border-color: color-mix(in srgb, var(--p-primary-color) 45%, transparent);
+
+  .rail-icon {
+    color: var(--p-primary-color);
+  }
+
+  ::ng-deep .p-togglebutton-content {
+    background: transparent;
+    box-shadow: none;
+  }
+}
