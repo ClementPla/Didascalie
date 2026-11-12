@@ -16,6 +16,17 @@ import type { MicroscopyImport } from '../../lib/generated/MicroscopyImport';
 import { LabelsService } from '../labels/labels.service';
 import { NotificationService } from '../notification.service';
 import { ProjectLifecycleService } from './project-lifecycle.service';
+import {
+  RecentProject,
+  RecentProjectStats,
+  describeProjectType,
+  parseRecentProjects,
+  relocateRecentProject,
+  removeRecentProject,
+  setRecentPinned,
+  touchRecentProject,
+  updateRecentStats,
+} from './recent-projects';
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
@@ -37,11 +48,7 @@ export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   text_fields: [],
 };
 
-export interface RecentProject {
-  name: string;
-  path: string;
-  last_opened: number;
-}
+export type { RecentProject, RecentProjectStats } from './recent-projects';
 
 // ── Service ────────────────────────────────────────────────────────────────
 
@@ -197,7 +204,11 @@ export class ProjectService {
       );
     }
     await this.refreshCounts();
-    this.addToRecentProjects(config.name, path);
+    this.addToRecentProjects(config.name, path, {
+      sequences: this._sequencesCount(),
+      frames: this._framesCount(),
+      type: describeProjectType(config),
+    });
   }
 
   private async refreshImageFolder(): Promise<void> {
@@ -332,34 +343,58 @@ export class ProjectService {
 
   getRecentProjects(): RecentProject[] {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
-      if (!stored) return [];
-      const parsed = JSON.parse(stored) as Partial<RecentProject>[];
-      // Older entries lack `last_opened`.
-      return parsed
-        .filter((p) => p && p.path && p.name)
-        .map((p) => ({
-          name: p.name!,
-          path: p.path!,
-          last_opened: typeof p.last_opened === 'number' ? p.last_opened : 0,
-        }))
-        .sort((a, b) => b.last_opened - a.last_opened);
+      return parseRecentProjects(localStorage.getItem(this.STORAGE_KEY));
     } catch {
       return [];
     }
   }
 
-  addToRecentProjects(name: string, path: string): void {
-    const now = Date.now();
-    const recent = this.getRecentProjects().filter((p) => p.path !== path);
-    recent.unshift({ name, path, last_opened: now });
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recent.slice(0, 10)));
+  private saveRecentProjects(projects: RecentProject[]): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(projects));
+    } catch (error) {
+      console.error('Could not save the recent projects:', error);
+    }
+  }
+
+  addToRecentProjects(
+    name: string,
+    path: string,
+    stats?: Partial<RecentProjectStats>,
+  ): void {
+    this.saveRecentProjects(
+      touchRecentProject(this.getRecentProjects(), name, path, Date.now(), stats),
+    );
+  }
+
+  /** Refresh what the launcher shows about the open project. */
+  updateOpenProjectStats(stats: Partial<RecentProjectStats>): void {
+    const path = this._projectPath();
+    if (!path) return;
+    this.saveRecentProjects(
+      updateRecentStats(this.getRecentProjects(), path, stats),
+    );
+  }
+
+  setRecentPinned(path: string, pinned: boolean): void {
+    this.saveRecentProjects(
+      setRecentPinned(this.getRecentProjects(), path, pinned),
+    );
+  }
+
+  /** The project file was moved: its entry follows it. */
+  relocateRecentProject(from: string, to: string): void {
+    this.saveRecentProjects(
+      relocateRecentProject(this.getRecentProjects(), from, to),
+    );
   }
 
   removeFromRecentProjects(path: string): void {
-    const recent = this.getRecentProjects().filter((p) => p.path !== path);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(recent));
+    this.saveRecentProjects(
+      removeRecentProject(this.getRecentProjects(), path),
+    );
   }
+
   // ── Validation ───────────────────────────────────────────────────────────
 
   isConfigValid(): boolean {

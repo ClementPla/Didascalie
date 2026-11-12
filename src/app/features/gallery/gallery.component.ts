@@ -235,8 +235,15 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
         api.getAllFrameIdsBySequence(),
       ]);
 
-      return sequences
-        .filter((seq) => seq.frameCount > 0)
+      // What the launcher shows about this project.
+      const listed = sequences.filter((seq) => seq.frameCount > 0);
+      this.projectService.updateOpenProjectStats({
+        sequences: listed.length,
+        frames: listed.reduce((sum, seq) => sum + seq.frameCount, 0),
+        reviewedFrames: listed.reduce((sum, seq) => sum + seq.reviewedCount, 0),
+      });
+
+      return listed
         .map((seq) => ({
           sequenceId: seq.id,
           sequenceName: seq.name,

@@ -137,6 +137,7 @@ pub fn run() {
             commands::project::set_image_folder,
             commands::project::get_frames_count,
             commands::project::get_sequences_count,
+            commands::project::paths_exist,
             commands::frame::get_progress,
             commands::frame::get_frame_image,
             commands::frame::get_frame_overview,

@@ -1,57 +1,50 @@
 <div class="launcher">
-  <div class="appearance-bar">
-    <i class="opacity-60 pi pi-palette"></i>
-    <p-select
-      [options]="theme.presets"
-      optionLabel="label"
-      optionValue="value"
-      [ngModel]="theme.presetKey()"
-      (onChange)="theme.setPreset($event.value)"
-      pTooltip="Theme"
-      appendTo="body"
-    ></p-select>
-    <app-labelled-switch
-      [checked]="theme.darkMode()"
-      (checkedChange)="theme.setDarkMode($event)"
-    >
-      Dark mode
-    </app-labelled-switch>
-  </div>
-
   <header class="launcher-header">
-    <h1>Didascalie</h1>
-    <p class="tagline">
-      {{
-        isAndroid
-          ? 'Open a project file sent to this tablet.'
-          : 'Open a project or start a new one.'
-      }}
-    </p>
-    <div class="version-row">
-      @if (update.currentVersion(); as version) {
-        <span class="version-label">Version {{ version }}</span>
-      }
-      <!-- The tablet build is updated by installing a new one. -->
-      @if (!isAndroid) {
-      <p-button
-        size="small"
-        [text]="true"
-        severity="secondary"
-        icon="pi pi-refresh"
-        label="Check for updates"
-        [loading]="update.checking()"
-        (onClick)="checkForUpdates()"
-      ></p-button>
-      }
-      <p-button
-        size="small"
-        [text]="true"
-        severity="secondary"
-        icon="pi pi-book"
-        label="Licences"
-        (onClick)="openLicences()"
-      ></p-button>
+    <div class="brand">
+      <h1>Didascalie</h1>
+      <p class="tagline">
+        {{
+          isAndroid
+            ? 'Open a project file sent to this tablet.'
+            : 'Open a project or start a new one.'
+        }}
+      </p>
     </div>
+
+    @if (isAndroid) {
+      <div class="primary-actions">
+        <p-button
+          icon="pi pi-folder-open"
+          label="Open a .dida file"
+          [loading]="isLoading()"
+          (click)="openFromDevice()"
+        ></p-button>
+      </div>
+    } @else {
+      <div class="primary-actions">
+        <p-button
+          icon="pi pi-plus"
+          label="New project"
+          [disabled]="isLoading()"
+          (click)="newProject()"
+        ></p-button>
+        <p-button
+          icon="pi pi-folder-open"
+          label="Open…"
+          severity="secondary"
+          [disabled]="isLoading()"
+          (click)="openFromDisk()"
+        ></p-button>
+        <p-button
+          icon="pi pi-upload"
+          label="Import annotations…"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="isLoading()"
+          (click)="openImportDialog()"
+        ></p-button>
+      </div>
+    }
   </header>
 
   @if (update.available()) {
@@ -82,80 +75,51 @@
     </div>
   }
 
-  @if (isAndroid) {
-    <div class="primary-actions">
-      <p-button
-        icon="pi pi-folder-open"
-        label="Open a .dida file"
-        size="large"
-        [loading]="isLoading()"
-        (click)="openFromDevice()"
-      ></p-button>
-    </div>
-  } @else {
-  <div class="primary-actions">
-    <p-button
-      icon="pi pi-plus"
-      label="New project"
-      size="large"
-      [disabled]="isLoading()"
-      (click)="newProject()"
-    ></p-button>
-    <p-button
-      icon="pi pi-folder-open"
-      label="Open from disk"
-      severity="secondary"
-      size="large"
-      [disabled]="isLoading()"
-      (click)="openFromDisk()"
-    ></p-button>
-    <p-button
-      icon="pi pi-upload"
-      label="Import annotations…"
-      severity="secondary"
-      size="large"
-      [disabled]="isLoading()"
-      (click)="openImportDialog()"
-    ></p-button>
-  </div>
-  }
-
   @if (recentProjects().length > 0) {
     <section class="recent">
-      <h2>Recent</h2>
-      <ul class="recent-list">
-        @for (project of recentProjects(); track project.path) {
-          <li
-            class="recent-row"
-            (click)="openRecent(project)"
-            (keydown.enter)="openRecent(project)"
-            tabindex="0"
-          >
-            <div class="recent-info">
-              <div class="recent-name">{{ project.name }}</div>
-              <!-- On the tablet the path is the application's own copy. -->
-              @if (!isAndroid) {
-                <div class="recent-path" [title]="project.path">
-                  {{ formatPath(project.path) }}
-                </div>
-              }
-            </div>
-            @if (project.last_opened) {
-              <div class="recent-time">
-                {{ relativeTime(project.last_opened) }}
-              </div>
-            }
-            <button
-              class="recent-remove"
-              type="button"
-              aria-label="Remove from recent"
-              (click)="removeRecent($event, project)"
-            >
-              <i class="pi pi-times"></i>
-            </button>
-          </li>
+      <div class="recent-head">
+        <h2>Recent projects</h2>
+        <p-iconfield class="recent-search">
+          <p-inputicon styleClass="pi pi-search" />
+          <input
+            type="search"
+            pInputText
+            pSize="small"
+            placeholder="Search by name or path"
+            aria-label="Search recent projects"
+            [ngModel]="query()"
+            (ngModelChange)="query.set($event)"
+          />
+        </p-iconfield>
+      </div>
+
+      @if (pinned().length > 0) {
+        <h3 class="recent-group">Pinned</h3>
+        <ul class="recent-list">
+          @for (project of pinned(); track project.path) {
+            <ng-container
+              *ngTemplateOutlet="row; context: { $implicit: project }"
+            ></ng-container>
+          }
+        </ul>
+      }
+
+      @if (unpinned().length > 0) {
+        @if (pinned().length > 0) {
+          <h3 class="recent-group">Recent</h3>
         }
-      </ul>
+        <ul class="recent-list">
+          @for (project of unpinned(); track project.path) {
+            <ng-container
+              *ngTemplateOutlet="row; context: { $implicit: project }"
+            ></ng-container>
+          }
+        </ul>
+      }
+
+      @if (pinned().length === 0 && unpinned().length === 0) {
+        <p class="recent-none">No recent project matches “{{ query() }}”.</p>
+      }
     </section>
   } @else {
     <section class="recent-empty">
@@ -165,6 +129,149 @@
     </section>
   }
 
+  <footer class="launcher-footer">
+    <div class="footer-group">
+      <i class="opacity-60 pi pi-palette" aria-hidden="true"></i>
+      <p-select
+        [options]="theme.presets"
+        optionLabel="label"
+        optionValue="value"
+        size="small"
+        [ngModel]="theme.presetKey()"
+        (onChange)="theme.setPreset($event.value)"
+        pTooltip="Theme"
+        appendTo="body"
+        aria-label="Theme"
+      ></p-select>
+      <app-labelled-switch
+        [checked]="theme.darkMode()"
+        (checkedChange)="theme.setDarkMode($event)"
+      >
+        Dark mode
+      </app-labelled-switch>
+    </div>
+    <div class="footer-group">
+      @if (update.currentVersion(); as version) {
+        <span class="version-label">v{{ version }}</span>
+      }
+      <!-- The tablet build is updated by installing a new one, and has no
+           permission to open links. -->
+      @if (!isAndroid) {
+        <p-button
+          size="small"
+          [text]="true"
+          severity="secondary"
+          icon="pi pi-refresh"
+          label="Check for updates"
+          [loading]="update.checking()"
+          (onClick)="checkForUpdates()"
+        ></p-button>
+        <p-button
+          size="small"
+          [text]="true"
+          severity="secondary"
+          icon="pi pi-book"
+          label="Licences"
+          (onClick)="openLicences()"
+        ></p-button>
+      }
+    </div>
+  </footer>
+
+  <ng-template #row let-project>
+    <li
+      class="recent-row"
+      [class.is-missing]="isMissing(project)"
+      (click)="openRecent(project)"
+      (keydown.enter)="openRecent(project)"
+      tabindex="0"
+      [attr.aria-label]="
+        isMissing(project)
+          ? project.name + ', not found. Locate it'
+          : 'Open ' + project.name
+      "
+    >
+      <button
+        class="row-icon pin"
+        type="button"
+        [class.is-pinned]="project.pinned"
+        [attr.aria-label]="project.pinned ? 'Unpin ' + project.name : 'Pin ' + project.name"
+        [attr.aria-pressed]="!!project.pinned"
+        [pTooltip]="project.pinned ? 'Unpin' : 'Pin to the top'"
+        (click)="togglePin($event, project)"
+        (keydown.enter)="$event.stopPropagation()"
+      >
+        <i class="pi" [class.pi-star-fill]="project.pinned" [class.pi-star]="!project.pinned"></i>
+      </button>
+
+      <div class="recent-info">
+        <div class="recent-title">
+          <span class="recent-name">{{ project.name }}</span>
+          @if (project.stats?.type) {
+            <span class="tag">{{ project.stats.type }}</span>
+          }
+          @if (isMissing(project)) {
+            <span class="tag tag-missing">
+              <i class="pi pi-exclamation-triangle"></i> Not found
+            </span>
+          }
+        </div>
+        <!-- On the tablet the path is the application's own copy. -->
+        @if (!isAndroid) {
+          <div class="recent-path" [title]="project.path">
+            {{ formatPath(project.path) }}
+          </div>
+        }
+        @if (describeCounts(project); as counts) {
+          <div class="recent-counts">{{ counts }}</div>
+        }
+      </div>
+
+      <div class="recent-progress">
+        @let percent = reviewedPercent(project);
+        @if (percent !== null) {
+          <div
+            class="progress-track"
+            role="progressbar"
+            [attr.aria-valuenow]="percent"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            [attr.aria-label]="percent + '% of frames reviewed'"
+          >
+            <div class="progress-fill" [style.width.%]="percent"></div>
+          </div>
+          <span class="progress-label">{{ percent }}% reviewed</span>
+        }
+      </div>
+
+      <div class="recent-time">{{ relativeTime(project.last_opened) }}</div>
+
+      <div class="row-actions">
+      @if (isMissing(project)) {
+        <p-button
+          size="small"
+          label="Locate…"
+          severity="secondary"
+          [outlined]="true"
+          (click)="$event.stopPropagation(); locate(project)"
+          (keydown.enter)="$event.stopPropagation()"
+        ></p-button>
+      }
+      <button
+        class="row-icon"
+        type="button"
+        [attr.aria-label]="'More actions for ' + project.name"
+        aria-haspopup="menu"
+        (click)="openRowMenu($event, rowMenu, project)"
+        (keydown.enter)="$event.stopPropagation()"
+      >
+        <i class="pi pi-ellipsis-v"></i>
+      </button>
+      </div>
+    </li>
+  </ng-template>
+
+  <p-menu #rowMenu [model]="rowMenuItems" [popup]="true" appendTo="body"></p-menu>
   <p-toast position="bottom-left"></p-toast>
   <app-import-dialog [(visible)]="showImportDialog"></app-import-dialog>
 </div>

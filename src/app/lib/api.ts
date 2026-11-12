@@ -514,6 +514,9 @@ export const api = {
   openProject: (path: string) =>
     invoke<ProjectConfig>('open_project', { path }),
 
+  /** For each path, whether a file exists there. */
+  pathsExist: (paths: string[]) => invoke<boolean[]>('paths_exist', { paths }),
+
   getImageFolder: () => invoke<ImageFolderStatus>('get_image_folder'),
   setImageFolder: (path: string) =>
     invoke<ImageFolderStatus>('set_image_folder', { path }),

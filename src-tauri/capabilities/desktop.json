@@ -17,11 +17,15 @@
     "core:window:allow-destroy",
     "updater:default",
     "process:default",
+    "opener:allow-reveal-item-in-dir",
     {
       "identifier": "opener:allow-open-url",
       "allow": [
         {
           "url": "https://didascalie.readthedocs.io/*"
+        },
+        {
+          "url": "https://github.com/ClementPla/Didascalie/blob/release/THIRD_PARTY_NOTICES.md"
         }
       ]
     }

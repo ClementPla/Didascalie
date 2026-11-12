@@ -260,3 +260,11 @@ mod tests {
         );
     }
 }
+
+/// Which of these project files exist on this computer, in order: the launcher
+/// greys out the recent projects it cannot reach (an unplugged drive, a share
+/// not mounted) instead of forgetting them.
+#[tauri::command]
+pub fn paths_exist(paths: Vec<String>) -> Vec<bool> {
+    paths.iter().map(|path| Path::new(path).is_file()).collect()
+}
