@@ -1,7 +1,7 @@
-<p-panel header="Sequences" [toggleable]="true">
+<p-panel [header]="header" [toggleable]="true">
   @if (sequences.length === 0) {
     <p class="m-0 text-sm" [style.color]="'var(--p-text-muted-color)'">
-      No other sequences.
+      No sequences to show.
     </p>
   } @else {
     <div class="gallery-scroll sequence-list">
@@ -11,6 +11,7 @@
           [class.is-current]="seq.id === currentId"
           [listMode]="true"
           [showReviewedToggle]="false"
+          [selectable]="false"
           [colorByStatus]="true"
           [frameId]="seq.thumbnailFrameId"
           [title]="seq.name"

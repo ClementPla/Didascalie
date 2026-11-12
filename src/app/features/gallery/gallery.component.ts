@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, NgZone, OnDestroy, inject } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -22,6 +22,7 @@ import { GalleryService } from './gallery.service';
 import { BatchAnnotationService } from '../../services/labels/batch-annotation.service';
 import { UIStateService } from '../../services/uistate.service';
 import { NotificationService } from '../../services/notification.service';
+import { WorklistService } from '../../services/worklist.service';
 import { api } from '../../lib/api';
 
 import {
@@ -29,15 +30,17 @@ import {
   ThumbnailSelectionEvent,
 } from './gallery-element/gallery-element.component';
 import { LabelledSwitchComponent } from '../../shared/generics/labelled-switch/labelled-switch.component';
-import { NavigationEnd, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import {
   InspectionService,
   MAX_INSPECT_PANES,
 } from '../inspect/inspection.service';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs';
 
 type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
+
+/** Which page to show once the filters are applied: the one holding the
+ *  sequence open in the editor, the first, or the one already shown. */
+type PageMode = 'locate' | 'top' | 'keep';
 
 interface GalleryItem {
   frameIds: number[];
@@ -89,7 +92,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   private router = inject(Router);
   private inspection = inject(InspectionService);
   private cdr = inject(ChangeDetectorRef);
-  private zone = inject(NgZone);
+  private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private worklist = inject(WorklistService);
 
   autoRefresh = false;
 
@@ -99,7 +103,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
 
   galleryItems: GalleryItem[] = [];
   filteredItems: GalleryItem[] = [];
-  selectedItems: number[] = [];
   /** Most sequences the inspector compares at once. */
   readonly maxInspected = MAX_INSPECT_PANES;
 
@@ -134,21 +137,24 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     { icon: 'pi pi-bars', value: 'list' as const, label: 'List view' },
   ];
 
-  constructor() {
-    this.router.events
-      .pipe(
-        filter((e) => e instanceof NavigationEnd),
-        filter((e) => e.urlAfterRedirects.startsWith('/gallery')),
-        takeUntilDestroyed(),
-      )
-      .subscribe(() => {
-        this.zone.run(() => void this.refresh());
-      });
+  /** Ticked sequences; on the service so they survive a trip to the editor. */
+  get selectedItems(): number[] {
+    return this.galleryService.selectedIds;
+  }
+  set selectedItems(ids: number[]) {
+    this.galleryService.selectedIds = ids;
   }
 
+  /** The sequence open in the editor, marked in the gallery. */
+  get currentSequenceId(): number | null {
+    return this.sequenceService.currentSequence()?.id ?? null;
+  }
+
+  // The component is rebuilt on every visit (no route reuse), so this is the
+  // one load per visit.
   async ngAfterViewInit(): Promise<void> {
     this.initBatchChoices();
-    await this.refresh();
+    await this.refresh('locate');
   }
 
   ngOnDestroy(): void {
@@ -167,7 +173,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
 
   // ── Refresh & Auto-refresh ───────────────────────────────────────────────
 
-  async refresh(): Promise<void> {
+  async refresh(page: PageMode = 'keep'): Promise<void> {
     this.percentageBeforeRefresh = 0;
     if (this.intervalFunction) {
       clearInterval(this.intervalFunction);
@@ -188,7 +194,11 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       this.galleryService.frameRangeInitialized.set(true);
     }
 
-    this.applyFilters();
+    // Ticked sequences that no longer exist.
+    const known = new Set(this.galleryItems.map((item) => item.sequenceId));
+    this.selectedItems = this.selectedItems.filter((id) => known.has(id));
+
+    this.applyFilters(page);
 
     if (this.autoRefresh) {
       this.intervalFunction = this.getInterval();
@@ -268,7 +278,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
 
   // ── Filtering & Sorting ──────────────────────────────────────────────────
 
-  applyFilters(): void {
+  applyFilters(page: PageMode = 'top'): void {
     let items = [...this.galleryItems];
 
     const query = this.galleryService.filterTitle().trim().toLowerCase();
@@ -296,7 +306,95 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
 
     items.sort((a, b) => this.compareItems(a, b));
     this.filteredItems = items;
+    // The editor's next/previous follows what is listed here.
+    this.worklist.set(
+      items.map((item) => item.sequenceId),
+      this.describeFilters(),
+    );
+    this.placePage(page);
     this.cdr.markForCheck();
+  }
+
+  private placePage(page: PageMode): void {
+    const rows = this.galleryService.itemPerPage();
+    const pageOf = (index: number) => Math.floor(index / rows) * rows;
+    const count = this.filteredItems.length;
+
+    if (page === 'locate') {
+      const index = this.filteredItems.findIndex(
+        (item) => item.sequenceId === this.currentSequenceId,
+      );
+      if (index >= 0) {
+        this.galleryService.first.set(pageOf(index));
+        this.scrollToCurrent();
+        return;
+      }
+      // Not listed: stay on the page shown last.
+      page = 'keep';
+    }
+
+    if (page === 'top') {
+      this.galleryService.first.set(0);
+      this.scrollToTop();
+      return;
+    }
+
+    // Keep, within bounds: the list may have shrunk.
+    if (this.galleryService.first() >= count) {
+      this.galleryService.first.set(count > 0 ? pageOf(count - 1) : 0);
+    }
+  }
+
+  onPage(first: number): void {
+    this.galleryService.first.set(first);
+    this.scrollToTop();
+  }
+
+  private scrollToCurrent(): void {
+    // After the page renders.
+    setTimeout(() => {
+      this.host.nativeElement
+        .querySelector('.is-current')
+        ?.scrollIntoView({ block: 'center' });
+    });
+  }
+
+  private scrollToTop(): void {
+    setTimeout(() => {
+      this.host.nativeElement
+        .querySelector('.gallery-scroll')
+        ?.scrollTo({ top: 0 });
+    });
+  }
+
+  /** The active filters and sort in words, for the editor's Sequences panel. */
+  private describeFilters(): string {
+    const parts: string[] = [];
+    const query = this.galleryService.filterTitle().trim();
+    if (query) parts.push(`"${query}"`);
+    const statuses = this.galleryService.selectedStatuses();
+    if (statuses.length > 0) {
+      parts.push(
+        this.statusOptions
+          .filter((option) => statuses.includes(option.value))
+          .map((option) => option.label)
+          .join(' / '),
+      );
+    }
+    const keypoints = this.galleryService.keypointFilter();
+    if (keypoints !== 'all') {
+      parts.push(keypoints === 'with' ? 'With keypoints' : 'Without keypoints');
+    }
+    if (this.galleryService.showAdvancedFilters()) {
+      const [min, max] = this.galleryService.frameCountRange();
+      if (min > 0 || max < this.maxFrameCount) parts.push(`${min}-${max} frames`);
+    }
+    const sortKey = this.galleryService.sortKey();
+    if (sortKey !== 'name-asc') {
+      const sort = this.sortOptions.find((option) => option.value === sortKey);
+      if (sort) parts.push(sort.label);
+    }
+    return parts.join(' · ');
   }
 
   private compareItems(a: GalleryItem, b: GalleryItem): number {
@@ -550,7 +648,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
         item.annotatedCount,
         item.frameCount,
       );
-      this.applyFilters();
+      this.applyFilters('keep');
     } catch (error) {
       console.error('Failed to mark sequence as reviewed:', error);
     }

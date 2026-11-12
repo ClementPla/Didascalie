@@ -13,6 +13,7 @@ import { PaginatorModule, PaginatorState } from 'primeng/paginator';
 
 import { PropagationService } from '../../../services/labels/propagation.service';
 import { SequenceService } from '../../../services/sequence.service';
+import { WorklistService } from '../../../services/worklist.service';
 import { api } from '../../../lib/api';
 import { GalleryElementComponent } from '../../gallery/gallery-element/gallery-element.component';
 
@@ -42,6 +43,7 @@ interface NavSequence {
 export class SequenceNavigatorComponent implements OnInit {
   private readonly sequenceService = inject(SequenceService);
   private readonly propagation = inject(PropagationService);
+  private readonly worklist = inject(WorklistService);
   private readonly host = inject(ElementRef<HTMLElement>);
 
   readonly sequenceSelected = output<number>();
@@ -72,6 +74,17 @@ export class SequenceNavigatorComponent implements OnInit {
     return this.sequenceService.currentSequence()?.id ?? null;
   }
 
+  /** "Sequences · 12 / 87 · Not started": where the open sequence sits in
+   *  the list, and the gallery filters behind it. */
+  get header(): string {
+    const parts = ['Sequences'];
+    const index = this.sequences.findIndex((s) => s.id === this.currentId);
+    if (index >= 0) parts.push(`${index + 1} / ${this.sequences.length}`);
+    const description = this.worklist.description();
+    if (description) parts.push(description);
+    return parts.join(' · ');
+  }
+
   get pagedSequences(): NavSequence[] {
     return this.sequences.slice(this.first, this.first + this.pageSize);
   }
@@ -88,9 +101,22 @@ export class SequenceNavigatorComponent implements OnInit {
         api.getAllFrameIdsBySequence(),
       ]);
 
-      this.sequences = seqs
-        .filter((s) => s.frameCount > 0 && s.firstFrameId != null)
-        .sort((a, b) => a.sortOrder - b.sortOrder)
+      const listed = seqs.filter(
+        (s) => s.frameCount > 0 && s.firstFrameId != null,
+      );
+      // The gallery's filters and sort, when it set them.
+      const order = this.worklist.ids();
+      let ordered: typeof listed;
+      if (order) {
+        const byId = new Map(listed.map((s) => [s.id, s]));
+        ordered = order
+          .map((id) => byId.get(id))
+          .filter((s): s is (typeof listed)[number] => s !== undefined);
+      } else {
+        ordered = listed.sort((a, b) => a.sortOrder - b.sortOrder);
+      }
+
+      this.sequences = ordered
         .map((s) => ({
           id: s.id,
           name: s.name,

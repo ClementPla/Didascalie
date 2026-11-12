@@ -3,6 +3,7 @@ import { Provider } from '@angular/core';
 import { PROJECT_SCOPED } from './project-scoped';
 
 import { SequenceService } from '../services/sequence.service';
+import { WorklistService } from '../services/worklist.service';
 import { IOService } from '../services/io.service';
 import { MaskVolumeService } from '../services/mask-volume.service';
 import { ProjectionService } from '../experimental/volume3d/projection/projection.service';
@@ -29,6 +30,7 @@ import { TiledImageService } from '../features/editor/drawable-canvas/service/ti
 const PROJECT_SCOPED_SERVICES = [
   UserService,
   SequenceService,
+  WorklistService,
   IOService,
   MaskVolumeService,
   ProjectionService,

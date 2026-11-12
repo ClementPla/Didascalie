@@ -1,5 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
-import { SequenceService } from '../../services/sequence.service';
+import { Injectable, signal } from '@angular/core';
 import { ProjectScoped } from '../../core/project-scoped';
 
 type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
@@ -10,8 +9,6 @@ export type KeypointFilter = 'all' | 'with' | 'without';
   providedIn: 'root',
 })
 export class GalleryService implements ProjectScoped {
-  private sequenceService = inject(SequenceService);
-
   /** Signals: the gallery template reads these directly, under OnPush. */
   readonly itemPerPage = signal(64);
 
@@ -27,14 +24,18 @@ export class GalleryService implements ProjectScoped {
 
   readonly viewLayout = signal<'grid' | 'list'>('grid');
 
-  // Page set by the user. null: the page of the active frame.
-  private readonly explicitFirst = signal<number | null>(null);
+  /** Index of the first item on the shown page. */
+  readonly first = signal(0);
+
+  /** Sequences ticked for batch actions, kept across gallery <-> editor
+   *  navigation. Mutated in place by the gallery. */
+  selectedIds: number[] = [];
 
   /**
    * @see ProjectScoped
    *
-   * Filters and paging are reset. `imgSize`, `viewLayout`, `sortKey` and
-   * `itemPerPage` are user preferences and are kept.
+   * Filters, paging and the selection are reset. `imgSize`, `viewLayout`,
+   * `sortKey` and `itemPerPage` are user preferences and are kept.
    */
   resetForProject(): void {
     this.filterTitle.set('');
@@ -43,23 +44,7 @@ export class GalleryService implements ProjectScoped {
     this.frameCountRange.set([0, 0]);
     this.frameRangeInitialized.set(false);
     this.showAdvancedFilters.set(false);
-    this.explicitFirst.set(null);
+    this.first.set(0);
+    this.selectedIds = [];
   }
-
-  setFirstPage(first: number): void {
-    this.explicitFirst.set(first);
-  }
-
-  getFirstPage(): number {
-    const explicit = this.explicitFirst();
-    if (explicit !== null) {
-      return explicit;
-    }
-    const activeIndex = this.sequenceService.currentFrameIndex();
-    if (activeIndex > 0) {
-      return Math.floor(activeIndex / this.itemPerPage()) * this.itemPerPage();
-    }
-    return 0;
-  }
-
 }

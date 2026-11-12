@@ -4,6 +4,7 @@
     class="cursor-pointer duration-200 flex gallery-row gap-3 items-center relative transition-colors w-full"
     [class]="cardStyleClass"
     [style.background]="rowBackground"
+    [class.is-current]="current()"
     (dblclick)="openEditor()"
     (pointerdown)="onTouchDown($event)"
     (pointerup)="onTouchUp($event)"
@@ -11,6 +12,27 @@
     (mouseenter)="onMouseEnter()"
     (mouseleave)="onMouseLeave()"
   >
+    @if (selectable()) {
+      <div
+        class="border-2 flex flex-shrink-0 h-6 items-center justify-center rounded transition-colors w-6"
+        [class.bg-primary]="selected"
+        [class.border-primary]="selected"
+        [class.bg-white]="!selected"
+        [class.border-gray-300]="!selected"
+        role="checkbox"
+        tabindex="0"
+        [attr.aria-checked]="selected"
+        [attr.aria-label]="'Select ' + displayTitle"
+        (click)="select($event)"
+        (dblclick)="$event.stopPropagation()"
+        (keydown.enter)="select($event)"
+        (keydown.space)="$event.preventDefault(); select($event)"
+      >
+        @if (selected) {
+          <i class="pi pi-check text-sm text-white"></i>
+        }
+      </div>
+    }
     <div
       class="flex-shrink-0 h-16 overflow-hidden relative rounded w-16"
       [style.background]="'var(--p-content-background)'"
@@ -43,6 +65,9 @@
     <div class="flex flex-col gap-1 min-w-0">
       <p class="font-medium m-0 truncate" [title]="displayTitle">
         {{ displayTitle }}
+        @if (current()) {
+          <span class="current-pill">Last opened</span>
+        }
       </p>
       <div
         class="flex gap-2 items-center text-sm"
@@ -113,6 +138,7 @@
     class="cursor-pointer gallery-element relative"
     [class]="cardStyleClass"
     [style.width.px]="imgSize()"
+    [class.is-current]="current()"
     (dblclick)="openEditor()"
     (pointerdown)="onTouchDown($event)"
     (pointerup)="onTouchUp($event)"
@@ -205,6 +231,7 @@
         </button>
       }
 
+      @if (selectable()) {
       <div
         class="absolute border-2 bottom-2 flex h-6 items-center justify-center right-2 rounded transition-colors w-6"
         [class.bg-primary]="selected"
@@ -223,6 +250,7 @@
           <i class="pi pi-check text-sm text-white"></i>
         }
       </div>
+      }
 
       @if (hasMultipleFrames && isLooping) {
         <div class="absolute bottom-2 flex gap-1 left-2">
@@ -240,6 +268,11 @@
     </div>
 
     <div class="flex items-center pl-2 pr-1 py-1 rounded-b-lg">
+      @if (current()) {
+        <span class="current-pill" title="Last opened in the editor">
+          <i class="pi pi-pencil"></i>
+        </span>
+      }
       <p class="flex-1 font-medium m-0 min-w-0 text-sm truncate" [title]="displayTitle">
         {{ displayTitle }}
       </p>

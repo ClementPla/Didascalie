@@ -95,8 +95,8 @@
     [paginator]="true"
     [showJumpToPageDropdown]="true"
     paginatorPosition="bottom"
-    [first]="galleryService.getFirstPage()"
-    (onPage)="galleryService.setFirstPage($event.first)"
+    [first]="galleryService.first()"
+    (onPage)="onPage($event.first)"
   >
     <ng-template #header>
       <div class="gallery-toolbar">
@@ -176,7 +176,7 @@
               icon="pi pi-sync"
               severity="success"
               size="small"
-              (click)="refresh()"
+              (click)="refresh('keep')"
             ></button>
           </div>
 
@@ -237,7 +237,6 @@
         </div>
         }
 
-        @if (projectService.config().classification_enabled) {
         <div class="selection-bar" [class.is-active]="hasSelection">
           <i
             class="pi"
@@ -274,7 +273,6 @@
             (click)="deselectAll()"
           ></button>
         </div>
-        }
       </div>
     </ng-template>
 
@@ -294,6 +292,7 @@
           [id]="item.sequenceId"
           [imgSize]="galleryService.imgSize()"
           [frameIds]="item.frameIds"
+          [current]="item.sequenceId === currentSequenceId"
           (thumbnailSelected)="handleSelect($event)"
           (thumbnailClicked)="openItem(item)"
           (inspectClicked)="inspectItem(item)"
@@ -312,6 +311,9 @@
         @for (item of items; track item.sequenceId) {
         <app-gallery-element
           [listMode]="true"
+          [selected]="selectedItems.includes(item.sequenceId)"
+          [current]="item.sequenceId === currentSequenceId"
+          (thumbnailSelected)="handleSelect($event)"
           [frameId]="item.thumbnailFrameId"
           [title]="item.title"
           [status]="item.status"

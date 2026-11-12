@@ -67,6 +67,10 @@ export class GalleryElementComponent
   /** A full-width list row instead of a card. */
   readonly listMode = input(false);
   readonly showReviewedToggle = input(true);
+  /** Show the selection checkbox. */
+  readonly selectable = input(true);
+  /** The sequence open in the editor: marked so the user finds their place. */
+  readonly current = input(false);
   /** Tint the row by status and selection (list mode). */
   readonly colorByStatus = input(false);
   readonly thumbnailSelected = output<ThumbnailSelectionEvent>();

@@ -1,9 +1,11 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { Sequence, Frame, FrameImage, PixelInfo, api } from '../lib/api';
 import { ProjectScoped } from '../core/project-scoped';
+import { WorklistService } from './worklist.service';
 
 @Injectable({ providedIn: 'root' })
 export class SequenceService implements ProjectScoped {
+  private readonly worklist = inject(WorklistService);
   /** Longest side of the image sent to the editor; larger frames add tiles. */
   static readonly DISPLAY_MAX_DIM = 4096;
 
@@ -86,30 +88,32 @@ export class SequenceService implements ProjectScoped {
     }
   }
 
-  /** Returns true if moved. */
+  /** Returns true if moved. Follows the gallery's worklist when the open
+   *  sequence is on it, else the project's order. */
   async nextSequence(): Promise<boolean> {
-    const sequences = this._sequences();
-    const currentIdx = this.currentSequenceIndex();
-
-    if (currentIdx < sequences.length - 1) {
-      await this.selectSequence(sequences[currentIdx + 1]);
-      return true;
-    }
-
-    return false;
+    return this.stepSequence(1);
   }
 
   /** Returns true if moved. */
   async prevSequence(): Promise<boolean> {
+    return this.stepSequence(-1);
+  }
+
+  private async stepSequence(step: 1 | -1): Promise<boolean> {
     const sequences = this._sequences();
-    const currentIdx = this.currentSequenceIndex();
+    const currentId = this._currentSequence()?.id;
 
-    if (currentIdx > 0) {
-      await this.selectSequence(sequences[currentIdx - 1]);
-      return true;
+    let target: Sequence | undefined;
+    if (this.worklist.indexOf(currentId) >= 0) {
+      const id = this.worklist.neighbour(currentId, step);
+      target = sequences.find((s) => s.id === id);
+    } else {
+      target = sequences[this.currentSequenceIndex() + step];
     }
+    if (!target) return false;
 
-    return false;
+    await this.selectSequence(target);
+    return true;
   }
 
   // ── Frame Image Loading ──────────────────────────────────────────────────
