@@ -171,21 +171,44 @@
             <span class="f-label">Resolution</span>
             <select [(ngModel)]="resolution">
               <option value="full">Full, in tiles</option>
+              <option value="resized">Resized, in tiles</option>
               <option value="reduced">Reduced, whole image</option>
             </select>
-            <span class="f-hint"
-              >Full keeps every pixel, so thin and small structures survive; a
-              large image takes many tiles and longer to predict. Reduced
-              shrinks the image first: fast, and coarse. Retrain to change it.</span
-            >
+            <span class="f-hint">
+              @switch (resolution) {
+                @case ('full') {
+                  Every pixel is kept, so thin and small structures survive. A
+                  large image takes many tiles and longer to predict.
+                }
+                @case ('resized') {
+                  The image is first resized so its longest side is the size
+                  below, then processed in tiles. For large images whose detail
+                  survives some shrinking.
+                }
+                @case ('reduced') {
+                  The whole image is shrunk to one small tile: fast, and coarse.
+                }
+              }
+              Retrain to change it.
+            </span>
           </label>
-          @if (resolution === 'full') {
+          @if (resolution === 'resized') {
+            <label class="field">
+              <span class="f-label">Longest side</span>
+              <input type="number" [(ngModel)]="preResizeSize" min="256" max="16384" step="256" />
+              <span class="f-hint"
+                >In pixels. Images already smaller are not enlarged.
+                Predictions are scaled back to the full image.</span
+              >
+            </label>
+          }
+          @if (resolution !== 'reduced') {
             <label class="field">
               <span class="f-label">Tile size</span>
               <input type="number" [(ngModel)]="tileSize" min="128" max="768" step="64" />
               <span class="f-hint"
-                >Side of a tile, in image pixels. Smaller tiles resolve finer
-                detail and see less context; larger ones need more memory.</span
+                >Side of a tile, in pixels. Smaller tiles resolve finer detail
+                and see less context; larger ones need more memory.</span
               >
             </label>
           } @else {
@@ -201,9 +224,12 @@
             <span class="f-label">Samples per image</span>
             <input type="number" [(ngModel)]="patchesPerFrame" min="4" max="256" step="4" />
             <span class="f-hint"
-              >How much of each image is used for training. Raise it if the model
-              misses things it was shown; it costs time and memory. It does not
-              affect the detail of a prediction — that is Resolution.</span
+              >A sample is a {{ samplePx }} × {{ samplePx }} px square cut from
+              an image to learn from; half are centred on annotated pixels.
+              {{ patchesPerFrame }} samples show the model about
+              {{ sampledPixels() }} px of each image, at the resolution above.
+              Raise it if the model misses things it was shown; it costs time
+              and memory. It does not change how detailed predictions are.</span
             >
           </label>
           <label class="field">

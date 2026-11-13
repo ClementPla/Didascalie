@@ -68,11 +68,21 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   readonly lossHistory = signal<number[]>([]);
 
   /** `full`: the image is processed at its own resolution, in tiles.
+   *  `resized`: its longest side is brought to `preResizeSize`, then tiles.
    *  `reduced`: it is shrunk to `workingSize` first and processed whole. */
-  resolution: 'full' | 'reduced' = 'full';
+  resolution: 'full' | 'resized' | 'reduced' = 'full';
   tileSize = 384;
+  preResizeSize = 2048;
   workingSize = 384;
   patchesPerFrame = 24;
+  /** Side of a training sample, in working pixels (the head's PATCH). */
+  readonly samplePx = 48;
+
+  /** Pixels the samples of one image cover, for the hint. */
+  sampledPixels(): string {
+    const px = Math.max(0, this.patchesPerFrame) * this.samplePx * this.samplePx;
+    return px.toLocaleString('en-US');
+  }
   epochs = 40;
 
   private unlisten: UnlistenFn[] = [];
@@ -173,9 +183,14 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   private options() {
     return {
       encoderId: this.selectedEncoder(),
-      // 0: native size, and no tiles.
-      workingSize: this.resolution === 'full' ? 0 : this.workingSize,
-      tileSize: this.resolution === 'full' ? this.tileSize : 0,
+      // Working size 0: native size. Tile size 0: the image whole.
+      workingSize:
+        this.resolution === 'full'
+          ? 0
+          : this.resolution === 'resized'
+            ? this.preResizeSize
+            : this.workingSize,
+      tileSize: this.resolution === 'reduced' ? 0 : this.tileSize,
       patchesPerFrame: this.patchesPerFrame,
       cacheFeatures: this.persistCacheChoice(),
       labelIds: [...this.selectedLabels()],

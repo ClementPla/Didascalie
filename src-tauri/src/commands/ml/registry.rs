@@ -133,11 +133,7 @@ pub fn catalog() -> Vec<EncoderSpec> {
         EncoderSpec::new(
             "dinov3-vits16",
             "DINOv3 ViT-S/16",
-            "Recommended default. Gram-anchored dense features — the property \
-             DINOv2 lacks — at stride 16, run at 512px for a 32x32 grid. Uses \
-             rotary position embeddings, so unlike DINOv2 it extrapolates to \
-             resolutions it was not trained at without interpolating position \
-             tables.",
+            "Meta AI · DINOv3 License · recommended",
             "onnx-community/dinov3-vits16-pretrain-lvd1689m-ONNX",
             "onnx/model.onnx",
             "dinov3-vits16",
@@ -152,10 +148,7 @@ pub fn catalog() -> Vec<EncoderSpec> {
         EncoderSpec::new(
             "dinov2-small",
             "DINOv2 ViT-S/14",
-            "Self-supervised general-purpose features that transfer broadly \
-             across modalities. The fastest option and a good default. Patch \
-             stride 14 caps its spatial detail, so sub-patch structure is \
-             carried by the local feature basis instead.",
+            "Meta AI · Apache-2.0",
             "onnx-community/dinov2-small-ONNX",
             "onnx/model.onnx",
             "dinov2-small",
@@ -169,8 +162,7 @@ pub fn catalog() -> Vec<EncoderSpec> {
         EncoderSpec::new(
             "dinov2-base",
             "DINOv2 ViT-B/14",
-            "Larger DINOv2. Richer semantics than ViT-S at roughly 4x the \
-             compute; worth testing once the small model's curve is known.",
+            "Meta AI · Apache-2.0",
             "onnx-community/dinov2-base-ONNX",
             "onnx/model.onnx",
             "dinov2-base",
@@ -184,9 +176,7 @@ pub fn catalog() -> Vec<EncoderSpec> {
         EncoderSpec::new(
             "doodlemask-sam",
             "DoodleMask SAM encoder",
-            "The SAM-style encoder this app already ships for doodle-to-mask. \
-             Medical-tuned and produces a denser 64x64 grid, but is the \
-             heaviest of the three.",
+            "DoodleMask, SAM fine-tuned on medical images · Apache-2.0",
             "ClementP/DoodleMaskSAM",
             "encoder.onnx",
             "maskedMedSAM",
