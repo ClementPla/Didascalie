@@ -92,6 +92,15 @@ didascalie-features = { path = "crates/features" }
 # Desktop auto-update (GitHub releases). Registered under #[cfg(desktop)].
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# The cache folder of the GPU runtime (`commands::ml::gpu_runtime`), found
+# before Tauri starts.
+dirs = "6"
+
+# Unpacking and probing the CUDA provider downloaded by `gpu_runtime`.
+[target.'cfg(target_os = "linux")'.dependencies]
+flate2 = "1"
+tar = "0.4"
+libloading = "0.8"
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.

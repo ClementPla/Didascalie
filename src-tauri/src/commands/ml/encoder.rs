@@ -173,12 +173,16 @@ impl EncoderSession {
         };
         *ACTIVE_ACCELERATOR.lock() = accel;
         if accel == "CPU" {
-            log::info!(
-                "[ml] encoder session — running on CPU. For NVIDIA acceleration \
-                 ort needs cuDNN 9 (cudnn64_9.dll) on PATH alongside the CUDA \
-                 runtime; without it the CUDA provider reports as available but \
-                 fails to load."
-            );
+            #[cfg(windows)]
+            let hint = "ort needs cuDNN 9 (cudnn64_9.dll) on PATH alongside the \
+                        CUDA runtime";
+            #[cfg(target_os = "linux")]
+            let hint = "download GPU support in Model lab (ONNX Runtime's CUDA \
+                        provider) and restart; it needs CUDA 12 and cuDNN 9 \
+                        (libcudnn.so.9)";
+            #[cfg(not(any(windows, target_os = "linux")))]
+            let hint = "no accelerator registered";
+            log::info!("[ml] encoder session — running on CPU. For NVIDIA acceleration, {hint}.");
         } else {
             log::info!("[ml] encoder session — accelerator: {accel}");
         }

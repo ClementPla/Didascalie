@@ -121,6 +121,37 @@
     <div class="col">
       <p-card styleClass="lab-card">
         <ng-template pTemplate="title">Features</ng-template>
+        @if (gpuRuntime(); as g) {
+          @if (g.available && !g.installed) {
+            <div class="gpu-note">
+              <span class="enc-desc">
+                An NVIDIA GPU is present, but the encoders run on the CPU until
+                GPU support is downloaded ({{ g.downloadMb }} MB). It needs CUDA 12
+                and cuDNN 9.
+              </span>
+              <p-button
+                [label]="gpuRuntimeProgress() === null ? 'Download GPU support' : 'Downloading… ' + gpuRuntimeProgress() + '%'"
+                icon="pi pi-download"
+                size="small"
+                [outlined]="true"
+                [loading]="gpuRuntimeProgress() !== null"
+                (onClick)="installGpuRuntime()"
+              />
+            </div>
+          } @else if (g.installed && !g.active) {
+            <div class="gpu-note">
+              <span class="enc-desc">GPU support is installed. Restart to use it.</span>
+              <p-button
+                label="Restart"
+                icon="pi pi-refresh"
+                size="small"
+                [outlined]="true"
+                [disabled]="running()"
+                (onClick)="restartForGpu()"
+              />
+            </div>
+          }
+        }
         <button
           type="button"
           class="enc"

@@ -15,6 +15,7 @@ pub mod cache;
 pub mod commands;
 pub mod dataset;
 pub mod encoder;
+pub mod gpu_runtime;
 pub mod predict;
 pub mod registry;
 pub mod scribble;

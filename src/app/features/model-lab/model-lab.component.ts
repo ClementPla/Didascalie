@@ -2,6 +2,7 @@ import { Component, NgZone, OnDestroy, OnInit, computed, signal, inject } from '
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { relaunch } from '@tauri-apps/plugin-process';
 
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -15,6 +16,7 @@ import {
   api,
   DatasetSummary,
   EncoderStatus,
+  GpuRuntimeStatus,
   MlProgress,
   TrainSummary,
   LabelId,
@@ -50,6 +52,10 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   readonly selectedEncoder = signal<string | null>(null);
   readonly running = signal(false);
   readonly downloading = signal<string | null>(null);
+  /** ONNX Runtime's CUDA provider for the encoder (Linux releases). */
+  readonly gpuRuntime = signal<GpuRuntimeStatus | null>(null);
+  /** Download progress of the GPU runtime, in percent; `null` when idle. */
+  readonly gpuRuntimeProgress = signal<number | null>(null);
   readonly progress = signal<MlProgress | null>(null);
   readonly tick = signal<TrainTick | null>(null);
   readonly error = signal<string | null>(null);
@@ -109,6 +115,10 @@ export class ModelLabComponent implements OnInit, OnDestroy {
           );
         }),
       ),
+      await listen<{ filename: string; progress: number }>('download-progress', (e) => {
+        if (e.payload.filename !== 'GPU runtime') return;
+        this.zone.run(() => this.gpuRuntimeProgress.set(Math.round(e.payload.progress)));
+      }),
     );
     await this.refresh();
   }
@@ -133,9 +143,31 @@ export class ModelLabComponent implements OnInit, OnDestroy {
         this.selectedLabels.set(new Set(labels.map((l) => l.id)));
       }
       await this.refreshStorage();
+      this.gpuRuntime.set(await api.mlGpuRuntimeStatus());
     } catch (e) {
       this.error.set(String(e));
     }
+  }
+
+  async installGpuRuntime(): Promise<void> {
+    this.gpuRuntimeProgress.set(0);
+    try {
+      await api.mlInstallGpuRuntime();
+      this.gpuRuntime.set(await api.mlGpuRuntimeStatus());
+    } catch (e) {
+      this.messages.add({
+        severity: 'error',
+        summary: 'GPU support download failed',
+        detail: String(e),
+      });
+    } finally {
+      this.gpuRuntimeProgress.set(null);
+    }
+  }
+
+  /** The providers are found only at process start. */
+  async restartForGpu(): Promise<void> {
+    await relaunch();
   }
 
   /** Too few reviewed frames to hold any out. */

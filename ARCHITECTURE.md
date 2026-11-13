@@ -304,6 +304,52 @@ GitHub release. Installed apps auto-update via the Tauri updater plugin
 (`src/app/services/update.service.ts`, launcher banner + toolbar version badge).
 `ci.yml` is the quality gate (frontend build + `cargo test`/`clippy`/`fmt`).
 
+### GPU encoder on Linux (fragile)
+
+Releases do **not** ship ONNX Runtime's CUDA provider, and dev builds hide that.
+`ort` links ONNX Runtime statically, but its CUDA execution provider is two shared
+libraries (`libonnxruntime_providers_shared.so`, `libonnxruntime_providers_cuda.so`,
+~190 MB). `ort`'s `copy-dylibs` puts them in `target/<profile>/`, and
+`cargo run`/`tauri dev` put that folder on `LD_LIBRARY_PATH`, so the encoder runs on
+the GPU in dev. The bundler never packs them, so a release logs
+`Failed to load library libonnxruntime_providers_shared.so` and the encoder falls
+back to the CPU. The head (burn) is not affected: it finds CUDA itself.
+
+Instead of bundling them, `src-tauri/src/commands/ml/gpu_runtime.rs` handles them:
+
+1. **Download on request.** On an NVIDIA machine, Model lab offers *Download GPU
+   support*. It fetches the archive `ort-sys` itself builds against (URL + SHA-256
+   pinned from `ort-sys`'s `dist.txt`), checks the hash and keeps the two libraries
+   in `~/.cache/io.github.clementpla.didascalie/ort-cuda/<hash prefix>/`.
+2. **Re-exec at startup.** ONNX Runtime `dlopen`s the providers by bare name, the
+   CUDA one has no SONAME (so loading it first by full path does not help), and glibc
+   reads `LD_LIBRARY_PATH` only at process start. So `main` calls
+   `reexec_with_runtime()` first: if the libraries are on disk, it prepends their
+   folder to `LD_LIBRARY_PATH` and re-executes itself once. Enabling GPU support
+   therefore takes a restart (Model lab offers one).
+
+What breaks it:
+
+- **Upgrading `ort`.** The providers must come from the exact ONNX Runtime build
+  that is linked in. Bump `ARCHIVE_URL`/`ARCHIVE_SHA256` with `ort`; the test
+  `gpu_runtime::tests::archive_matches_ort_sys` fails until you do. The versioned
+  folder keeps old providers from being reused.
+- **Renaming the app identifier.** `main` derives the cache folder before Tauri
+  starts. `identifier_matches_tauri_conf` guards it.
+- **Relaunches inherit the environment** (the updater's too). The
+  `DIDASCALIE_ORT_CUDA` marker records which folder was added, so a new release
+  drops a stale one instead of keeping it.
+- **User machines.** The provider needs CUDA 12 and cuDNN 9 (`libcudnn.so.9`)
+  installed. Without them it fails to register and the encoder stays on the CPU,
+  which is logged.
+- **Windows and macOS** are not covered. Windows has its own cuDNN lookup
+  (`encoder.rs`, `find_cudnn`) and falls back to DirectML. Whether its installer
+  ships the CUDA provider DLLs has not been checked.
+
+Check a release with the app log
+(`~/.local/share/io.github.clementpla.didascalie/logs/Didascalie.log`):
+`encoder session — accelerator: CUDA (GPU)`, not `running on CPU`.
+
 ## Where to start reading
 
 1. `src/app/lib/api.ts` — the whole backend surface at a glance.

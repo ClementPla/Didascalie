@@ -11,6 +11,9 @@ use tauri::{Manager, RunEvent};
 use tokio::sync::Mutex;
 
 mod commands;
+/// Called first in `main`: see `commands::ml::gpu_runtime`.
+#[cfg(not(target_os = "android"))]
+pub use commands::ml::gpu_runtime::reexec_with_runtime;
 #[cfg(not(target_os = "android"))]
 mod connection;
 
@@ -207,6 +210,10 @@ pub fn run() {
             commands::ml::commands::ml_list_encoders,
             #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_download_encoder,
+            #[cfg(not(target_os = "android"))]
+            commands::ml::gpu_runtime::ml_gpu_runtime_status,
+            #[cfg(not(target_os = "android"))]
+            commands::ml::gpu_runtime::ml_install_gpu_runtime,
             #[cfg(not(target_os = "android"))]
             commands::ml::commands::ml_dataset_summary,
             #[cfg(not(target_os = "android"))]

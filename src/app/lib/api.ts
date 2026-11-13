@@ -50,6 +50,7 @@ import type { ClassificationData } from './generated/ClassificationData';
 import type { DatasetFormat } from './generated/DatasetFormat';
 import type { DatasetSummary } from './generated/DatasetSummary';
 import type { EncoderStatus } from './generated/EncoderStatus';
+import type { GpuRuntimeStatus } from './generated/GpuRuntimeStatus';
 import type { EvalMetrics } from './generated/EvalMetrics';
 import type { ExportResult } from './generated/ExportResult';
 import type { FormatChoice } from './generated/FormatChoice';
@@ -119,6 +120,7 @@ export type {
   DatasetSummary,
   EncoderStatus,
   EvalMetrics,
+  GpuRuntimeStatus,
   ExportResult,
   FormatChoice,
   FormatOption,
@@ -539,6 +541,10 @@ export const api = {
   mlListEncoders: () => invoke<EncoderStatus[]>('ml_list_encoders'),
   mlDownloadEncoder: (encoderId: string) =>
     invoke<string>('ml_download_encoder', { encoderId }),
+  /** ONNX Runtime's CUDA provider, downloaded on demand (Linux only). */
+  mlGpuRuntimeStatus: () => invoke<GpuRuntimeStatus>('ml_gpu_runtime_status'),
+  /** Takes effect at the next start. Progress on `download-progress`. */
+  mlInstallGpuRuntime: () => invoke<void>('ml_install_gpu_runtime'),
   mlDatasetSummary: () => invoke<DatasetSummary>('ml_dataset_summary'),
   mlTrainModel: (options: TrainOptions) =>
     invoke<TrainSummary>('ml_train_model', { options }),
