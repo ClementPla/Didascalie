@@ -67,6 +67,10 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   /** Rolling loss history for the current fit, for a sparkline. */
   readonly lossHistory = signal<number[]>([]);
 
+  /** `full`: the image is processed at its own resolution, in tiles.
+   *  `reduced`: it is shrunk to `workingSize` first and processed whole. */
+  resolution: 'full' | 'reduced' = 'full';
+  tileSize = 384;
   workingSize = 384;
   patchesPerFrame = 24;
   epochs = 40;
@@ -169,7 +173,9 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   private options() {
     return {
       encoderId: this.selectedEncoder(),
-      workingSize: this.workingSize,
+      // 0: native size, and no tiles.
+      workingSize: this.resolution === 'full' ? 0 : this.workingSize,
+      tileSize: this.resolution === 'full' ? this.tileSize : 0,
       patchesPerFrame: this.patchesPerFrame,
       cacheFeatures: this.persistCacheChoice(),
       labelIds: [...this.selectedLabels()],

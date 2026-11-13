@@ -16,7 +16,7 @@ use burn::tensor::{Int, Tensor, TensorData};
 use super::backend::{CpuInfer, CpuTrain, Selection};
 #[cfg(feature = "gpu")]
 use super::backend::{GpuInfer, GpuTrain};
-use super::scribble::Rng;
+use super::rng::Rng;
 
 /// Square side of a training patch: several times the head's receptive field.
 pub const PATCH: usize = 48;
@@ -169,7 +169,9 @@ impl Head {
 
 #[derive(Debug, Clone, Default, serde::Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-#[ts(export, export_to = "../../src/app/lib/generated/")]
+// No `export`: the binding is written when the application exports
+// `TrainSummary`, which holds this, from the folder the path is relative to.
+#[ts(export_to = "../../src/app/lib/generated/")]
 pub struct EvalMetrics {
     pub accuracy: f32,
     /// Mean Dice over the classes present in the reference.
@@ -215,22 +217,23 @@ fn predict<B: Backend>(
 
 fn predict_map_on<B: Backend>(
     model: &SegHead<B>,
-    x: &[f32],
+    x: Vec<f32>,
     d: usize,
     h: usize,
     w: usize,
     n_classes: usize,
 ) -> Vec<i32> {
     let device = Default::default();
-    let t = Tensor::<B, 4>::from_data(TensorData::new(x.to_vec(), [1, d, h, w]), &device);
+    let t = Tensor::<B, 4>::from_data(TensorData::new(x, [1, d, h, w]), &device);
     let idx = flatten_logits(model.forward(t), n_classes).argmax(1).into_data();
     idx.iter::<i64>().map(|v| v as i32).collect()
 }
 
-/// Argmax class per pixel for one whole feature map `[d, h, w]`.
+/// Argmax class per pixel for one whole feature map `[d, h, w]`, taken by
+/// value: it is hundreds of megabytes at full tile size.
 pub fn predict_map(
     head: &Head,
-    x: &[f32],
+    x: Vec<f32>,
     d: usize,
     h: usize,
     w: usize,
@@ -618,7 +621,7 @@ mod tests {
         let d = 3;
         let (h, w) = (16, 16);
         let x = vec![0.5f32; d * h * w];
-        let out = predict_map(&head, &x, d, h, w, 2);
+        let out = predict_map(&head, x.clone(), d, h, w, 2);
         assert_eq!(out.len(), h * w);
         assert!(out.iter().all(|&c| c == 0 || c == 1));
     }

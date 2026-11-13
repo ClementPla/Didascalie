@@ -92,8 +92,16 @@ pub struct TrainOptions {
     /// Omit to train on the local feature basis alone.
     #[ts(optional = nullable)]
     pub encoder_id: Option<String>,
+    /// Longest side the frame is reduced to first. 0 keeps it at native size.
     #[ts(optional)]
     pub working_size: Option<u32>,
+    /// Side of the square tiles the frame is processed in. Omit, or 0, to
+    /// process it whole.
+    #[ts(optional)]
+    pub tile_size: Option<u32>,
+    /// Tiles taken from each frame for training. Defaults to 4.
+    #[ts(optional)]
+    pub tiles_per_frame: Option<usize>,
     #[ts(optional)]
     pub patches_per_frame: Option<usize>,
     /// Persist encoder features between runs. Defaults to on.
@@ -324,6 +332,8 @@ fn build_split(
 
     let ds = DatasetConfig {
         working_size: options.working_size.unwrap_or(384),
+        tile_size: options.tile_size.filter(|&t| t > 0),
+        tiles_per_frame: options.tiles_per_frame.unwrap_or(4).max(1),
         patches_per_frame: requested_patches,
         cache_writes: options.cache_features.unwrap_or(true),
         repeats: options.augment_repeats.unwrap_or(3).max(1),
@@ -396,7 +406,9 @@ fn build_split(
     }
 
     if per_frame.is_empty() {
-        return Err("no usable training frames (annotations may vanish at this working size)".into());
+        return Err("no usable training frames (the selected labels are on none of them, or \
+                    the frames are smaller than a 48 px sample)"
+            .into());
     }
     if val.is_empty() {
         return Err("no usable validation frames".into());
@@ -527,6 +539,7 @@ pub fn ml_train_model(
         label_order: split.order,
         encoder_id: options.encoder_id.clone(),
         working_size: options.working_size.unwrap_or(384),
+        tile_size: options.tile_size.filter(|&t| t > 0),
         metrics,
         train_frames,
     };
@@ -552,6 +565,7 @@ fn store_model(
         label_order: model.label_order.clone(),
         encoder_id: model.encoder_id.clone(),
         working_size: model.working_size,
+        tile_size: model.tile_size,
         hidden,
         depth,
         accuracy: model.metrics.accuracy,
@@ -610,6 +624,7 @@ pub fn ml_load_saved_model(db: State<DbState>, state: State<MlState>) -> Option<
         label_order: meta.label_order,
         encoder_id: meta.encoder_id,
         working_size: meta.working_size,
+        tile_size: meta.tile_size,
         metrics,
         train_frames: meta.train_frames,
     });

@@ -168,21 +168,42 @@
         <ng-template pTemplate="title">Settings</ng-template>
         <div class="fields">
           <label class="field">
-            <span class="f-label">Image size</span>
-            <input type="number" [(ngModel)]="workingSize" min="64" max="1024" step="64" />
+            <span class="f-label">Resolution</span>
+            <select [(ngModel)]="resolution">
+              <option value="full">Full, in tiles</option>
+              <option value="reduced">Reduced, whole image</option>
+            </select>
             <span class="f-hint"
-              >The resolution predictions are made at, then scaled back up.
-              Larger is more detailed and slower. Retrain to change it — a model
-              predicts at the size it was trained on.</span
+              >Full keeps every pixel, so thin and small structures survive; a
+              large image takes many tiles and longer to predict. Reduced
+              shrinks the image first: fast, and coarse. Retrain to change it.</span
             >
           </label>
+          @if (resolution === 'full') {
+            <label class="field">
+              <span class="f-label">Tile size</span>
+              <input type="number" [(ngModel)]="tileSize" min="128" max="768" step="64" />
+              <span class="f-hint"
+                >Side of a tile, in image pixels. Smaller tiles resolve finer
+                detail and see less context; larger ones need more memory.</span
+              >
+            </label>
+          } @else {
+            <label class="field">
+              <span class="f-label">Image size</span>
+              <input type="number" [(ngModel)]="workingSize" min="64" max="1024" step="64" />
+              <span class="f-hint"
+                >The size predictions are made at, then scaled back up.</span
+              >
+            </label>
+          }
           <label class="field">
             <span class="f-label">Samples per image</span>
             <input type="number" [(ngModel)]="patchesPerFrame" min="4" max="256" step="4" />
             <span class="f-hint"
               >How much of each image is used for training. Raise it if the model
               misses things it was shown; it costs time and memory. It does not
-              affect the detail of a prediction — that is Image size.</span
+              affect the detail of a prediction — that is Resolution.</span
             >
           </label>
           <label class="field">

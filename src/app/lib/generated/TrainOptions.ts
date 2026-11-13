@@ -4,7 +4,20 @@ export type TrainOptions = {
 /**
  * Omit to train on the local feature basis alone.
  */
-encoderId?: string | null, workingSize?: number, patchesPerFrame?: number, 
+encoderId?: string | null, 
+/**
+ * Longest side the frame is reduced to first. 0 keeps it at native size.
+ */
+workingSize?: number, 
+/**
+ * Side of the square tiles the frame is processed in. Omit, or 0, to
+ * process it whole.
+ */
+tileSize?: number, 
+/**
+ * Tiles taken from each frame for training. Defaults to 4.
+ */
+tilesPerFrame?: number, patchesPerFrame?: number, 
 /**
  * Persist encoder features between runs. Defaults to on.
  */

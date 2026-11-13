@@ -6,21 +6,27 @@
 //! scribble resampling; encoder features are computed once per frame and
 //! reused across repeats.
 
-use ndarray::{Array3, Axis};
+use ndarray::Array3;
 
 use crate::commands::annotation::decode_to_uint8;
 use crate::storage::{queries, DbState};
 
 use super::cache;
 use super::encoder::{resize_bilinear, EncoderSession};
-use super::filters::{self, FilterBankConfig};
+use super::filters::{self, stack, FilterBankConfig};
 use super::scribble::{self, Rng, Scribbles, SCRIBBLE_CHANNELS};
 use super::train::{Samples, PATCH};
 
 #[derive(Debug, Clone)]
 pub struct DatasetConfig {
-    /// Longest side the frame is resampled to before feature extraction.
+    /// Longest side the frame is resampled to before feature extraction; 0
+    /// keeps it at native size.
     pub working_size: u32,
+    /// Side, in working pixels, of the square tiles features are computed on.
+    /// `None`: the whole working image is one tile.
+    pub tile_size: Option<u32>,
+    /// Tiles drawn from each frame for training, when it is larger than one.
+    pub tiles_per_frame: usize,
     /// Patches sampled per frame per repeat. Each is stored as dense `f32`, so
     /// memory and epoch length grow linearly with it.
     pub patches_per_frame: usize,
@@ -43,6 +49,8 @@ impl Default for DatasetConfig {
     fn default() -> Self {
         Self {
             working_size: 384,
+            tile_size: None,
+            tiles_per_frame: 4,
             patches_per_frame: 8,
             foreground_fraction: 0.5,
             repeats: 3,
@@ -120,6 +128,155 @@ pub fn downscale_nearest(src: &[u8], sw: usize, sh: usize, dw: usize, dh: usize)
     out
 }
 
+/// Downscale a label's coverage mask: an output pixel is set when any source
+/// pixel it covers is. Point sampling would drop structures thinner than the
+/// scale factor. The same size is a plain copy.
+pub fn downscale_any(src: &[u8], sw: usize, sh: usize, dw: usize, dh: usize) -> Vec<u8> {
+    if (sw, sh) == (dw, dh) {
+        return src.to_vec();
+    }
+    let mut out = vec![0u8; dw * dh];
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 {
+        return out;
+    }
+    for y in 0..sh.min(src.len() / sw) {
+        let dy = (y * dh / sh).min(dh - 1);
+        let row = &src[y * sw..(y + 1) * sw];
+        for (x, &v) in row.iter().enumerate() {
+            if v != 0 {
+                let dx = (x * dw / sw).min(dw - 1);
+                let o = &mut out[dy * dw + dx];
+                *o = (*o).max(v);
+            }
+        }
+    }
+    out
+}
+
+// ── Tiles ──────────────────────────────────────────────────────────────────
+
+/// A rectangle of the working image that features are computed on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Tile {
+    pub x: usize,
+    pub y: usize,
+    pub w: usize,
+    pub h: usize,
+}
+
+/// The tile side a configuration asks for; `None` for a single tile.
+pub fn tile_side(tile_size: Option<u32>) -> Option<usize> {
+    tile_size.filter(|&t| t > 0).map(|t| (t as usize).max(2 * PATCH))
+}
+
+/// How much neighbouring tiles of a prediction overlap. Half of it is
+/// discarded on each side: the filters and the head read past a tile's edge.
+pub fn tile_overlap(tile: usize) -> usize {
+    (tile / 4).min(64)
+}
+
+/// Tile origins along one axis: `stride = tile - overlap`, the last one
+/// pulled back so that it ends at the edge.
+fn tile_starts(len: usize, tile: usize, overlap: usize) -> Vec<usize> {
+    if len <= tile {
+        return vec![0];
+    }
+    let stride = tile.saturating_sub(overlap).max(1);
+    let mut starts = Vec::new();
+    let mut at = 0;
+    loop {
+        if at + tile >= len {
+            starts.push(len - tile);
+            return starts;
+        }
+        starts.push(at);
+        at += stride;
+    }
+}
+
+/// The tiles covering a `w × h` image, row by row. `None` is one tile.
+pub fn tile_grid(w: usize, h: usize, tile: Option<usize>) -> Vec<Tile> {
+    let Some(tile) = tile else {
+        return vec![Tile { x: 0, y: 0, w, h }];
+    };
+    let overlap = tile_overlap(tile);
+    let (tw, th) = (tile.min(w), tile.min(h));
+    let xs = tile_starts(w, tile, overlap);
+    tile_starts(h, tile, overlap)
+        .into_iter()
+        .flat_map(|y| xs.iter().map(move |&x| Tile { x, y, w: tw, h: th }))
+        .collect()
+}
+
+/// The part `[lo, hi)` of a tile's axis that a prediction keeps: all of it
+/// but `margin` on each side that touches another tile.
+pub fn kept_range(start: usize, len: usize, total: usize, margin: usize) -> (usize, usize) {
+    let lo = if start > 0 { margin.min(len) } else { 0 };
+    let hi = if start + len < total { len.saturating_sub(margin) } else { len };
+    (lo, hi.max(lo))
+}
+
+/// Tiles to train on. An image that fits in one tile is that tile; otherwise
+/// `n` are drawn, a share of them around a labelled pixel (at least one, when
+/// anything is labelled).
+fn sample_tiles(
+    labels: &[i32],
+    w: usize,
+    h: usize,
+    tile: Option<usize>,
+    n: usize,
+    foreground_fraction: f32,
+    rng: &mut Rng,
+) -> Vec<Tile> {
+    let whole = Tile { x: 0, y: 0, w, h };
+    let Some(tile) = tile else { return vec![whole] };
+    if w <= tile && h <= tile {
+        return vec![whole];
+    }
+    let (tw, th) = (tile.min(w), tile.min(h));
+    let foreground: Vec<u32> = labels
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| **l > 0)
+        .map(|(i, _)| i as u32)
+        .collect();
+    let n = n.max(1);
+    let want_fg = if foreground.is_empty() {
+        0
+    } else {
+        (((n as f32) * foreground_fraction.clamp(0.0, 1.0)).round() as usize).max(1)
+    };
+    (0..n)
+        .map(|k| {
+            let (x, y) = if k < want_fg {
+                let p = foreground[rng.below(foreground.len())] as usize;
+                let (px, py) = (p % w, p / w);
+                // Somewhere in the tile's middle half, not always dead centre.
+                let jx = tw / 4 + rng.below(tw / 2 + 1);
+                let jy = th / 4 + rng.below(th / 2 + 1);
+                (px.saturating_sub(jx).min(w - tw), py.saturating_sub(jy).min(h - th))
+            } else {
+                (rng.below(w - tw + 1), rng.below(h - th + 1))
+            };
+            Tile { x, y, w: tw, h: th }
+        })
+        .collect()
+}
+
+pub fn crop_image(image: &Array3<f32>, t: Tile) -> Array3<f32> {
+    image
+        .slice(ndarray::s![.., t.y..t.y + t.h, t.x..t.x + t.w])
+        .to_owned()
+}
+
+fn crop_labels(labels: &[i32], w: usize, t: Tile) -> Vec<i32> {
+    let mut out = Vec::with_capacity(t.w * t.h);
+    for y in t.y..t.y + t.h {
+        out.extend_from_slice(&labels[y * w + t.x..y * w + t.x + t.w]);
+    }
+    out
+}
+
 /// Rasterise a frame's vector shapes into per-label masks: at native
 /// resolution, then downscaled, like painted annotations.
 fn vector_masks(
@@ -156,7 +313,7 @@ fn vector_masks(
         }
         out.push((
             label_id,
-            downscale_nearest(&alpha, native_w as usize, native_h as usize, w, h),
+            downscale_any(&alpha, native_w as usize, native_h as usize, w, h),
         ));
     }
     Ok(out)
@@ -301,6 +458,9 @@ fn decode_image(bytes: &[u8]) -> Result<Array3<f32>, String> {
 }
 
 fn working_dims(w: usize, h: usize, longest: u32) -> (usize, usize) {
+    if longest == 0 {
+        return (w.max(1), h.max(1)); // native
+    }
     let longest = longest.max(16) as usize;
     if w >= h {
         let nw = longest.min(w.max(1));
@@ -311,20 +471,6 @@ fn working_dims(w: usize, h: usize, longest: u32) -> (usize, usize) {
         let nw = ((w as f32 * nh as f32 / h.max(1) as f32).round() as usize).max(1);
         (nw, nh)
     }
-}
-
-fn stack(parts: Vec<Array3<f32>>, h: usize, w: usize) -> Array3<f32> {
-    let d: usize = parts.iter().map(|p| p.shape()[0]).sum();
-    let mut out = Array3::<f32>::zeros((d, h, w));
-    let mut o = 0;
-    for p in parts {
-        for c in 0..p.shape()[0] {
-            out.index_axis_mut(Axis(0), o)
-                .assign(&p.index_axis(Axis(0), c));
-            o += 1;
-        }
-    }
-    out
 }
 
 /// Assemble the feature volume for one frame: local basis, optional encoder
@@ -349,12 +495,12 @@ pub fn assemble_stack(
         }
     }
 
-    let mut parts = vec![local];
+    let mut parts = vec![&local];
     if let Some(e) = encoder_part {
-        parts.push(e.clone());
+        parts.push(e);
     }
-    parts.push(scr);
-    stack(parts, h, w)
+    parts.push(&scr);
+    stack(&parts, h, w)
 }
 
 /// Decode a frame and resample it to working resolution.
@@ -380,7 +526,9 @@ fn working_image(
     cfg: &DatasetConfig,
     feature_cache: Option<&std::path::Path>,
 ) -> Result<(Array3<f32>, usize, usize), String> {
-    let Some(dir) = feature_cache else {
+    // A native-size image is not cached: the copy would be as large as
+    // decoding it again is cheap.
+    let Some(dir) = feature_cache.filter(|_| cfg.working_size != 0) else {
         return load_working_image(db, frame_id, cfg.working_size);
     };
     let (_meta, bytes) = crate::commands::frame::read_frame_bytes(db, frame_id)
@@ -417,7 +565,7 @@ pub fn build_frame_samples(
     let ms_image = t_image.elapsed().as_secs_f32() * 1000.0;
 
     let t_labels = std::time::Instant::now();
-    // Rasterise labels at native size, then downscale with nearest.
+    // Rasterise labels at native size, then reduce them to the working size.
     let (native_w, native_h) = db
         .with_conn(|conn| queries::get_frame_dimensions(conn, frame_id))
         .map_err(|e| format!("frame {frame_id} dimensions: {e}"))?;
@@ -428,13 +576,7 @@ pub fn build_frame_samples(
         .into_iter()
         .map(|a| {
             let full = decode_to_uint8(&a.mask_data, &a.encoding, native_w, native_h);
-            let small = downscale_nearest(
-                &full,
-                native_w as usize,
-                native_h as usize,
-                w,
-                h,
-            );
+            let small = downscale_any(&full, native_w as usize, native_h as usize, w, h);
             (a.label_id, small)
         })
         .collect();
@@ -442,80 +584,97 @@ pub fn build_frame_samples(
     let labels = combine_masks(&masks, order, w * h);
     let ms_labels = t_labels.elapsed().as_secs_f32() * 1000.0;
 
-    let t_encoder = std::time::Instant::now();
-    let encoder_part = match encoder {
-        Some(enc) => {
-            // Cache the token grid, not the upsampled volume, which is far larger.
-            let key = feature_cache
-                .map(|_| cache::Key::new(enc.encoder_id(), cfg.working_size, &image));
-            let cached = match (feature_cache, &key) {
-                (Some(dir), Some(k)) => cache::load(dir, k),
-                _ => None,
-            };
-            let tokens = match cached {
-                Some(t) => t,
-                None => {
-                    let t = enc.embed(&image)?.data;
-                    if cfg.cache_writes {
-                        if let (Some(dir), Some(k)) = (feature_cache, &key) {
-                            cache::store(dir, k, &t);
-                        }
-                    }
-                    t
-                }
-            };
-            Some(resize_bilinear(&tokens, h, w))
-        }
-        None => None,
-    };
-
-    let ms_encoder = t_encoder.elapsed().as_secs_f32() * 1000.0;
-
-    let n_classes_present = labels.iter().filter(|&&c| c > 0).count();
-    if n_classes_present == 0 {
-        // A tiny structure can vanish under downscaling: skip the frame.
+    if !labels.iter().any(|&c| c > 0) {
+        // Nothing of the selected labels on this frame.
         return Ok(Samples::new(0));
     }
 
+    let tiles = sample_tiles(
+        &labels,
+        w,
+        h,
+        tile_side(cfg.tile_size),
+        cfg.tiles_per_frame,
+        cfg.foreground_fraction,
+        rng,
+    );
+    let patches_per_tile = cfg.patches_per_frame.max(1).div_ceil(tiles.len());
+
     let fb = FilterBankConfig::default();
+    let mut encoder = encoder;
     let mut out: Option<Samples> = None;
-    let binary: Vec<u8> = labels.iter().map(|&c| (c > 0) as u8).collect();
-    let (mut ms_stack, mut ms_sample) = (0.0f32, 0.0f32);
+    let (mut ms_encoder, mut ms_stack, mut ms_sample) = (0.0f32, 0.0f32, 0.0f32);
 
-    for repeat in 0..cfg.repeats.max(1) {
-        let view = if repeat == 0 {
-            image.clone()
-        } else {
-            jitter(&image, rng)
-        };
-        let unaided = cfg.scribble_dropout > 0.0 && rng.unit() < cfg.scribble_dropout;
-        let s = if unaided || cfg.scribble_strokes == 0 {
-            Scribbles::empty(w, h)
-        } else {
-            scribble::simulate(&binary, w, h, cfg.scribble_strokes, cfg.stroke_len, rng)
-        };
-        let t_stack = std::time::Instant::now();
-        let feats = assemble_stack(&view, encoder_part.as_ref(), &s, &fb);
-        ms_stack += t_stack.elapsed().as_secs_f32() * 1000.0;
+    for &tile in &tiles {
+        let tile_image = crop_image(&image, tile);
+        let tile_labels = crop_labels(&labels, w, tile);
 
-        let t_sample = std::time::Instant::now();
-        let acc = out.get_or_insert_with(|| Samples::new(feats.shape()[0]));
-        sample_patches(
-            &feats,
-            &labels,
-            cfg.patches_per_frame,
-            cfg.foreground_fraction,
-            rng,
-            acc,
-        );
-        ms_sample += t_sample.elapsed().as_secs_f32() * 1000.0;
+        let t_encoder = std::time::Instant::now();
+        let encoder_part = match encoder.as_deref_mut() {
+            Some(enc) => {
+                // Cache the token grid, not the upsampled volume, which is far larger.
+                let key = feature_cache
+                    .map(|_| cache::Key::new(enc.encoder_id(), cfg.working_size, &tile_image));
+                let cached = match (feature_cache, &key) {
+                    (Some(dir), Some(k)) => cache::load(dir, k),
+                    _ => None,
+                };
+                let tokens = match cached {
+                    Some(t) => t,
+                    None => {
+                        let t = enc.embed(&tile_image)?.data;
+                        if cfg.cache_writes {
+                            if let (Some(dir), Some(k)) = (feature_cache, &key) {
+                                cache::store(dir, k, &t);
+                            }
+                        }
+                        t
+                    }
+                };
+                Some(resize_bilinear(&tokens, tile.h, tile.w))
+            }
+            None => None,
+        };
+        ms_encoder += t_encoder.elapsed().as_secs_f32() * 1000.0;
+
+        let binary: Vec<u8> = tile_labels.iter().map(|&c| (c > 0) as u8).collect();
+        for repeat in 0..cfg.repeats.max(1) {
+            let view = if repeat == 0 {
+                tile_image.clone()
+            } else {
+                jitter(&tile_image, rng)
+            };
+            let unaided = cfg.scribble_dropout > 0.0 && rng.unit() < cfg.scribble_dropout;
+            let s = if unaided || cfg.scribble_strokes == 0 {
+                Scribbles::empty(tile.w, tile.h)
+            } else {
+                scribble::simulate(&binary, tile.w, tile.h, cfg.scribble_strokes, cfg.stroke_len, rng)
+            };
+            let t_stack = std::time::Instant::now();
+            let feats = assemble_stack(&view, encoder_part.as_ref(), &s, &fb);
+            ms_stack += t_stack.elapsed().as_secs_f32() * 1000.0;
+
+            let t_sample = std::time::Instant::now();
+            let acc = out.get_or_insert_with(|| Samples::new(feats.shape()[0]));
+            sample_patches(
+                &feats,
+                &tile_labels,
+                patches_per_tile,
+                cfg.foreground_fraction,
+                rng,
+                acc,
+            );
+            ms_sample += t_sample.elapsed().as_secs_f32() * 1000.0;
+        }
     }
 
-    // `stack` and `sample` are summed over repeats; the others are per frame.
+    // `image` and `labels` are per frame; the others are summed over tiles
+    // and repeats.
     log::info!(
         "[ml] frame {frame_id} phases — image {ms_image:.0} ms, labels {ms_labels:.0} ms, \
          encoder {ms_encoder:.0} ms, stack {ms_stack:.0} ms, sample {ms_sample:.0} ms \
-         ({} repeats)",
+         ({w}x{h}, {} tile(s), {} repeats)",
+        tiles.len(),
         cfg.repeats.max(1)
     );
 
@@ -632,7 +791,55 @@ mod tests {
     }
 
     #[test]
+    fn a_thin_structure_survives_label_downscaling() {
+        // One set pixel in 8: point sampling at 4x reads pixels 2 and 6.
+        let src = vec![0u8, 0, 0, 0, 0, 1, 0, 0];
+        assert_eq!(downscale_nearest(&src, 8, 1, 2, 1), vec![0, 0]);
+        assert_eq!(downscale_any(&src, 8, 1, 2, 1), vec![0, 1]);
+        assert_eq!(downscale_any(&src, 8, 1, 8, 1), src);
+    }
+
+    #[test]
+    fn the_tile_grid_covers_the_image_and_stays_inside_it() {
+        for (w, h, tile) in [(1000, 700, 384), (384, 384, 384), (200, 900, 256), (385, 100, 384)] {
+            let tiles = tile_grid(w, h, Some(tile));
+            let margin = tile_overlap(tile) / 2;
+            let mut seen = vec![false; w * h];
+            for t in &tiles {
+                assert!(t.x + t.w <= w && t.y + t.h <= h, "{t:?} leaves {w}x{h}");
+                let (x0, x1) = kept_range(t.x, t.w, w, margin);
+                let (y0, y1) = kept_range(t.y, t.h, h, margin);
+                for y in t.y + y0..t.y + y1 {
+                    for x in t.x + x0..t.x + x1 {
+                        seen[y * w + x] = true;
+                    }
+                }
+            }
+            assert!(seen.iter().all(|&v| v), "{w}x{h} in {tile}px tiles leaves a gap");
+        }
+        assert_eq!(tile_grid(50, 40, None), vec![Tile { x: 0, y: 0, w: 50, h: 40 }]);
+    }
+
+    #[test]
+    fn training_tiles_reach_a_small_structure_in_a_large_frame() {
+        let (w, h, tile) = (2000usize, 1500usize, 384usize);
+        let mut labels = vec![0i32; w * h];
+        labels[1200 * w + 1700] = 1;
+        let tiles = sample_tiles(&labels, w, h, Some(tile), 4, 0.5, &mut Rng::new(7));
+        assert_eq!(tiles.len(), 4);
+        assert!(tiles.iter().all(|t| t.x + t.w <= w && t.y + t.h <= h && t.w == tile));
+        let holds = |t: &Tile| (t.x..t.x + t.w).contains(&1700) && (t.y..t.y + t.h).contains(&1200);
+        assert!(tiles.iter().any(holds), "no tile holds the labelled pixel: {tiles:?}");
+        // A frame that fits in one tile is that tile.
+        assert_eq!(
+            sample_tiles(&labels[..300 * 300], 300, 300, Some(tile), 4, 0.5, &mut Rng::new(7)),
+            vec![Tile { x: 0, y: 0, w: 300, h: 300 }]
+        );
+    }
+
+    #[test]
     fn working_dims_preserve_aspect_and_clamp() {
+        assert_eq!(working_dims(1000, 500, 0), (1000, 500), "0 keeps the native size");
         assert_eq!(working_dims(1000, 500, 100), (100, 50));
         assert_eq!(working_dims(500, 1000, 100), (50, 100));
         // Never upscales past the source on the long side.

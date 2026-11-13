@@ -457,7 +457,8 @@
   flex-direction: column;
   gap: 0.25rem;
 
-  input {
+  input,
+  select {
     width: 100%;
     padding: 0.35rem 0.5rem;
     border-radius: var(--p-border-radius-sm, 4px);

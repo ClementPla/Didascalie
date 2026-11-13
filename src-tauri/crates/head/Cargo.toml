@@ -1,0 +1,25 @@
+[package]
+name = "didascalie-head"
+version = "0.1.0"
+description = "The trainable segmentation head of Didascalie (burn), apart from the application for build time"
+edition = "2024"
+publish = false
+
+[features]
+# Both backends are compiled in and `backend` picks at run time. Without
+# `gpu`, CPU only: burn's CUDA backend needs NVRTC at compile time.
+default = ["gpu"]
+gpu = ["burn/cuda", "dep:cudarc"]
+
+[dependencies]
+# The loop is hand-rolled, without `burn-train`, to report each epoch.
+burn = { version = "0.21", default-features = false, features = ["std", "ndarray", "autodiff"] }
+# Only so `backend` can report which CUDA this binary was built against. The
+# features mirror cubecl-cuda's, so burn's cudarc is unchanged.
+cudarc = { version = "0.19", optional = true, default-features = false, features = ["std", "driver", "nvrtc", "nccl", "fallback-dynamic-loading", "cuda-version-from-build-system", "fallback-latest"] }
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+ts-rs = "12.0.1"
+
+[dev-dependencies]
+serde_json = "1.0"

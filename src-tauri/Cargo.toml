@@ -7,16 +7,23 @@ repository = "https://github.com/ClementPla/Didascalie/tree/main"
 edition = "2024"
 rust-version = "1.85.2"
 
+# The head crate is a member so that its own tests can run
+# (`cargo test -p didascalie-head`); plain `cargo` commands here still act on
+# the application alone.
+[workspace]
+members = [".", "crates/head", "crates/features"]
+default-members = ["."]
+
 [lib]
 name = "didascalie_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
-# Both backends are compiled in and `commands::ml::backend` picks at run time.
-# Build with `--no-default-features` on a machine without the CUDA toolkit:
-# burn's CUDA backend needs NVRTC at compile time.
+# Both backends are compiled in and `didascalie_head::backend` picks at run
+# time. Build with `--no-default-features` on a machine without the CUDA
+# toolkit: burn's CUDA backend needs NVRTC at compile time.
 default = ["gpu"]
-gpu = ["burn/cuda", "dep:cudarc"]
+gpu = ["didascalie-head/gpu"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
@@ -77,12 +84,11 @@ ort = { version = "=2.0.0-rc.10", features = ["directml"] }
 zmq = "0.10.0"
 # DirectML is in the Windows-only block above.
 ort = { version = "=2.0.0-rc.10", features = ["cuda", "copy-dylibs"] }
-# In-app training of the segmentation head (`commands::ml`). The loop is
-# hand-rolled, without `burn-train`, to stream progress through Tauri events.
-burn = { version = "0.21", default-features = false, features = ["std", "ndarray", "autodiff"] }
-# Only so `commands::ml::backend` can report which CUDA this binary was built
-# against. The features mirror cubecl-cuda's, so burn's cudarc is unchanged.
-cudarc = { version = "0.19", optional = true, default-features = false, features = ["std", "driver", "nvrtc", "nccl", "fallback-dynamic-loading", "cuda-version-from-build-system", "fallback-latest"] }
+# In-app training of the segmentation head (`commands::ml`): burn, in a crate
+# of its own so that this one does not instantiate its generics.
+didascalie-head = { path = "crates/head", default-features = false }
+# The filter bank of the same head's inputs: plain loops, optimised in dev.
+didascalie-features = { path = "crates/features" }
 # Desktop auto-update (GitHub releases). Registered under #[cfg(desktop)].
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
@@ -95,6 +101,13 @@ incremental = true # Compile your binary in smaller steps.
 [profile.dev.package."*"]
 opt-level = 3
 
+# A path dependency: named, so that it is optimised whether or not Cargo
+# counts it among the dependencies above.
+[profile.dev.package.didascalie-head]
+opt-level = 3
+[profile.dev.package.didascalie-features]
+opt-level = 3
+
 
 [profile.release]
 # Thin LTO: full LTO with one codegen unit cost minutes of link time. Use
@@ -102,7 +115,7 @@ opt-level = 3
 codegen-units = 16
 lto = "thin"
 opt-level = 2 # Prioritizes speed over binary size. Use `z` if you prefer smaller binary or `s` for in between.
-# No `panic = "abort"`: `commands::ml::backend` detects CUDA by catching a
+# No `panic = "abort"`: `didascalie_head::backend` detects CUDA by catching a
 # panic, and raises a `compile_error!` if this is set.
 strip = true # Ensures debug symbols are removed.
 incremental = true

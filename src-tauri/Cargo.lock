@@ -2477,8 +2477,8 @@ version = "1.0.8"
 dependencies = [
  "base64 0.22.1",
  "bitvec",
- "burn",
- "cudarc",
+ "didascalie-features",
+ "didascalie-head",
  "futures",
  "futures-util",
  "hex_color",
@@ -2522,6 +2522,26 @@ dependencies = [
  "usvg",
  "uuid",
  "zmq",
+]
+
+[[package]]
+name = "didascalie-features"
+version = "0.1.0"
+dependencies = [
+ "ndarray 0.16.1",
+ "rayon",
+]
+
+[[package]]
+name = "didascalie-head"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "cudarc",
+ "log",
+ "serde",
+ "serde_json",
+ "ts-rs",
 ]
 
 [[package]]

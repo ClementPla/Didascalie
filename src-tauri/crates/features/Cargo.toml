@@ -1,0 +1,10 @@
+[package]
+name = "didascalie-features"
+version = "0.1.0"
+description = "The numeric core of Didascalie's feature stack, apart from the application so that dev builds optimise it"
+edition = "2024"
+publish = false
+
+[dependencies]
+ndarray = { version = "0.16.1", features = ["rayon"] }
+rayon = "1.12.0"

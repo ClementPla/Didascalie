@@ -26,6 +26,10 @@ pub struct ModelMeta {
     pub label_order: Vec<i64>,
     pub encoder_id: Option<String>,
     pub working_size: u32,
+    /// Side of the tiles the head was trained on. Absent from models saved
+    /// before tiling: the whole frame as one tile.
+    #[serde(default)]
+    pub tile_size: Option<u32>,
     /// Head geometry: the record carries tensors, not the architecture.
     pub hidden: usize,
     pub depth: usize,
@@ -116,6 +120,7 @@ mod tests {
             label_order: (1..=classes as i64).collect(),
             encoder_id: Some("dinov3-vits16".into()),
             working_size: 384,
+            tile_size: None,
             hidden: 8,
             depth: 2,
             accuracy: 0.9,
@@ -144,11 +149,12 @@ mod tests {
             .map(|i| ((i % 17) as f32 / 17.0) - 0.5)
             .collect();
 
-        let before = super::super::train::predict_map(&head, &x, m.feature_dim, h, w, m.classes);
+        let before =
+            super::super::train::predict_map(&head, x.clone(), m.feature_dim, h, w, m.classes);
         let bytes = encode_head(&head).expect("a head must serialise");
         let restored = decode_head(bytes, &m).expect("a head must deserialise");
         let after =
-            super::super::train::predict_map(&restored, &x, m.feature_dim, h, w, m.classes);
+            super::super::train::predict_map(&restored, x, m.feature_dim, h, w, m.classes);
 
         assert_eq!(before, after, "a reloaded head must predict identically");
     }
@@ -162,6 +168,15 @@ mod tests {
         assert_eq!(back.feature_dim, m.feature_dim);
         assert_eq!(back.hidden, m.hidden);
         assert_eq!(back.depth, m.depth);
+    }
+
+    /// A model saved before tiling has no `tile_size` key.
+    #[test]
+    fn a_model_saved_before_tiling_predicts_on_the_whole_frame() {
+        let mut json: serde_json::Value = serde_json::to_value(meta(6, 3)).unwrap();
+        json.as_object_mut().unwrap().remove("tile_size");
+        let back: ModelMeta = serde_json::from_value(json).unwrap();
+        assert_eq!(back.tile_size, None);
     }
 
     #[test]
