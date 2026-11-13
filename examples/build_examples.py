@@ -5,6 +5,11 @@ Usage: python build_examples.py <download_dir> <output_dir> [name ...]
 Downloads what is missing into <download_dir> (about 1 GB), then writes one
 .dida file per example into <output_dir>. Names: fundus, graders, skin, nuclei,
 registration, laparoscopy, echo, brain, liver (all of them when none is given).
+
+requires the following packages, which are not needed to run Didascalie itself:
+    pip install numpy pyarrow Pillow nibabel h5py hdf5plugin huggingface_hub
+
+pydidascalie needs a separate installation, see the README.
 """
 
 import glob
@@ -517,12 +522,12 @@ def liver():
 
 
 BUILDERS = {
-    # "fundus": fundus,
-    # "graders": graders,
-    # "skin": skin,
-    # "nuclei": nuclei,
-    # "registration": registration,
-    # "laparoscopy": laparoscopy,
+    "fundus": fundus,
+    "graders": graders,
+    "skin": skin,
+    "nuclei": nuclei,
+    "registration": registration,
+    "laparoscopy": laparoscopy,
     "echo": echo,
     "brain": brain,
     "liver": liver,
