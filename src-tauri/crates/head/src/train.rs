@@ -76,6 +76,9 @@ pub struct TrainConfig {
     pub lr: f64,
     pub batch: usize,
     pub seed: u64,
+    /// Weight of the soft Dice term added to the cross-entropy; 0 trains on
+    /// cross-entropy alone.
+    pub dice_weight: f32,
 }
 
 impl Default for TrainConfig {
@@ -90,6 +93,7 @@ impl Default for TrainConfig {
             // In patches.
             batch: 16,
             seed: 0,
+            dice_weight: 1.0,
         }
     }
 }
@@ -238,6 +242,33 @@ fn flatten_logits<B: Backend>(logits: Tensor<B, 4>, n_classes: usize) -> Tensor<
     let [n, c, h, w] = logits.dims();
     debug_assert_eq!(c, n_classes);
     logits.permute([0, 2, 3, 1]).reshape([n * h * w, c])
+}
+
+/// `[n, classes]` one-hot rows of the class per pixel.
+fn one_hot<B: Backend>(y: &[i32], n_classes: usize, device: &B::Device) -> Tensor<B, 2> {
+    let mut data = vec![0.0f32; y.len() * n_classes];
+    for (i, &c) in y.iter().enumerate() {
+        if (0..n_classes as i32).contains(&c) {
+            data[i * n_classes + c as usize] = 1.0;
+        }
+    }
+    Tensor::from_data(TensorData::new(data, [y.len(), n_classes]), device)
+}
+
+/// `1 - mean soft Dice` over the foreground classes of a batch, from logits
+/// `[n, classes]` and one-hot targets. Dice scores overlap per class, so a
+/// small structure counts as much as a large one; the `+1` smoothing keeps a
+/// class absent from the batch from dividing by zero, and pushes its
+/// predictions towards none.
+fn soft_dice_loss<B: Backend>(logits: Tensor<B, 2>, target: Tensor<B, 2>) -> Tensor<B, 1> {
+    let [_, c] = logits.dims();
+    let probs = burn::tensor::activation::softmax(logits, 1);
+    let inter = (probs.clone() * target.clone()).sum_dim(0);
+    let total = probs.sum_dim(0) + target.sum_dim(0);
+    let dice = (inter.mul_scalar(2.0).add_scalar(1.0)) / total.add_scalar(1.0);
+    // Background (class 0) is left out: it is most pixels and scores well anyway.
+    let foreground = dice.slice([0..1, 1..c]);
+    foreground.mean().neg().add_scalar(1.0)
 }
 
 /// Argmax class per pixel across a patch batch.
@@ -524,13 +555,18 @@ fn fit<B: AutodiffBackend>(
                 by.extend_from_slice(&train.y[i * px..(i + 1) * px]);
             }
             let x = to_x::<B>(bx, batch, train.d, &device);
+            let target = (cfg.dice_weight > 0.0)
+                .then(|| one_hot::<B>(&by, n_classes, &device));
             let y = Tensor::<B, 1, Int>::from_data(
                 TensorData::new(by, [batch * px]),
                 &device,
             );
 
             let logits = flatten_logits(model.forward(x), n_classes);
-            let loss = loss_fn.forward(logits, y);
+            let mut loss = loss_fn.forward(logits.clone(), y);
+            if let Some(target) = target {
+                loss = loss + soft_dice_loss(logits, target).mul_scalar(cfg.dice_weight);
+            }
             epoch_loss += loss
                 .clone()
                 .into_data()
@@ -688,6 +724,24 @@ mod tests {
             predict_map_projected(&head, z, hidden, h, w, classes),
             predict_map(&head, x, d, h, w, classes)
         );
+    }
+
+    #[test]
+    fn soft_dice_loss_is_zero_when_right_and_near_one_when_wrong() {
+        type B = burn::backend::NdArray;
+        let device = Default::default();
+        let y = [0, 1, 1, 0];
+        let target = one_hot::<B>(&y, 2, &device);
+        let confident = |classes: [i32; 4]| {
+            let mut v = Vec::new();
+            for c in classes {
+                v.extend(if c == 1 { [-20.0f32, 20.0] } else { [20.0, -20.0] });
+            }
+            Tensor::<B, 2>::from_data(TensorData::new(v, [4, 2]), &device)
+        };
+        let loss = |l| soft_dice_loss(l, target.clone()).into_scalar();
+        assert!(loss(confident([0, 1, 1, 0])) < 1e-3);
+        assert!(loss(confident([1, 0, 0, 1])) > 0.7);
     }
 
     #[test]

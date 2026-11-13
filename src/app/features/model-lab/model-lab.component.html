@@ -240,6 +240,18 @@
         </div>
 
         <label class="toggle">
+          <input type="checkbox" [(ngModel)]="diceLoss" />
+          <span>
+            <strong>Dice loss</strong>
+            <span class="f-hint"
+              >Also scores how well each label's shape overlaps, so small and
+              thin structures count as much as large ones. Usually sharper
+              boundaries; turn it off if predictions miss faint regions.</span
+            >
+          </span>
+        </label>
+
+        <label class="toggle">
           <input type="checkbox" [(ngModel)]="cacheFeatures" />
           <span>
             <strong>Save features to disk</strong>

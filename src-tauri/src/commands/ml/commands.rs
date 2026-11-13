@@ -114,6 +114,9 @@ pub struct TrainOptions {
     pub augment_repeats: Option<usize>,
     #[ts(optional)]
     pub epochs: Option<usize>,
+    /// Add a soft Dice term to the cross-entropy. Defaults to on.
+    #[ts(optional)]
+    pub dice_loss: Option<bool>,
     #[ts(optional)]
     pub hidden: Option<usize>,
     #[ts(optional)]
@@ -429,6 +432,7 @@ fn train_config(options: &TrainOptions) -> TrainConfig {
         hidden: options.hidden.unwrap_or(TrainConfig::default().hidden),
         depth: options.depth.unwrap_or(TrainConfig::default().depth),
         epochs: options.epochs.unwrap_or(40),
+        dice_weight: if options.dice_loss.unwrap_or(true) { 1.0 } else { 0.0 },
         ..Default::default()
     }
 }

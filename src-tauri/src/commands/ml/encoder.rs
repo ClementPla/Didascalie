@@ -23,6 +23,80 @@ pub fn detect_accelerator() -> &'static str {
     *ACTIVE_ACCELERATOR.lock()
 }
 
+/// Make cuDNN findable by ONNX Runtime's CUDA provider. NVIDIA's cuDNN
+/// installer puts it in `Program Files/NVIDIA/CUDNN/v9.x/bin/12.x` without
+/// adding that to PATH, so the provider fails to load and the encoder falls
+/// back to the CPU. Looked for once, before the first session.
+#[cfg(windows)]
+fn find_cudnn() {
+    static DONE: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    DONE.get_or_init(|| {
+        const DLL: &str = "cudnn64_9.dll";
+        let path = std::env::var_os("PATH").unwrap_or_default();
+        let on_path: Vec<std::path::PathBuf> = std::env::split_paths(&path).collect();
+        if on_path.iter().any(|d| d.join(DLL).is_file()) {
+            return;
+        }
+        let Some(dir) = cudnn_candidates().into_iter().find(|d| d.join(DLL).is_file()) else {
+            log::info!("[ml] cuDNN 9 not found; the CUDA provider will not load");
+            return;
+        };
+        log::info!("[ml] cuDNN 9 found in {}; adding it to PATH", dir.display());
+        if let Ok(joined) = std::env::join_paths(std::iter::once(dir).chain(on_path)) {
+            // SAFETY: on Windows the environment is guarded by the OS; this runs
+            // once, before ONNX Runtime loads its providers.
+            unsafe { std::env::set_var("PATH", joined) };
+        }
+    });
+}
+
+/// Folders that may hold cuDNN 9 for CUDA 12 (ONNX Runtime's CUDA build),
+/// most likely first: `CUDNN_PATH`, then NVIDIA's installs, newest first.
+#[cfg(windows)]
+fn cudnn_candidates() -> Vec<std::path::PathBuf> {
+    use std::path::PathBuf;
+    let mut out = Vec::new();
+    let mut add_root = |root: PathBuf| {
+        out.extend(versioned(&root.join("bin"), "12."));
+        out.push(root.join("bin"));
+        out.push(root);
+    };
+    if let Some(p) = std::env::var_os("CUDNN_PATH") {
+        add_root(PathBuf::from(p));
+    }
+    let program_files = std::env::var_os("ProgramFiles")
+        .map_or_else(|| PathBuf::from("C:/Program Files"), PathBuf::from);
+    for install in versioned(&program_files.join("NVIDIA").join("CUDNN"), "v9.") {
+        add_root(install);
+    }
+    out
+}
+
+/// Sub-folders of `dir` named `<prefix><dotted version>`, newest first
+/// (`v9.25` before `v9.6`).
+#[cfg(windows)]
+fn versioned(dir: &Path, prefix: &str) -> Vec<std::path::PathBuf> {
+    let mut found: Vec<(Vec<u32>, std::path::PathBuf)> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let rest = name.strip_prefix(prefix)?;
+            let version: Option<Vec<u32>> =
+                prefix.trim_start_matches(|c: char| !c.is_ascii_digit())
+                    .split('.')
+                    .chain(rest.split('.'))
+                    .filter(|p| !p.is_empty())
+                    .map(|p| p.parse().ok())
+                    .collect();
+            Some((version?, e.path()))
+        })
+        .collect();
+    found.sort_by(|a, b| b.0.cmp(&a.0));
+    found.into_iter().map(|(_, p)| p).collect()
+}
+
 /// Attach the best available accelerator and return which one took.
 /// `is_available()` only says a provider was compiled in, so each is
 /// registered in turn and the result checked.
@@ -93,6 +167,8 @@ impl EncoderSession {
         let (builder, accel) = if force_cpu {
             (builder, "CPU")
         } else {
+            #[cfg(windows)]
+            find_cudnn();
             attach_accelerator(builder)
         };
         *ACTIVE_ACCELERATOR.lock() = accel;
@@ -328,6 +404,21 @@ pub fn resize_bilinear(src: &Array3<f32>, out_h: usize, out_w: usize) -> Array3<
 
 #[cfg(test)]
 mod tests {
+    #[cfg(windows)]
+    #[test]
+    fn cudnn_folders_are_tried_newest_first() {
+        let root = std::env::temp_dir().join(format!("dida-cudnn-{}", std::process::id()));
+        for v in ["v9.6", "v9.25", "v8.9", "notes"] {
+            std::fs::create_dir_all(root.join(v)).unwrap();
+        }
+        let names: Vec<String> = super::versioned(&root, "v9.")
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        std::fs::remove_dir_all(&root).ok();
+        assert_eq!(names, ["v9.25", "v9.6"]);
+    }
+
     use super::*;
 
     /// The straightforward implementation, which the fast path must reproduce
@@ -469,7 +560,7 @@ mod tests {
 
         let (d, gh, gw) = probe_graph(std::path::Path::new(&path), spec)
             .unwrap_or_else(|e| panic!("{id} failed to load: {e}"));
-        log::info!("[probe] {id} -> [{d}, {gh}, {gw}]");
+        eprintln!("[probe] {id} -> [{d}, {gh}, {gw}] on {}", super::detect_accelerator());
         assert_eq!((gh, gw), (expect, expect), "{id}: unexpected grid");
     }
 }

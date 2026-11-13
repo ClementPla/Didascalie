@@ -75,6 +75,8 @@ export class ModelLabComponent implements OnInit, OnDestroy {
   preResizeSize = 2048;
   workingSize = 384;
   patchesPerFrame = 24;
+  /** Add a Dice term to the training loss. */
+  diceLoss = true;
   /** Side of a training sample, in working pixels (the head's PATCH). */
   readonly samplePx = 48;
 
@@ -195,6 +197,7 @@ export class ModelLabComponent implements OnInit, OnDestroy {
       cacheFeatures: this.persistCacheChoice(),
       labelIds: [...this.selectedLabels()],
       epochs: this.epochs,
+      diceLoss: this.diceLoss,
     };
   }
 

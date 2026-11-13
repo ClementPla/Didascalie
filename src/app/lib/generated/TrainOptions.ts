@@ -25,4 +25,8 @@ cacheFeatures?: boolean,
 /**
  * Labels to train on. Omit for every label in the project.
  */
-labelIds?: Array<number>, augmentRepeats?: number, epochs?: number, hidden?: number, depth?: number, valFraction?: number, seed?: number, };
+labelIds?: Array<number>, augmentRepeats?: number, epochs?: number, 
+/**
+ * Add a soft Dice term to the cross-entropy. Defaults to on.
+ */
+diceLoss?: boolean, hidden?: number, depth?: number, valFraction?: number, seed?: number, };
