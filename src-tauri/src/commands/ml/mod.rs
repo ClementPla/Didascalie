@@ -22,7 +22,7 @@ pub mod scribble;
 // The local filter bank: a crate of its own, optimised in dev builds.
 pub mod filters {
     pub use didascalie_features::filters::*;
-    pub use didascalie_features::stack;
+    pub use didascalie_features::{add_into, bias_planes, project_into, stack};
 }
 
 // The head itself lives in its own crate (see its header for why).

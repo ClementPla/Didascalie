@@ -41,9 +41,12 @@ export class PredictionService {
 
   constructor() {
     // Tauri callbacks fire outside Angular's zone.
-    void listen<{ stage: string }>('ml-progress', (e) =>
+    void listen<{ stage: string; done: number; total: number }>('ml-progress', (e) =>
       this.zone.run(() => {
-        if (this.running()) this.stage.set(e.payload.stage);
+        if (!this.running()) return;
+        // A large frame is classified tile by tile: say how far along it is.
+        const { stage, done, total } = e.payload;
+        this.stage.set(total > 1 ? `${stage} ${done + 1}/${total}` : stage);
       }),
     );
   }

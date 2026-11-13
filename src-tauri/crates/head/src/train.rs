@@ -139,11 +139,61 @@ impl<B: Backend> SegHead<B> {
 
     /// `[n, d, h, w] -> [n, n_classes, h, w]` logits.
     pub fn forward(&self, x: Tensor<B, 4>) -> Tensor<B, 4> {
-        let mut h = self.act.forward(self.project.forward(x));
+        self.forward_projected(self.project.forward(x))
+    }
+
+    /// The network after its first layer: `z` is that layer's output before
+    /// the activation, `[n, hidden, h, w]`.
+    pub fn forward_projected(&self, z: Tensor<B, 4>) -> Tensor<B, 4> {
+        let mut h = self.act.forward(z);
         for block in &self.blocks {
             h = h.clone() + self.act.forward(block.forward(h));
         }
         self.out.forward(h)
+    }
+
+    /// The first layer as numbers: `[hidden, d_in]` weights, row-major, and
+    /// `[hidden]` biases.
+    fn projection(&self) -> Projection {
+        let [hidden, d_in, _, _] = self.project.weight.dims();
+        let weights = self.project.weight.val().into_data().iter::<f32>().collect();
+        let bias = match &self.project.bias {
+            Some(b) => b.val().into_data().iter::<f32>().collect(),
+            None => vec![0.0; hidden],
+        };
+        Projection { weights, bias, hidden, d_in }
+    }
+}
+
+/// The head's first layer, a 1x1 convolution, as plain numbers.
+///
+/// It is linear and acts on each pixel alone, so it commutes with bilinear
+/// resampling: the encoder's channels can go through it on the token grid and
+/// be upsampled afterwards, `hidden` planes instead of several hundred. A
+/// prediction does that itself and enters the head at [`predict_map_projected`].
+#[derive(Debug, Clone)]
+pub struct Projection {
+    /// `[hidden, d_in]`, row-major.
+    pub weights: Vec<f32>,
+    pub bias: Vec<f32>,
+    pub hidden: usize,
+    pub d_in: usize,
+}
+
+impl Head {
+    pub fn projection(&self) -> Projection {
+        match self {
+            Head::Cpu(m) => m.projection(),
+            #[cfg(feature = "gpu")]
+            Head::Cuda(m) => m.projection(),
+        }
+    }
+
+    /// A head with random weights on the CPU backend, for tests of the code
+    /// around it.
+    pub fn random_cpu(d_in: usize, hidden: usize, depth: usize, n_classes: usize) -> Self {
+        let device = Default::default();
+        Head::Cpu(SegHead::<CpuInfer>::with_depth(d_in, hidden, depth, n_classes, &device))
     }
 }
 
@@ -227,6 +277,40 @@ fn predict_map_on<B: Backend>(
     let t = Tensor::<B, 4>::from_data(TensorData::new(x, [1, d, h, w]), &device);
     let idx = flatten_logits(model.forward(t), n_classes).argmax(1).into_data();
     idx.iter::<i64>().map(|v| v as i32).collect()
+}
+
+fn predict_projected_on<B: Backend>(
+    model: &SegHead<B>,
+    z: Vec<f32>,
+    hidden: usize,
+    h: usize,
+    w: usize,
+    n_classes: usize,
+) -> Vec<i32> {
+    let device = Default::default();
+    let t = Tensor::<B, 4>::from_data(TensorData::new(z, [1, hidden, h, w]), &device);
+    let idx = flatten_logits(model.forward_projected(t), n_classes).argmax(1).into_data();
+    idx.iter::<i64>().map(|v| v as i32).collect()
+}
+
+/// Argmax class per pixel from the first layer's output `[hidden, h, w]`
+/// (see [`Projection`]).
+pub fn predict_map_projected(
+    head: &Head,
+    z: Vec<f32>,
+    hidden: usize,
+    h: usize,
+    w: usize,
+    n_classes: usize,
+) -> Vec<i32> {
+    if hidden == 0 || h == 0 || w == 0 || z.len() != hidden * h * w {
+        return Vec::new();
+    }
+    match head {
+        Head::Cpu(m) => predict_projected_on(m, z, hidden, h, w, n_classes),
+        #[cfg(feature = "gpu")]
+        Head::Cuda(m) => predict_projected_on(m, z, hidden, h, w, n_classes),
+    }
 }
 
 /// Argmax class per pixel for one whole feature map `[d, h, w]`, taken by
@@ -578,6 +662,32 @@ mod tests {
     fn evaluate_handles_mismatched_and_empty_input() {
         assert_eq!(evaluate(&[], &[], 2).accuracy, 0.0);
         assert_eq!(evaluate(&[0, 1], &[0], 2).accuracy, 0.0);
+    }
+
+    /// Entering the head after its first layer, with that layer applied
+    /// outside from its exported numbers, predicts what the whole head does.
+    #[test]
+    fn the_exported_first_layer_reproduces_the_head() {
+        let (d, hidden, h, w, classes) = (5usize, 6usize, 9usize, 7usize, 3usize);
+        let head = Head::random_cpu(d, hidden, 2, classes);
+        let x: Vec<f32> = (0..d * h * w).map(|i| ((i * 31 % 23) as f32 / 23.0) - 0.4).collect();
+
+        let p = head.projection();
+        assert_eq!((p.hidden, p.d_in), (hidden, d));
+        let mut z = vec![0.0f32; hidden * h * w];
+        for k in 0..hidden {
+            for i in 0..h * w {
+                let mut acc = p.bias[k];
+                for c in 0..d {
+                    acc += p.weights[k * d + c] * x[c * h * w + i];
+                }
+                z[k * h * w + i] = acc;
+            }
+        }
+        assert_eq!(
+            predict_map_projected(&head, z, hidden, h, w, classes),
+            predict_map(&head, x, d, h, w, classes)
+        );
     }
 
     #[test]

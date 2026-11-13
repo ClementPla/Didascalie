@@ -19,9 +19,9 @@ use crate::storage::DbState;
 
 use super::dataset::{self, downscale_nearest, Tile};
 use super::encoder::{resize_bilinear, EncoderSession};
-use super::filters::FilterBankConfig;
-use super::scribble::Scribbles;
-use super::train::{predict_map, EvalMetrics, Head};
+use super::filters::{self, FilterBankConfig};
+use super::scribble::{self, Scribbles, SCRIBBLE_CHANNELS};
+use super::train::{predict_map_projected, EvalMetrics, Head, Projection};
 
 /// A fitted head and what is needed to rebuild identical features.
 pub struct TrainedModel {
@@ -137,6 +137,54 @@ fn crop_scribbles(s: &Scribbles, tile: Tile) -> Scribbles {
     out
 }
 
+/// Classify one tile: its class per pixel, row-major.
+///
+/// The same numbers as running the head on `dataset::assemble_stack`, without
+/// building that stack. The head's first layer is a 1x1 convolution (`first`),
+/// which commutes with bilinear resampling, so the encoder's channels go
+/// through it on the token grid and `hidden` planes are upsampled instead of
+/// several hundred. Channel order is `assemble_stack`'s: local basis, encoder,
+/// scribbles.
+fn classify_tile(
+    head: &Head,
+    first: &Projection,
+    classes: usize,
+    image: &Array3<f32>,
+    tokens: Option<&Array3<f32>>,
+    scribbles: &Scribbles,
+    fb: &FilterBankConfig,
+) -> Result<Vec<i32>, String> {
+    let (h, w) = (image.shape()[1], image.shape()[2]);
+    let (local, _names) = filters::compute(image, fb);
+    let c_local = local.shape()[0];
+    let c_encoder = tokens.map_or(0, |t| t.shape()[0]);
+    let built = c_local + c_encoder + SCRIBBLE_CHANNELS;
+    if built != first.d_in {
+        return Err(format!(
+            "feature mismatch: head expects {} channels, this configuration builds {}. \
+             Retrain, or restore the encoder and working size the head was fitted with.",
+            first.d_in, built
+        ));
+    }
+
+    let mut z = filters::bias_planes(&first.bias, h, w);
+    filters::project_into(&mut z, &local, &first.weights, first.d_in, 0);
+    drop(local);
+    if let Some(tokens) = tokens {
+        let (gh, gw) = (tokens.shape()[1], tokens.shape()[2]);
+        let mut coarse = Array3::<f32>::zeros((first.hidden, gh, gw));
+        filters::project_into(&mut coarse, tokens, &first.weights, first.d_in, c_local);
+        filters::add_into(&mut z, &resize_bilinear(&coarse, h, w));
+    }
+    let planes: Vec<f32> = scribble::channels(scribbles).into_iter().flatten().collect();
+    let planes = Array3::from_shape_vec((SCRIBBLE_CHANNELS, h, w), planes)
+        .map_err(|e| format!("scribble planes: {e}"))?;
+    filters::project_into(&mut z, &planes, &first.weights, first.d_in, c_local + c_encoder);
+
+    let (z, _) = z.into_raw_vec_and_offset();
+    Ok(predict_map_projected(head, z, first.hidden, h, w, classes))
+}
+
 /// Run a trained head over one frame and return per-label masks at native
 /// size. `on_stage(stage, done, total)` reports progress.
 pub fn predict_frame(
@@ -175,11 +223,21 @@ pub fn predict_frame(
     };
 
     let fb = FilterBankConfig::default();
+    let first = model.head.projection();
+    if first.d_in != model.feature_dim {
+        return Err(format!(
+            "the saved model describes {} input channels and holds {}; retrain to replace it",
+            model.feature_dim, first.d_in
+        ));
+    }
+    let started = std::time::Instant::now();
+    let (mut ms_encoder, mut ms_head) = (0.0f32, 0.0f32);
     let mut classes = vec![0u8; w * h];
     for (i, &tile) in tiles.iter().enumerate() {
         on_stage("classifying", i, tiles.len());
         let tile_image = dataset::crop_image(&image, tile);
 
+        let t_encoder = std::time::Instant::now();
         let fresh;
         let tokens: Option<&Array3<f32>> = match encoder.as_deref_mut() {
             None => None,
@@ -194,26 +252,16 @@ pub fn predict_frame(
                 Some(&fresh)
             }
         };
-        let encoder_part = tokens.map(|t| resize_bilinear(t, tile.h, tile.w));
+        ms_encoder += t_encoder.elapsed().as_secs_f32() * 1000.0;
 
         let tile_scr = match &scr {
             Some(s) => crop_scribbles(s, tile),
             None => Scribbles::empty(tile.w, tile.h),
         };
-        let feats = dataset::assemble_stack(&tile_image, encoder_part.as_ref(), &tile_scr, &fb);
-        drop(encoder_part);
-        let d = feats.shape()[0];
-        if d != model.feature_dim {
-            return Err(format!(
-                "feature mismatch: head expects {} channels, this configuration builds {}. \
-                 Retrain, or restore the encoder and working size the head was fitted with.",
-                model.feature_dim, d
-            ));
-        }
-
-        // One pass over the tile: the head is convolutional.
-        let (flat, _) = feats.into_raw_vec_and_offset();
-        let tile_classes = predict_map(&model.head, flat, d, tile.h, tile.w, model.classes);
+        let t_head = std::time::Instant::now();
+        let tile_classes =
+            classify_tile(&model.head, &first, model.classes, &tile_image, tokens, &tile_scr, &fb)?;
+        ms_head += t_head.elapsed().as_secs_f32() * 1000.0;
 
         // Keep the tile's middle; its rim was computed without its surroundings.
         let (x0, x1) = dataset::kept_range(tile.x, tile.w, w, margin);
@@ -225,6 +273,13 @@ pub fn predict_frame(
             }
         }
     }
+    log::info!(
+        "[ml] predicted frame {frame_id} — {w}x{h}, {} tile(s) in {:.1} s \
+         (encoder {ms_encoder:.0} ms, features and head {ms_head:.0} ms, head on {})",
+        tiles.len(),
+        started.elapsed().as_secs_f32(),
+        model.head.device()
+    );
     *cache = keep.then_some((key, tokens_kept));
 
     // Nearest upscale: interpolating class ids would invent classes.
@@ -274,6 +329,33 @@ mod tests {
         assert!(s.positive[5 * 10 + 5], "centre must map to (5,5)");
         assert!(s.negative[9 * 10 + 9], "bottom-right must map to (9,9)");
         assert_eq!(s.positive.iter().filter(|v| **v).count(), 2);
+    }
+
+    /// The shortcut through the head's first layer must give what the head
+    /// gives on the stack it was trained on.
+    #[test]
+    fn classifying_a_tile_matches_the_head_on_the_assembled_stack() {
+        let (h, w, e, classes) = (40usize, 52usize, 5usize, 3usize);
+        let image = Array3::from_shape_fn((3, h, w), |(c, y, x)| ((c * 7 + y * 13 + x * 5) % 31) as f32 / 31.0);
+        let tokens = Array3::from_shape_fn((e, 4, 4), |(c, y, x)| ((c * 3 + y * 5 + x * 11) % 17) as f32 / 17.0 - 0.5);
+        let mut scr = Scribbles::empty(w, h);
+        scr.positive[5 * w + 6] = true;
+        scr.negative[30 * w + 40] = true;
+        let fb = FilterBankConfig::default();
+
+        let stack = dataset::assemble_stack(&image, Some(&resize_bilinear(&tokens, h, w)), &scr, &fb);
+        let d = stack.shape()[0];
+        let head = Head::random_cpu(d, 8, 2, classes);
+        let (flat, _) = stack.into_raw_vec_and_offset();
+        let reference = super::super::train::predict_map(&head, flat, d, h, w, classes);
+
+        let got = classify_tile(&head, &head.projection(), classes, &image, Some(&tokens), &scr, &fb).unwrap();
+        // The sums are taken in another order: a pixel on a tie may flip.
+        let differing = got.iter().zip(&reference).filter(|(a, b)| a != b).count();
+        assert!(differing * 200 <= h * w, "{differing} of {} pixels differ", h * w);
+
+        let short = Head::random_cpu(d - 1, 8, 2, classes);
+        assert!(classify_tile(&short, &short.projection(), classes, &image, Some(&tokens), &scr, &fb).is_err());
     }
 
     #[test]
