@@ -190,7 +190,7 @@
         <small>{{ task.min }}</small>
         <p-slider
           class="flex-1"
-          [class.regression-unset]="regressionValues[task.name] == null"
+          [class.regression-unset]="(regressionValues[task.name] ?? null) === null"
           [ngModel]="regressionValues[task.name] ?? task.min"
           [min]="task.min!"
           [max]="task.max!"
@@ -220,7 +220,7 @@
           severity="secondary"
           [rounded]="true"
           [text]="true"
-          [disabled]="regressionValues[task.name] == null"
+          [disabled]="(regressionValues[task.name] ?? null) === null"
           pTooltip="Remove this value"
           tooltipPosition="bottom"
           [ariaLabel]="'Remove the value of ' + task.name"
