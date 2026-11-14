@@ -3,9 +3,9 @@ import { ProjectScoped } from '../core/project-scoped';
 
 /**
  * The sequences the user is working through, in the order the gallery shows
- * them: its filters and sort applied. The editor's next/previous and its
- * Sequences panel follow this list, so leaving the gallery on "Not started"
- * keeps the editor on not-started sequences.
+ * them: its filters and sort applied. The editor's and the inspector's
+ * next/previous and Sequences panels follow this list, so leaving the gallery
+ * on "Not started" keeps both on not-started sequences.
  *
  * The list is a snapshot taken when the gallery last applied its filters. It
  * does not change while annotating: a sequence that stops matching the filter
@@ -44,6 +44,19 @@ export class WorklistService implements ProjectScoped {
     const index = this.indexOf(sequenceId);
     if (!ids || index < 0) return null;
     return ids[index + step] ?? null;
+  }
+
+  /**
+   * `items` as the list has them: only those on it, in its order. Unchanged
+   * when the gallery has not set a list.
+   */
+  order<T extends { id: number }>(items: readonly T[]): T[] {
+    const ids = this._ids();
+    if (!ids) return [...items];
+    const byId = new Map(items.map((item) => [item.id, item]));
+    return ids
+      .map((id) => byId.get(id))
+      .filter((item): item is T => item !== undefined);
   }
 
   /** @see ProjectScoped */

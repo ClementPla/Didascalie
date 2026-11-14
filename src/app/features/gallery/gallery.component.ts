@@ -8,6 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { KnobModule } from 'primeng/knob';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { SelectModule } from 'primeng/select';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { InputTextModule } from 'primeng/inputtext';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
@@ -18,7 +19,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { ProjectService } from '../../services/project/project.service';
 import { SequenceService } from '../../services/sequence.service';
 import { LabelsService } from '../../services/labels/labels.service';
-import { GalleryService } from './gallery.service';
+import { GalleryService, NO_CLASS } from './gallery.service';
 import { BatchAnnotationService } from '../../services/labels/batch-annotation.service';
 import { UIStateService } from '../../services/uistate.service';
 import { NotificationService } from '../../services/notification.service';
@@ -56,7 +57,51 @@ interface GalleryItem {
    *  back to 'annotated'. */
   annotatedCount: number;
   hasKeypoints: boolean;
+  /** Classification task -> the classes at least one frame was given. */
+  classes: Record<string, string[] | undefined>;
+  /** Regression task -> the mean of the values its frames were given. */
+  regressions: Record<string, number | undefined>;
 }
+
+interface SortOption {
+  label: string;
+  value: string;
+}
+
+/** A classification task as the filters list it. */
+interface ClassFilterRow {
+  name: string;
+  /** In the task's order: the rank a "by class" sort goes by. */
+  classes: string[];
+  options: { label: string; value: string }[];
+}
+
+/** A regression task as the filters list it, with the span of its slider. */
+interface RegressionFilterRow {
+  name: string;
+  min: number;
+  max: number;
+  step: number;
+}
+
+const BASE_SORT_OPTIONS: SortOption[] = [
+  { label: 'Name (A-Z)', value: 'name-asc' },
+  { label: 'Name (Z-A)', value: 'name-desc' },
+  { label: 'Most frames', value: 'frames-desc' },
+  { label: 'Fewest frames', value: 'frames-asc' },
+  { label: 'Most progress', value: 'progress-desc' },
+  { label: 'Least progress', value: 'progress-asc' },
+];
+
+// Sorts by one of the project's tasks are `kind:task name`.
+const SORT_BY_CLASS = 'class:';
+const SORT_BY_VALUE_ASC = 'value-asc:';
+const SORT_BY_VALUE_DESC = 'value-desc:';
+
+/** The model of a class filter nothing is picked in. One array for all: a
+ *  new one on every change detection would have `ngModel` write it back to
+ *  the control, which schedules a change detection, without end. */
+const NO_CLASSES: string[] = [];
 
 @Component({
   selector: 'app-gallery',
@@ -71,6 +116,7 @@ interface GalleryItem {
     LabelledSwitchComponent,
     SelectButtonModule,
     SelectModule,
+    MultiSelectModule,
     InputTextModule,
     IconFieldModule,
     InputIconModule,
@@ -117,14 +163,13 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     { label: 'Reviewed', value: 'reviewed' },
   ];
 
-  readonly sortOptions = [
-    { label: 'Name (A-Z)', value: 'name-asc' },
-    { label: 'Name (Z-A)', value: 'name-desc' },
-    { label: 'Most frames', value: 'frames-desc' },
-    { label: 'Fewest frames', value: 'frames-asc' },
-    { label: 'Most progress', value: 'progress-desc' },
-    { label: 'Least progress', value: 'progress-asc' },
-  ];
+  /** The fixed sorts, then one per classification task and two per
+   *  regression value of the project. */
+  sortOptions: SortOption[] = BASE_SORT_OPTIONS;
+  /** The project's classification tasks, when classification is on. */
+  classRows: ClassFilterRow[] = [];
+  /** The project's regression values that have a span to filter on. */
+  regressionRows: RegressionFilterRow[] = [];
 
   readonly keypointFilterOptions = [
     { label: 'All', value: 'all' as const },
@@ -194,6 +239,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       this.galleryService.frameRangeInitialized.set(true);
     }
 
+    this.buildAnswerControls();
+
     // Ticked sequences that no longer exist.
     const known = new Set(this.galleryItems.map((item) => item.sequenceId));
     this.selectedItems = this.selectedItems.filter((id) => known.has(id));
@@ -230,10 +277,12 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     this.uiState.setLoading(true, 'Loading gallery items...');
     try {
       // Two queries in total, not one per sequence.
-      const [sequences, frameIdsBySequence] = await Promise.all([
+      const [sequences, frameIdsBySequence, answers] = await Promise.all([
         api.getGallerySequences(),
         api.getAllFrameIdsBySequence(),
+        api.getGalleryAnswers(),
       ]);
+      const answersOf = new Map(answers.map((a) => [a.sequenceId, a]));
 
       // What the launcher shows about this project.
       const listed = sequences.filter((seq) => seq.frameCount > 0);
@@ -260,6 +309,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
           annotatedCount: seq.annotatedCount,
           frameIds: frameIdsBySequence[seq.id] ?? [],
           hasKeypoints: seq.hasKeypoints,
+          classes: answersOf.get(seq.id)?.classes ?? {},
+          regressions: answersOf.get(seq.id)?.regressions ?? {},
         }));
     } catch (error) {
       console.error('Failed to load gallery items:', error);
@@ -281,6 +332,135 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     if (total > 0 && reviewed >= total) return 'reviewed';
     if (reviewed > 0 || annotated > 0) return 'annotated';
     return 'empty';
+  }
+
+  // ── Classification & regression controls ─────────────────────────────────
+
+  /** List what the project's tasks can be filtered and sorted by. */
+  private buildAnswerControls(): void {
+    const config = this.projectService.config();
+
+    const tasks = this.projectService.isClassification()
+      ? [
+          ...this.labelsService.listClassificationTasks.map((t) => ({
+            name: t.taskName,
+            classes: t.classLabels,
+          })),
+          ...(this.labelsService.multiLabelTask
+            ? [
+                {
+                  name: this.labelsService.multiLabelTask.taskName,
+                  classes: this.labelsService.multiLabelTask.taskLabels,
+                },
+              ]
+            : []),
+        ]
+      : [];
+    this.classRows = tasks.map((task) => ({
+      name: task.name,
+      classes: [...task.classes],
+      options: [
+        ...task.classes.map((c) => ({ label: c, value: c })),
+        { label: 'Unanswered', value: NO_CLASS },
+      ],
+    }));
+
+    const values = config.regression_enabled ? (config.regression_tasks ?? []) : [];
+    this.regressionRows = [];
+    for (const task of values) {
+      // A missing bound comes from the values entered so far.
+      const entered = this.galleryItems
+        .map((item) => item.regressions[task.name])
+        .filter((v): v is number => v !== undefined);
+      if (entered.length === 0 && (task.min == null || task.max == null)) continue;
+      const integer = task.dtype === 'int32';
+      let min = task.min ?? Math.min(...entered);
+      let max = task.max ?? Math.max(...entered);
+      // A sequence of several frames holds their mean, which is not whole.
+      if (integer) [min, max] = [Math.floor(min), Math.ceil(max)];
+      if (!(max > min)) continue;
+      const step = integer ? 1 : 10 ** Math.floor(Math.log10((max - min) / 100));
+      this.regressionRows.push({ name: task.name, min, max, step });
+    }
+
+    this.sortOptions = [
+      ...BASE_SORT_OPTIONS,
+      ...this.classRows.map((row) => ({
+        label: `${row.name} (by class)`,
+        value: SORT_BY_CLASS + row.name,
+      })),
+      ...values.flatMap((task) => [
+        { label: `${task.name} (lowest first)`, value: SORT_BY_VALUE_ASC + task.name },
+        { label: `${task.name} (highest first)`, value: SORT_BY_VALUE_DESC + task.name },
+      ]),
+    ];
+    // A sort by a task that was renamed, deleted or switched off.
+    const sortKey = this.galleryService.sortKey();
+    if (!this.sortOptions.some((option) => option.value === sortKey)) {
+      this.galleryService.sortKey.set('name-asc');
+    }
+  }
+
+  setClassFilter(task: string, classes: string[]): void {
+    this.galleryService.classFilters.update((filters) => ({
+      ...filters,
+      [task]: classes ?? [],
+    }));
+    this.applyFilters();
+  }
+
+  /** The classes picked for a task; the same array until the filter changes. */
+  classFilter(row: ClassFilterRow): string[] {
+    return this.galleryService.classFilters()[row.name] ?? NO_CLASSES;
+  }
+
+  /** The arrays the regression sliders are bound to, by task. */
+  private readonly rangeModels = new Map<string, number[]>();
+
+  /**
+   * The span shown on a regression slider: the filter, or the whole range.
+   * The same array until the span changes, for the reason given on
+   * `NO_CLASSES`.
+   */
+  regressionRange(row: RegressionFilterRow): number[] {
+    const [low, high] =
+      this.galleryService.regressionRanges()[row.name] ?? [row.min, row.max];
+    const model = this.rangeModels.get(row.name);
+    if (model && model[0] === low && model[1] === high) return model;
+    const fresh = [low, high];
+    this.rangeModels.set(row.name, fresh);
+    return fresh;
+  }
+
+  /** The slider moved. Applied when it is released (`applyFilters`). */
+  setRegressionRange(row: RegressionFilterRow, range: number[]): void {
+    const [low, high] = range;
+    this.galleryService.regressionRanges.update((ranges) => {
+      const next = { ...ranges };
+      // The whole range is no filter: sequences without a value are listed.
+      if (low <= row.min && high >= row.max) delete next[row.name];
+      else next[row.name] = [low, high];
+      return next;
+    });
+  }
+
+  /** The class filters in use, limited to the tasks the project still has. */
+  private activeClassFilters(): { row: ClassFilterRow; wanted: string[] }[] {
+    if (!this.galleryService.showAdvancedFilters()) return [];
+    const filters = this.galleryService.classFilters();
+    return this.classRows
+      .map((row) => ({ row, wanted: filters[row.name] ?? [] }))
+      .filter((f) => f.wanted.length > 0);
+  }
+
+  /** The regression filters in use, limited to the values the project has. */
+  private activeRegressionFilters(): { row: RegressionFilterRow; range: [number, number] }[] {
+    if (!this.galleryService.showAdvancedFilters()) return [];
+    const ranges = this.galleryService.regressionRanges();
+    return this.regressionRows.flatMap((row) => {
+      const range = ranges[row.name];
+      return range ? [{ row, range }] : [];
+    });
   }
 
   // ── Filtering & Sorting ──────────────────────────────────────────────────
@@ -309,6 +489,22 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       items = items.filter(
         (item) => item.frameCount >= min && item.frameCount <= max,
       );
+    }
+
+    // Any of the wanted classes of a task, and every filtered task.
+    for (const { row, wanted } of this.activeClassFilters()) {
+      items = items.filter((item) => {
+        const given = item.classes[row.name] ?? [];
+        return wanted.some((c) =>
+          c === NO_CLASS ? given.length === 0 : given.includes(c),
+        );
+      });
+    }
+    for (const { row, range } of this.activeRegressionFilters()) {
+      items = items.filter((item) => {
+        const value = item.regressions[row.name];
+        return value !== undefined && value >= range[0] && value <= range[1];
+      });
     }
 
     items.sort((a, b) => this.compareItems(a, b));
@@ -396,6 +592,13 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       const [min, max] = this.galleryService.frameCountRange();
       if (min > 0 || max < this.maxFrameCount) parts.push(`${min}-${max} frames`);
     }
+    for (const { row, wanted } of this.activeClassFilters()) {
+      const names = wanted.map((c) => (c === NO_CLASS ? 'unanswered' : c));
+      parts.push(`${row.name}: ${names.join(' / ')}`);
+    }
+    for (const { row, range } of this.activeRegressionFilters()) {
+      parts.push(`${row.name} ${formatValue(range[0])}-${formatValue(range[1])}`);
+    }
     const sortKey = this.galleryService.sortKey();
     if (sortKey !== 'name-asc') {
       const sort = this.sortOptions.find((option) => option.value === sortKey);
@@ -405,7 +608,37 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   }
 
   private compareItems(a: GalleryItem, b: GalleryItem): number {
-    switch (this.galleryService.sortKey()) {
+    const sortKey = this.galleryService.sortKey();
+    const byName = () => a.title.localeCompare(b.title);
+
+    // By a regression value; the sequences without one come last either way.
+    for (const [prefix, direction] of [
+      [SORT_BY_VALUE_ASC, 1],
+      [SORT_BY_VALUE_DESC, -1],
+    ] as const) {
+      if (!sortKey.startsWith(prefix)) continue;
+      const task = sortKey.slice(prefix.length);
+      const [va, vb] = [a.regressions[task], b.regressions[task]];
+      if (va === undefined || vb === undefined) {
+        return va === vb ? byName() : va === undefined ? 1 : -1;
+      }
+      return direction * (va - vb) || byName();
+    }
+
+    // By class, in the order the task lists them; unanswered last.
+    if (sortKey.startsWith(SORT_BY_CLASS)) {
+      const task = sortKey.slice(SORT_BY_CLASS.length);
+      const order = this.classRows.find((row) => row.name === task)?.classes ?? [];
+      const rank = (item: GalleryItem) => {
+        const ranks = (item.classes[task] ?? [])
+          .map((c) => order.indexOf(c))
+          .filter((i) => i >= 0);
+        return ranks.length > 0 ? Math.min(...ranks) : Number.MAX_SAFE_INTEGER;
+      };
+      return rank(a) - rank(b) || byName();
+    }
+
+    switch (sortKey) {
       case 'name-desc':
         return b.title.localeCompare(a.title);
       case 'frames-desc':
@@ -428,6 +661,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     this.galleryService.keypointFilter.set('all');
     this.galleryService.sortKey.set('name-asc');
     this.galleryService.frameCountRange.set([0, this.maxFrameCount]);
+    this.galleryService.classFilters.set({});
+    this.galleryService.regressionRanges.set({});
     this.applyFilters();
   }
 
@@ -440,7 +675,9 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       this.galleryService.filterTitle().trim() !== '' ||
       this.galleryService.selectedStatuses().length > 0 ||
       this.galleryService.keypointFilter() !== 'all' ||
-      rangeNarrowed
+      rangeNarrowed ||
+      this.activeClassFilters().length > 0 ||
+      this.activeRegressionFilters().length > 0
     );
   }
 
@@ -694,4 +931,9 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       return item?.frameIds ?? [];
     });
   }
+}
+
+/** A regression bound as the filter description shows it. */
+function formatValue(value: number): string {
+  return String(Number(value.toPrecision(4)));
 }

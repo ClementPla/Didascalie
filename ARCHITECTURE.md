@@ -47,7 +47,7 @@ Large binary payloads (masks, image tiles) cross as `ArrayBuffer` /
 
 A project is a single SQLite file (`.dida`; `.labelmed` from the old name still
 opens). Schema in `src-tauri/src/storage/schema.rs`, versioned by
-`PRAGMA user_version` (`SCHEMA_VERSION`, currently **6**) with forward-compat
+`PRAGMA user_version` (`SCHEMA_VERSION` in `storage/migrate.rs`, currently **8**) with forward-compat
 guard: a newer file refuses to open in an older build; an older file is migrated
 on open. Core tables:
 
@@ -62,6 +62,7 @@ on open. Core tables:
 | `vector_annotations` | **vector** shapes, one row per (frame, label, user), `shapes` JSON |
 | `classifications` | per (frame, task, user) selected classes; multiclass/multilabel |
 | `text_descriptions` | per (frame, text-task, user) free text |
+| `regressions` | per (frame, regression task, user) one number; type and range in the config's `regression_tasks` |
 | `frame_reviews` | which frames each user marked reviewed (replaces `frames.reviewed`, kept only as a legacy column) |
 | `registrations` / `keypoint_pairs` | homography + keypoint correspondences per (ref, moving) frame pair |
 

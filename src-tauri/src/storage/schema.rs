@@ -131,6 +131,19 @@ CREATE TABLE IF NOT EXISTS text_descriptions (
     modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(frame_id, label_name, user_id)
 );
+-- Regression values (per frame, per task, per user): one number for each task
+-- of the config's `regression_tasks`, which holds the task's type and range.
+-- No row means not answered. `value` is a 64-bit REAL whatever the type; it
+-- is rounded to the type before it gets here (`RegressionConfig::conform`).
+CREATE TABLE IF NOT EXISTS regressions (
+    id INTEGER PRIMARY KEY,
+    frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL DEFAULT 1 REFERENCES users(id) ON DELETE CASCADE,
+    task_name TEXT NOT NULL,
+    value REAL NOT NULL,
+    modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(frame_id, task_name, user_id)
+);
 
 -- Which frames each user has marked as reviewed. A row means reviewed; no row
 -- means not. This replaces `frames.reviewed`, which could only say that
@@ -207,6 +220,7 @@ CREATE INDEX IF NOT EXISTS idx_annotations_frame ON annotations(frame_id);
 CREATE INDEX IF NOT EXISTS idx_vector_annotations_frame ON vector_annotations(frame_id);
 CREATE INDEX IF NOT EXISTS idx_classifications_frame ON classifications(frame_id);
 CREATE INDEX IF NOT EXISTS idx_text_descriptions_frame ON text_descriptions(frame_id);
+CREATE INDEX IF NOT EXISTS idx_regressions_frame ON regressions(frame_id);
 CREATE INDEX IF NOT EXISTS idx_registrations_sequence
     ON registrations(sequence_id);
 CREATE INDEX IF NOT EXISTS idx_registrations_ref_frame
@@ -232,47 +246,6 @@ CREATE TABLE IF NOT EXISTS ml_models (
 );
 "#;
 
-/// v1 -> v2: vector annotations. A no-op on a fresh database.
-pub const MIGRATION_V2: &str = r#"
-CREATE TABLE IF NOT EXISTS vector_annotations (
-    id INTEGER PRIMARY KEY,
-    frame_id INTEGER NOT NULL REFERENCES frames(id) ON DELETE CASCADE,
-    label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
-    shapes JSON NOT NULL,
-    modified_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(frame_id, label_id)
-);
-CREATE INDEX IF NOT EXISTS idx_vector_annotations_frame
-    ON vector_annotations(frame_id);
-"#;
-
-/// v4 -> v5: frames decoded from video files. The columns the baseline could
-/// not add to an existing `frames` table.
-pub const MIGRATION_V5_FRAME_COLUMNS: &str = r#"
-ALTER TABLE frames ADD COLUMN video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE;
-ALTER TABLE frames ADD COLUMN video_frame INTEGER;
-ALTER TABLE frames ADD COLUMN video_time REAL;
-"#;
-
-/// v5 -> v6: `videos.seek_preroll`. Videos of projects made under v5 get the
-/// default, which is longer than needed.
-pub const MIGRATION_V6_SEEK_PREROLL: &str =
-    "ALTER TABLE videos ADD COLUMN seek_preroll REAL NOT NULL DEFAULT 1.0;";
-
-/// The index finding a video's frames in order. Apart from the baseline
-/// indexes, which are created before an older `frames` has these columns.
-pub const VIDEO_FRAMES_INDEX: &str =
-    "CREATE INDEX IF NOT EXISTS idx_frames_video_frame ON frames(video_id, video_frame);";
-
-/// The per-user tables as they were up to v3, with their columns. v4 rebuilds
-/// them: SQLite cannot widen a `UNIQUE` constraint in place.
-pub const V3_PER_USER_TABLES: &[(&str, &str)] = &[
-    ("annotations", "id, frame_id, label_id, encoding, mask_data, modified_at"),
-    ("vector_annotations", "id, frame_id, label_id, shapes, modified_at"),
-    ("classifications", "id, frame_id, task_name, selected_classes, is_multilabel, modified_at"),
-    ("text_descriptions", "id, frame_id, label_name, content, modified_at"),
-];
-
 /// The tables shadowed per user while a project is open, with the columns the
 /// view exposes. See `queries::install_user_scope`.
 pub const USER_SCOPED_TABLES: &[(&str, &str)] = &[
@@ -283,5 +256,6 @@ pub const USER_SCOPED_TABLES: &[(&str, &str)] = &[
         "id, frame_id, user_id, task_name, selected_classes, is_multilabel, modified_at",
     ),
     ("text_descriptions", "id, frame_id, user_id, label_name, content, modified_at"),
+    ("regressions", "id, frame_id, user_id, task_name, value, modified_at"),
     ("frame_reviews", "frame_id, user_id, reviewed_at"),
 ];

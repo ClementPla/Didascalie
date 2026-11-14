@@ -46,6 +46,8 @@ export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   classification_tasks: [],
   multilabel_task: undefined,
   text_fields: [],
+  regression_enabled: false,
+  regression_tasks: [],
 };
 
 export type { RecentProject, RecentProjectStats } from './recent-projects';
@@ -69,6 +71,10 @@ export class ProjectService {
   readonly imageFolder = this._imageFolder.asReadonly();
   readonly isTextDescriptionEnabled = computed(
     () => this._config().text_description_enabled,
+  );
+
+  readonly isRegressionEnabled = computed(
+    () => this._config().regression_enabled === true,
   );
 
   readonly config = this._config.asReadonly();

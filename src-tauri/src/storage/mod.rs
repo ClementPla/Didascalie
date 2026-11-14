@@ -1,5 +1,6 @@
 pub mod schema;
 pub mod queries;
+pub mod migrate;
 pub mod rle;
 
 use rusqlite::Connection;

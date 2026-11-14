@@ -49,8 +49,9 @@
       'project        images'
       'labels         images'
       'labels         classification'
-      'text           classification';
-    grid-template-rows: auto auto auto 1fr;
+      'text           classification'
+      'regression     classification';
+    grid-template-rows: auto auto auto auto 1fr;
   }
 }
 @media (min-width: 900px) {
@@ -59,6 +60,7 @@
   .section-labels { grid-area: labels; }
   .section-classification { grid-area: classification; }
   .section-text { grid-area: text; }
+  .section-regression { grid-area: regression; }
 }
 
 .field-stack {
@@ -197,6 +199,13 @@
 }
 .task-name {
   font-weight: 600;
+}
+.regression-range {
+  flex-wrap: wrap;
+
+  input {
+    flex-basis: 7rem;
+  }
 }
 .classes {
   display: flex;

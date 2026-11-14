@@ -27,6 +27,7 @@ import { LabelsService } from '../../services/labels/labels.service';
 import { ProjectService } from '../../services/project/project.service';
 import { SequenceService } from '../../services/sequence.service';
 import { UIStateService } from '../../services/uistate.service';
+import { WorklistService } from '../../services/worklist.service';
 import { OverlayLabel } from './frame-cache';
 import {
   InspectPaneComponent,
@@ -84,6 +85,7 @@ interface LegendLabel {
 export class InspectComponent implements OnInit, OnDestroy {
   readonly inspection = inject(InspectionService);
   private readonly sequences = inject(SequenceService);
+  private readonly worklist = inject(WorklistService);
   private readonly labelsService = inject(LabelsService);
   private readonly project = inject(ProjectService);
   private readonly io = inject(IOService);
@@ -155,10 +157,18 @@ export class InspectComponent implements OnInit, OnDestroy {
     );
   });
 
+  /** The sequences to step through and pick from: those the gallery lists,
+   *  in its order (filters and sort applied), or the whole project when it
+   *  has set no list. */
+  private readonly listed = computed(() => {
+    this.worklist.ids();
+    return this.worklist.order(this.sequences.sequences());
+  });
+
   /** Sequences that can still be added to the comparison. */
   readonly addableSequences = computed(() => {
     const shown = new Set(this.sequenceIds());
-    return this.sequences.sequences().filter((s) => !shown.has(s.id));
+    return this.listed().filter((s) => !shown.has(s.id));
   });
   /** Bound to the "add a sequence" picker, which is cleared after each pick. */
   readonly sequenceToAdd = signal<number | null>(null);
@@ -430,12 +440,15 @@ export class InspectComponent implements OnInit, OnDestroy {
     this.shareFocused();
   }
 
-  /** The sequence `delta` away from the focused pane's in project order,
-   *  skipping those other panes show; null at either end. */
+  /** The sequence `delta` away from the focused pane's in the gallery's order,
+   *  skipping those other panes show; null at either end. A sequence the
+   *  gallery does not list is stepped from in project order. */
   private sequenceAfterFocused(delta: number): number | null {
-    const all = this.sequences.sequences();
     const ids = this.sequenceIds();
-    const from = all.findIndex((s) => s.id === ids[this.inspection.focused()]);
+    const focusedId = ids[this.inspection.focused()];
+    let all = this.listed();
+    if (!all.some((s) => s.id === focusedId)) all = this.sequences.sequences();
+    const from = all.findIndex((s) => s.id === focusedId);
     if (from < 0) return null;
     for (let i = from + delta; i >= 0 && i < all.length; i += delta) {
       if (!ids.includes(all[i].id)) return all[i].id;

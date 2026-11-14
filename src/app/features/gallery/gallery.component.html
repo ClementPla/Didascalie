@@ -235,6 +235,56 @@
             (click)="resetFilters()"
           ></button>
         </div>
+
+        @if (classRows.length > 0 || regressionRows.length > 0) {
+        <div class="advanced-row answers-row toolbar-row">
+          @for (row of classRows; track row.name) {
+          <div class="answer-filter">
+            <span class="advanced-label">{{ row.name }}</span>
+            <p-multiselect
+              [options]="row.options"
+              optionLabel="label"
+              optionValue="value"
+              [ngModel]="classFilter(row)"
+              (ngModelChange)="setClassFilter(row.name, $event)"
+              placeholder="Any"
+              [showHeader]="false"
+              [maxSelectedLabels]="2"
+              size="small"
+              appendTo="body"
+              styleClass="answer-select"
+              [ariaLabel]="'Classes of ' + row.name + ' to list'"
+              pTooltip="List the sequences where a frame has one of these classes"
+              tooltipPosition="top"
+            />
+          </div>
+          }
+          @for (row of regressionRows; track row.name) {
+          <div
+            class="answer-filter"
+            pTooltip="List the sequences whose value lies in this range. A sequence of several frames goes by their mean."
+            tooltipPosition="top"
+          >
+            <span class="advanced-label">{{ row.name }}</span>
+            <p-slider
+              class="answer-range"
+              [ngModel]="regressionRange(row)"
+              (ngModelChange)="setRegressionRange(row, $event)"
+              [range]="true"
+              [min]="row.min"
+              [max]="row.max"
+              [step]="row.step"
+              (onSlideEnd)="applyFilters()"
+              [ariaLabel]="'Range of ' + row.name + ' to list'"
+            />
+            <span class="range-value">
+              {{ regressionRange(row)[0] | number: '1.0-3' }} -
+              {{ regressionRange(row)[1] | number: '1.0-3' }}
+            </span>
+          </div>
+          }
+        </div>
+        }
         }
 
         <div class="selection-bar" [class.is-active]="hasSelection">

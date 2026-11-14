@@ -1,6 +1,6 @@
 # Example projects
 
-Nine small `.dida` projects built from public datasets, to try Didascalie without
+Ten small `.dida` projects built from public datasets, to try Didascalie without
 preparing data. Each one is a subset of at most 20 samples (images, clips or
 volumes) with the images embedded, so the file opens on its own.
 
@@ -15,8 +15,9 @@ volumes) with the images embedded, so the file opens on its own.
 | `echocardiography.dida` | 6 ultrasound sequences: 2- and 4-chamber views of 3 patients | The inspector on both views of a patient; only the first and last frames are annotated, so the others are free for label propagation |
 | `brain_mri_tumour.dida` | 3 brain MRI volumes (1 mm isotropic, 134 to 149 slices) with 3 tumour regions, each as T1 with contrast and as FLAIR; two are the same patient at two time points | 3D volume mode (experimental) with the default slice spacing; the inspector with T1c and FLAIR side by side |
 | `liver_ct_vessels.dida` | 3 abdominal CT volumes (46 to 48 slices) with vessels and tumours | 3D volume mode (experimental); set **Slice spacing** to about 6.5 |
+| `galaxy_morphology.dida` | 20 galaxy cutouts; 15 carry six vote fractions (0 to 1) and a vote count, 5 are left empty | Regression values: the sliders of the bounded values and the number field of the vote count, entering values on the 5 empty frames |
 
-Frames that carry ground-truth masks are marked reviewed.
+Frames that carry ground-truth masks or values are marked reviewed.
 
 ## Sources and licences
 
@@ -34,6 +35,7 @@ authors if you reuse them.
 | `echocardiography.dida` | CAMUS (Leclerc et al., *IEEE TMI*, 2019) | `zeahub/camus-sample` | CC BY-NC-SA 4.0 |
 | `brain_mri_tumour.dida` | BraTS 2023 adult glioma (Baid et al., 2021; Menze et al., *IEEE TMI*, 2015) | `MedOtter/brats2023-gli-dataset` | CC BY 4.0 |
 | `liver_ct_vessels.dida` | Medical Segmentation Decathlon, task 8 (Antonelli et al., *Nature Communications*, 2022) | `MedOtter/msd-hepatic-vessel` | CC BY-SA 4.0 |
+| `galaxy_morphology.dida` | Galaxy Zoo 2 (Willett et al., *MNRAS*, 2013), images from the Sloan Digital Sky Survey | `mwalmsley/gz2` | CC BY-NC-SA 4.0 |
 
 ## What was changed
 
@@ -56,6 +58,10 @@ authors if you reuse them.
   and FLAIR sequences of a case carry the same masks.
 - **Liver CT**: intensities windowed to -100..300 HU and stored as 8-bit slices,
   in radiological orientation (patient right on the left of the image).
+- **Galaxies**: 20 of the 187 galaxies of the `tiny` test split, evenly spaced
+  from the most featured to the smoothest. Six of the 30 vote fractions are
+  kept, as `float32` values between 0 and 1, with the number of votes on the
+  first question as an `int32`. A fraction nobody voted on is left unanswered.
 
 `build_examples.py` rebuilds the files from the Hugging Face downloads. It needs
 `pydidascalie`, `pyarrow`, `nibabel`, `h5py`, `hdf5plugin` and `huggingface_hub`.

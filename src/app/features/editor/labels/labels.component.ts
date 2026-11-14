@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, effect, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 import { TreeModule } from 'primeng/tree';
 import { ColorPickerModule } from 'primeng/colorpicker';
@@ -12,6 +12,7 @@ import { FieldsetModule } from 'primeng/fieldset';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { DividerModule } from 'primeng/divider';
 import { TextareaModule } from 'primeng/textarea';
+import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 
@@ -24,7 +25,8 @@ import { SegLabel } from '../../../core/interface';
 import { InstanceLabelComponent } from './instance-label/instance-label.component';
 import { TextLabel } from '../../../core/interface';
 import { LabelledSwitchComponent } from '../../../shared/generics/labelled-switch/labelled-switch.component';
-import { api } from '../../../lib/api';
+import { NotificationService } from '../../../services/notification.service';
+import { api, RegressionConfig } from '../../../lib/api';
 
 @Component({
   selector: 'app-labels',
@@ -42,6 +44,7 @@ import { api } from '../../../lib/api';
     InstanceLabelComponent,
     LabelledSwitchComponent,
     TextareaModule,
+    InputTextModule,
     TagModule,
     TooltipModule,
   ],
@@ -55,10 +58,20 @@ export class LabelsComponent implements OnInit, OnDestroy {
   projectService = inject(ProjectService);
   sequenceService = inject(SequenceService);
   private classificationService = inject(ClassificationService);
+  private notifications = inject(NotificationService);
 
   public classificationChoices: (string | null)[] = [];
   public multilabelChoices: string[] = [];
   public textContents = new Map<string, string>();
+
+  readonly regressionTasks = computed(
+    () => this.projectService.config().regression_tasks ?? [],
+  );
+  /** The current frame's regression values by task name. Absent or null: not
+   *  answered. */
+  public regressionValues: Record<string, number | null> = {};
+  /** Slider moves waiting to be saved, by task name. */
+  private regressionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   private destroy$ = new Subject<void>();
 
@@ -105,6 +118,17 @@ export class LabelsComponent implements OnInit, OnDestroy {
     for (const label of this.labelsService.listTextLabels) {
       label.content = this.textContents.get(label.name) ?? '';
     }
+
+    await this.loadRegressions(frameId);
+  }
+
+  private async loadRegressions(frameId: number): Promise<void> {
+    const values: Record<string, number | null> = {};
+    for (const r of await api.loadRegressions(frameId)) {
+      values[r.taskName] = r.value;
+    }
+    // The frame may have changed while this was loading.
+    if (this.currentFrameId === frameId) this.regressionValues = values;
   }
 
   // ── Classification Management ────────────────────────────────────────────
@@ -149,6 +173,84 @@ export class LabelsComponent implements OnInit, OnDestroy {
 
     this.textContents.set(label.name, label.content);
     await api.saveTextDescription(frameId, label.name, label.content);
+  }
+
+  // ── Regression Management ────────────────────────────────────────────────
+
+  /** A value with both bounds is set with a slider. */
+  public hasRange(task: RegressionConfig): boolean {
+    return task.min != null && task.max != null && task.max > task.min;
+  }
+
+  /** One for an integer, else a power of ten giving 100 to 1000 positions. */
+  public sliderStep(task: RegressionConfig): number {
+    if (task.dtype === 'int32') return 1;
+    const range = (task.max ?? 1) - (task.min ?? 0);
+    return 10 ** Math.floor(Math.log10(range / 100));
+  }
+
+  /** The value as the number field shows it. A float32 is stored as the
+   *  nearest single-precision number (0.1 as 0.10000000149...), which seven
+   *  significant digits round back to what was entered. */
+  public shownValue(task: RegressionConfig): string {
+    const value = this.regressionValues[task.name];
+    if (value == null) return '';
+    return String(task.dtype === 'float32' ? Number(value.toPrecision(7)) : value);
+  }
+
+  /** The slider moved: show the value at once, save once it rests. */
+  public onRegressionSlide(task: RegressionConfig, value: number | undefined): void {
+    const frameId = this.currentFrameId;
+    if (!frameId || value === undefined) return;
+    this.regressionValues[task.name] = value;
+    clearTimeout(this.regressionTimers.get(task.name));
+    this.regressionTimers.set(
+      task.name,
+      setTimeout(() => {
+        this.regressionTimers.delete(task.name);
+        void this.saveRegression(frameId, task, value);
+      }, 250),
+    );
+  }
+
+  /** The number field was committed. Empty removes the value. */
+  public async commitRegression(task: RegressionConfig, input: HTMLInputElement): Promise<void> {
+    const frameId = this.currentFrameId;
+    if (!frameId) return;
+    const text = input.value.trim();
+    const value = text === '' ? null : Number(text);
+    if (value === null || Number.isFinite(value)) {
+      await this.saveRegression(frameId, task, value);
+    }
+    // What was stored, which may differ from what was typed (rounding, or a
+    // refused value).
+    if (this.currentFrameId === frameId) input.value = this.shownValue(task);
+  }
+
+  public clearRegression(task: RegressionConfig): Promise<void> {
+    const frameId = this.currentFrameId;
+    if (!frameId) return Promise.resolve();
+    return this.saveRegression(frameId, task, null);
+  }
+
+  private async saveRegression(
+    frameId: number,
+    task: RegressionConfig,
+    value: number | null,
+  ): Promise<void> {
+    // A slider move still waiting would overwrite this one.
+    clearTimeout(this.regressionTimers.get(task.name));
+    this.regressionTimers.delete(task.name);
+    try {
+      const stored = await api.saveRegression(frameId, task.name, value);
+      if (this.currentFrameId === frameId) this.regressionValues[task.name] = stored;
+    } catch (error) {
+      this.notifications.error(
+        `Could not save “${task.name}”`,
+        error instanceof Error ? error.message : String(error),
+      );
+      if (this.currentFrameId === frameId) await this.loadRegressions(frameId);
+    }
   }
 
   // ── Label Tree Management ────────────────────────────────────────────────

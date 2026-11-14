@@ -687,7 +687,9 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     return (
       config.segmentation_enabled ||
       config.instance_segmentation_enabled ||
-      config.classification_enabled
+      config.classification_enabled ||
+      config.text_description_enabled ||
+      config.regression_enabled === true
     );
   }
 

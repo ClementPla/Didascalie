@@ -4,7 +4,8 @@ Usage: python build_examples.py <download_dir> <output_dir> [name ...]
 
 Downloads what is missing into <download_dir> (about 1 GB), then writes one
 .dida file per example into <output_dir>. Names: fundus, graders, skin, nuclei,
-registration, laparoscopy, echo, brain, liver (all of them when none is given).
+registration, laparoscopy, echo, brain, liver, galaxies (all of them when none
+is given).
 
 requires the following packages, which are not needed to run Didascalie itself:
     pip install numpy pyarrow Pillow nibabel h5py hdf5plugin huggingface_hub
@@ -67,6 +68,8 @@ def fetch(key):
         for case in LIVER_CASES:
             for folder in ("imagesTr", "labelsTr"):
                 get("MedOtter/msd-hepatic-vessel", f"{folder}/{case}.nii.gz", "hv")
+    elif key == "galaxies":
+        get("mwalmsley/gz2", "tiny/test-00000-of-00001.parquet", "gz2")
     elif key == "laparoscopy" and not os.path.exists(f"{HF}/cholec_names.txt"):
         # The archive is 3 GB: only its index is read here, and the frames of
         # the chosen clips are fetched by range requests later.
@@ -438,6 +441,69 @@ def echo():
 
 
 
+# --------------------------------------------------------------------------
+# Regression
+# --------------------------------------------------------------------------
+
+# Regression value -> the Galaxy Zoo 2 answer whose vote fraction it holds.
+GALAXY_FRACTIONS = {
+    "smooth": "smooth-or-featured-gz2_smooth",
+    "featured or disk": "smooth-or-featured-gz2_featured-or-disk",
+    "edge-on disk": "disk-edge-on-gz2_yes",
+    "spiral arms": "has-spiral-arms-gz2_yes",
+    "bar": "bar-gz2_yes",
+    "something odd": "something-odd-gz2_yes",
+}
+GALAXY_VOTES = "smooth-or-featured-gz2_total-votes"
+
+
+def galaxies():
+    """Galaxy Zoo 2: galaxy cutouts, each with the fraction of volunteers who
+    gave an answer to six morphology questions, and how many voted. The
+    fractions lie between 0 and 1, so the application shows them as sliders;
+    the vote count has no upper bound and shows as a number field. The last
+    frames are left empty on purpose, to enter values by hand."""
+    project = DidascalieProject.create(
+        os.path.join(OUT, "galaxy_morphology.dida"),
+        config=ProjectConfig(
+            name="Galaxy morphology (Galaxy Zoo 2)",
+            images_embedded=True,
+            segmentation_enabled=False,
+        ),
+        overwrite=True,
+    )
+    for name in GALAXY_FRACTIONS:
+        project.add_regression_task(name, min=0, max=1)
+    project.add_regression_task("votes", dtype="int32", min=0)
+
+    rows = pq.ParquetFile(f"{HF}/gz2/tiny/test-00000-of-00001.parquet").read().to_pylist()
+    # From the most featured galaxy to the smoothest one, evenly spaced.
+    rows = sorted(rows, key=lambda r: (r[f"{GALAXY_FRACTIONS['smooth']}_fraction"], r["id_str"]))
+    rows = [rows[round(i * (len(rows) - 1) / (MAX_SAMPLES - 1))] for i in range(MAX_SAMPLES)]
+    annotated = 15
+    empty = set(range(1, MAX_SAMPLES, MAX_SAMPLES // (MAX_SAMPLES - annotated)))
+    for i, row in enumerate(rows):
+        values = {}
+        if i not in empty:
+            values["votes"] = row[GALAXY_VOTES]
+            for name, answer in GALAXY_FRACTIONS.items():
+                fraction = row[f"{answer}_fraction"]
+                # Nobody was asked the question: the value stays unanswered.
+                if fraction is not None and fraction == fraction:
+                    values[name] = fraction
+        frame_id = project.import_with_masks(
+            png(row["image"]["bytes"]).convert("RGB"),
+            {},
+            sequence_name=os.path.splitext(row["id_str"])[0],
+            regression=values,
+        )
+        if values:
+            project.set_frame_reviewed(frame_id)
+    stats = project.get_statistics()
+    project.close()
+    return stats
+
+
 def axial(volume, k):
     """Slice `k` of a RAS volume in radiological display: anterior up, patient
     right on the left of the image."""
@@ -531,6 +597,7 @@ BUILDERS = {
     "echo": echo,
     "brain": brain,
     "liver": liver,
+    "galaxies": galaxies,
 }
 
 if __name__ == "__main__":

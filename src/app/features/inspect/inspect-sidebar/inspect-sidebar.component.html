@@ -73,6 +73,15 @@
         }
       </span>
     </h3>
+    @if (listDescription(); as description) {
+      <p
+        class="list-description"
+        title="The gallery's filters and sort. Change them in the gallery."
+      >
+        <i class="pi pi-filter" aria-hidden="true"></i>
+        {{ description }}
+      </p>
+    }
 
     <p-iconfield>
       <p-inputicon styleClass="pi pi-search" />

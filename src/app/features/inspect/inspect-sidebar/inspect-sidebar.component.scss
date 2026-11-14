@@ -42,6 +42,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+// The gallery filters and sort the list follows.
+.list-description {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+  overflow-wrap: anywhere;
+
+  .pi {
+    font-size: 0.7rem;
+    margin-right: 0.25rem;
+  }
+}
+
 // ── Labels ────────────────────────────────────────────────────────────────
 
 .chips {

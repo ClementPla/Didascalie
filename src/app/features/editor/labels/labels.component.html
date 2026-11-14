@@ -175,6 +175,61 @@
       }
     </p-fieldset>
     }
+    @if (projectService.isRegressionEnabled()) {
+    <p-fieldset
+      legend="Regression"
+      [toggleable]="true"
+      class="m-0"
+    >
+      @for (task of regressionTasks(); track task.name) {
+      <p-divider align="left" type="solid">
+        <b>{{ task.name }}</b>
+      </p-divider>
+      <div class="flex flex-row gap-2 items-center">
+        @if (hasRange(task)) {
+        <small>{{ task.min }}</small>
+        <p-slider
+          class="flex-1"
+          [class.regression-unset]="regressionValues[task.name] == null"
+          [ngModel]="regressionValues[task.name] ?? task.min"
+          [min]="task.min!"
+          [max]="task.max!"
+          [step]="sliderStep(task)"
+          (onChange)="onRegressionSlide(task, $event.value)"
+          [ariaLabel]="task.name"
+        />
+        <small>{{ task.max }}</small>
+        }
+        <input
+          #regressionInput
+          pInputText
+          type="number"
+          class="regression-input"
+          [class.flex-1]="!hasRange(task)"
+          placeholder="—"
+          [attr.min]="task.min ?? null"
+          [attr.max]="task.max ?? null"
+          [attr.step]="task.dtype === 'int32' ? 1 : 'any'"
+          [attr.aria-label]="'Value of ' + task.name"
+          [value]="shownValue(task)"
+          (change)="commitRegression(task, regressionInput)"
+          (keydown.enter)="regressionInput.blur()"
+        />
+        <p-button
+          icon="pi pi-times"
+          severity="secondary"
+          [rounded]="true"
+          [text]="true"
+          [disabled]="regressionValues[task.name] == null"
+          pTooltip="Remove this value"
+          tooltipPosition="bottom"
+          [ariaLabel]="'Remove the value of ' + task.name"
+          (click)="clearRegression(task)"
+        ></p-button>
+      </div>
+      }
+    </p-fieldset>
+    }
   </div>
 </p-panel>
 

@@ -21,6 +21,10 @@ classificationFrames: number,
  */
 textFrames: number, 
 /**
+ * Frames whose regression value would be removed.
+ */
+regressionFrames: number, 
+/**
  * The trained segmentation model predicts this label and would be dropped.
  */
 discardsModel: boolean, };

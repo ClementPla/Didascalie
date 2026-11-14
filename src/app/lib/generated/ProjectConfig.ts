@@ -2,6 +2,7 @@
 import type { LabelConfig } from "./LabelConfig";
 import type { MulticlassConfig } from "./MulticlassConfig";
 import type { MultilabelConfig } from "./MultilabelConfig";
+import type { RegressionConfig } from "./RegressionConfig";
 
 export type ProjectConfig = { name: string, input_folder: string | null, 
 /**
@@ -16,6 +17,10 @@ input_folder_alternates?: Array<string>, images_embedded: boolean,
  */
 embed_threshold_kb: number, segmentation_enabled: boolean, classification_enabled: boolean, instance_segmentation_enabled: boolean, text_description_enabled: boolean, 
 /**
+ * Missing, as in projects from before regression existed, reads as off.
+ */
+regression_enabled?: boolean, 
+/**
  * File extensions a folder scan takes (lowercase, no dot). Missing, as in
  * projects from before it existed, reads as every supported format.
  */
@@ -23,4 +28,8 @@ extensions: Array<string>,
 /**
  * An optional pattern file names must also match. Empty takes any name.
  */
-input_regex: string, recursive: boolean, segmentation_labels?: Array<LabelConfig> | null, classification_tasks?: Array<MulticlassConfig> | null, multilabel_task?: MultilabelConfig | null, text_fields?: Array<string> | null, folders_as_sequences: boolean, };
+input_regex: string, recursive: boolean, segmentation_labels?: Array<LabelConfig> | null, classification_tasks?: Array<MulticlassConfig> | null, multilabel_task?: MultilabelConfig | null, text_fields?: Array<string> | null, 
+/**
+ * The numbers a frame can be given. Values are in the `regressions` table.
+ */
+regression_tasks?: Array<RegressionConfig> | null, folders_as_sequences: boolean, };

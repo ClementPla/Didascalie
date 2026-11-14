@@ -21,6 +21,7 @@ import { TooltipModule } from 'primeng/tooltip';
 
 import { from_hex_to_rgb } from '../../../core/misc/colors';
 import { api, SequenceClassification } from '../../../lib/api';
+import { WorklistService } from '../../../services/worklist.service';
 
 /** A segmentation label that can be shown or hidden. */
 export interface SidebarLabel {
@@ -87,6 +88,10 @@ const THUMBNAIL_SIZE = 256;
   styleUrl: './inspect-sidebar.component.scss',
 })
 export class InspectSidebarComponent implements OnInit, OnDestroy {
+  private readonly worklist = inject(WorklistService);
+  /** The gallery filters and sort the list follows, in words; empty when
+   *  nothing narrows or reorders it. */
+  readonly listDescription = this.worklist.description;
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly labels = input<SidebarLabel[]>([]);
@@ -198,9 +203,13 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
     try {
       const sequences = await api.getGallerySequences();
       this.sequences.set(
-        sequences
-          .filter((s) => s.frameCount > 0 && s.firstFrameId != null)
-          .sort((a, b) => a.sortOrder - b.sortOrder)
+        // The gallery's filters and sort, when it set them.
+        this.worklist
+          .order(
+            sequences
+              .filter((s) => s.frameCount > 0 && s.firstFrameId != null)
+              .sort((a, b) => a.sortOrder - b.sortOrder),
+          )
           .map((s) => ({
             id: s.id,
             name: s.name,

@@ -157,11 +157,13 @@ export function describeProjectType(config: {
   instance_segmentation_enabled?: boolean;
   classification_enabled?: boolean;
   text_description_enabled?: boolean;
+  regression_enabled?: boolean;
 }): string {
   const parts: string[] = [];
   if (config.instance_segmentation_enabled) parts.push('Instances');
   else if (config.segmentation_enabled) parts.push('Segmentation');
   if (config.classification_enabled) parts.push('Classification');
   if (config.text_description_enabled) parts.push('Text');
+  if (config.regression_enabled) parts.push('Regression');
   return parts.join(' + ');
 }

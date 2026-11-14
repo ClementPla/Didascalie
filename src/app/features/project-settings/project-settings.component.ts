@@ -10,10 +10,19 @@ import { DialogModule } from 'primeng/dialog';
 import { FieldsetModule } from 'primeng/fieldset';
 import { InputTextModule } from 'primeng/inputtext';
 import { ProgressBarModule } from 'primeng/progressbar';
+import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 
-import { AddImagesResult, EditImpact, ProjectEdit, ScanOptions, TaskKind } from '../../lib/api';
+import {
+  AddImagesResult,
+  EditImpact,
+  ProjectEdit,
+  RegressionConfig,
+  RegressionType,
+  ScanOptions,
+  TaskKind,
+} from '../../lib/api';
 import { SegLabel } from '../../core/interface';
 import { getDefaultColor } from '../../core/misc/colors';
 import { LabelsService } from '../../services/labels/labels.service';
@@ -65,6 +74,7 @@ function plural(n: number, noun: string): string {
     FieldsetModule,
     InputTextModule,
     ProgressBarModule,
+    SelectModule,
     TagModule,
     TooltipModule,
     LabelledSwitchComponent,
@@ -127,6 +137,8 @@ export class ProjectSettingsComponent {
 
   readonly hasMultilabelTask = computed(() => !!this.config().multilabel_task);
   readonly textFields = computed(() => this.config().text_fields ?? []);
+  readonly regressionTasks = computed(() => this.config().regression_tasks ?? []);
+  readonly regressionTypes: RegressionType[] = ['float32', 'float64', 'int32'];
 
   // ── Destructive-edit confirmation ─────────────────────────────────────────
 
@@ -318,6 +330,73 @@ export class ProjectSettingsComponent {
       (impact) => [
         impact.textFrames > 0 &&
           `The text written in it on ${plural(impact.textFrames, 'frame')} will be erased.`,
+      ],
+    );
+  }
+
+  // ── Regression values ────────────────────────────────────────────────────
+
+  addRegressionTask(): Promise<boolean> {
+    return this.run({
+      type: 'addRegressionTask',
+      name: this.freeName(
+        'Value',
+        this.regressionTasks().map((t) => t.name),
+      ),
+    });
+  }
+
+  async renameRegressionTask(task: RegressionConfig, input: HTMLInputElement): Promise<void> {
+    const newName = input.value.trim();
+    let renamed = false;
+    if (newName !== task.name) {
+      renamed = await this.run({ type: 'renameRegressionTask', name: task.name, newName });
+    }
+    if (!renamed) input.value = task.name;
+  }
+
+  setRegressionType(task: RegressionConfig, dtype: RegressionType): Promise<boolean> {
+    return this.run({
+      type: 'setRegressionTask',
+      name: task.name,
+      dtype,
+      min: task.min ?? null,
+      max: task.max ?? null,
+    });
+  }
+
+  /** Set or, with an empty field, remove one bound of a value's range. */
+  async setRegressionBound(
+    task: RegressionConfig,
+    bound: 'min' | 'max',
+    input: HTMLInputElement,
+  ): Promise<void> {
+    const text = input.value.trim();
+    const value = text === '' ? null : Number(text);
+    const current = task[bound] ?? null;
+    let applied = true;
+    if (value !== current) {
+      applied =
+        (value === null || Number.isFinite(value)) &&
+        (await this.run({
+          type: 'setRegressionTask',
+          name: task.name,
+          dtype: task.dtype,
+          min: bound === 'min' ? value : (task.min ?? null),
+          max: bound === 'max' ? value : (task.max ?? null),
+        }));
+    }
+    // A refused range leaves the task unchanged: put the old bound back.
+    if (!applied) input.value = current === null ? '' : String(current);
+  }
+
+  deleteRegressionTask(task: RegressionConfig): Promise<void> {
+    return this.runDestructive(
+      { type: 'deleteRegressionTask', name: task.name },
+      `Delete the regression value “${task.name}”?`,
+      (impact) => [
+        impact.regressionFrames > 0 &&
+          `The values entered for it on ${plural(impact.regressionFrames, 'frame')} will be erased.`,
       ],
     );
   }

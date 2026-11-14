@@ -427,6 +427,102 @@
         ></p-button>
       </div>
     </p-fieldset>
+
+    <p-fieldset legend="Regression" class="section-regression">
+      <div class="field-stack">
+        <div class="switch-row">
+          <app-labelled-switch
+            [checked]="!!config().regression_enabled"
+            (checkedChange)="setTaskEnabled('regression', $event)"
+          >
+            Regression values
+          </app-labelled-switch>
+          @if (!config().regression_enabled && regressionTasks().length > 0) {
+            <small class="muted">
+              Switched off: the values below and what was entered are kept,
+              only hidden.
+            </small>
+          }
+        </div>
+
+        @if (regressionTasks().length === 0) {
+          <small class="muted">No regression value yet.</small>
+        } @else {
+          <small class="hint">
+            A value with both a minimum and a maximum is set with a slider.
+            Changing a range keeps the values already entered.
+          </small>
+        }
+
+        @for (task of regressionTasks(); track $index; let r = $index) {
+          <div class="task">
+            <div class="row">
+              <input
+                #regressionName
+                pInputText
+                class="flex-1 min-w-0 task-name"
+                placeholder="Value name"
+                [attr.aria-label]="'Name of regression value ' + (r + 1)"
+                [value]="task.name"
+                (change)="renameRegressionTask(task, regressionName)"
+                (keydown.enter)="regressionName.blur()"
+              />
+              <p-button
+                icon="pi pi-trash"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                [ariaLabel]="'Delete regression value ' + task.name"
+                [disabled]="busy()"
+                (onClick)="deleteRegressionTask(task)"
+              ></p-button>
+            </div>
+            <div class="row regression-range">
+              <p-select
+                [options]="regressionTypes"
+                [ngModel]="task.dtype"
+                (onChange)="setRegressionType(task, $event.value)"
+                [ariaLabel]="'Type of ' + task.name"
+                size="small"
+              />
+              <input
+                #regressionMin
+                pInputText
+                type="number"
+                step="any"
+                class="flex-1 min-w-0"
+                placeholder="Minimum (none)"
+                [attr.aria-label]="'Minimum of ' + task.name"
+                [value]="task.min ?? ''"
+                (change)="setRegressionBound(task, 'min', regressionMin)"
+                (keydown.enter)="regressionMin.blur()"
+              />
+              <input
+                #regressionMax
+                pInputText
+                type="number"
+                step="any"
+                class="flex-1 min-w-0"
+                placeholder="Maximum (none)"
+                [attr.aria-label]="'Maximum of ' + task.name"
+                [value]="task.max ?? ''"
+                (change)="setRegressionBound(task, 'max', regressionMax)"
+                (keydown.enter)="regressionMax.blur()"
+              />
+            </div>
+          </div>
+        }
+
+        <p-button
+          class="self-start"
+          icon="pi pi-plus"
+          label="Add regression value"
+          [text]="true"
+          [disabled]="busy()"
+          (onClick)="addRegressionTask()"
+        ></p-button>
+      </div>
+    </p-fieldset>
   </div>
 </div>
 

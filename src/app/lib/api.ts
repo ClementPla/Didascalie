@@ -72,7 +72,11 @@ import type { PythonSegContext } from './generated/PythonSegContext';
 import type { PythonSegFrame } from './generated/PythonSegFrame';
 import type { PythonSegLayer } from './generated/PythonSegLayer';
 import type { PythonSequenceReport } from './generated/PythonSequenceReport';
+import type { RegressionConfig } from './generated/RegressionConfig';
+import type { RegressionData } from './generated/RegressionData';
+import type { RegressionType } from './generated/RegressionType';
 import type { ScribbleInput } from './generated/ScribbleInput';
+import type { SequenceAnswers } from './generated/SequenceAnswers';
 import type { SequenceClassification } from './generated/SequenceClassification';
 import type { StorageUsage } from './generated/StorageUsage';
 import type { TextDescriptionData } from './generated/TextDescriptionData';
@@ -82,6 +86,10 @@ import type { TrainTick } from './generated/TrainTick';
 import type { VectorAnnotationsWire } from './generated/VectorAnnotationsWire';
 
 export type {
+  SequenceAnswers,
+  RegressionConfig,
+  RegressionData,
+  RegressionType,
   ScanOptions,
   ScanResult,
   AddImagesResult,
@@ -188,6 +196,10 @@ export const api = {
   async getGallerySequences(): Promise<GallerySequence[]> {
     return invoke<GallerySequence[]>('get_gallery_sequences');
   },
+
+  /** The classification and regression answers of the sequences that have
+   *  some, for the gallery to filter and sort by. */
+  getGalleryAnswers: () => invoke<SequenceAnswers[]>('get_gallery_answers'),
 
   async getAllFrameIdsBySequence(): Promise<Record<number, number[]>> {
     return invoke<Record<number, number[]>>('get_all_frame_ids_by_sequence');
@@ -667,6 +679,14 @@ export const api = {
 
   saveTextDescription: (frameId: number, fieldName: string, content: string) =>
     invoke<void>('save_text_description', { frameId, fieldName, content }),
+
+  loadRegressions: (frameId: number) =>
+    invoke<RegressionData[]>('load_regressions', { frameId }),
+
+  /** Give a frame its value for a regression task; `null` removes it.
+   *  Resolves to the value as stored, rounded to the task's type. */
+  saveRegression: (frameId: number, taskName: string, value: number | null) =>
+    invoke<number | null>('save_regression', { frameId, taskName, value }),
 
   getSequenceClassification: (sequenceId: number) =>
     invoke<SequenceClassification>('get_sequence_classification', {

@@ -104,6 +104,25 @@
   min-width: 5rem;
 }
 
+/* One filter per classification task and regression value. */
+.answers-row {
+  flex-wrap: wrap;
+  gap: 0.6rem 1.5rem;
+}
+.answer-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.answer-range {
+  width: 10rem;
+}
+:host ::ng-deep .answer-select {
+  min-width: 9rem;
+  max-width: 16rem;
+}
+
 /* Selection bar */
 .selection-bar {
   display: flex;

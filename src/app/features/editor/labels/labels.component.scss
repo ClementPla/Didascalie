@@ -7,6 +7,16 @@
     scale: 1.0 ;
 }
 
+.regression-input {
+    width: 5.5rem;
+    min-width: 0;
+}
+
+// A slider whose value is not set yet: the handle rests at the minimum.
+.regression-unset {
+    opacity: 0.45;
+}
+
 .activeNode{
     background: var(--p-tree-node-selected-background );
     color: var(--p-tree-node-selected-color);

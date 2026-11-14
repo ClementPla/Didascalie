@@ -3,4 +3,4 @@
 /**
  * A task family that can be switched on or off without touching its data.
  */
-export type TaskKind = "classification" | "segmentation" | "textDescription";
+export type TaskKind = "classification" | "segmentation" | "textDescription" | "regression";

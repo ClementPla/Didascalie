@@ -1,7 +1,8 @@
 //! Editing the configuration of the open project.
 //!
 //! Definitions live in the JSON `project.config` and in the rows that refer to
-//! it by name or id (`labels`, `classifications`, `text_descriptions`). The
+//! it by name or id (`labels`, `classifications`, `text_descriptions`,
+//! `regressions`). The
 //! two must agree, so every change is a [`ProjectEdit`], applied by
 //! [`apply_edit`] to both in one transaction; no command writes a whole
 //! `ProjectConfig` back.
@@ -10,9 +11,10 @@
 //! annotations: every statement names `main.<table>`, not the logged-in user's
 //! view (see `queries::install_user_scope`).
 //!
-//! Deleting a label, task, class or text field deletes what was annotated
-//! with it. [`edit_impact`] reports that beforehand; confirming is the
-//! caller's job.
+//! Deleting a label, task, class, text field or regression value deletes what
+//! was annotated
+//! with it. [`edit_impact`] reports that beforehand; confirming is the caller's
+//! job.
 
 use std::collections::{HashMap, HashSet};
 
@@ -23,7 +25,10 @@ use ts_rs::TS;
 
 use crate::commands::ml::predict::MlState;
 use crate::storage::{queries, DbState};
-use crate::types::project::{LabelConfig, MulticlassConfig, MultilabelConfig, ProjectConfig};
+use crate::types::project::{
+    LabelConfig, MulticlassConfig, MultilabelConfig, ProjectConfig, RegressionConfig,
+    RegressionType,
+};
 use crate::utils::error::{AppError, Result};
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -36,6 +41,7 @@ pub enum TaskKind {
     Classification,
     Segmentation,
     TextDescription,
+    Regression,
 }
 
 /// One change to the project's configuration. Labels are addressed by id;
@@ -120,6 +126,27 @@ pub enum ProjectEdit {
     DeleteTextField {
         name: String,
     },
+
+    /// A new regression value: a `float32` without a range.
+    AddRegressionTask {
+        name: String,
+    },
+    RenameRegressionTask {
+        name: String,
+        #[serde(rename = "newName")]
+        new_name: String,
+    },
+    /// Change the type and range of a regression value. Values already stored
+    /// are kept as they are, even outside the new range.
+    SetRegressionTask {
+        name: String,
+        dtype: RegressionType,
+        min: Option<f64>,
+        max: Option<f64>,
+    },
+    DeleteRegressionTask {
+        name: String,
+    },
 }
 
 /// What an edit would permanently delete. All zero for a harmless edit.
@@ -135,6 +162,8 @@ pub struct EditImpact {
     pub classification_frames: usize,
     /// Frames whose text would be removed.
     pub text_frames: usize,
+    /// Frames whose regression value would be removed.
+    pub regression_frames: usize,
     /// The trained segmentation model predicts this label and would be dropped.
     pub discards_model: bool,
 }
@@ -205,6 +234,13 @@ pub fn edit_impact(conn: &Connection, edit: &ProjectEdit) -> Result<EditImpact> 
             impact.text_frames = count(
                 conn,
                 "SELECT COUNT(*) FROM main.text_descriptions WHERE label_name = ?1",
+                params![name],
+            )?;
+        }
+        ProjectEdit::DeleteRegressionTask { name } => {
+            impact.regression_frames = count(
+                conn,
+                "SELECT COUNT(DISTINCT frame_id) FROM main.regressions WHERE task_name = ?1",
                 params![name],
             )?;
         }
@@ -332,6 +368,7 @@ pub fn apply_edit(conn: &Connection, edit: &ProjectEdit) -> Result<ProjectConfig
             TaskKind::Classification => config.classification_enabled = *enabled,
             TaskKind::Segmentation => config.segmentation_enabled = *enabled,
             TaskKind::TextDescription => config.text_description_enabled = *enabled,
+            TaskKind::Regression => config.regression_enabled = *enabled,
         },
 
         ProjectEdit::AddMulticlassTask { name } => {
@@ -437,6 +474,53 @@ pub fn apply_edit(conn: &Connection, edit: &ProjectEdit) -> Result<ProjectConfig
             fields.retain(|f| f != name);
             tx.execute("DELETE FROM main.text_descriptions WHERE label_name = ?1", params![name])?;
         }
+
+        ProjectEdit::AddRegressionTask { name } => {
+            let name = clean_name(name, "regression value")?;
+            ensure_regression_name_free(&config, &name)?;
+            forget_orphan_regressions(&tx, &name)?;
+            config.regression_tasks.get_or_insert_with(Vec::new).push(RegressionConfig {
+                name,
+                dtype: RegressionType::default(),
+                min: None,
+                max: None,
+            });
+        }
+        ProjectEdit::RenameRegressionTask { name, new_name } => {
+            let new_name = clean_name(new_name, "regression value")?;
+            if *name != new_name {
+                ensure_regression_name_free(&config, &new_name)?;
+                regression_task_mut(&mut config, name)?.name = new_name.clone();
+                forget_orphan_regressions(&tx, &new_name)?;
+                tx.execute(
+                    "UPDATE main.regressions SET task_name = ?1 WHERE task_name = ?2",
+                    params![new_name, name],
+                )?;
+            }
+        }
+        ProjectEdit::SetRegressionTask { name, dtype, min, max } => {
+            if [min, max].into_iter().flatten().any(|bound| !bound.is_finite()) {
+                return Err(AppError::Other("A range bound must be a finite number.".into()));
+            }
+            if let (Some(min), Some(max)) = (min, max) {
+                if min >= max {
+                    return Err(AppError::Other(format!(
+                        "The minimum ({min}) must be below the maximum ({max})."
+                    )));
+                }
+            }
+            let task = regression_task_mut(&mut config, name)?;
+            task.dtype = *dtype;
+            task.min = *min;
+            task.max = *max;
+        }
+        ProjectEdit::DeleteRegressionTask { name } => {
+            regression_task_mut(&mut config, name)?; // must exist
+            if let Some(tasks) = config.regression_tasks.as_mut() {
+                tasks.retain(|t| t.name != *name);
+            }
+            forget_orphan_regressions(&tx, name)?;
+        }
     }
 
     tx.execute(
@@ -517,7 +601,26 @@ fn ensure_text_field_free(fields: &[String], name: &str) -> Result<()> {
     Ok(())
 }
 
+fn ensure_regression_name_free(config: &ProjectConfig, name: &str) -> Result<()> {
+    if config.regression_tasks.iter().flatten().any(|t| t.name == name) {
+        return Err(taken("regression value", name));
+    }
+    Ok(())
+}
+
 // ── Config helpers ─────────────────────────────────────────────────────────
+
+fn regression_task_mut<'a>(
+    config: &'a mut ProjectConfig,
+    name: &str,
+) -> Result<&'a mut RegressionConfig> {
+    config
+        .regression_tasks
+        .iter_mut()
+        .flatten()
+        .find(|t| t.name == name)
+        .ok_or_else(|| missing("regression value", name))
+}
 
 fn task_name_mut<'a>(config: &'a mut ProjectConfig, name: &str) -> Result<&'a mut String> {
     if let Some(task) = config.multilabel_task.as_mut().filter(|t| t.name == name) {
@@ -662,6 +765,13 @@ fn forget_orphan_classifications(conn: &Connection, task_name: &str) -> Result<(
 /// Same as [`forget_orphan_classifications`], for text fields.
 fn forget_orphan_texts(conn: &Connection, field: &str) -> Result<()> {
     conn.execute("DELETE FROM main.text_descriptions WHERE label_name = ?1", params![field])?;
+    Ok(())
+}
+
+/// Same as [`forget_orphan_classifications`], for regression values. Also
+/// what deleting one comes down to.
+fn forget_orphan_regressions(conn: &Connection, task_name: &str) -> Result<()> {
+    conn.execute("DELETE FROM main.regressions WHERE task_name = ?1", params![task_name])?;
     Ok(())
 }
 
