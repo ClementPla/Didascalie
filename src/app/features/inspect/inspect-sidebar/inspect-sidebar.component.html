@@ -76,11 +76,14 @@
     @if (listDescription(); as description) {
       <p
         class="list-description"
-        title="The gallery's filters and sort. Change them in the gallery."
+        title="The gallery's filters. Change them in the gallery."
       >
         <i class="pi pi-filter" aria-hidden="true"></i>
         {{ description }}
       </p>
+    }
+    @if (worklist.active()) {
+      <app-sort-buttons class="sort" [compact]="true" />
     }
 
     <p-iconfield>

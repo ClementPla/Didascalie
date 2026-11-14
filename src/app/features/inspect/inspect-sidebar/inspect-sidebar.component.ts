@@ -22,6 +22,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { from_hex_to_rgb } from '../../../core/misc/colors';
 import { api, SequenceClassification } from '../../../lib/api';
 import { WorklistService } from '../../../services/worklist.service';
+import { SortButtonsComponent } from '../../../shared/generics/sort-buttons/sort-buttons.component';
 
 /** A segmentation label that can be shown or hidden. */
 export interface SidebarLabel {
@@ -83,15 +84,16 @@ const THUMBNAIL_SIZE = 256;
     InputIconModule,
     InputTextModule,
     TooltipModule,
+    SortButtonsComponent,
   ],
   templateUrl: './inspect-sidebar.component.html',
   styleUrl: './inspect-sidebar.component.scss',
 })
 export class InspectSidebarComponent implements OnInit, OnDestroy {
-  private readonly worklist = inject(WorklistService);
-  /** The gallery filters and sort the list follows, in words; empty when
-   *  nothing narrows or reorders it. */
-  readonly listDescription = this.worklist.description;
+  readonly worklist = inject(WorklistService);
+  /** The gallery filters the list follows, in words; empty when none. The
+   *  sort shows on its buttons. */
+  readonly listDescription = this.worklist.filterDescription;
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly labels = input<SidebarLabel[]>([]);
@@ -113,7 +115,11 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
   /** Add these sequences to the comparison, nearest to the focused one first. */
   readonly sequencesAdded = output<number[]>();
 
-  readonly sequences = signal<SequenceRow[]>([]);
+  /** Every sequence, in the project's order. */
+  private readonly allSequences = signal<SequenceRow[]>([]);
+  /** The sequences listed: the gallery's filters and the shared sort, which
+   *  the buttons here change too. */
+  readonly sequences = computed(() => this.worklist.order(this.allSequences()));
   readonly query = signal('');
   readonly page = signal(0);
   /** Thumbnails loaded so far, by frame id. */
@@ -202,14 +208,10 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     try {
       const sequences = await api.getGallerySequences();
-      this.sequences.set(
-        // The gallery's filters and sort, when it set them.
-        this.worklist
-          .order(
-            sequences
-              .filter((s) => s.frameCount > 0 && s.firstFrameId != null)
-              .sort((a, b) => a.sortOrder - b.sortOrder),
-          )
+      this.allSequences.set(
+        sequences
+          .filter((s) => s.frameCount > 0 && s.firstFrameId != null)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
           .map((s) => ({
             id: s.id,
             name: s.name,
@@ -278,7 +280,7 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
 
   /** Every frame of sequence `id` was marked reviewed, or unmarked. */
   setReviewed(id: number, reviewed: boolean): void {
-    this.sequences.update((rows) =>
+    this.allSequences.update((rows) =>
       rows.map((row) =>
         row.id === id
           ? {

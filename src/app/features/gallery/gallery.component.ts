@@ -7,7 +7,6 @@ import { DataViewModule } from 'primeng/dataview';
 import { ButtonModule } from 'primeng/button';
 import { KnobModule } from 'primeng/knob';
 import { SelectButtonModule } from 'primeng/selectbutton';
-import { SelectModule } from 'primeng/select';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { InputTextModule } from 'primeng/inputtext';
 import { IconFieldModule } from 'primeng/iconfield';
@@ -23,7 +22,8 @@ import { GalleryService, NO_CLASS } from './gallery.service';
 import { BatchAnnotationService } from '../../services/labels/batch-annotation.service';
 import { UIStateService } from '../../services/uistate.service';
 import { NotificationService } from '../../services/notification.service';
-import { WorklistService } from '../../services/worklist.service';
+import { SortField, WorklistService } from '../../services/worklist.service';
+import { SortButtonsComponent } from '../../shared/generics/sort-buttons/sort-buttons.component';
 import { api } from '../../lib/api';
 
 import {
@@ -63,15 +63,10 @@ interface GalleryItem {
   regressions: Record<string, number | undefined>;
 }
 
-interface SortOption {
-  label: string;
-  value: string;
-}
-
 /** A classification task as the filters list it. */
 interface ClassFilterRow {
   name: string;
-  /** In the task's order: the rank a "by class" sort goes by. */
+  /** In the task's order: the rank a sort by the task goes by. */
   classes: string[];
   options: { label: string; value: string }[];
 }
@@ -83,20 +78,6 @@ interface RegressionFilterRow {
   max: number;
   step: number;
 }
-
-const BASE_SORT_OPTIONS: SortOption[] = [
-  { label: 'Name (A-Z)', value: 'name-asc' },
-  { label: 'Name (Z-A)', value: 'name-desc' },
-  { label: 'Most frames', value: 'frames-desc' },
-  { label: 'Fewest frames', value: 'frames-asc' },
-  { label: 'Most progress', value: 'progress-desc' },
-  { label: 'Least progress', value: 'progress-asc' },
-];
-
-// Sorts by one of the project's tasks are `kind:task name`.
-const SORT_BY_CLASS = 'class:';
-const SORT_BY_VALUE_ASC = 'value-asc:';
-const SORT_BY_VALUE_DESC = 'value-desc:';
 
 /** The model of a class filter nothing is picked in. One array for all: a
  *  new one on every change detection would have `ngModel` write it back to
@@ -114,8 +95,8 @@ const NO_CLASSES: string[] = [];
     KnobModule,
     FormsModule,
     LabelledSwitchComponent,
+    SortButtonsComponent,
     SelectButtonModule,
-    SelectModule,
     MultiSelectModule,
     InputTextModule,
     IconFieldModule,
@@ -139,7 +120,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   private inspection = inject(InspectionService);
   private cdr = inject(ChangeDetectorRef);
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private worklist = inject(WorklistService);
+  readonly worklist = inject(WorklistService);
 
   autoRefresh = false;
 
@@ -163,9 +144,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     { label: 'Reviewed', value: 'reviewed' },
   ];
 
-  /** The fixed sorts, then one per classification task and two per
-   *  regression value of the project. */
-  sortOptions: SortOption[] = BASE_SORT_OPTIONS;
   /** The project's classification tasks, when classification is on. */
   classRows: ClassFilterRow[] = [];
   /** The project's regression values that have a span to filter on. */
@@ -383,22 +361,27 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       this.regressionRows.push({ name: task.name, min, max, step });
     }
 
-    this.sortOptions = [
-      ...BASE_SORT_OPTIONS,
+    // The tasks the shared sort buttons offer, after the fixed fields.
+    const fields: SortField[] = [
       ...this.classRows.map((row) => ({
-        label: `${row.name} (by class)`,
-        value: SORT_BY_CLASS + row.name,
+        id: `class:${row.name}`,
+        label: row.name,
+        // The first of its classes in the task's order; unanswered last.
+        value: (entry: { classes: Record<string, string[] | undefined> }) => {
+          const ranks = (entry.classes[row.name] ?? [])
+            .map((c) => row.classes.indexOf(c))
+            .filter((i) => i >= 0);
+          return ranks.length > 0 ? Math.min(...ranks) : undefined;
+        },
       })),
-      ...values.flatMap((task) => [
-        { label: `${task.name} (lowest first)`, value: SORT_BY_VALUE_ASC + task.name },
-        { label: `${task.name} (highest first)`, value: SORT_BY_VALUE_DESC + task.name },
-      ]),
+      ...values.map((task) => ({
+        id: `value:${task.name}`,
+        label: task.name,
+        value: (entry: { regressions: Record<string, number | undefined> }) =>
+          entry.regressions[task.name],
+      })),
     ];
-    // A sort by a task that was renamed, deleted or switched off.
-    const sortKey = this.galleryService.sortKey();
-    if (!this.sortOptions.some((option) => option.value === sortKey)) {
-      this.galleryService.sortKey.set('name-asc');
-    }
+    this.worklist.setTaskFields(fields);
   }
 
   setClassFilter(task: string, classes: string[]): void {
@@ -507,12 +490,31 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       });
     }
 
-    items.sort((a, b) => this.compareItems(a, b));
-    this.filteredItems = items;
-    // The editor's next/previous follows what is listed here.
+    // The editor's and the inspector's lists follow what is listed here,
+    // and the shared sort orders all three.
     this.worklist.set(
-      items.map((item) => item.sequenceId),
+      items.map((item) => ({
+        id: item.sequenceId,
+        title: item.title,
+        frameCount: item.frameCount,
+        progress: item.progress,
+        classes: item.classes,
+        regressions: item.regressions,
+      })),
       this.describeFilters(),
+    );
+    this.listedItems = items;
+    this.applySort(page);
+  }
+
+  /** The filtered sequences, in the project's order. */
+  private listedItems: GalleryItem[] = [];
+
+  /** Order the listed sequences by the sort buttons. */
+  applySort(page: PageMode = 'top'): void {
+    this.filteredItems = this.worklist.order(
+      this.listedItems,
+      (item) => item.sequenceId,
     );
     this.placePage(page);
     this.cdr.markForCheck();
@@ -570,7 +572,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  /** The active filters and sort in words, for the editor's Sequences panel. */
+  /** The active filters in words, for the editor's and the inspector's
+   *  Sequences panels (the worklist adds the sort). */
   private describeFilters(): string {
     const parts: string[] = [];
     const query = this.galleryService.filterTitle().trim();
@@ -599,67 +602,14 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     for (const { row, range } of this.activeRegressionFilters()) {
       parts.push(`${row.name} ${formatValue(range[0])}-${formatValue(range[1])}`);
     }
-    const sortKey = this.galleryService.sortKey();
-    if (sortKey !== 'name-asc') {
-      const sort = this.sortOptions.find((option) => option.value === sortKey);
-      if (sort) parts.push(sort.label);
-    }
     return parts.join(' · ');
-  }
-
-  private compareItems(a: GalleryItem, b: GalleryItem): number {
-    const sortKey = this.galleryService.sortKey();
-    const byName = () => a.title.localeCompare(b.title);
-
-    // By a regression value; the sequences without one come last either way.
-    for (const [prefix, direction] of [
-      [SORT_BY_VALUE_ASC, 1],
-      [SORT_BY_VALUE_DESC, -1],
-    ] as const) {
-      if (!sortKey.startsWith(prefix)) continue;
-      const task = sortKey.slice(prefix.length);
-      const [va, vb] = [a.regressions[task], b.regressions[task]];
-      if (va === undefined || vb === undefined) {
-        return va === vb ? byName() : va === undefined ? 1 : -1;
-      }
-      return direction * (va - vb) || byName();
-    }
-
-    // By class, in the order the task lists them; unanswered last.
-    if (sortKey.startsWith(SORT_BY_CLASS)) {
-      const task = sortKey.slice(SORT_BY_CLASS.length);
-      const order = this.classRows.find((row) => row.name === task)?.classes ?? [];
-      const rank = (item: GalleryItem) => {
-        const ranks = (item.classes[task] ?? [])
-          .map((c) => order.indexOf(c))
-          .filter((i) => i >= 0);
-        return ranks.length > 0 ? Math.min(...ranks) : Number.MAX_SAFE_INTEGER;
-      };
-      return rank(a) - rank(b) || byName();
-    }
-
-    switch (sortKey) {
-      case 'name-desc':
-        return b.title.localeCompare(a.title);
-      case 'frames-desc':
-        return b.frameCount - a.frameCount;
-      case 'frames-asc':
-        return a.frameCount - b.frameCount;
-      case 'progress-desc':
-        return b.progress - a.progress;
-      case 'progress-asc':
-        return a.progress - b.progress;
-      case 'name-asc':
-      default:
-        return a.title.localeCompare(b.title);
-    }
   }
 
   resetFilters(): void {
     this.galleryService.filterTitle.set('');
     this.galleryService.selectedStatuses.set([]);
     this.galleryService.keypointFilter.set('all');
-    this.galleryService.sortKey.set('name-asc');
+    this.worklist.clearSort();
     this.galleryService.frameCountRange.set([0, this.maxFrameCount]);
     this.galleryService.classFilters.set({});
     this.galleryService.regressionRanges.set({});

@@ -129,16 +129,6 @@
             </ng-template>
           </p-selectbutton>
 
-          <p-select
-            [options]="sortOptions"
-            [ngModel]="galleryService.sortKey()" (ngModelChange)="galleryService.sortKey.set($event)"
-            optionLabel="label"
-            optionValue="value"
-            styleClass="sort-select"
-            pTooltip="Sort order"
-            (onChange)="applyFilters()"
-          ></p-select>
-
           <span class="toolbar-spacer"></span>
 
           <app-labelled-switch [(checked)]="galleryService.showAdvancedFilters">
@@ -196,6 +186,10 @@
           </p-selectbutton>
         </div>
 
+        <div class="toolbar-row">
+          <app-sort-buttons (changed)="applySort()" />
+        </div>
+
         @if (galleryService.showAdvancedFilters()) {
         <div class="advanced-row toolbar-row">
           <span class="advanced-label">Frame count</span>
@@ -231,7 +225,7 @@
             size="small"
             icon="pi pi-filter-slash"
             label="Reset filters"
-            [disabled]="!hasActiveFilters && galleryService.sortKey() === 'name-asc'"
+            [disabled]="!hasActiveFilters && worklist.sortKeys().length === 0"
             (click)="resetFilters()"
           ></button>
         </div>

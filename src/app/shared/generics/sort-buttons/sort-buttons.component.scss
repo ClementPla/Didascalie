@@ -1,0 +1,51 @@
+:host {
+  display: block;
+  // A flex item would otherwise be as wide as its widest content.
+  min-width: 0;
+}
+
+.sort-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+// A long list of tasks scrolls instead of breaking the joined group.
+p-buttongroup {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+
+  ::ng-deep .p-button {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+}
+
+// In a side panel: as many columns as the panel's width holds.
+.compact {
+  align-items: flex-start;
+}
+
+.sort-grid {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.25rem;
+
+  ::ng-deep p-button,
+  ::ng-deep .p-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  ::ng-deep .p-button-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

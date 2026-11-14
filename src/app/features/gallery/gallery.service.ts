@@ -19,7 +19,6 @@ export class GalleryService implements ProjectScoped {
   readonly filterTitle = signal('');
   readonly selectedStatuses = signal<SequenceStatus[]>([]);
   readonly keypointFilter = signal<KeypointFilter>('all');
-  readonly sortKey = signal('name-asc');
   readonly frameCountRange = signal<number[]>([0, 0]);
   readonly frameRangeInitialized = signal(false);
   readonly showAdvancedFilters = signal(false);
@@ -43,9 +42,9 @@ export class GalleryService implements ProjectScoped {
   /**
    * @see ProjectScoped
    *
-   * Filters, paging and the selection are reset. `imgSize`, `viewLayout`,
-   * `sortKey` and `itemPerPage` are user preferences and are kept, except a
-   * sort by one of the project's own tasks (`kind:task`).
+   * Filters, paging and the selection are reset. `imgSize`, `viewLayout`
+   * and `itemPerPage` are user preferences and are kept. The sort lives on
+   * the `WorklistService`.
    */
   resetForProject(): void {
     this.filterTitle.set('');
@@ -56,7 +55,6 @@ export class GalleryService implements ProjectScoped {
     this.showAdvancedFilters.set(false);
     this.classFilters.set({});
     this.regressionRanges.set({});
-    if (this.sortKey().includes(':')) this.sortKey.set('name-asc');
     this.first.set(0);
     this.selectedIds = [];
   }

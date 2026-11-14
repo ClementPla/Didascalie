@@ -1,0 +1,43 @@
+<ng-template #buttons>
+  @for (field of worklist.fields(); track field.id) {
+    <p-button
+      [label]="field.label"
+      [icon]="icon(field.id)"
+      iconPos="right"
+      [badge]="badge(field.id)"
+      badgeSeverity="contrast"
+      [outlined]="!worklist.sortKeyOf(field.id)"
+      [size]="compact() ? 'small' : undefined"
+      [attr.aria-pressed]="!!worklist.sortKeyOf(field.id)"
+      [pTooltip]="tooltip(field.id, field.label)"
+      tooltipPosition="bottom"
+      [showDelay]="400"
+      (onClick)="cycle(field.id)"
+    />
+  }
+</ng-template>
+
+<div class="sort-buttons" [class.compact]="compact()" role="group" aria-label="Sort sequences">
+  @if (compact()) {
+    <!-- A side panel: a grid as wide as the panel, wrapping onto lines. -->
+    <div class="sort-grid">
+      <ng-container [ngTemplateOutlet]="buttons" />
+    </div>
+  } @else {
+    <p-buttongroup>
+      <ng-container [ngTemplateOutlet]="buttons" />
+    </p-buttongroup>
+  }
+  <p-button
+    icon="pi pi-times"
+    [text]="true"
+    [rounded]="true"
+    severity="secondary"
+    [size]="compact() ? 'small' : undefined"
+    [disabled]="worklist.sortKeys().length === 0"
+    pTooltip="Back to the project's order"
+    tooltipPosition="bottom"
+    ariaLabel="Clear the sort"
+    (onClick)="clear()"
+  />
+</div>
