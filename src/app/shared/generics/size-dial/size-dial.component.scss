@@ -1,0 +1,182 @@
+:host {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  width: 8.5rem;
+}
+
+.dial {
+  --dial-accent: var(--dial-color, var(--p-primary-color));
+
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+
+  &.is-dragging {
+    cursor: grabbing;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.dial__bounds {
+  fill: color-mix(in srgb, var(--p-text-color) 4%, transparent);
+  stroke: color-mix(in srgb, var(--p-text-color) 25%, transparent);
+  stroke-width: 1;
+}
+
+.dial__guide {
+  fill: none;
+  stroke: color-mix(in srgb, var(--p-text-color) 12%, transparent);
+  stroke-width: 0.75;
+  stroke-dasharray: 2 3;
+}
+
+.dial__value {
+  fill: color-mix(in srgb, var(--dial-accent) 28%, transparent);
+  stroke: var(--dial-accent);
+  stroke-width: 1.5;
+  transition: r 60ms linear;
+
+  &.is-over {
+    stroke-dasharray: 4 2;
+  }
+}
+
+.is-dragging .dial__value {
+  transition: none;
+}
+
+.dial__measure {
+  stroke: var(--dial-accent);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  opacity: 0.8;
+}
+
+.dial__knob {
+  fill: var(--p-content-background, #fff);
+  stroke: var(--dial-accent);
+  stroke-width: 2;
+}
+
+.dial:hover .dial__knob,
+.is-dragging .dial__knob {
+  stroke-width: 2.5;
+}
+
+.dial__text {
+  text-anchor: middle;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  fill: var(--p-text-color);
+  paint-order: stroke;
+  stroke: var(--p-content-background, #fff);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.dial__tick {
+  text-anchor: middle;
+  font-size: 7px;
+  font-variant-numeric: tabular-nums;
+  fill: var(--p-text-muted-color);
+  pointer-events: none;
+}
+
+.dial__max {
+  font-size: 0.65rem;
+  color: var(--p-text-muted-color);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dial__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.dial__step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--p-content-border-color, rgba(128, 128, 128, 0.25));
+  border-radius: 50%;
+  background: transparent;
+  color: var(--p-text-color);
+  cursor: pointer;
+  touch-action: manipulation;
+
+  .material-symbols-outlined {
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--p-primary-color);
+    color: var(--p-primary-color);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-color);
+    outline-offset: 1px;
+  }
+}
+
+/* The value, above the dial, while a finger covers it. */
+.dial__bubble {
+  position: absolute;
+  bottom: calc(100% + 0.35rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--p-primary-color);
+  color: var(--p-primary-contrast-color, #fff);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+// Fingers: bigger dial and step buttons.
+@media (pointer: coarse) {
+  :host {
+    width: 9.5rem;
+  }
+
+  .dial__step {
+    width: 2.25rem;
+    height: 2.25rem;
+
+    .material-symbols-outlined {
+      font-size: 1.2rem;
+    }
+  }
+}

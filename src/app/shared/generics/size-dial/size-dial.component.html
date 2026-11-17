@@ -1,0 +1,67 @@
+@let m = measure();
+@let k = knob();
+
+@if (touchDrag()) {
+  <span class="dial__bubble" aria-hidden="true">{{ display() }} {{ value() === 0 && zeroLabel() ? '' : unit() }}</span>
+}
+<svg
+  #svg
+  class="dial"
+  [class.is-dragging]="dragging()"
+  [attr.viewBox]="'0 0 ' + view + ' ' + view"
+  [style.--dial-color]="color()"
+  tabindex="0"
+  role="slider"
+  [attr.aria-label]="ariaLabel()"
+  [attr.aria-valuemin]="min()"
+  [attr.aria-valuemax]="max()"
+  [attr.aria-valuenow]="value()"
+  [attr.aria-valuetext]="display() + (value() === 0 && zeroLabel() ? '' : ' ' + unit())"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (pointercancel)="onPointerUp($event)"
+  (wheel)="onWheel($event)"
+  (keydown)="onKeyDown($event)"
+>
+  <!-- The range: the outer ring is the largest value. -->
+  <circle class="dial__bounds" [attr.cx]="center" [attr.cy]="center" [attr.r]="rMax"></circle>
+  @for (g of guides(); track g.value) {
+    <circle class="dial__guide" [attr.cx]="center" [attr.cy]="center" [attr.r]="g.r"></circle>
+    <text class="dial__tick" [attr.x]="center" [attr.y]="center - g.r" dy="-1.5">{{ g.label }}</text>
+  }
+
+  <!-- The value. -->
+  <circle
+    class="dial__value"
+    [class.is-over]="overflow()"
+    [attr.cx]="center"
+    [attr.cy]="center"
+    [attr.r]="radius()"
+  ></circle>
+  <line class="dial__measure" [attr.x1]="m.x1" [attr.y1]="m.y1" [attr.x2]="m.x2" [attr.y2]="m.y2"></line>
+  <circle class="dial__knob" [attr.cx]="k.x" [attr.cy]="k.y" r="4.5"></circle>
+
+  <text class="dial__text" [attr.x]="center" [attr.y]="center" dy="0.35em">{{ display() }}</text>
+</svg>
+<div class="dial__foot">
+  <button
+    type="button"
+    class="dial__step"
+    [disabled]="value() <= min()"
+    [attr.aria-label]="'Smaller ' + ariaLabel()"
+    (click)="stepBy(-1)"
+  >
+    <span class="material-symbols-outlined">remove</span>
+  </button>
+  <span class="dial__max" aria-hidden="true">max {{ maxLabel() }}</span>
+  <button
+    type="button"
+    class="dial__step"
+    [disabled]="value() >= max()"
+    [attr.aria-label]="'Larger ' + ariaLabel()"
+    (click)="stepBy(1)"
+  >
+    <span class="material-symbols-outlined">add</span>
+  </button>
+</div>

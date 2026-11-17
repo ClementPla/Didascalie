@@ -370,6 +370,23 @@
   color: var(--p-text-muted-color);
 }
 
+.pager {
+  gap: 0.25rem;
+}
+
+.page-of {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.page-field {
+  min-width: 3ch;
+  padding: 0.125rem 0.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .sort {
   display: block;
 }

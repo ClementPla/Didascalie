@@ -243,10 +243,30 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
   }
 
   turnPage(delta: number): void {
-    this.page.set(
-      Math.max(0, Math.min(this.currentPage() + delta, this.pageCount() - 1)),
-    );
+    this.goToPage(this.currentPage() + delta);
+  }
+
+  /** Show this page (from 0), clamped to the pages there are. */
+  goToPage(index: number): void {
+    const target = Math.max(0, Math.min(index, this.pageCount() - 1));
+    if (target === this.currentPage()) return;
+    this.page.set(target);
     this.host.nativeElement.querySelector('.rows')?.scrollTo({ top: 0 });
+  }
+
+  /** The page typed in the pager's field: go there, then show the page
+   *  actually reached (a number out of range is clamped, anything else
+   *  is dropped). */
+  jumpToPage(field: HTMLInputElement): void {
+    const typed = Number.parseInt(field.value.trim(), 10);
+    if (Number.isFinite(typed)) this.goToPage(typed - 1);
+    field.value = String(this.currentPage() + 1);
+  }
+
+  /** Escape in the pager's field: drop what was typed. */
+  cancelPageEntry(field: HTMLInputElement): void {
+    field.value = String(this.currentPage() + 1);
+    field.blur();
   }
 
   /** A click on a row: it goes to the focused pane; with Ctrl (or ⌘) it joins

@@ -171,6 +171,18 @@
     @if (pageCount() > 1) {
       <div class="pager">
         <p-button
+          icon="pi pi-angle-double-left"
+          severity="secondary"
+          size="small"
+          [text]="true"
+          [rounded]="true"
+          [disabled]="currentPage() === 0"
+          ariaLabel="First page"
+          pTooltip="First page"
+          tooltipPosition="top"
+          (onClick)="goToPage(0)"
+        ></p-button>
+        <p-button
           icon="pi pi-chevron-left"
           severity="secondary"
           size="small"
@@ -180,7 +192,25 @@
           ariaLabel="Previous page"
           (onClick)="turnPage(-1)"
         ></p-button>
-        <span>{{ currentPage() + 1 }} / {{ pageCount() }}</span>
+        <span class="page-of">
+          <input
+            #pageField
+            pInputText
+            class="page-field"
+            type="text"
+            inputmode="numeric"
+            aria-label="Page"
+            pTooltip="Type a page and press Enter"
+            tooltipPosition="top"
+            [value]="currentPage() + 1"
+            [style.width.ch]="pageCount().toString().length + 2"
+            (focus)="pageField.select()"
+            (keydown.enter)="jumpToPage(pageField); pageField.select()"
+            (keydown.escape)="cancelPageEntry(pageField)"
+            (blur)="jumpToPage(pageField)"
+          />
+          / {{ pageCount() }}
+        </span>
         <p-button
           icon="pi pi-chevron-right"
           severity="secondary"
@@ -190,6 +220,18 @@
           [disabled]="currentPage() >= pageCount() - 1"
           ariaLabel="Next page"
           (onClick)="turnPage(1)"
+        ></p-button>
+        <p-button
+          icon="pi pi-angle-double-right"
+          severity="secondary"
+          size="small"
+          [text]="true"
+          [rounded]="true"
+          [disabled]="currentPage() >= pageCount() - 1"
+          ariaLabel="Last page"
+          pTooltip="Last page"
+          tooltipPosition="top"
+          (onClick)="goToPage(pageCount() - 1)"
         ></p-button>
       </div>
     }
