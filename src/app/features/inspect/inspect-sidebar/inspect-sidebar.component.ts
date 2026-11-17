@@ -191,13 +191,15 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
       });
     });
 
-    // Turn to the focused sequence's page, unless a search is narrowing the list.
+    // Turn to the focused sequence's page when it changes or the list first
+    // loads, unless a search is narrowing the list. Not when the sort
+    // changes: the list then starts from the top, as in the gallery.
     effect(() => {
       const id = this.focusedId();
-      const all = this.sequences();
+      this.allSequences();
       untracked(() => {
         if (id === null || this.query().trim() !== '') return;
-        const index = all.findIndex((s) => s.id === id);
+        const index = this.sequences().findIndex((s) => s.id === id);
         if (index < 0) return;
         this.page.set(Math.floor(index / PAGE_SIZE));
         this.scrollToCurrent();
@@ -235,6 +237,12 @@ export class InspectSidebarComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.thumbnailRun++;
+  }
+
+  /** The sort buttons changed the order: show the top of the list. */
+  sortChanged(): void {
+    this.page.set(0);
+    this.host.nativeElement.querySelector('.rows')?.scrollTo({ top: 0 });
   }
 
   search(query: string): void {

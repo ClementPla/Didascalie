@@ -83,7 +83,7 @@
       </p>
     }
     @if (worklist.active()) {
-      <app-sort-buttons class="sort" [compact]="true" />
+      <app-sort-buttons class="sort" [compact]="true" (changed)="sortChanged()" />
     }
 
     <p-iconfield>

@@ -181,10 +181,15 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.intervalFunction) {
       clearInterval(this.intervalFunction);
     }
   }
+
+  /** Set on leaving: a refresh still loading then stops there, instead of
+   *  re-setting the shared worklist and starting a timer nothing clears. */
+  private destroyed = false;
 
   // ── Initialization ───────────────────────────────────────────────────────
 
@@ -203,6 +208,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     }
 
     const newItems = await this.getItems();
+    if (this.destroyed) return;
 
     if (JSON.stringify(this.galleryItems) !== JSON.stringify(newItems)) {
       this.galleryItems = newItems;
