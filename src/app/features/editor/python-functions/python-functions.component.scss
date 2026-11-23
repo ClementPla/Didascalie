@@ -59,7 +59,7 @@ $gutter: 0.75rem;
 .fn-group {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
 
   & + & {
     margin-top: 0.9rem;
@@ -72,6 +72,21 @@ $gutter: 0.75rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     opacity: 0.6;
+  }
+}
+
+.fn-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--p-content-border-color, rgba(128, 128, 128, 0.35));
+  border-radius: var(--p-content-border-radius, 6px);
+
+  app-python-params {
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--p-content-border-color, rgba(128, 128, 128, 0.35));
   }
 }
 

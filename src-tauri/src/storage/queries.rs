@@ -334,6 +334,19 @@ pub fn get_frame_dimensions(conn: &Connection, frame_id: i64) -> Result<(u32, u3
     Ok((width, height))
 }
 
+/// The frame's file path within the project, or its sequence's name when it
+/// has none.
+pub fn frame_name(conn: &Connection, frame_id: i64) -> Result<Option<String>> {
+    let name = conn.query_row(
+        "SELECT COALESCE(f.relative_path, s.name)
+         FROM frames f JOIN sequences s ON s.id = f.sequence_id
+         WHERE f.id = ?1",
+        params![frame_id],
+        |row| row.get(0),
+    )?;
+    Ok(name)
+}
+
 pub fn load_annotations(conn: &Connection, frame_id: i64) -> Result<Vec<AnnotationData>> {
     let mut stmt = conn.prepare(
         "SELECT l.id, l.name, l.color, a.encoding, a.mask_data

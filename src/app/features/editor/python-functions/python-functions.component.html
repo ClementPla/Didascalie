@@ -35,42 +35,44 @@
     <section class="fn-group">
       <h4 class="fn-group__title">This frame</h4>
       @for (fn of python.frameFunctions(); track fn.name) {
-        <div class="fn-row">
-          <div class="fn-row__text">
-            <span class="fn-row__name">{{ fn.name }}</span>
-            @if (fn.doc) {
-              <small class="fn-row__doc">{{ fn.doc }}</small>
+        <article class="fn-card">
+          <div class="fn-row">
+            <div class="fn-row__text">
+              <span class="fn-row__name">{{ fn.name }}</span>
+              @if (fn.doc) {
+                <small class="fn-row__doc">{{ fn.doc }}</small>
+              }
+            </div>
+            @if (fn.params.length) {
+              <p-button
+                icon="pi pi-sliders-h"
+                severity="secondary"
+                [text]="true"
+                size="small"
+                pTooltip="Show or hide the arguments"
+                tooltipPosition="left"
+                [ariaLabel]="'Arguments of ' + fn.name"
+                [ariaExpanded]="!collapsed().has(fn.name)"
+                (onClick)="toggleParams(fn)"
+              />
             }
-          </div>
-          @if (fn.params.length) {
             <p-button
-              icon="pi pi-sliders-h"
+              icon="pi pi-play"
               severity="secondary"
-              [text]="true"
+              [outlined]="true"
               size="small"
-              pTooltip="Show or hide the arguments"
+              [loading]="python.running() === fn.name"
+              [disabled]="python.running() !== null || !python.argsValid(fn)"
+              [pTooltip]="frameTooltip(fn)"
               tooltipPosition="left"
-              [ariaLabel]="'Arguments of ' + fn.name"
-              [ariaExpanded]="!collapsed().has(fn.name)"
-              (onClick)="toggleParams(fn)"
+              [ariaLabel]="'Run ' + fn.name + ' on this frame'"
+              (onClick)="python.runOnFrame(fn)"
             />
+          </div>
+          @if (fn.params.length && !collapsed().has(fn.name)) {
+            <app-python-params [fn]="fn" />
           }
-          <p-button
-            icon="pi pi-play"
-            severity="secondary"
-            [outlined]="true"
-            size="small"
-            [loading]="python.running() === fn.name"
-            [disabled]="python.running() !== null || !python.argsValid(fn)"
-            [pTooltip]="frameTooltip(fn)"
-            tooltipPosition="left"
-            [ariaLabel]="'Run ' + fn.name + ' on this frame'"
-            (onClick)="python.runOnFrame(fn)"
-          />
-        </div>
-        @if (fn.params.length && !collapsed().has(fn.name)) {
-          <app-python-params [fn]="fn" />
-        }
+        </article>
       }
     </section>
   }
@@ -79,26 +81,28 @@
     <section class="fn-group">
       <h4 class="fn-group__title">Whole sequence</h4>
       @for (fn of python.sequenceFunctions(); track fn.name) {
-        <div class="fn-row">
-          <div class="fn-row__text">
-            <span class="fn-row__name">{{ fn.name }}</span>
-            @if (fn.doc) {
-              <small class="fn-row__doc">{{ fn.doc }}</small>
-            }
+        <article class="fn-card">
+          <div class="fn-row">
+            <div class="fn-row__text">
+              <span class="fn-row__name">{{ fn.name }}</span>
+              @if (fn.doc) {
+                <small class="fn-row__doc">{{ fn.doc }}</small>
+              }
+            </div>
+            <p-button
+              icon="pi pi-images"
+              severity="secondary"
+              [outlined]="true"
+              size="small"
+              [loading]="python.running() === fn.name"
+              [disabled]="python.running() !== null"
+              [pTooltip]="'Run ' + fn.name + ' on the sequence…'"
+              tooltipPosition="left"
+              [ariaLabel]="'Run ' + fn.name + ' on the sequence'"
+              (onClick)="askSequenceRun(fn)"
+            />
           </div>
-          <p-button
-            icon="pi pi-images"
-            severity="secondary"
-            [outlined]="true"
-            size="small"
-            [loading]="python.running() === fn.name"
-            [disabled]="python.running() !== null"
-            [pTooltip]="'Run ' + fn.name + ' on the sequence…'"
-            tooltipPosition="left"
-            [ariaLabel]="'Run ' + fn.name + ' on the sequence'"
-            (onClick)="askSequenceRun(fn)"
-          />
-        </div>
+        </article>
       }
     </section>
   }

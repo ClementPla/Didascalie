@@ -5,4 +5,8 @@ export type PythonSegFrame = { layers: Array<PythonSegLayer>,
 /**
  * Label names the function returned that the project does not have.
  */
-unknownLabels: Array<string>, };
+unknownLabels: Array<string>, 
+/**
+ * A message from the function, to show when the run ends.
+ */
+message: string | null, };

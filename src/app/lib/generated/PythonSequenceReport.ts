@@ -4,4 +4,8 @@ export type PythonSequenceReport = {
 /**
  * Frames that received at least one mask.
  */
-applied: number[], unknownLabels: Array<string>, };
+applied: number[], unknownLabels: Array<string>, 
+/**
+ * A message from the function, to show when the run ends.
+ */
+message: string | null, };

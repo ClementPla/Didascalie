@@ -48,6 +48,10 @@ pub enum Request {
         masks: Option<MaskPayloads>,
         #[serde(skip_serializing_if = "BTreeMap::is_empty")]
         args: ArgValues,
+        /// The file path of the frame within the project, for sequences the
+        /// frame open in the editor.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_name: Option<String>,
     },
     // A sequence goes over as one message per frame: begin, the frames, run,
     // then one result per frame.
@@ -59,6 +63,10 @@ pub enum Request {
         frame_index: Option<usize>,
         #[serde(skip_serializing_if = "BTreeMap::is_empty")]
         args: ArgValues,
+        /// The file path of the frame within the project, for sequences the
+        /// frame open in the editor.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        frame_name: Option<String>,
     },
     SeqFrame {
         index: usize,
@@ -177,10 +185,15 @@ pub struct MasksReply {
     /// Returned label names the project does not have.
     #[serde(default)]
     pub unknown: Vec<String>,
+    /// A message from the function, to show when the run ends.
+    #[serde(default)]
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SeqRunReply {
     #[serde(default)]
     pub unknown: Vec<String>,
+    #[serde(default)]
+    pub message: Option<String>,
 }

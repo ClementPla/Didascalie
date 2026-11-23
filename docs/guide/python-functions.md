@@ -131,6 +131,7 @@ optional and only sent when the function names them:
 | `labels` | The project's label names, in the order of the labels panel |
 | `active_label` | Name of the label selected in the editor, or `None` |
 | `frame_index` | Index of the frame in its sequence |
+| `frame_name` | File path of the frame within the project. For a frame without one, the name of its sequence |
 
 ```python
 @register_seg
@@ -186,6 +187,7 @@ restarted. `@register_sequence_seg` takes arguments the same way;
 | C × H × W array, one mask per label, in the order of the labels panel | Replaces every label. |
 | H × W array | Added to the active label, keeping what is there. |
 | `None` | Nothing. |
+| `Result(masks, message="...")` | Any of the above, and a message shown when the run ends. |
 
 Masks are NumPy arrays or torch tensors, of type:
 
@@ -197,6 +199,17 @@ Masks are NumPy arrays or torch tensors, of type:
 On an instance label, a boolean or float mask added to the active label takes
 the instance selected in the editor.
 
+A function that exports something rather than drawing can report it:
+
+```python
+from didascalie.com import Result, register_seg
+
+@register_seg
+def export(image, masks, frame_name):
+    path = save_measurements(masks, frame_name)
+    return Result(message=f"Saved to {path}")
+```
+
 ### Whole sequences
 
 `@register_sequence_seg` has the same contract with a leading frame axis, for
@@ -207,6 +220,7 @@ trackers and video or 3D models.
 | First parameter | H × W × 3 | T × H × W × 3 |
 | `masks` | `{label: H × W}` | `{label: T × H × W}` |
 | `frame_index` | Index in the sequence | Position of the open frame among the frames received |
+| `frame_name` | Name of the frame | Name of the open frame |
 | Returns | `{label: H × W}`, C × H × W or H × W | `{label: T × H × W}`, T × C × H × W or T × H × W |
 
 ```python

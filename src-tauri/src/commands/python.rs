@@ -231,6 +231,8 @@ pub struct SegmentedFrame {
     pub layers: Vec<SegmentedLayer>,
     /// Label names the function returned that the project does not have.
     pub unknown_labels: Vec<String>,
+    /// A message from the function, to show when the run ends.
+    pub message: Option<String>,
 }
 
 /// Run a `@register_seg` function on one frame and hand the masks back. With
@@ -258,6 +260,7 @@ pub async fn python_segment_frame(
                 .then(|| current_masks(&db, frame_id, &context))
                 .transpose()?,
             args: context.args.clone(),
+            frame_name: db.with_conn(|conn| queries::frame_name(conn, frame_id))?,
         };
 
         let channel = app.state::<InferenceClient>().channel().map_err(bridge)?;
@@ -275,7 +278,7 @@ pub async fn python_segment_frame(
                 })
             })
             .collect::<Result<_>>()?;
-        Ok(SegmentedFrame { layers, unknown_labels: reply.unknown })
+        Ok(SegmentedFrame { layers, unknown_labels: reply.unknown, message: reply.message })
     })
     .await
 }
@@ -296,6 +299,8 @@ pub struct SequenceSegReport {
     #[ts(type = "number[]")]
     pub applied: Vec<i64>,
     pub unknown_labels: Vec<String>,
+    /// A message from the function, to show when the run ends.
+    pub message: Option<String>,
 }
 
 /// Run a `@register_sequence_seg` function over `frame_ids` and store what it
@@ -335,6 +340,10 @@ fn segment_sequence(
         let _ = app.emit("python-seg-progress", SequenceProgress { stage, done, total });
     };
 
+    let frame_name = match current_frame_id.filter(|id| frame_ids.contains(id)) {
+        Some(id) => db.with_conn(|conn| queries::frame_name(conn, id))?,
+        None => None,
+    };
     let begin = Request::SeqBegin {
         name,
         n_frames: total,
@@ -342,6 +351,7 @@ fn segment_sequence(
         active_label: ctx.active_name(),
         frame_index: current_frame_id.and_then(|id| frame_ids.iter().position(|&f| f == id)),
         args: ctx.args.clone(),
+        frame_name,
     };
     channel.send(&begin, timeout::PING).map_err(bridge)?;
 
@@ -360,7 +370,11 @@ fn segment_sequence(
 
     // (frame, label, rle8) rows, kept encoded so a long sequence stays small.
     let mut rows: Vec<(i64, i64, Vec<u8>)> = Vec::new();
-    let mut report = SequenceSegReport { unknown_labels: run.unknown, ..Default::default() };
+    let mut report = SequenceSegReport {
+        unknown_labels: run.unknown,
+        message: run.message,
+        ..Default::default()
+    };
 
     for (index, &frame_id) in frame_ids.iter().enumerate() {
         progress("receiving", index);
@@ -471,6 +485,19 @@ mod tests {
         apply_lut(&mut rgb, &lut).unwrap();
         assert_eq!(rgb, vec![245, 20, 9, 55, 100, 9]);
         assert!(apply_lut(&mut rgb, &lut[1..]).is_err());
+    }
+
+    #[test]
+    fn a_frame_is_named_by_its_path_or_else_its_sequence() {
+        let conn = queries::create_database(std::path::Path::new(":memory:")).unwrap();
+        conn.execute_batch(
+            "INSERT INTO sequences (id, name) VALUES (1, 'visit');
+             INSERT INTO frames (id, sequence_id, frame_index, relative_path, width, height)
+             VALUES (7, 1, 0, 'sub/a.png', 1, 1), (8, 1, 1, NULL, 1, 1);",
+        )
+        .unwrap();
+        assert_eq!(queries::frame_name(&conn, 7).unwrap().as_deref(), Some("sub/a.png"));
+        assert_eq!(queries::frame_name(&conn, 8).unwrap().as_deref(), Some("visit"));
     }
 
     #[test]

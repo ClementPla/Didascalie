@@ -197,7 +197,7 @@ mod tests {
     let seg: MasksReply = chan
       .call(&Request::Segment {
         name: "bright".into(), image: image(200), labels: labels.clone(),
-        active_label: Some("b".into()), frame_index: Some(0), masks: Some(masks), args: Default::default(),
+        active_label: Some("b".into()), frame_index: Some(0), masks: Some(masks), args: Default::default(), frame_name: None,
       }, timeout::PING)
       .unwrap();
     assert_eq!(seg.unknown, vec!["zzz"]);
@@ -208,12 +208,12 @@ mod tests {
     let single: MasksReply = chan
       .call(&Request::Segment {
         name: "single".into(), image: image(0), labels: labels.clone(),
-        active_label: None, frame_index: None, masks: None, args: Default::default(),
+        active_label: None, frame_index: None, masks: None, args: Default::default(), frame_name: None,
       }, timeout::PING)
       .unwrap();
     assert_eq!((single.masks[0].label.clone(), single.masks[0].buf[0], single.masks[0].binary), (None, 3, false));
 
-    chan.send(&Request::SeqBegin { name: "track".into(), n_frames: 3, labels: labels.clone(), active_label: Some("a".into()), frame_index: Some(1), args: Default::default() }, timeout::PING).unwrap();
+    chan.send(&Request::SeqBegin { name: "track".into(), n_frames: 3, labels: labels.clone(), active_label: Some("a".into()), frame_index: Some(1), args: Default::default(), frame_name: None }, timeout::PING).unwrap();
     for (index, red) in [0u8, 200, 0].into_iter().enumerate() {
       chan.send(&Request::SeqFrame { index, image: image(red), masks: None }, timeout::PING).unwrap();
     }
@@ -232,7 +232,7 @@ mod tests {
     // A Python exception comes back as the peer's own message.
     let err = chan
       .call::<MasksReply>(&Request::Segment {
-        name: "boom".into(), image: image(0), labels, active_label: None, frame_index: None, masks: None, args: Default::default(),
+        name: "boom".into(), image: image(0), labels, active_label: None, frame_index: None, masks: None, args: Default::default(), frame_name: None,
       }, timeout::PING)
       .unwrap_err();
     assert_eq!(err.to_string(), "RuntimeError: model exploded");
@@ -266,7 +266,7 @@ mod tests {
       let args: ArgValues = serde_json::from_value(args).unwrap();
       client.channel().unwrap().call::<MasksReply>(&Request::Segment {
         name: "scaled".into(), image: image(0), labels: vec!["a".into()],
-        active_label: Some("a".into()), frame_index: None, masks: None, args,
+        active_label: Some("a".into()), frame_index: None, masks: None, args, frame_name: Some("sub/a.png".into()),
       }, timeout::PING)
     };
     let reply = run(serde_json::json!({ "gain": 2.5, "n": 2, "on": true, "mode": "b" })).unwrap();
@@ -274,5 +274,24 @@ mod tests {
     assert_eq!(run(serde_json::json!({})).unwrap().masks[0].buf[0], 1);
     let refused = run(serde_json::json!({ "gain": 11 })).unwrap_err();
     assert!(refused.to_string().contains("above the maximum"), "{refused}");
+  }
+
+  /// Needs `named(image, frame_name)`, returning
+  /// `Result(message=f"Saved {frame_name}")`.
+  #[test]
+  #[ignore = "needs a running Python server"]
+  fn passes_the_frame_name_and_receives_a_message() {
+    use crate::connection::request::MasksReply;
+
+    let port: u16 = std::env::var("DIDASCALIE_TEST_PORT").unwrap().parse().unwrap();
+    let client = InferenceClient::new();
+    client.connect("127.0.0.1", port, timeout::PING).unwrap();
+    let reply: MasksReply = client.channel().unwrap().call(&Request::Segment {
+      name: "named".into(), image: image(0), labels: vec!["a".into()], active_label: None,
+      frame_index: None, masks: None, args: Default::default(),
+      frame_name: Some("sub/a.png".into()),
+    }, timeout::PING).unwrap();
+    assert!(reply.masks.is_empty());
+    assert_eq!(reply.message.as_deref(), Some("Saved sub/a.png"));
   }
 }

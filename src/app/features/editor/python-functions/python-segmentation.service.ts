@@ -23,6 +23,9 @@ import { SequenceUndoService } from '../services/sequence-undo.service';
 import { base64ToUint8 } from '../../../core/misc/base64';
 import { decodeRle8 } from '../../../lib/rle8';
 
+/** Long enough to read a message from a function, such as a file path. */
+const MESSAGE_LIFE = 10000;
+
 /** Which frames a sequence function is given. */
 export type SequenceRunScope = 'all' | 'fromCurrent';
 
@@ -216,6 +219,11 @@ export class PythonSegmentationService {
         }))
         .filter((layer) => layer.index >= 0);
 
+      if (!applied.length && result.message) {
+        this.showMessage(fn, result.message, result.unknownLabels);
+        return;
+      }
+
       if (!applied.length) {
         this.notifications.warn(
           `${fn.name}: nothing applied`,
@@ -245,11 +253,14 @@ export class PythonSegmentationService {
       this.orchestrator.requestRedrawAllCanvas();
 
       const unknown = this.unknownDetail(result.unknownLabels);
+      const note = result.message ? `${result.message} ` : '';
       this.notifications.notify({
         severity: unknown ? 'warn' : 'success',
         summary: `${fn.name} applied`,
-        detail: unknown ? `${unknown} Ctrl+Z to revert.` : 'Ctrl+Z to revert',
-        life: unknown ? 6000 : 3000,
+        detail: unknown
+          ? `${note}${unknown} Ctrl+Z to revert.`
+          : `${note}Ctrl+Z to revert`,
+        life: result.message ? MESSAGE_LIFE : unknown ? 6000 : 3000,
       });
     } catch (error) {
       this.notifications.error(`${fn.name} failed`, String(error));
@@ -284,6 +295,10 @@ export class PythonSegmentationService {
 
       const unknown = this.unknownDetail(report.unknownLabels);
       const count = report.applied.length;
+      if (!count && report.message) {
+        this.showMessage(fn, report.message, report.unknownLabels);
+        return true;
+      }
       if (!count) {
         this.notifications.warn(
           `${fn.name}: nothing applied`,
@@ -301,8 +316,10 @@ export class PythonSegmentationService {
       this.notifications.notify({
         severity: unknown ? 'warn' : 'success',
         summary: `${fn.name} applied`,
-        detail: unknown ? `Wrote ${frames}. ${unknown}` : `Wrote ${frames}.`,
-        life: 5000,
+        detail: [`Wrote ${frames}.`, report.message, unknown]
+          .filter(Boolean)
+          .join(' '),
+        life: report.message ? MESSAGE_LIFE : 5000,
       });
       return true;
     } catch (error) {
@@ -312,6 +329,21 @@ export class PythonSegmentationService {
       this.running.set(null);
       this.progress.set(null);
     }
+  }
+
+  /** A run that changed no mask but has something to say. */
+  private showMessage(
+    fn: PythonFunction,
+    message: string,
+    unknownLabels: string[],
+  ): void {
+    const unknown = this.unknownDetail(unknownLabels);
+    this.notifications.notify({
+      severity: unknown ? 'warn' : 'success',
+      summary: fn.name,
+      detail: unknown ? `${message} ${unknown}` : message,
+      life: MESSAGE_LIFE,
+    });
   }
 
   private unknownDetail(unknown: string[]): string | null {
