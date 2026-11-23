@@ -17,7 +17,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::commands::annotation::decode_to_uint8;
 use crate::connection::inference::{load_frame_as_payload, timeout, Channel, InferenceClient};
 use crate::connection::request::{
-    FindKeypointsReply, ImagePayload, MaskPayloads, MasksReply, PingReply, Request, SeqRunReply,
+    ArgValues, FindKeypointsReply, ImagePayload, MaskPayloads, MasksReply, PingReply, Request, SeqRunReply,
     WireMask,
 };
 use crate::connection::types::ComError;
@@ -107,6 +107,15 @@ pub struct SegContext {
     pub active_value: u8,
     /// Whether the function declared `masks`; they are only read and sent then.
     pub send_masks: bool,
+    /// Values of the arguments the function declared.
+    #[serde(default)]
+    #[ts(type = "Record<string, number | boolean | string>")]
+    pub args: ArgValues,
+    /// The image adjustments to apply to each frame sent: 256 values for red,
+    /// then green, then blue. Absent sends the frame as it is.
+    #[serde(default)]
+    #[ts(type = "number[] | null")]
+    pub image_lut: Option<Vec<u8>>,
 }
 
 impl SegContext {
@@ -118,6 +127,33 @@ impl SegContext {
         let id = self.active_label_id?;
         self.labels.iter().find(|l| l.id == id).map(|l| l.name.clone())
     }
+}
+
+/// Map interleaved RGB through `lut`, as the editor does on screen.
+fn apply_lut(rgb: &mut [u8], lut: &[u8]) -> Result<()> {
+    if lut.len() != 3 * 256 {
+        return Err(AppError::Other(format!(
+            "The image adjustments have {} values, expected 768",
+            lut.len()
+        )));
+    }
+    let (r, rest) = lut.split_at(256);
+    let (g, b) = rest.split_at(256);
+    for pixel in rgb.chunks_exact_mut(3) {
+        pixel[0] = r[pixel[0] as usize];
+        pixel[1] = g[pixel[1] as usize];
+        pixel[2] = b[pixel[2] as usize];
+    }
+    Ok(())
+}
+
+/// A frame as the function receives it.
+fn frame_payload(db: &DbState, frame_id: i64, ctx: &SegContext) -> Result<ImagePayload> {
+    let mut image = load_frame_as_payload(db, frame_id).map_err(bridge)?;
+    if let Some(lut) = &ctx.image_lut {
+        apply_lut(&mut image.buf, lut)?;
+    }
+    Ok(image)
 }
 
 /// A returned mask, resolved against the project.
@@ -213,7 +249,7 @@ pub async fn python_segment_frame(
         let (width, height) = db.with_conn(|conn| queries::get_frame_dimensions(conn, frame_id))?;
         let req = Request::Segment {
             name,
-            image: load_frame_as_payload(&db, frame_id).map_err(bridge)?,
+            image: frame_payload(&db, frame_id, &context)?,
             labels: context.names(),
             active_label: context.active_name(),
             frame_index,
@@ -221,6 +257,7 @@ pub async fn python_segment_frame(
                 .send_masks
                 .then(|| current_masks(&db, frame_id, &context))
                 .transpose()?,
+            args: context.args.clone(),
         };
 
         let channel = app.state::<InferenceClient>().channel().map_err(bridge)?;
@@ -304,6 +341,7 @@ fn segment_sequence(
         labels: ctx.names(),
         active_label: ctx.active_name(),
         frame_index: current_frame_id.and_then(|id| frame_ids.iter().position(|&f| f == id)),
+        args: ctx.args.clone(),
     };
     channel.send(&begin, timeout::PING).map_err(bridge)?;
 
@@ -311,7 +349,7 @@ fn segment_sequence(
         progress("sending", index);
         let frame = Request::SeqFrame {
             index,
-            image: load_frame_as_payload(&db, frame_id).map_err(bridge)?,
+            image: frame_payload(&db, frame_id, ctx)?,
             masks: ctx.send_masks.then(|| current_masks(&db, frame_id, ctx)).transpose()?,
         };
         channel.send(&frame, timeout::TRANSFER).map_err(bridge)?;
@@ -391,6 +429,8 @@ mod tests {
             active_label_id: Some(20),
             active_value: 5,
             send_masks: false,
+            args: ArgValues::new(),
+            image_lut: None,
         }
     }
 
@@ -419,6 +459,18 @@ mod tests {
         // Named, so it replaces: an on/off mask there is instance 1.
         let layer = resolve(wire(Some("cell"), vec![0, 1, 1], true), &ctx(), 3, 1).unwrap();
         assert_eq!(layer.mask, vec![0, 1, 1]);
+    }
+
+    #[test]
+    fn the_adjustments_map_each_channel_through_its_own_table() {
+        let mut lut = Vec::with_capacity(768);
+        lut.extend((0..=255u8).map(|v| 255 - v)); // red: inverted
+        lut.extend(0..=255u8); // green: unchanged
+        lut.extend(std::iter::repeat_n(9u8, 256)); // blue: constant
+        let mut rgb = vec![10, 20, 30, 200, 100, 0];
+        apply_lut(&mut rgb, &lut).unwrap();
+        assert_eq!(rgb, vec![245, 20, 9, 55, 100, 9]);
+        assert!(apply_lut(&mut rgb, &lut[1..]).is_err());
     }
 
     #[test]

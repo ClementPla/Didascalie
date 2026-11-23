@@ -24,6 +24,9 @@ impl ImagePayload {
 /// Current masks by label name. Labels with nothing drawn are left out.
 pub type MaskPayloads = BTreeMap<String, ImagePayload>;
 
+/// Values for the arguments a function declared. Python checks them.
+pub type ArgValues = BTreeMap<String, serde_json::Value>;
+
 #[derive(Serialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Request {
@@ -43,6 +46,8 @@ pub enum Request {
         frame_index: Option<usize>,
         #[serde(skip_serializing_if = "Option::is_none")]
         masks: Option<MaskPayloads>,
+        #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+        args: ArgValues,
     },
     // A sequence goes over as one message per frame: begin, the frames, run,
     // then one result per frame.
@@ -52,6 +57,8 @@ pub enum Request {
         labels: Vec<String>,
         active_label: Option<String>,
         frame_index: Option<usize>,
+        #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+        args: ArgValues,
     },
     SeqFrame {
         index: usize,
@@ -75,6 +82,31 @@ pub struct Status {
     pub error: Option<String>,
 }
 
+/// An argument the user sets in the editor, declared in the Python decorator.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../src/app/lib/generated/", rename = "PythonFunctionParam")]
+pub struct FunctionParam {
+    pub name: String,
+    /// "int" | "float" | "bool" | "enum"
+    #[serde(rename = "type")]
+    #[ts(type = "\"int\" | \"float\" | \"bool\" | \"enum\"")]
+    pub kind: String,
+    pub label: String,
+    #[serde(default)]
+    pub hint: String,
+    #[ts(type = "number | boolean | string")]
+    pub default: serde_json::Value,
+    #[serde(default)]
+    pub min: Option<f64>,
+    #[serde(default)]
+    pub max: Option<f64>,
+    #[serde(default)]
+    pub step: Option<f64>,
+    /// The options of an "enum".
+    #[serde(default)]
+    pub choices: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../src/app/lib/generated/", rename = "PythonFunction")]
 pub struct FunctionInfo {
@@ -87,6 +119,9 @@ pub struct FunctionInfo {
     /// Extras the function declared (`masks`, `labels`, …).
     #[serde(default)]
     pub wants: Vec<String>,
+    /// Arguments to ask the user for. Absent from older servers.
+    #[serde(default)]
+    pub params: Vec<FunctionParam>,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS)]
@@ -111,6 +146,7 @@ impl PingReply {
                     kind: "keypoints".into(),
                     doc: String::new(),
                     wants: Vec::new(),
+                    params: Vec::new(),
                 })
                 .collect();
         }

@@ -9,13 +9,7 @@ export type ProjectConfig = { name: string, input_folder: string | null,
  * Other paths the image folder is reached by, from other computers. See
  * `commands::project::resolve_image_folder`.
  */
-input_folder_alternates?: Array<string>, images_embedded: boolean, 
-/**
- * Files smaller than this are embedded even when `images_embedded` is off.
- * Missing or `null` (as some files written from Python have it) reads as
- * the default.
- */
-embed_threshold_kb: number, segmentation_enabled: boolean, classification_enabled: boolean, instance_segmentation_enabled: boolean, text_description_enabled: boolean, 
+input_folder_alternates?: Array<string>, images_embedded: boolean, segmentation_enabled: boolean, classification_enabled: boolean, instance_segmentation_enabled: boolean, text_description_enabled: boolean, 
 /**
  * Missing, as in projects from before regression existed, reads as off.
  */

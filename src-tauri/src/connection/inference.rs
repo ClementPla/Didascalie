@@ -197,7 +197,7 @@ mod tests {
     let seg: MasksReply = chan
       .call(&Request::Segment {
         name: "bright".into(), image: image(200), labels: labels.clone(),
-        active_label: Some("b".into()), frame_index: Some(0), masks: Some(masks),
+        active_label: Some("b".into()), frame_index: Some(0), masks: Some(masks), args: Default::default(),
       }, timeout::PING)
       .unwrap();
     assert_eq!(seg.unknown, vec!["zzz"]);
@@ -208,12 +208,12 @@ mod tests {
     let single: MasksReply = chan
       .call(&Request::Segment {
         name: "single".into(), image: image(0), labels: labels.clone(),
-        active_label: None, frame_index: None, masks: None,
+        active_label: None, frame_index: None, masks: None, args: Default::default(),
       }, timeout::PING)
       .unwrap();
     assert_eq!((single.masks[0].label.clone(), single.masks[0].buf[0], single.masks[0].binary), (None, 3, false));
 
-    chan.send(&Request::SeqBegin { name: "track".into(), n_frames: 3, labels: labels.clone(), active_label: Some("a".into()), frame_index: Some(1) }, timeout::PING).unwrap();
+    chan.send(&Request::SeqBegin { name: "track".into(), n_frames: 3, labels: labels.clone(), active_label: Some("a".into()), frame_index: Some(1), args: Default::default() }, timeout::PING).unwrap();
     for (index, red) in [0u8, 200, 0].into_iter().enumerate() {
       chan.send(&Request::SeqFrame { index, image: image(red), masks: None }, timeout::PING).unwrap();
     }
@@ -232,7 +232,7 @@ mod tests {
     // A Python exception comes back as the peer's own message.
     let err = chan
       .call::<MasksReply>(&Request::Segment {
-        name: "boom".into(), image: image(0), labels, active_label: None, frame_index: None, masks: None,
+        name: "boom".into(), image: image(0), labels, active_label: None, frame_index: None, masks: None, args: Default::default(),
       }, timeout::PING)
       .unwrap_err();
     assert_eq!(err.to_string(), "RuntimeError: model exploded");
@@ -243,5 +243,36 @@ mod tests {
     assert!(started.elapsed() < Duration::from_secs(2));
     // A failed connect leaves the working endpoint in place.
     assert!(client.channel().unwrap().send(&Request::Ping, timeout::PING).is_ok());
+  }
+
+  /// Needs `scaled(image, gain=Float(1, max=10), n=Int(1), on=Boolean(),
+  /// mode=Enum(["a", "b"]))`, returning `gain * n + on + (mode == "b")` as a
+  /// constant H × W mask of integers.
+  #[test]
+  #[ignore = "needs a running Python server"]
+  fn passes_arguments_to_python() {
+    use crate::connection::request::{ ArgValues, MasksReply };
+
+    let port: u16 = std::env::var("DIDASCALIE_TEST_PORT").unwrap().parse().unwrap();
+    let client = InferenceClient::new();
+    let ping = client.connect("127.0.0.1", port, timeout::PING).unwrap();
+    let scaled = ping.functions.iter().find(|f| f.name == "scaled").unwrap();
+    let kinds: Vec<&str> = scaled.params.iter().map(|p| p.kind.as_str()).collect();
+    assert_eq!(kinds, ["float", "int", "bool", "enum"]);
+    assert_eq!(scaled.params[0].max, Some(10.0));
+    assert_eq!(scaled.params[3].choices, ["a", "b"]);
+
+    let run = |args: serde_json::Value| {
+      let args: ArgValues = serde_json::from_value(args).unwrap();
+      client.channel().unwrap().call::<MasksReply>(&Request::Segment {
+        name: "scaled".into(), image: image(0), labels: vec!["a".into()],
+        active_label: Some("a".into()), frame_index: None, masks: None, args,
+      }, timeout::PING)
+    };
+    let reply = run(serde_json::json!({ "gain": 2.5, "n": 2, "on": true, "mode": "b" })).unwrap();
+    assert_eq!(reply.masks[0].buf[0], 7);
+    assert_eq!(run(serde_json::json!({})).unwrap().masks[0].buf[0], 1);
+    let refused = run(serde_json::json!({ "gain": 11 })).unwrap_err();
+    assert!(refused.to_string().contains("above the maximum"), "{refused}");
   }
 }

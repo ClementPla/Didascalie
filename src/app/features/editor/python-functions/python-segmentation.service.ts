@@ -1,7 +1,12 @@
 import { Injectable, NgZone, computed, inject, signal } from '@angular/core';
 import { listen } from '@tauri-apps/api/event';
 
-import { api, PythonFunction, PythonSegContext } from '../../../lib/api';
+import {
+  api,
+  PythonFunction,
+  PythonFunctionParam,
+  PythonSegContext,
+} from '../../../lib/api';
 import { InferenceClientService } from '../../../services/inference-client.service';
 import { IOService } from '../../../services/io.service';
 import { LabelsService } from '../../../services/labels/labels.service';
@@ -9,6 +14,8 @@ import { PropagationService } from '../../../services/labels/propagation.service
 import { NotificationService } from '../../../services/notification.service';
 import { ProjectService } from '../../../services/project/project.service';
 import { SequenceService } from '../../../services/sequence.service';
+import { EditorService } from '../services/editor.service';
+import { ImageAdjustmentService } from '../drawable-canvas/service/image-adjustment/image-adjustment.service';
 import { CanvasManagerService } from '../drawable-canvas/service/canvas-manager.service';
 import { OrchestratorService } from '../drawable-canvas/service/orchestrator.service';
 import { UndoRedoService } from '../drawable-canvas/service/undo-redo.service';
@@ -18,6 +25,9 @@ import { decodeRle8 } from '../../../lib/rle8';
 
 /** Which frames a sequence function is given. */
 export type SequenceRunScope = 'all' | 'fromCurrent';
+
+/** What an argument holds; `null` is a number field left empty. */
+export type PythonArgValue = number | boolean | string | null;
 
 export interface SequenceRunProgress {
   stage: 'sending' | 'running' | 'receiving';
@@ -44,6 +54,8 @@ export class PythonSegmentationService {
   private readonly propagation = inject(PropagationService);
   private readonly notifications = inject(NotificationService);
   private readonly zone = inject(NgZone);
+  private readonly adjustments = inject(ImageAdjustmentService);
+  private readonly editor = inject(EditorService);
 
   readonly frameFunctions = this.inference.segFunctions;
 
@@ -64,6 +76,30 @@ export class PythonSegmentationService {
   readonly running = signal<string | null>(null);
   readonly progress = signal<SequenceRunProgress | null>(null);
 
+  /** Values the user changed, by function then argument. Kept for the session,
+   *  so they survive the Python script being restarted. */
+  private readonly argValues = signal<
+    Record<string, Record<string, PythonArgValue>>
+  >({});
+
+  /** Whether every function receives the image with the image adjustments
+   *  applied. Off by default: a display setting should not change a result
+   *  unasked. */
+  readonly useAdjustments = signal(false);
+
+  /** The editor's own switch for the image adjustments (Q). */
+  get adjustmentsEnabled(): boolean {
+    return this.editor.useProcessing;
+  }
+
+  /** What the backend applies to each frame: red, green, then blue. Null
+   *  when the frame goes as it is. */
+  private imageLut(): number[] | null {
+    if (!this.useAdjustments()) return null;
+    const lut = this.adjustments.activeLUT();
+    return lut ? [...lut.r, ...lut.g, ...lut.b] : null;
+  }
+
   constructor() {
     // Tauri callbacks fire outside Angular's zone.
     void listen<SequenceRunProgress>('python-seg-progress', (e) =>
@@ -80,6 +116,53 @@ export class PythonSegmentationService {
     return frames.slice(from).map((f) => f.id);
   }
 
+  /** The value to show: the user's, unless the function's declaration has
+   *  since changed so that it no longer fits. */
+  argValue(fn: PythonFunction, param: PythonFunctionParam): PythonArgValue {
+    const stored = this.argValues()[fn.name]?.[param.name];
+    return stored !== undefined && fitsType(param, stored)
+      ? stored
+      : param.default;
+  }
+
+  setArg(
+    fn: PythonFunction,
+    param: PythonFunctionParam,
+    value: PythonArgValue,
+  ): void {
+    this.argValues.update((all) => ({
+      ...all,
+      [fn.name]: { ...all[fn.name], [param.name]: value },
+    }));
+  }
+
+  /** Why the current value cannot be sent, or null. */
+  argError(fn: PythonFunction, param: PythonFunctionParam): string | null {
+    if (param.type !== 'int' && param.type !== 'float') return null;
+    const value = this.argValue(fn, param) as number | null;
+    if (value === null) return 'A value is required.';
+    if (param.type === 'int' && !Number.isInteger(value)) {
+      return 'Must be a whole number.';
+    }
+    if (param.min !== null && value < param.min) {
+      return `Must be at least ${param.min}.`;
+    }
+    if (param.max !== null && value > param.max) {
+      return `Must be at most ${param.max}.`;
+    }
+    return null;
+  }
+
+  argsValid(fn: PythonFunction): boolean {
+    return fn.params.every((p) => this.argError(fn, p) === null);
+  }
+
+  private args(fn: PythonFunction): PythonSegContext['args'] {
+    return Object.fromEntries(
+      fn.params.map((p) => [p.name, this.argValue(fn, p) as number]),
+    );
+  }
+
   private context(fn: PythonFunction): PythonSegContext {
     return {
       labels: this.labelService.listSegmentationLabels.map((l) => ({
@@ -92,12 +175,14 @@ export class PythonSegmentationService {
         this.projectService.isInstanceSegmentation(),
       ),
       sendMasks: fn.wants.includes('masks'),
+      args: this.args(fn),
+      imageLut: this.imageLut(),
     };
   }
 
   async runOnFrame(fn: PythonFunction): Promise<void> {
     const frame = this.sequenceService.currentFrame();
-    if (!frame || this.running()) return;
+    if (!frame || this.running() || !this.argsValid(fn)) return;
 
     this.running.set(fn.name);
     try {
@@ -180,7 +265,7 @@ export class PythonSegmentationService {
     scope: SequenceRunScope,
   ): Promise<boolean> {
     const frameIds = this.targetFrameIds(scope);
-    if (!frameIds.length || this.running()) return false;
+    if (!frameIds.length || this.running() || !this.argsValid(fn)) return false;
 
     this.running.set(fn.name);
     this.progress.set(null);
@@ -232,5 +317,17 @@ export class PythonSegmentationService {
   private unknownDetail(unknown: string[]): string | null {
     if (!unknown.length) return null;
     return `Ignored labels this project does not have: ${unknown.join(', ')}.`;
+  }
+}
+
+function fitsType(param: PythonFunctionParam, value: PythonArgValue): boolean {
+  switch (param.type) {
+    case 'int':
+    case 'float':
+      return value === null || typeof value === 'number';
+    case 'bool':
+      return typeof value === 'boolean';
+    case 'enum':
+      return param.choices.includes(value as string);
   }
 }

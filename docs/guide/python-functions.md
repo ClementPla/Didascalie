@@ -139,7 +139,44 @@ def refine(image, masks, active_label):
     return sam(image, prompt)
 ```
 
-Any other parameter needs a default value.
+Any other parameter needs a default value, or must be declared as an
+[argument](#arguments).
+
+### Arguments
+
+Values the user sets in the editor are declared in the decorator, each under the
+name of the function parameter that receives it:
+
+```python
+from didascalie.com import Boolean, Enum, Float, Int, register_seg
+
+@register_seg(
+    "vessels",
+    threshold=Float(0.5, min=0, max=1, step=0.05, label="Threshold"),
+    min_size=Int(20, min=0, label="Smallest region", hint="In pixels"),
+    clean=Boolean(True, label="Remove specks"),
+    model=Enum(["fast", "accurate"], default="accurate"),
+)
+def vessels(image, threshold, min_size, clean, model):
+    ...
+```
+
+| Type | Editor control | Options |
+| --- | --- | --- |
+| `Int(default)` | Number field, whole numbers | `min`, `max`, `step` |
+| `Float(default)` | Number field | `min`, `max`, `step` |
+| `Boolean(default=False)` | Switch | |
+| `Enum(choices, default=first)` | Drop-down list | |
+
+All four also take:
+
+- `label`, the name shown in the editor. By default, the parameter's name.
+- `hint`, the help line under the control. By default, numbers show their type
+  and range.
+
+The values are kept until the application closes, including when the script is
+restarted. `@register_sequence_seg` takes arguments the same way;
+`@register_kpts` does not.
 
 ### Return value
 
@@ -192,8 +229,18 @@ docstring.
   step.
 - **Whole sequence** lists the `@register_sequence_seg` functions, on sequences
   of more than one frame. You choose the whole sequence or the frames from the
-  current one onward. The masks are written straight to the project, like
+  current one onward, and set the function's arguments. The masks are written straight to the project, like
   [propagating labels](annotating.md), and this cannot be undone.
+
+The arguments of a frame function appear under its row, and the
+:material-tune: button folds them away. Those of a sequence function are in its
+run dialog.
+
+**Use image adjustments**, at the top of the panel, applies to every function
+and is off by default. On, functions receive frames with the
+[image adjustments](annotating.md) applied, as shown in the editor. It needs
+**Apply image adjustments** (++q++) on as well. On a sequence, the same
+adjustments apply to every frame. The stored image is never modified.
 
 A frame function has 5 minutes to answer, a sequence function an hour.
 

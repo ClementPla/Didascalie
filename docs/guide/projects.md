@@ -127,8 +127,6 @@ to locate it. You can also do it later with **Locate…** under **Image folder**
 the project settings. The project remembers every path it has been given, so the
 same file still opens on the other computers.
 
-Even in a referenced project, files under 100 KB are embedded.
-
 ## Sequences
 
 Every image belongs to a **sequence**. A sequence can hold a single image, or

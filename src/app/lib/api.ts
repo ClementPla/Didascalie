@@ -68,6 +68,7 @@ import type { PredictedFrame } from './generated/PredictedFrame';
 import type { PredictedMask } from './generated/PredictedMask';
 import type { ProjectConfig } from './generated/ProjectConfig';
 import type { PythonFunction } from './generated/PythonFunction';
+import type { PythonFunctionParam } from './generated/PythonFunctionParam';
 import type { PythonSegContext } from './generated/PythonSegContext';
 import type { PythonSegFrame } from './generated/PythonSegFrame';
 import type { PythonSegLayer } from './generated/PythonSegLayer';
@@ -145,6 +146,7 @@ export type {
   PredictedMask,
   ProjectConfig,
   PythonFunction,
+  PythonFunctionParam,
   PythonSegContext,
   PythonSegFrame,
   PythonSegLayer,

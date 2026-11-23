@@ -24,7 +24,6 @@ use ts_rs::TS;
 pub struct ScanOptions {
   pub folder_path: String,
   pub embed_images: bool,
-  pub embed_threshold_kb: u32,
   /// Extensions to take (any case, with or without the dot).
   pub extensions: Vec<String>,
   /// An optional pattern file names must also match. Empty takes any name.
@@ -239,7 +238,7 @@ fn scan_and_import(db: &DbState, options: ScanOptions, progress: &Progress) -> R
   log::info!("[import] grouped into {} sequence(s)", sequences.len());
   let started = std::time::Instant::now();
   let mut result =
-    import_sequences(db, sequences, options.embed_images, options.embed_threshold_kb, progress)?;
+    import_sequences(db, sequences, options.embed_images, progress)?;
   log::info!("[import] images: {} frame(s) in {:.1?}", result.frames_imported, started.elapsed());
 
   // Videos stay on disk whatever `embed_images` says (see `crate::video`), and
@@ -417,7 +416,7 @@ fn add_images(
 
   let started = std::time::Instant::now();
   let files: Vec<&ImageFile> = queue.iter().map(|(_, image)| image).collect();
-  read_images(&files, embed_images, options.embed_threshold_kb, progress, |i, read| {
+  read_images(&files, embed_images, progress, |i, read| {
     let (target, image) = (&mut targets[queue[i].0], &queue[i].1);
     match read.and_then(|read| insert_frame(&tx, target.sequence_id, target.next_index, image, read)) {
       Ok(embedded) => {
@@ -684,7 +683,6 @@ fn import_sequences(
   db: &DbState,
   sequences: HashMap<String, Vec<ImageFile>>,
   embed_images: bool,
-  embed_threshold_kb: u32,
   progress: &Progress
 ) -> Result<ScanResult> {
   let mut result = ScanResult {
@@ -714,7 +712,7 @@ fn import_sequences(
     }
 
     let files: Vec<&ImageFile> = queue.iter().map(|(_, _, image)| *image).collect();
-    read_images(&files, embed_images, embed_threshold_kb, progress, |i, read| {
+    read_images(&files, embed_images, progress, |i, read| {
       let (sequence_id, frame_index, image) = queue[i];
       match read.and_then(|read| insert_frame(&tx, sequence_id, frame_index, image, read)) {
         Ok(embedded) => {
@@ -744,12 +742,11 @@ struct ReadImage {
   embedded: Option<Vec<u8>>,
 }
 
-fn read_image(path: &Path, embed_images: bool, embed_threshold_kb: u32) -> Result<ReadImage> {
+fn read_image(path: &Path, embed_images: bool) -> Result<ReadImage> {
   let data = fs::read(path).map_err(AppError::Io)?;
   let content_hash = sha256_hex(&data);
   let (width, height) = get_image_dimensions(&data)?;
-  let embed = embed_images || ((data.len() / 1024) as u32) < embed_threshold_kb;
-  Ok(ReadImage { content_hash, width, height, embedded: embed.then_some(data) })
+  Ok(ReadImage { content_hash, width, height, embedded: embed_images.then_some(data) })
 }
 
 /// Read `files` several at a time and hand each to `each`, in order, with its
@@ -757,7 +754,6 @@ fn read_image(path: &Path, embed_images: bool, embed_threshold_kb: u32) -> Resul
 fn read_images(
   files: &[&ImageFile],
   embed_images: bool,
-  embed_threshold_kb: u32,
   progress: &Progress,
   mut each: impl FnMut(usize, Result<ReadImage>) -> Result<()>
 ) -> Result<()> {
@@ -767,7 +763,7 @@ fn read_images(
     let read: Vec<Result<ReadImage>> = chunk
       .par_iter()
       .map(|image| {
-        let read = read_image(&image.absolute_path, embed_images, embed_threshold_kb);
+        let read = read_image(&image.absolute_path, embed_images);
         progress.advance(&image.relative_path);
         read
       })
@@ -1105,7 +1101,6 @@ mod tests {
         ScanOptions {
             folder_path: folder.to_string_lossy().to_string(),
             embed_images: false,
-            embed_threshold_kb: 0,
             extensions: crate::types::project::default_extensions(),
             input_regex: String::new(),
             recursive: true,

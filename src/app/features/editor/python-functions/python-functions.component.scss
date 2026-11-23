@@ -31,6 +31,31 @@ $gutter: 0.75rem;
   }
 }
 
+.fn-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.2rem 0.5rem;
+  margin-bottom: 0.9rem;
+
+  &__label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  &__hint {
+    grid-column: 1 / -1;
+    opacity: 0.65;
+    font-size: 0.75rem;
+    line-height: 1.3;
+
+    &--warn {
+      opacity: 1;
+      color: var(--p-amber-400);
+    }
+  }
+}
+
 .fn-group {
   display: flex;
   flex-direction: column;

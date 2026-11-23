@@ -11,6 +11,26 @@
     </div>
   </ng-template>
 
+  <div class="fn-option">
+    <label class="fn-option__label" for="py-use-adjustments"
+      >Use image adjustments</label
+    >
+    <p-toggleswitch
+      inputId="py-use-adjustments"
+      [ngModel]="python.useAdjustments()"
+      (ngModelChange)="python.useAdjustments.set($event)"
+    />
+    @if (python.useAdjustments() && !python.adjustmentsEnabled) {
+      <small class="fn-option__hint fn-option__hint--warn" role="status"
+        >Adjustments are off in the editor (Q): images are sent unchanged</small
+      >
+    } @else {
+      <small class="fn-option__hint"
+        >Sends images with brightness, contrast and curves as displayed</small
+      >
+    }
+  </div>
+
   @if (python.frameFunctions().length) {
     <section class="fn-group">
       <h4 class="fn-group__title">This frame</h4>
@@ -22,19 +42,35 @@
               <small class="fn-row__doc">{{ fn.doc }}</small>
             }
           </div>
+          @if (fn.params.length) {
+            <p-button
+              icon="pi pi-sliders-h"
+              severity="secondary"
+              [text]="true"
+              size="small"
+              pTooltip="Show or hide the arguments"
+              tooltipPosition="left"
+              [ariaLabel]="'Arguments of ' + fn.name"
+              [ariaExpanded]="!collapsed().has(fn.name)"
+              (onClick)="toggleParams(fn)"
+            />
+          }
           <p-button
             icon="pi pi-play"
             severity="secondary"
             [outlined]="true"
             size="small"
             [loading]="python.running() === fn.name"
-            [disabled]="python.running() !== null"
+            [disabled]="python.running() !== null || !python.argsValid(fn)"
             [pTooltip]="frameTooltip(fn)"
             tooltipPosition="left"
             [ariaLabel]="'Run ' + fn.name + ' on this frame'"
             (onClick)="python.runOnFrame(fn)"
           />
         </div>
+        @if (fn.params.length && !collapsed().has(fn.name)) {
+          <app-python-params [fn]="fn" />
+        }
       }
     </section>
   }
@@ -99,6 +135,12 @@
         />
       </label>
 
+      @if (pending(); as fn) {
+        @if (fn.params.length) {
+          <app-python-params [fn]="fn" />
+        }
+      }
+
       <p class="summary">
         Sends
         <strong>{{ targetCount() }}</strong>
@@ -112,6 +154,9 @@
           the active label.
         }
       </p>
+      @if (python.useAdjustments() && python.adjustmentsEnabled) {
+        <p class="summary">The image adjustments are applied to every frame sent.</p>
+      }
       <p class="summary muted">
         This writes straight to the project. Ctrl+Z undoes it while this sequence is open.
       </p>
@@ -131,7 +176,7 @@
       icon="pi pi-play"
       severity="danger"
       [loading]="python.running() !== null"
-      [disabled]="targetCount() === 0"
+      [disabled]="targetCount() === 0 || !pendingArgsValid()"
       (onClick)="confirmSequenceRun()"
     />
   </ng-template>

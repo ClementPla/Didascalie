@@ -86,8 +86,8 @@ windowed and drawn in its colour. Two things follow:
 - **The window decides the contrast.** A channel whose window is too wide
   reaches DNAi faint. **Auto** on each channel is a good start.
 
-The **Image adjustments** (brightness, contrast, curve) only change what you
-see; they are not sent.
+The **Image adjustments** (brightness, contrast, curve) are not sent unless you
+turn on **Use image adjustments** at the top of the **Python functions** panel.
 
 ## Correcting the result
 

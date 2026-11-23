@@ -417,7 +417,6 @@ export class ProjectSettingsComponent {
       const options: ScanOptions = {
         folderPath: folder,
         embedImages: this.addEmbed || this.addFolderIsOutside(),
-        embedThresholdKb: this.config().embed_threshold_kb,
         extensions: this.addExtensions,
         inputRegex: this.addRegex,
         recursive: this.addRecursive,

@@ -13,4 +13,13 @@ activeValue: number,
 /**
  * Whether the function declared `masks`; they are only read and sent then.
  */
-sendMasks: boolean, };
+sendMasks: boolean, 
+/**
+ * Values of the arguments the function declared.
+ */
+args: Record<string, number | boolean | string>, 
+/**
+ * The image adjustments to apply to each frame sent: 256 values for red,
+ * then green, then blue. Absent sends the frame as it is.
+ */
+imageLut: number[] | null, };

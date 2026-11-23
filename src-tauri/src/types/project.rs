@@ -128,15 +128,7 @@ pub struct ProjectConfig {
     #[ts(as = "Option<Vec<String>>", optional)]
     pub input_folder_alternates: Vec<String>,
     pub images_embedded: bool,
-    /// Files smaller than this are embedded even when `images_embedded` is off.
-    /// Missing or `null` (as some files written from Python have it) reads as
-    /// the default.
-    #[serde(
-        default = "default_embed_threshold_kb",
-        deserialize_with = "embed_threshold_kb_or_default"
-    )]
-    pub embed_threshold_kb: u32,
-    
+
     pub segmentation_enabled: bool,
     pub classification_enabled: bool,
     pub instance_segmentation_enabled: bool,
@@ -188,18 +180,6 @@ pub fn default_extensions() -> Vec<String> {
         .collect()
 }
 
-/// Matches DEFAULT_PROJECT_CONFIG on the TypeScript side.
-fn default_embed_threshold_kb() -> u32 {
-    100
-}
-
-fn embed_threshold_kb_or_default<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    Ok(Option::<u32>::deserialize(deserializer)?.unwrap_or_else(default_embed_threshold_kb))
-}
-
 impl Default for ProjectConfig {
     fn default() -> Self {
         Self {
@@ -207,7 +187,6 @@ impl Default for ProjectConfig {
             input_folder: None,
             input_folder_alternates: Vec::new(),
             images_embedded: false,
-            embed_threshold_kb: default_embed_threshold_kb(),
             segmentation_enabled: true,
             classification_enabled: false,
             instance_segmentation_enabled: false,
@@ -231,9 +210,9 @@ mod tests {
     use super::ProjectConfig;
 
     /// The config of a project written from Python, as found in the field.
-    fn config_with(threshold: &str) -> String {
+    fn config_with(extra: &str) -> String {
         format!(
-            r#"{{"name": "p", "input_folder": null, "images_embedded": true, {threshold}
+            r#"{{"name": "p", "input_folder": null, "images_embedded": true, {extra}
                "segmentation_enabled": true, "classification_enabled": false,
                "instance_segmentation_enabled": false, "text_description_enabled": false,
                "input_regex": "x", "recursive": true, "folders_as_sequences": false}}"#
@@ -244,19 +223,6 @@ mod tests {
     fn a_config_without_extensions_takes_every_format() {
         let config: ProjectConfig = serde_json::from_str(&config_with("")).unwrap();
         assert_eq!(config.extensions, super::default_extensions());
-    }
-
-    #[test]
-    fn a_null_embed_threshold_reads_as_the_default() {
-        let config: ProjectConfig =
-            serde_json::from_str(&config_with(r#""embed_threshold_kb": null,"#)).unwrap();
-        assert_eq!(config.embed_threshold_kb, 100);
-    }
-
-    #[test]
-    fn a_missing_embed_threshold_reads_as_the_default() {
-        let config: ProjectConfig = serde_json::from_str(&config_with("")).unwrap();
-        assert_eq!(config.embed_threshold_kb, 100);
     }
 
     #[test]
@@ -293,9 +259,11 @@ mod tests {
     }
 
     #[test]
-    fn a_stored_embed_threshold_is_kept() {
-        let config: ProjectConfig =
-            serde_json::from_str(&config_with(r#""embed_threshold_kb": 250,"#)).unwrap();
-        assert_eq!(config.embed_threshold_kb, 250);
+    fn a_project_that_stored_the_retired_embed_threshold_still_opens() {
+        for stored in [r#""embed_threshold_kb": 250,"#, r#""embed_threshold_kb": null,"#] {
+            let config: ProjectConfig = serde_json::from_str(&config_with(stored)).unwrap();
+            let saved = serde_json::to_string(&config).unwrap();
+            assert!(!saved.contains("embed_threshold_kb"));
+        }
     }
 }

@@ -11,9 +11,11 @@ import { DialogModule } from 'primeng/dialog';
 import { PanelModule } from 'primeng/panel';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { TooltipModule } from 'primeng/tooltip';
 
 import { PythonFunction } from '../../../lib/api';
+import { PythonParamsComponent } from './python-params.component';
 import { InferenceClientService } from '../../../services/inference-client.service';
 import { LabelsService } from '../../../services/labels/labels.service';
 import { SequenceService } from '../../../services/sequence.service';
@@ -34,7 +36,9 @@ import {
     PanelModule,
     ProgressBarModule,
     SelectButtonModule,
+    ToggleSwitchModule,
     TooltipModule,
+    PythonParamsComponent,
   ],
   templateUrl: './python-functions.component.html',
   styleUrl: './python-functions.component.scss',
@@ -58,6 +62,18 @@ export class PythonFunctionsComponent {
     { label: 'Whole sequence', value: 'all' as const },
     { label: 'From this frame', value: 'fromCurrent' as const },
   ];
+
+  /** Functions whose arguments are folded away. Shown by default, since they
+   *  decide what a click on Run does. */
+  readonly collapsed = signal<ReadonlySet<string>>(new Set());
+
+  toggleParams(fn: PythonFunction): void {
+    this.collapsed.update((names) => {
+      const next = new Set(names);
+      if (!next.delete(fn.name)) next.add(fn.name);
+      return next;
+    });
+  }
 
   readonly targetCount = computed(
     () => this.python.targetFrameIds(this.scope()).length,
@@ -88,6 +104,7 @@ export class PythonFunctionsComponent {
   });
 
   frameTooltip(fn: PythonFunction): string {
+    if (!this.python.argsValid(fn)) return 'Fix the arguments first.';
     const prompt = fn.wants.includes('masks')
       ? ' It reads what is already drawn.'
       : '';
@@ -109,6 +126,11 @@ export class PythonFunctionsComponent {
     if (await this.python.runOnSequence(fn, this.scope())) {
       this.pending.set(null);
     }
+  }
+
+  pendingArgsValid(): boolean {
+    const fn = this.pending();
+    return !fn || this.python.argsValid(fn);
   }
 
   /** Closing only hides the dialog; a run in flight cannot be recalled. */

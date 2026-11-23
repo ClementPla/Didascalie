@@ -33,7 +33,6 @@ export const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
   name: '',
   input_folder: null,
   images_embedded: false,
-  embed_threshold_kb: 100,
   segmentation_enabled: true,
   classification_enabled: false,
   instance_segmentation_enabled: false,
@@ -271,7 +270,6 @@ export class ProjectService {
     return {
       folderPath: config.input_folder,
       embedImages: config.images_embedded,
-      embedThresholdKb: config.embed_threshold_kb,
       extensions: config.extensions,
       inputRegex: config.input_regex,
       recursive: config.recursive,
