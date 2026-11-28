@@ -3,6 +3,7 @@
 use image::{GrayImage, Luma};
 use imageproc::contours::{find_contours, BorderType};
 use imageproc::region_labelling::{connected_components, Connectivity};
+use rayon::prelude::*;
 
 pub struct Region {
     /// Instance id (mask value) for instance labels, else 1.
@@ -26,36 +27,109 @@ pub fn regions_from_mask(values: &[u8], w: u32, h: u32, by_instance: bool) -> Ve
     if values.len() < wu * hu || w == 0 || h == 0 {
         return Vec::new();
     }
-    let mut regions = Vec::new();
-
-    if by_instance {
-        let mut ids: Vec<u8> = values.iter().copied().filter(|&v| v != 0).collect();
-        ids.sort_unstable();
-        ids.dedup();
-        for id in ids {
-            let bin: Vec<u8> = values.iter().map(|&v| if v == id { 255 } else { 0 }).collect();
-            if let Some(mut r) = region_from_binary(&bin, w, h) {
-                r.instance = id;
-                regions.push(r);
-            }
-        }
+    // One label per pixel: the instance id, or the connected component.
+    let components;
+    let label_at: Box<dyn Fn(usize) -> u32 + Sync> = if by_instance {
+        Box::new(|i| values[i] as u32)
     } else {
-        let presence: Vec<u8> = values.iter().map(|&v| if v != 0 { 255 } else { 0 }).collect();
-        let Some(img) = GrayImage::from_raw(w, h, presence) else {
-            return regions;
+        let Some(cc) = components_of(values, w, h) else {
+            return Vec::new();
         };
-        let cc = connected_components(&img, Connectivity::Eight, Luma([0u8]));
-        let max_label = cc.pixels().map(|p| p[0]).max().unwrap_or(0);
-        for label in 1..=max_label {
-            let bin: Vec<u8> =
-                cc.pixels().map(|p| if p[0] == label { 255 } else { 0 }).collect();
-            if let Some(mut r) = region_from_binary(&bin, w, h) {
-                r.instance = 1;
-                regions.push(r);
+        components = cc;
+        Box::new(|i| components[i])
+    };
+    label_boxes(&label_at, w, h)
+        .into_par_iter()
+        .filter_map(|(label, b)| {
+            let crop = Crop::new(w, &b, |i| label_at(i) == label);
+            let mut r = region_from_binary(&crop.bin, crop.w, crop.h)?;
+            r.instance = if by_instance { label as u8 } else { 1 };
+            r.bbox[0] += crop.x0;
+            r.bbox[1] += crop.y0;
+            r.polygons.iter_mut().for_each(|ring| crop.shift(ring));
+            Some(r)
+        })
+        .collect()
+}
+
+/// The 8-connected components of the non-zero pixels, as a label per pixel
+/// (0 = background, then 1, 2, … in scan order).
+fn components_of(values: &[u8], w: u32, h: u32) -> Option<Vec<u32>> {
+    let presence: Vec<u8> = values.iter().map(|&v| if v != 0 { 255 } else { 0 }).collect();
+    let img = GrayImage::from_raw(w, h, presence)?;
+    Some(connected_components(&img, Connectivity::Eight, Luma([0u8])).into_raw())
+}
+
+/// Inclusive bounds and pixel count of one label.
+#[derive(Clone, Copy)]
+struct LabelBox {
+    minx: u32,
+    miny: u32,
+    maxx: u32,
+    maxy: u32,
+    area: u32,
+}
+
+/// Every non-zero label of a `w`×`h` image and its box, by ascending label,
+/// from one pass.
+fn label_boxes(label_at: &(dyn Fn(usize) -> u32 + Sync), w: u32, h: u32) -> Vec<(u32, LabelBox)> {
+    let mut boxes: std::collections::BTreeMap<u32, LabelBox> = Default::default();
+    for y in 0..h {
+        let row = y as usize * w as usize;
+        for x in 0..w {
+            let label = label_at(row + x as usize);
+            if label == 0 {
+                continue;
             }
+            let b = boxes
+                .entry(label)
+                .or_insert(LabelBox { minx: x, miny: y, maxx: x, maxy: y, area: 0 });
+            b.minx = b.minx.min(x);
+            b.maxx = b.maxx.max(x);
+            b.maxy = y;
+            b.area += 1;
         }
     }
-    regions
+    boxes.into_iter().collect()
+}
+
+/// One component cut out to its bounding box plus a 1 px background margin,
+/// so tracing and thinning cost the component's size, not the image's.
+/// `(x0, y0)` is where the crop's origin sits in the image.
+struct Crop {
+    x0: f64,
+    y0: f64,
+    w: u32,
+    h: u32,
+    bin: Vec<u8>,
+}
+
+impl Crop {
+    /// The pixels of box `b` (in a `w`-wide image) for which `inside` holds,
+    /// as 255.
+    fn new(w: u32, b: &LabelBox, inside: impl Fn(usize) -> bool) -> Crop {
+        let (bw, bh) = (b.maxx - b.minx + 1, b.maxy - b.miny + 1);
+        let (cw, ch) = (bw + 2, bh + 2);
+        let mut bin = vec![0u8; cw as usize * ch as usize];
+        for y in 0..bh {
+            let src = (b.miny + y) as usize * w as usize + b.minx as usize;
+            let dst = (y + 1) as usize * cw as usize + 1;
+            for x in 0..bw as usize {
+                if inside(src + x) {
+                    bin[dst + x] = 255;
+                }
+            }
+        }
+        Crop { x0: b.minx as f64 - 1.0, y0: b.miny as f64 - 1.0, w: cw, h: ch, bin }
+    }
+
+    /// Points of the crop, moved to image coordinates.
+    fn shift(&self, points: &mut [[f64; 2]]) {
+        for p in points {
+            p[0] += self.x0;
+            p[1] += self.y0;
+        }
+    }
 }
 
 fn region_from_binary(bin: &[u8], w: u32, h: u32) -> Option<Region> {
@@ -172,12 +246,21 @@ fn bridge_hole(outer: &[[f64; 2]], hole: &[[f64; 2]]) -> Vec<[f64; 2]> {
 /// background or out of range. Same-value flooding keeps touching instances
 /// separate.
 pub fn component_polygons(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -> Vec<Vec<[f64; 2]>> {
-    match flood_same_value_component(values, w, h, sx, sy) {
-        Some(bin) => region_from_binary(&bin, w, h)
-            .map(|r| r.polygons)
-            .unwrap_or_default(),
-        None => Vec::new(),
-    }
+    let Some(crop) = flooded_crop(values, w, h, sx, sy) else {
+        return Vec::new();
+    };
+    let mut polygons = region_from_binary(&crop.bin, crop.w, crop.h)
+        .map(|r| r.polygons)
+        .unwrap_or_default();
+    polygons.iter_mut().for_each(|ring| crop.shift(ring));
+    polygons
+}
+
+/// The same-value component under `(sx, sy)`, cropped to its box.
+fn flooded_crop(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -> Option<Crop> {
+    let bin = flood_same_value_component(values, w, h, sx, sy)?;
+    let (_, b) = label_boxes(&|i| u32::from(bin[i] != 0), w, h).into_iter().next()?;
+    Some(Crop::new(w, &b, |i| bin[i] != 0))
 }
 
 /// Flood the 8-connected, same-value component containing `(sx, sy)` into a
@@ -241,10 +324,17 @@ pub fn component_skeleton_paths(
     sx: u32,
     sy: u32,
 ) -> Vec<Vec<[f64; 2]>> {
-    let Some(bin) = flood_same_value_component(values, w, h, sx, sy) else {
+    let Some(crop) = flooded_crop(values, w, h, sx, sy) else {
         return Vec::new();
     };
-    skeleton_of_binary(&bin, w as usize, h as usize)
+    crop_skeleton(&crop)
+}
+
+/// [`skeleton_of_binary`] of a crop, in image coordinates.
+fn crop_skeleton(crop: &Crop) -> Vec<Vec<[f64; 2]>> {
+    let mut paths = skeleton_of_binary(&crop.bin, crop.w as usize, crop.h as usize);
+    paths.iter_mut().for_each(|path| crop.shift(path));
+    paths
 }
 
 /// Skeletonize every component of `mask`, each on its own. `min_area` drops
@@ -256,30 +346,25 @@ pub fn mask_skeleton_paths(
     min_area: u32,
     max_shapes: usize,
 ) -> Vec<Vec<[f64; 2]>> {
-    let (wu, hu) = (w as usize, h as usize);
-    if values.len() < wu * hu || w == 0 || h == 0 {
+    if values.len() < w as usize * h as usize || w == 0 || h == 0 {
         return Vec::new();
     }
-    let presence: Vec<u8> = values.iter().map(|&v| if v != 0 { 255 } else { 0 }).collect();
-    let Some(img) = GrayImage::from_raw(w, h, presence) else {
+    let Some(components) = components_of(values, w, h) else {
         return Vec::new();
     };
-    let cc = connected_components(&img, Connectivity::Eight, Luma([0u8]));
-    let max_label = cc.pixels().map(|p| p[0]).max().unwrap_or(0);
-
-    let mut comps: Vec<(u32, Vec<u8>)> = Vec::new();
-    for label in 1..=max_label {
-        let bin: Vec<u8> = cc.pixels().map(|p| u8::from(p[0] == label)).collect();
-        let area = bin.iter().filter(|&&v| v != 0).count() as u32;
-        if area >= min_area {
-            comps.push((area, bin));
-        }
-    }
-    comps.sort_by(|a, b| b.0.cmp(&a.0));
-    comps
+    let mut comps: Vec<(u32, LabelBox)> = label_boxes(&|i| components[i], w, h)
         .into_iter()
-        .take(if max_shapes == 0 { usize::MAX } else { max_shapes })
-        .flat_map(|(_, bin)| skeleton_of_binary(&bin, wu, hu))
+        .filter(|(_, b)| b.area >= min_area)
+        .collect();
+    // Largest first; equal areas in scan order, as `sort_by` is stable.
+    comps.sort_by(|a, b| b.1.area.cmp(&a.1.area));
+    comps.truncate(if max_shapes == 0 { usize::MAX } else { max_shapes });
+    comps
+        .par_iter()
+        .map(|(label, b)| crop_skeleton(&Crop::new(w, b, |i| components[i] == *label)))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .flatten()
         .collect()
 }
 
@@ -576,8 +661,8 @@ fn trace_skeleton(img: &[u8], w: usize, h: usize, dt: &[f32]) -> Vec<Vec<[f64; 2
 }
 
 /// Node → count of alive incident edges (a self-loop counts twice).
-fn degree_map(edges: &[SkelEdge]) -> std::collections::HashMap<usize, usize> {
-    let mut deg = std::collections::HashMap::new();
+fn degree_map(edges: &[SkelEdge]) -> std::collections::BTreeMap<usize, usize> {
+    let mut deg = std::collections::BTreeMap::new();
     for e in edges.iter().filter(|e| e.alive) {
         *deg.entry(e.a).or_insert(0) += 1;
         *deg.entry(e.b).or_insert(0) += 1;
@@ -628,8 +713,10 @@ fn prune_pass(edges: &mut [SkelEdge], w: usize, dt: &[f32]) -> bool {
 /// nodes around a small hole. The longest arc survives; the others go only
 /// when short against the disc at the join, so a genuine ring keeps its loop.
 fn collapse_bubbles(edges: &mut [SkelEdge], w: usize, dt: &[f32]) -> bool {
-    let mut by_pair: std::collections::HashMap<(usize, usize), Vec<usize>> =
-        std::collections::HashMap::new();
+    // Ordered: which bubble pops first decides the result, and a HashMap
+    // would make the same mask give different skeletons from run to run.
+    let mut by_pair: std::collections::BTreeMap<(usize, usize), Vec<usize>> =
+        std::collections::BTreeMap::new();
     for (i, e) in edges.iter().enumerate() {
         if e.alive && e.a != e.b {
             let pair = if e.a < e.b { (e.a, e.b) } else { (e.b, e.a) };
@@ -665,14 +752,13 @@ fn contract_pass(edges: &mut Vec<SkelEdge>) -> bool {
     let mut any = false;
     loop {
         let deg = degree_map(edges);
+        // In node order, so a mask always gives the same skeleton. A lone
+        // self-loop also has degree 2: it is skipped, and the search goes on.
         let Some(v) = deg
             .iter()
-            .find(|&(_, &d)| d == 2)
+            .filter(|&(_, &d)| d == 2)
             .map(|(&v, _)| v)
-            .filter(|&v| {
-                // A lone self-loop also has degree 2: skip it.
-                edges.iter().filter(|e| e.alive && (e.a == v || e.b == v)).count() == 2
-            })
+            .find(|&v| edges.iter().filter(|e| e.alive && (e.a == v || e.b == v)).count() == 2)
         else {
             break;
         };
@@ -771,6 +857,52 @@ fn perp_distance(p: [f64; 2], a: [f64; 2], b: [f64; 2]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A region along the left edge has a polygon: contour tracing only starts
+    /// at a pixel with background to its left, which the crop's margin gives.
+    #[test]
+    fn a_region_on_the_left_edge_is_traced() {
+        let (w, h) = (6u32, 5u32);
+        let mut m = vec![0u8; (w * h) as usize];
+        for y in 1..4 {
+            for x in 0..3 {
+                m[(y * w + x) as usize] = 1;
+            }
+        }
+        let regions = regions_from_mask(&m, w, h, false);
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0].bbox, [0.0, 1.0, 3.0, 3.0]);
+        assert!(!regions[0].polygons.is_empty());
+    }
+
+    /// Components are traced in a crop of their box, so where a shape sits in
+    /// the image only shifts the result.
+    #[test]
+    fn tracing_and_thinning_do_not_depend_on_position() {
+        let shape = |w: u32, ox: u32, oy: u32| {
+            let mut m = vec![0u8; (w * w) as usize];
+            for (x, y) in (0..12).map(|i| (i, 2)).chain((0..9).map(|i| (5, i))).chain((3..8).flat_map(|x| (5..8).map(move |y| (x, y)))) {
+                m[((y + oy) * w + x + ox) as usize] = 1;
+            }
+            m
+        };
+        let shifted = |polys: Vec<Vec<[f64; 2]>>, d: f64| -> Vec<Vec<[f64; 2]>> {
+            polys.into_iter().map(|p| p.into_iter().map(|[x, y]| [x - d, y - d]).collect()).collect()
+        };
+        let (near, far) = (shape(20, 2, 2), shape(64, 30, 30));
+        let a = regions_from_mask(&near, 20, 20, false);
+        let b = regions_from_mask(&far, 64, 64, false);
+        assert_eq!(a.len(), 1);
+        assert_eq!(shifted(a[0].polygons.clone(), 2.0), shifted(b[0].polygons.clone(), 30.0));
+        assert_eq!(
+            shifted(mask_skeleton_paths(&near, 20, 20, 0, 0), 2.0),
+            shifted(mask_skeleton_paths(&far, 64, 64, 0, 0), 30.0)
+        );
+        assert_eq!(
+            shifted(component_skeleton_paths(&near, 20, 20, 5, 4), 2.0),
+            shifted(component_skeleton_paths(&far, 64, 64, 33, 32), 30.0)
+        );
+    }
 
     /// Longest x-span over all points of all paths (rough length proxy).
     fn max_x_span(paths: &[Vec<[f64; 2]>]) -> f64 {
