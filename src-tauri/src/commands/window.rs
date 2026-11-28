@@ -6,13 +6,13 @@ use tauri::{AppHandle, Manager};
 /// opener does not: these are native windows created in answer to
 /// `window.open`.
 #[tauri::command]
-pub fn close_detached_window(app: AppHandle, title: String) -> Result<(), String> {
+pub fn close_detached_window(app: AppHandle, title: String) -> crate::utils::error::Result<()> {
     for (label, window) in app.webview_windows() {
         if !label.starts_with("detached-") {
             continue;
         }
-        if window.title().map_err(|e| e.to_string())? == title {
-            window.destroy().map_err(|e| e.to_string())?;
+        if window.title()? == title {
+            window.destroy()?;
         }
     }
     Ok(())

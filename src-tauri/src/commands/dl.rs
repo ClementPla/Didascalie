@@ -19,7 +19,7 @@ pub async fn mask_sam_segment<'a>(
     app: AppHandle,
     features_extractor: State<'a, Arc<Mutex<FeaturesExtractor>>>,
     model_sessions: State<'a, ModelSessions>,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let start_time = std::time::Instant::now();
     let _ = app.emit("mask-segmentation-started", ());
     if extract_features {

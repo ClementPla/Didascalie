@@ -55,8 +55,8 @@ pub async fn get_frame_preview(
     db: State<'_, DbState>,
     frame_id: i64,
     max_dim: u32,
-) -> Result<Response, String> {
-    let (meta, bytes) = read_frame_bytes_ahead(&db, frame_id).map_err(|e| e.to_string())?;
+) -> crate::utils::error::Result<Response> {
+    let (meta, bytes) = read_frame_bytes_ahead(&db, frame_id)?;
     let native = (
         meta.frame.width.max(0) as u32,
         meta.frame.height.max(0) as u32,
@@ -68,7 +68,7 @@ pub async fn get_frame_preview(
     }
 
     let longest = target.0.max(target.1).max(1);
-    let mut img = frame_picture(&db, frame_id, &bytes, longest).map_err(|e| e.to_string())?;
+    let mut img = frame_picture(&db, frame_id, &bytes, longest)?;
     if img.width().max(img.height()) > longest {
         img = img.resize(longest, longest, image::imageops::FilterType::Triangle);
     }
@@ -186,14 +186,14 @@ pub async fn render_label_overlay(
     max_dim: u32,
     labels: Vec<OverlayLabel>,
     edges_only: bool,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     if let Some(bad) = labels.iter().find(|l| l.palette.len() < PALETTE_LEN) {
         return Err(format!(
             "Label {} has a palette of {} bytes, expected {}",
             bad.id,
             bad.palette.len(),
             PALETTE_LEN
-        ));
+        ).into());
     }
 
     let ((width, height), annotations) = db
@@ -202,8 +202,7 @@ pub async fn render_label_overlay(
                 queries::get_frame_dimensions(conn, frame_id)?,
                 queries::load_annotations(conn, frame_id)?,
             ))
-        })
-        .map_err(|e| e.to_string())?;
+        })?;
 
     // One mask per requested label, in the caller's order, minus the empty ones.
     let masks: Vec<(usize, Vec<u8>)> = labels

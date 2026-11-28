@@ -44,7 +44,7 @@ pub fn ml_list_encoders(app: AppHandle) -> Vec<EncoderStatus> {
 
 /// Fetch an encoder's weights. Progress arrives on `download-progress`.
 #[tauri::command]
-pub async fn ml_download_encoder(app: AppHandle, encoder_id: String) -> Result<String, String> {
+pub async fn ml_download_encoder(app: AppHandle, encoder_id: String) -> crate::utils::error::Result<String> {
     let spec = registry::find(&encoder_id)
         .ok_or_else(|| format!("unknown encoder '{encoder_id}'"))?;
     // Every sidecar must arrive too: `ort` resolves external weights relative to
@@ -73,7 +73,7 @@ pub struct DatasetSummary {
 }
 
 #[tauri::command]
-pub fn ml_dataset_summary(db: State<DbState>) -> Result<DatasetSummary, String> {
+pub fn ml_dataset_summary(db: State<DbState>) -> crate::utils::error::Result<DatasetSummary> {
     let frames = dataset::annotated_frame_ids(&db)?;
     let labels = dataset::label_order(&db)?;
     Ok(DatasetSummary {
@@ -499,7 +499,7 @@ pub fn ml_train_model(
     db: State<DbState>,
     state: State<MlState>,
     options: TrainOptions,
-) -> Result<TrainSummary, String> {
+) -> crate::utils::error::Result<TrainSummary> {
     // A stop requested against a previous run must not cancel this one.
     state.cancel.store(false, Ordering::Relaxed);
     let mut split = build_split(&app, &db, &state, &options)?;
@@ -632,10 +632,9 @@ pub fn ml_load_saved_model(db: State<DbState>, state: State<MlState>) -> Option<
 
 /// Discard the saved model, from the project and this session.
 #[tauri::command]
-pub fn ml_forget_model(db: State<DbState>, state: State<MlState>) -> Result<bool, String> {
+pub fn ml_forget_model(db: State<DbState>, state: State<MlState>) -> crate::utils::error::Result<bool> {
     *state.model.lock() = None;
     db.with_conn(queries::delete_ml_model)
-        .map_err(|e| e.to_string())
 }
 
 /// Ask the running fit to stop at the next epoch boundary. The weights it has
@@ -660,7 +659,7 @@ pub struct StorageUsage {
 }
 
 #[tauri::command]
-pub fn ml_storage_usage(app: AppHandle) -> Result<StorageUsage, String> {
+pub fn ml_storage_usage(app: AppHandle) -> crate::utils::error::Result<StorageUsage> {
     let features = super::cache::cache_dir(&app)?;
     let models = super::cache::models_dir(&app)?;
     let (feature_bytes, feature_files) = super::cache::usage(&features);
@@ -674,7 +673,7 @@ pub fn ml_storage_usage(app: AppHandle) -> Result<StorageUsage, String> {
 
 /// Delete every cached feature tensor. Encoder weights are kept.
 #[tauri::command]
-pub fn ml_clear_feature_cache(app: AppHandle) -> Result<usize, String> {
+pub fn ml_clear_feature_cache(app: AppHandle) -> crate::utils::error::Result<usize> {
     let dir = super::cache::cache_dir(&app)?;
     let n = super::cache::clear(&dir);
     log::info!("[ml] cleared {n} cached feature tensors");
@@ -702,7 +701,7 @@ pub fn ml_predict_frame(
     state: State<MlState>,
     frame_id: i64,
     scribbles: Option<ScribbleInput>,
-) -> Result<PredictedFrame, String> {
+) -> crate::utils::error::Result<PredictedFrame> {
     let guard = state.model.lock();
     let model = guard
         .as_ref()
@@ -717,7 +716,7 @@ pub fn ml_predict_frame(
     };
 
     let mut features = state.features.lock();
-    predict::predict_frame(
+    Ok(predict::predict_frame(
         &db,
         model,
         frame_id,
@@ -725,5 +724,5 @@ pub fn ml_predict_frame(
         &mut features,
         scribbles.as_ref(),
         &|stage, done, total| emit_avg(&app, stage, done, total, 0.0, 0.0),
-    )
+    )?)
 }

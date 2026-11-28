@@ -240,12 +240,12 @@ pub fn get_frame_tile(
     y: u32,
     width: u32,
     height: u32,
-) -> std::result::Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let mut guard = cache.inner.lock().map_err(|e| e.to_string())?;
 
     let stale = guard.as_ref().is_none_or(|c| c.frame_id != frame_id);
     if stale {
-        let (_, bytes) = read_frame_bytes(&db, frame_id).map_err(|e| e.to_string())?;
+        let (_, bytes) = read_frame_bytes(&db, frame_id)?;
         let img = image::load_from_memory(&bytes)
             .map_err(|e| format!("Failed to decode image: {}", e))?
             .to_rgba8();

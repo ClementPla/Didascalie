@@ -109,7 +109,7 @@ pub async fn otsu_segmentation(
     connectedness: bool,
     width: usize,
     height: usize,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let (width, height) = (
         u32::try_from(width).map_err(|_| "Image width out of range")?,
         u32::try_from(height).map_err(|_| "Image height out of range")?,
@@ -206,13 +206,13 @@ pub async fn otsu_segmentation_raw(
     smooth: f32,
     fill_holes: bool,
     connectedness: bool,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let mask = image::RgbaImage::from_raw(width, height, mask)
         .ok_or("The stroke mask does not match the region")?;
     let mask = convert_image_to_mask_array(&image::DynamicImage::ImageRgba8(mask));
 
-    let d = cache.get(&db, frame_id).map_err(|e| e.to_string())?;
-    let settings = effective_settings(&db, &d, frame_id).map_err(|e| e.to_string())?;
+    let d = cache.get(&db, frame_id)?;
+    let settings = effective_settings(&db, &d, frame_id)?;
     let region = Region { x, y, width, height }.bounded(d.frame.width, d.frame.height)?;
     let intensity = intensity_region(&d.frame, &settings, region, Source::from_option(source));
     let intensity = denoise_f32(&intensity, denoise_sigma);

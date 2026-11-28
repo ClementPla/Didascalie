@@ -50,7 +50,7 @@ fn write_slice(out: &mut [u8], mask: &[u8]) {
 pub async fn load_sequence_image_volume(
     db: State<'_, DbState>,
     frame_ids: Vec<i64>,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let (w, h) = volume_dimensions(&db, &frame_ids)?;
     let slice = (w as usize) * (h as usize);
 
@@ -98,7 +98,7 @@ pub async fn load_label_volume(
     db: State<'_, DbState>,
     frame_ids: Vec<i64>,
     label_id: i64,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let (w, h) = volume_dimensions(&db, &frame_ids)?;
     let slice = (w as usize) * (h as usize);
 

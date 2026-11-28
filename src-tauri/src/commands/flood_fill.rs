@@ -24,12 +24,12 @@ pub fn flood_fill_mask(
     smooth: f32,
     fill_holes: bool,
     connectedness: bool,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     if start_x >= width || start_y >= height {
-        return Err("Start point is outside image bounds".to_string());
+        return Err("Start point is outside image bounds".into());
     }
     if width.checked_mul(height).and_then(|n| n.checked_mul(4)) != Some(image.len()) {
-        return Err(format!("Image buffer of {} bytes is not {width}×{height} RGBA", image.len()));
+        return Err(format!("Image buffer of {} bytes is not {width}×{height} RGBA", image.len()).into());
     }
 
     let seed_idx = (start_y * width + start_x) * 4;
@@ -109,13 +109,13 @@ pub async fn flood_fill_raw(
     smooth: f32,
     fill_holes: bool,
     connectedness: bool,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let (w, h) = (width as usize, height as usize);
     if start_x >= w || start_y >= h {
-        return Err("Start point is outside the region".to_string());
+        return Err("Start point is outside the region".into());
     }
-    let d = cache.get(&db, frame_id).map_err(|e| e.to_string())?;
-    let settings = effective_settings(&db, &d, frame_id).map_err(|e| e.to_string())?;
+    let d = cache.get(&db, frame_id)?;
+    let settings = effective_settings(&db, &d, frame_id)?;
     let region = Region { x, y, width, height }.bounded(d.frame.width, d.frame.height)?;
     let intensity = intensity_region(&d.frame, &settings, region, Source::from_option(source));
     let values = intensity.as_slice().ok_or("Intensity buffer is not contiguous")?;

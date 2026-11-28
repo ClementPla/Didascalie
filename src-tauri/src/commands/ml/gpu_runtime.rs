@@ -163,14 +163,14 @@ pub fn ml_gpu_runtime_status() -> GpuRuntimeStatus {
 /// Download the archive, check its hash, keep the two providers. Progress
 /// arrives on `download-progress`. Takes effect at the next start.
 #[tauri::command]
-pub async fn ml_install_gpu_runtime(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn ml_install_gpu_runtime(app: tauri::AppHandle) -> crate::utils::error::Result<()> {
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     {
         // One install at a time: they share the download file, and `extract`
         // clears every other folder beside its own.
         static INSTALL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
         let _installing = INSTALL.lock().await;
-        install(&app).await
+        Ok(install(&app).await?)
     }
     #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
     {

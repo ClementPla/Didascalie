@@ -238,9 +238,9 @@ pub async fn intergrader_case_image(
     max_dim: u32,
     overlay: bool,
     style: ComparisonStyle,
-) -> std::result::Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let colours = Colours::parse(&style)?;
-    let (meta, bytes) = read_frame_bytes(&db, frame_id).map_err(|e| e.to_string())?;
+    let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
     let (width, height) = (meta.frame.width.max(0) as u32, meta.frame.height.max(0) as u32);
 
     let regions = if overlay {
@@ -251,16 +251,14 @@ pub async fn intergrader_case_image(
                 region(&rows, a, label_id, width, height),
                 region(&rows, b, label_id, width, height),
             ))
-        })
-        .map_err(|e| e.to_string())?
+        })?
     } else {
         (None, None)
     };
 
     // Never larger than the frame itself.
     let longest = max_dim.min(width.max(height)).max(1);
-    let image = frame_picture(&db, frame_id, &bytes, longest)
-        .map_err(|e| e.to_string())?
+    let image = frame_picture(&db, frame_id, &bytes, longest)?
         .thumbnail(longest, longest)
         .to_rgb8();
     let (out_w, out_h) = image.dimensions();

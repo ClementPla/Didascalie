@@ -33,6 +33,20 @@ pub enum AppError {
     Other(String),
 }
 
+/// A plain message, as the operator and ML helpers report errors. Shown as
+/// is: `Other` displays nothing but the message.
+impl From<String> for AppError {
+    fn from(message: String) -> Self {
+        AppError::Other(message)
+    }
+}
+
+impl From<&str> for AppError {
+    fn from(message: &str) -> Self {
+        AppError::Other(message.to_string())
+    }
+}
+
 impl From<tauri::Error> for AppError {
     fn from(error: tauri::Error) -> Self {
         AppError::Tauri(error.to_string())

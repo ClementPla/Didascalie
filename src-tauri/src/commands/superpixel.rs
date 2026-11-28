@@ -21,7 +21,7 @@ pub async fn superpixel_refine(
     similarity_threshold: f32,
     min_overlap_fraction: f32,
     state: State<'_, SuperpixelState>,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let guard = ensure_map(&state, &image, width, height, compute_map, target_count)?;
     let map = guard.as_ref().ok_or("Superpixel map is not available")?;
 
@@ -45,7 +45,7 @@ pub async fn superpixel_overlay(
     compute_map: bool,
     target_count: usize,
     state: State<'_, SuperpixelState>,
-) -> Result<Response, String> {
+) -> crate::utils::error::Result<Response> {
     let guard = ensure_map(&state, &image, width, height, compute_map, target_count)?;
     let map = guard.as_ref().ok_or("Superpixel map is not available")?;
 
