@@ -12,7 +12,7 @@ use tauri::{ipc::Response, State};
 /// Flood fill from the last clicked pixel, bounded by the stroke's bounding
 /// box. Shares its refinement options with `otsu_segmentation`; `inverse`
 /// takes the complement of the fill within the region.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn flood_fill_mask(
     image: Vec<u8>,
     width: usize,

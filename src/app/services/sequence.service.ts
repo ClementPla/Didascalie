@@ -133,6 +133,9 @@ export class SequenceService implements ProjectScoped {
       // overview, native detail from tiles. Deeper than 8 bits, Rust renders
       // them through the sequence's display settings.
       const display = await api.loadFrameDisplay(frame.id, SequenceService.DISPLAY_MAX_DIM);
+      // Loads run off the main thread, so one started for an earlier frame can
+      // finish after the current frame's: drop it.
+      if (this.currentFrame()?.id !== frame.id) return;
       // Before the image: loading it reads whether tiles are rendered.
       this._currentPixelInfo.set(display.raw ?? null);
       this._currentFrameImage.set({ frame: display.frame, imageBase64: display.imageBase64 });

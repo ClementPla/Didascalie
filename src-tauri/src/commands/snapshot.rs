@@ -106,7 +106,7 @@ pub struct RestoreReport {
 // ── Commands ────────────────────────────────────────────────────────────────
 
 /// Copy the stored annotations of `frame_ids` and return the snapshot's id.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn snapshot_take(
     db: State<DbState>,
     store: State<SnapshotStore>,
@@ -118,7 +118,7 @@ pub fn snapshot_take(
 
 /// Put the frames of snapshot `target` back, except those whose rows differ
 /// from snapshot `expected` (edited since).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn snapshot_restore(
     db: State<DbState>,
     store: State<SnapshotStore>,

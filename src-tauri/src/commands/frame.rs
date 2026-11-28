@@ -91,7 +91,7 @@ pub fn get_progress(db: State<DbState>) -> Result<(i64, i64)> {
   })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_frame_image(db: State<DbState>, frame_id: i64) -> Result<FrameImage> {
     let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
     if crate::pixels::raw::needs_render(&bytes) {
@@ -106,7 +106,7 @@ pub fn get_frame_image(db: State<DbState>, frame_id: i64) -> Result<FrameImage> 
 
 /// A display image for a frame, downsampled so its longest side is ≤
 /// `max_dim`. `frame.width` / `frame.height` stay the native dimensions.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn get_frame_overview(db: State<DbState>, frame_id: i64, max_dim: u32) -> Result<FrameImage> {
     let (meta, bytes) = read_frame_bytes(&db, frame_id)?;
     if crate::pixels::raw::needs_render(&bytes) {

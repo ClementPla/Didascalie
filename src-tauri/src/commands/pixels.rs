@@ -77,7 +77,7 @@ fn pixel_info(d: &Decoded) -> PixelInfo {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn frame_pixel_info(
     db: State<DbState>,
     cache: State<RawFrameCache>,
@@ -88,7 +88,7 @@ pub fn frame_pixel_info(
 }
 
 /// A channel's histogram in `bins` bins over `[min, max]`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn frame_histogram(
     db: State<DbState>,
     cache: State<RawFrameCache>,
@@ -109,7 +109,7 @@ pub fn frame_histogram(
 
 /// The raw value of every channel at native pixel (x, y); empty outside the
 /// frame.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn pixel_values(
     db: State<DbState>,
     cache: State<RawFrameCache>,
@@ -140,7 +140,7 @@ pub fn get_display_settings(
 /// The automatic settings for a frame, whatever is stored. With `low` and
 /// `high` (percentiles, 0–1), every channel's window runs between them, 8-bit
 /// ones included; otherwise the default automatic window.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn auto_display_settings(
     db: State<DbState>,
     cache: State<RawFrameCache>,
@@ -162,7 +162,7 @@ pub fn auto_display_settings(
 /// `max_dim`, for the panel to preview a display while a window is dragged:
 /// a header of four little-endian u32 (width, height, channels, 0), then
 /// every channel's plane as little-endian f32.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn preview_samples(
     db: State<DbState>,
     cache: State<RawFrameCache>,
@@ -215,7 +215,7 @@ pub fn set_display_settings(
 
 /// The whole frame, rendered with its display settings and downsampled so its
 /// longest side is at most `max_dim` (0: native size).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn render_frame_image(
     db: State<DbState>,
     cache: State<RawFrameCache>,
@@ -287,7 +287,7 @@ pub struct FrameDisplay {
 /// The image the editor shows for a frame. An ordinary 8-bit image is sent as
 /// stored (or as a downsampled overview when larger than `max_dim`), exactly as
 /// before; anything deeper is decoded and rendered with its display settings.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn load_frame_display(
     db: State<DbState>,
     cache: State<RawFrameCache>,

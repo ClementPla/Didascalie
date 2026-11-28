@@ -5,7 +5,7 @@ use crate::commands::formats::geometry;
 
 /// Skeletonize the component of `mask` under `(x, y)` into open polylines.
 /// Empty when the pixel is background.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn skeletonize_component(
     mask: Vec<u8>,
     width: u32,
@@ -18,7 +18,7 @@ pub fn skeletonize_component(
 
 /// Skeletonize every component of `mask`. `min_area` and `max_shapes` behave
 /// as in `vectorize_mask`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn skeletonize_mask(
     mask: Vec<u8>,
     width: u32,

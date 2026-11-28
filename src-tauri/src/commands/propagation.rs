@@ -69,7 +69,7 @@ struct SourceLabel {
 
 /// Copy `source_frame_id`'s annotations onto `target_frame_ids`, for
 /// `label_ids` only (`None` = every label).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn propagate_annotations(
     db: State<DbState>,
     source_frame_id: i64,

@@ -78,7 +78,7 @@ pub fn take_incoming_project(app: AppHandle) -> Result<Option<String>> {
 }
 
 /// Write a copy of the open project, annotations included, to `location`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn export_project_file(app: AppHandle, db: State<DbState>, location: String) -> Result<()> {
     // A snapshot: the live file's latest changes may still be in the WAL.
     let dir = data_dir(&app)?;

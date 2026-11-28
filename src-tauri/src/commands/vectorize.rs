@@ -4,7 +4,7 @@ use crate::commands::formats::geometry;
 
 /// Trace the component of `mask` under `(x, y)` into simplified outer-contour
 /// polygons. Empty when the pixel is background.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vectorize_component(
     mask: Vec<u8>,
     width: u32,
@@ -17,7 +17,7 @@ pub fn vectorize_component(
 
 /// Trace every component of `mask` into simplified polygons. `min_area`
 /// drops specks below a pixel count (0 keeps everything).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vectorize_mask(
     mask: Vec<u8>,
     width: u32,
