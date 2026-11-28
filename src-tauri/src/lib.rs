@@ -19,6 +19,7 @@ mod connection;
 
 #[cfg(not(target_os = "android"))]
 mod dl;
+mod frames;
 mod pixels;
 
 mod utils;

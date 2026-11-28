@@ -30,8 +30,8 @@ use tauri::State;
 use ts_rs::TS;
 
 use crate::commands::annotation::decode_to_uint8;
-use crate::commands::frame::read_frame_bytes;
-use crate::commands::pixels::frame_picture;
+use crate::frames::read_frame_bytes;
+use crate::pixels::picture::frame_picture;
 use crate::commands::users::{self, UserInfo};
 use crate::commands::vector::{rasterize_shape, VectorShape};
 use crate::storage::{queries, DbState};

@@ -519,7 +519,7 @@ pub fn load_working_image_hashed(
     frame_id: i64,
     working_size: u32,
 ) -> Result<(Array3<f32>, usize, usize, u64), String> {
-    let (_meta, bytes) = crate::commands::frame::read_frame_bytes(db, frame_id)
+    let (_meta, bytes) = crate::frames::read_frame_bytes(db, frame_id)
         .map_err(|e| format!("frame {frame_id}: {e}"))?;
     let image = decode_image(&bytes)?;
     let (src_w, src_h) = (image.shape()[2], image.shape()[1]);
@@ -541,7 +541,7 @@ fn working_image(
     let Some(dir) = feature_cache.filter(|_| cfg.working_size != 0) else {
         return load_working_image(db, frame_id, cfg.working_size);
     };
-    let (_meta, bytes) = crate::commands::frame::read_frame_bytes(db, frame_id)
+    let (_meta, bytes) = crate::frames::read_frame_bytes(db, frame_id)
         .map_err(|e| format!("frame {frame_id}: {e}"))?;
     let key = cache::Key::raw(cache::IMAGE_KIND, cfg.working_size, cache::hash_bytes(&bytes));
     if let Some(img) = cache::load(dir, &key) {

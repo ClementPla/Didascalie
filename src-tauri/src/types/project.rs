@@ -123,7 +123,7 @@ pub struct ProjectConfig {
     pub name: String,
     pub input_folder: Option<String>,      // None if images embedded
     /// Other paths the image folder is reached by, from other computers. See
-    /// `commands::project::resolve_image_folder`.
+    /// `frames::resolve_image_folder`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub input_folder_alternates: Vec<String>,

@@ -11,7 +11,7 @@ use tauri::ipc::Response;
 use tauri::State;
 
 use crate::commands::annotation::decode_to_uint8;
-use crate::commands::frame::read_frame_bytes_ahead;
+use crate::frames::read_frame_bytes_ahead;
 use crate::storage::{queries, DbState};
 use crate::types::image::MaskEncoding;
 
@@ -71,7 +71,7 @@ pub async fn load_sequence_image_volume(
             .zip(encoded.par_iter().zip(ids.par_iter()))
             .try_for_each(|(out, (bytes, &id))| -> Result<(), String> {
                 // Deep or multi-channel frames through their display, at native size.
-                let luma = crate::commands::pixels::frame_picture(db, id, bytes, 0)
+                let luma = crate::pixels::picture::frame_picture(db, id, bytes, 0)
                     .map_err(|e| e.to_string())?
                     .to_luma8();
                 if luma.width() != w || luma.height() != h {

@@ -373,6 +373,22 @@ pub fn load_annotations(conn: &Connection, frame_id: i64) -> Result<Vec<Annotati
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
+/// `name (2)`, `name (3)`, …: the first one no sequence uses yet.
+pub fn free_sequence_name(conn: &rusqlite::Connection, name: &str) -> Result<String> {
+    for n in 2.. {
+        let candidate = format!("{} ({})", name, n);
+        let taken: bool = conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM sequences WHERE name = ?1)",
+            params![candidate],
+            |row| row.get(0)
+        )?;
+        if !taken {
+            return Ok(candidate);
+        }
+    }
+    unreachable!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

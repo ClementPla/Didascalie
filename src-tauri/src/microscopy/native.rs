@@ -15,7 +15,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::import::TempDir;
 use super::{export, inspect, MicroscopySeries, SeriesPick};
-use crate::commands::project::{join_relative, resolve_image_folder};
+use crate::frames::{join_relative, resolve_image_folder};
 use crate::storage::{queries, DbState};
 use crate::utils::error::{AppError, Result};
 
@@ -340,7 +340,7 @@ mod tests {
         };
         assert_eq!((plane.level, plane.width, plane.height), (0, full.width, full.height));
         let bytes = fs::read(&plane.path).unwrap();
-        let picture = crate::commands::pixels::frame_picture(&db, frame_id, &bytes, 0).unwrap();
+        let picture = crate::pixels::picture::frame_picture(&db, frame_id, &bytes, 0).unwrap();
         assert_eq!((picture.width(), picture.height()), (full.width, full.height));
         println!("stored {stored:?}, sent {}×{}", picture.width(), picture.height());
     }

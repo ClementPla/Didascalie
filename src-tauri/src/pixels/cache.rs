@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use super::raw::{self, RawFrame};
 use super::stats::{self, ChannelStats};
-use crate::commands::frame::read_frame_bytes;
+use crate::frames::read_frame_bytes;
 use crate::storage::DbState;
 use crate::utils::error::Result;
 

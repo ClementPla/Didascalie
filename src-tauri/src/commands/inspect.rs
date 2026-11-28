@@ -10,8 +10,9 @@ use tauri::ipc::Response;
 use tauri::State;
 
 use crate::commands::annotation::decode_to_uint8;
-use crate::commands::frame::{detect_mime_type, read_frame_bytes_ahead};
-use crate::commands::pixels::frame_picture;
+use crate::frames::read_frame_bytes_ahead;
+use crate::pixels::picture::detect_mime_type;
+use crate::pixels::picture::frame_picture;
 use crate::storage::{queries, DbState};
 
 const PREVIEW_JPEG_QUALITY: u8 = 85;

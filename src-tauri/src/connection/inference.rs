@@ -8,7 +8,7 @@ use crate::connection::{
   request::{ ImagePayload, PingReply, Request, Status },
   types::ComError,
 };
-use crate::commands::frame::read_frame_bytes;
+use crate::frames::read_frame_bytes;
 use crate::storage::DbState;
 
 /// A frame as Python functions receive it: 8-bit RGB, as the editor shows
@@ -19,8 +19,7 @@ use crate::storage::DbState;
 pub fn load_frame_as_payload(db: &DbState, frame_id: i64) -> Result<ImagePayload, ComError> {
   let (_meta, bytes) = read_frame_bytes(db, frame_id).map_err(|e| ComError::Other(e.to_string()))?;
 
-  let img = crate::commands::pixels
-    ::frame_picture(db, frame_id, &bytes, 0)
+  let img = crate::pixels::picture::frame_picture(db, frame_id, &bytes, 0)
     .map_err(|e| ComError::Other(format!("decode failed: {e}")))?;
 
   let (w, h) = img.dimensions();

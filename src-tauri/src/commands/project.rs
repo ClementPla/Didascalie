@@ -6,6 +6,7 @@ use tauri::State;
 
 use crate::utils::error::{AppError, Result};
 use crate::storage::{DbState, queries};
+use crate::frames::{join_relative, resolve_image_folder};
 use crate::types::project::ProjectConfig;
 use crate::commands::frame::{FrameImageCache, ThumbnailCache};
 use crate::pixels::cache::RawFrameCache;
@@ -20,27 +21,6 @@ fn forget_project(thumbnails: &ThumbnailCache, tiles: &FrameImageCache, raw: &Ra
     raw.clear();
     *ml.model.lock() = None;
     *ml.features.lock() = None;
-}
-
-/// Where this computer finds the project's image folder: the first of the
-/// paths the project knows it by that exists here (a network share has a
-/// different path on each system), or else the one it was created with.
-pub fn resolve_image_folder(config: &ProjectConfig) -> Option<PathBuf> {
-    let known = || config.input_folder.iter().chain(&config.input_folder_alternates);
-    known()
-        .map(PathBuf::from)
-        .find(|folder| folder.is_dir())
-        .or_else(|| known().next().map(PathBuf::from))
-}
-
-/// `folder/relative`, for a path stored by whichever system imported it
-/// (Windows writes `a\b.png`).
-pub fn join_relative(folder: &Path, relative: &str) -> PathBuf {
-    if cfg!(windows) {
-        folder.join(relative)
-    } else {
-        folder.join(relative.replace('\\', "/"))
-    }
 }
 
 /// The image folder of the open project, as this computer sees it.

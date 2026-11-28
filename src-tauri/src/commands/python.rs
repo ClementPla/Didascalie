@@ -192,7 +192,7 @@ fn frame_payload(
     let (mut image, geometry) = match native.and_then(|n| n.get(frame_id)) {
         Some(Outcome::Finer(plane)) => {
             let bytes = std::fs::read(&plane.path)?;
-            let picture = crate::commands::pixels::frame_picture(db, frame_id, &bytes, 0)?;
+            let picture = crate::pixels::picture::frame_picture(db, frame_id, &bytes, 0)?;
             drop(bytes);
             let (w, h) = (picture.width(), picture.height());
             let image = ImagePayload {

@@ -14,7 +14,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use rusqlite::{params, Connection};
 
 use super::{export, inspect, picked_channels, ExportedPlane, MicroscopySeries, SeriesPick};
-use crate::commands::io::{free_sequence_name, sha256_hex};
+use crate::storage::queries::free_sequence_name;
+use crate::utils::hash::sha256_hex;
 use crate::pixels::display::{auto_window, DisplaySettings};
 use crate::pixels::{raw, stats};
 use crate::storage::queries;

@@ -33,6 +33,11 @@ frontend (the WebView) talking to a **Rust** backend over Tauri's IPC.
   structs derive `ts_rs::TS` and `cargo test --lib export_bindings` writes them
   to `src/app/lib/generated/`, which `api.ts` re-exports (`i64` fields need
   `#[ts(type = "number")]`).
+- **Layering inside the backend**: `commands/` sits on top. Nothing outside it
+  (and `lib.rs`) imports from `crate::commands`; shared helpers live below it —
+  reading a frame's bytes in `frames.rs`, frames as pictures in
+  `pixels/picture.rs`, queries in `storage/`, hashing and process helpers in
+  `utils/`.
 - **Editing an open project** goes through one command, `apply_project_edit`
   (`commands/project_edit.rs`), taking a typed `ProjectEdit`. It changes the
   config JSON *and* the rows that refer to it by name or id in one transaction;
@@ -72,7 +77,7 @@ A video in the image folder is imported as one sequence with **one `frames` row
 per kept frame**, so everything keyed on a frame (annotations, reviews,
 propagation, registration) is unaware of it. The file is never unpacked: the
 row holds the frame's presentation time and `read_frame_bytes`
-(`commands/frame.rs`) — the one place frame pixels are read — has ffmpeg decode
+(`src-tauri/src/frames.rs`) — the one place frame pixels are read — has ffmpeg decode
 it to a BMP on demand (`src-tauri/src/video/mod.rs`, with a 512 MB cache).
 
 Starting ffmpeg costs far more than decoding a frame, so a caller going through

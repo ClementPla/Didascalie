@@ -65,7 +65,7 @@ fn import_files(db: &DbState, files: Vec<MicroscopyImport>) -> Result<AddImagesR
     let folder = db.with_conn(|conn| {
         crate::commands::users::require_admin(conn)?;
         let config = crate::storage::queries::get_project_config(conn)?;
-        Ok(crate::commands::project::resolve_image_folder(&config))
+        Ok(crate::frames::resolve_image_folder(&config))
     })?;
 
     let mut result = AddImagesResult::default();

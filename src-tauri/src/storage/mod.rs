@@ -15,7 +15,7 @@ use crate::utils::error::{AppError, Result};
 pub struct DbState {
     pub(crate) conn: Mutex<Option<Connection>>,
     /// Where this computer finds the open project's image folder
-    /// (`commands::project::resolve_image_folder`). None: the folder named in
+    /// (`frames::resolve_image_folder`). None: the folder named in
     /// the project's config.
     image_root: Mutex<Option<PathBuf>>,
 }

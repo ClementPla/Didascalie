@@ -7,7 +7,7 @@ import type { RegressionConfig } from "./RegressionConfig";
 export type ProjectConfig = { name: string, input_folder: string | null, 
 /**
  * Other paths the image folder is reached by, from other computers. See
- * `commands::project::resolve_image_folder`.
+ * `frames::resolve_image_folder`.
  */
 input_folder_alternates?: Array<string>, images_embedded: boolean, segmentation_enabled: boolean, classification_enabled: boolean, instance_segmentation_enabled: boolean, text_description_enabled: boolean, 
 /**

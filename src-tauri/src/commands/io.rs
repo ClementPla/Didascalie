@@ -5,11 +5,11 @@ use std::path::{ Path, PathBuf };
 use regex::Regex;
 use rusqlite::{ params, OptionalExtension };
 use serde::{ Deserialize, Serialize };
-use sha2::{ Digest, Sha256 };
 use rayon::prelude::*;
 use tauri::{ AppHandle, Emitter, Manager };
-use std::fmt::Write;
 use crate::storage::DbState;
+use crate::storage::queries::free_sequence_name;
+use crate::utils::hash::sha256_hex;
 use crate::utils::error::{ AppError, Result };
 
 use ts_rs::TS;
@@ -290,7 +290,7 @@ fn add_images_to_open_project(
   db.with_conn(|conn| {
     crate::commands::users::require_admin(conn)?;
     let config = crate::storage::queries::get_project_config(conn)?;
-    let input_folder = crate::commands::project::resolve_image_folder(&config)
+    let input_folder = crate::frames::resolve_image_folder(&config)
       .map(|folder| folder.to_string_lossy().into_owned());
     add_images(conn, input_folder.as_deref(), &options, &filter, progress)
   })
@@ -499,33 +499,6 @@ fn add_images(
     result.errors.len()
   );
   Ok(result)
-}
-
-/// `name (2)`, `name (3)`, …: the first one no sequence uses yet.
-pub(crate) fn free_sequence_name(conn: &rusqlite::Connection, name: &str) -> Result<String> {
-  for n in 2.. {
-    let candidate = format!("{} ({})", name, n);
-    let taken: bool = conn.query_row(
-      "SELECT EXISTS (SELECT 1 FROM sequences WHERE name = ?1)",
-      params![candidate],
-      |row| row.get(0)
-    )?;
-    if !taken {
-      return Ok(candidate);
-    }
-  }
-  unreachable!()
-}
-
-pub(crate) fn sha256_hex(data: &[u8]) -> String {
-  let mut hasher = Sha256::new();
-  hasher.update(data);
-  let digest = hasher.finalize();
-  let mut hex = String::with_capacity(digest.len() * 2);
-  for byte in digest {
-    write!(&mut hex, "{:02x}", byte).unwrap();
-  }
-  hex
 }
 
 fn scan_for_images(
@@ -1312,7 +1285,7 @@ mod tests {
     /// make most frames neither keyframes nor in file order.
     #[test]
     fn a_video_frame_decodes_to_the_same_pixels_as_playing_the_video() {
-        use crate::commands::frame::{read_frame_bytes, read_frame_bytes_ahead};
+        use crate::frames::{read_frame_bytes, read_frame_bytes_ahead};
 
         let root = dir_with("video_exact", &[]);
         let clip_arg = root.join("alone.mp4").to_string_lossy().to_string();
@@ -1333,7 +1306,7 @@ mod tests {
         fs::copy(root.join("alone.mp4"), root.join("run.mp4")).unwrap();
         fs::copy(root.join("alone.mp4"), root.join("sparse.mp4")).unwrap();
 
-        type Read = fn(&DbState, i64) -> Result<(crate::commands::frame::FrameMeta, Vec<u8>)>;
+        type Read = fn(&DbState, i64) -> Result<(crate::frames::FrameMeta, Vec<u8>)>;
         let cases: [(&str, u32, bool, Read); 3] = [
             ("alone", 1, true, read_frame_bytes),
             ("run", 1, false, read_frame_bytes_ahead),

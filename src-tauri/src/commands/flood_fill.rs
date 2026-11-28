@@ -1,4 +1,4 @@
-use crate::commands::pixels::effective_settings;
+use crate::pixels::picture::effective_settings;
 use crate::commands::refine::{presence_bytes, refine, Refine};
 use crate::pixels::cache::RawFrameCache;
 use crate::pixels::display::Region;

@@ -5,7 +5,7 @@ use serde::Serialize;
 use ts_rs::TS;
 use tauri::State;
 
-use crate::commands::frame::Frame;
+use crate::frames::Frame;
 use crate::storage::{queries, DbState};
 use crate::utils::error::{AppError, Result};
 

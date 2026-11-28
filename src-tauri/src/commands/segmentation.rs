@@ -1,6 +1,6 @@
 use super::images::{convert_image_to_luma_u8_array, convert_image_to_mask_array};
 use super::refine::{denoise, denoise_f32, presence_bytes, refine, Refine};
-use crate::commands::pixels::effective_settings;
+use crate::pixels::picture::effective_settings;
 use crate::pixels::cache::RawFrameCache;
 use crate::pixels::display::Region;
 use crate::pixels::intensity::{intensity_region, Source};

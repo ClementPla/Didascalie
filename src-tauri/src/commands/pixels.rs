@@ -7,9 +7,11 @@ use tauri::ipc::Response;
 use tauri::State;
 use ts_rs::TS;
 
-use crate::commands::frame::{decode_downscaled, overview_from_bytes, read_frame_bytes, Frame, ThumbnailCache};
+use crate::commands::frame::{overview_from_bytes, ThumbnailCache};
+use crate::frames::{read_frame_bytes, Frame};
 use crate::pixels::cache::{Decoded, RawFrameCache};
 use crate::pixels::raw;
+use crate::pixels::picture::effective_settings;
 use crate::pixels::display::{render_rgb, step_for, window_at, DisplaySettings, Region};
 use crate::pixels::stats;
 use crate::storage::{queries, DbState};
@@ -73,47 +75,6 @@ fn pixel_info(d: &Decoded) -> PixelInfo {
             })
             .collect(),
     }
-}
-
-/// The settings a frame is displayed with: its sequence's, when they fit the
-/// frame, otherwise the automatic ones.
-pub(crate) fn effective_settings(db: &DbState, d: &Decoded, frame_id: i64) -> Result<DisplaySettings> {
-    let stored = db.with_conn(|conn| {
-        let sequence_id = queries::frame_sequence_id(conn, frame_id)?;
-        queries::load_display_settings(conn, sequence_id)
-    })?;
-    Ok(stored
-        .and_then(|json| serde_json::from_str::<DisplaySettings>(&json).ok())
-        .filter(|s| s.fits(&d.frame))
-        .unwrap_or_else(|| DisplaySettings::auto(&d.frame, &d.stats)))
-}
-
-/// A frame as a picture (thumbnails, previews, 3D, comparisons), its longest
-/// side at most about `max_dim` (0: native size). A frame deeper than 8 bits
-/// or with several channels is rendered through its sequence's display
-/// settings; any other is decoded as stored.
-pub(crate) fn frame_picture(
-    db: &DbState,
-    frame_id: i64,
-    bytes: &[u8],
-    max_dim: u32,
-) -> Result<image::DynamicImage> {
-    if !raw::needs_render(bytes) {
-        // `decode_downscaled` reads 0 as "as small as possible".
-        return if max_dim == 0 {
-            image::load_from_memory(bytes)
-                .map_err(|e| AppError::Generic(format!("Failed to decode image: {e}")))
-        } else {
-            decode_downscaled(bytes, max_dim)
-        };
-    }
-    let d = Decoded::new(raw::decode(bytes)?);
-    let settings = effective_settings(db, &d, frame_id)?;
-    let region = Region::full(&d.frame);
-    let (w, h, rgb) = render_rgb(&d.frame, &settings, region, step_for(region, max_dim));
-    image::RgbImage::from_raw(w, h, rgb)
-        .map(image::DynamicImage::ImageRgb8)
-        .ok_or_else(|| AppError::Generic("Render has the wrong size".into()))
 }
 
 #[tauri::command]
@@ -379,6 +340,7 @@ fn encode_png(w: u32, h: u32, rgb: &[u8]) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pixels::picture::frame_picture;
     use std::path::Path;
 
     #[test]
