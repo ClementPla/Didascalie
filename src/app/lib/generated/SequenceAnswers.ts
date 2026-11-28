@@ -4,13 +4,13 @@
  * How a sequence was answered, for the gallery to filter and sort by. Only
  * the current user's answers.
  */
-export type SequenceAnswers = { sequenceId: number,
+export type SequenceAnswers = { sequenceId: number, 
 /**
  * Classification task -> the classes at least one frame was given,
  * sorted by name.
  */
-classes: { [key in string]?: Array<string> },
+classes: { [key in string]: Array<string> }, 
 /**
  * Regression task -> the mean of the values its frames were given.
  */
-regressions: { [key in string]?: number }, };
+regressions: { [key in string]: number }, };
