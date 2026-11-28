@@ -7,6 +7,8 @@ import { StateManagerService } from '../../features/editor/drawable-canvas/servi
 import { ImageAdjustmentService } from '../../features/editor/drawable-canvas/service/image-adjustment/image-adjustment.service';
 import { LabelsService } from '../../services/labels/labels.service';
 import { ProjectService } from '../../services/project/project.service';
+import { SequenceService } from '../../services/sequence.service';
+import { capturePaintTarget, isStillTarget } from '../../features/editor/drawable-canvas/service/paint-target';
 
 /** Refine a coarse stroke into a mask with the bundled SAM-style model
  *  (Rust `mask_sam_segment`). */
@@ -17,6 +19,7 @@ export class MedsamService {
   private imageProcessingService = inject(ImageAdjustmentService);
   private labelService = inject(LabelsService);
   private projectService = inject(ProjectService);
+  private sequenceService = inject(SequenceService);
 
   /** Confidence a pixel needs before the model keeps it. */
   public threshold = 0.5;
@@ -34,6 +37,9 @@ export class MedsamService {
       console.warn('SAM post-process is unavailable for large images.');
       return;
     }
+
+    const target = capturePaintTarget(this.canvasManagerService, this.stateService, this.sequenceService);
+    if (!target) return;
 
     const bufferCtx = this.canvasManagerService.getBufferCtx();
     const coarseMask = binarizeArray(bufferCtx.getImageData(0, 0, w, h).data).data;
@@ -56,10 +62,14 @@ export class MedsamService {
       height: h,
       extractFeatures: !this.featuresExtracted,
     });
+    // The features are of the image sent, whichever frame is open now.
+    if (!isStillTarget(target, this.canvasManagerService, this.stateService, this.sequenceService)) {
+      this.featuresExtracted = this.sequenceService.currentFrame()?.id === target.frameId;
+      return;
+    }
     this.featuresExtracted = true;
 
-    const mask = this.canvasManagerService.getActiveMask();
-    if (mask) applyResultMask(mask, new Uint8Array(result), this.labelService.paintValue(this.projectService.isInstanceSegmentation()));
+    applyResultMask(target.mask, new Uint8Array(result), this.labelService.paintValue(this.projectService.isInstanceSegmentation()));
   }
 
   onImageLoaded(): void {

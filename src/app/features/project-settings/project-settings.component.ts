@@ -34,6 +34,7 @@ import { ImportProgressComponent } from '../../shared/generics/import-progress/i
 import { MicroscopyImportDialogComponent } from '../../shared/generics/microscopy-import/microscopy-import-dialog.component';
 import { FolderDropZoneComponent } from '../launcher/folder-drop-zone/folder-drop-zone.component';
 import { ProjectSettingsService } from './project-settings.service';
+import { errorMessage, plural } from '../../core/misc/text';
 
 /** A destructive edit waiting for the user to acknowledge what it deletes. */
 interface PendingDelete {
@@ -49,10 +50,6 @@ interface TaskRow {
   name: string;
   classes: string[];
   multilabel: boolean;
-}
-
-function plural(n: number, noun: string): string {
-  return `${n} ${noun}${n === 1 ? '' : 's'}`;
 }
 
 /**
@@ -469,7 +466,7 @@ export class ProjectSettingsComponent {
       await this.settings.apply(edit);
       return true;
     } catch (error) {
-      this.notifications.error('Could not change the project', this.message(error));
+      this.notifications.error('Could not change the project', errorMessage(error));
       return false;
     } finally {
       this.labels.set([...this.labelsService.listSegmentationLabels]);
@@ -483,29 +480,39 @@ export class ProjectSettingsComponent {
     title: string,
     describe: (impact: EditImpact) => (string | false)[],
   ): Promise<void> {
-    // Edits under way land first, so that the count is right.
-    await this.queue;
-    if (this.pending()) return;
-
-    let consequences: string[];
+    // One at a time, checked before any await: a second one would replace the
+    // first's dialog, whose promise would then never settle.
+    if (this.destructiveInFlight) return;
+    this.destructiveInFlight = true;
     try {
-      const impact = await this.settings.impact(edit);
-      consequences = describe(impact).filter((line): line is string => !!line);
-    } catch (error) {
-      this.notifications.error('Could not change the project', this.message(error));
-      return;
-    }
+      // Edits under way land first, so that the count is right.
+      await this.queue;
 
-    if (consequences.length > 0) {
-      this.acknowledged = false;
-      const confirmed = await new Promise<boolean>((resolve) =>
-        this.pending.set({ edit, title, consequences, resolve }),
-      );
-      this.pending.set(null);
-      if (!confirmed) return;
+      let consequences: string[];
+      try {
+        const impact = await this.settings.impact(edit);
+        consequences = describe(impact).filter((line): line is string => !!line);
+      } catch (error) {
+        this.notifications.error('Could not change the project', errorMessage(error));
+        return;
+      }
+
+      if (consequences.length > 0) {
+        this.acknowledged = false;
+        const confirmed = await new Promise<boolean>((resolve) =>
+          this.pending.set({ edit, title, consequences, resolve }),
+        );
+        this.pending.set(null);
+        if (!confirmed) return;
+      }
+      await this.run(edit);
+    } finally {
+      this.destructiveInFlight = false;
     }
-    await this.run(edit);
   }
+
+  /** A deletion is being confirmed or applied (see runDestructive). */
+  private destructiveInFlight = false;
 
   private freeTaskName(base: string): string {
     return this.freeName(
@@ -520,10 +527,5 @@ export class ProjectSettingsComponent {
       const candidate = `${base} ${n}`;
       if (!taken.includes(candidate)) return candidate;
     }
-  }
-
-  /** Tauri rejects with the backend's message as a plain string. */
-  private message(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
   }
 }

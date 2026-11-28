@@ -112,13 +112,12 @@ export class ViewportPaneComponent
   });
 
   constructor() {
+    // Redraw when any of these changes.
     effect(() => {
-      const _track = [
-        this.pairs(),
-        this.transform(),
-        this.state.vis().showMovingWarped,
-        this.hoveredPairId(),
-      ];
+      this.pairs();
+      this.transform();
+      void this.state.vis().showMovingWarped;
+      this.hoveredPairId();
       this.view.redraw();
     });
   }

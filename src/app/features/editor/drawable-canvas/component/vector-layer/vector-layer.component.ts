@@ -7,7 +7,7 @@ import { EditorService } from '../../../services/editor.service';
 import { VectorEditorService, VectorGizmo } from '../../service/vector-editor.service';
 import { ZoomPanService } from '../../service/zoom-pan.service';
 import { Tools } from '../../../../../core/tools';
-import { Bounds, Pt, VectorNode, buildPathData } from '../../vector/vector.model';
+import { Bounds, Pt, VectorNode, VectorShape, buildPathData, isFlatHandle } from '../../vector/vector.model';
 
 interface RenderShape {
   id: string;
@@ -151,6 +151,19 @@ export class VectorLayerComponent {
 
   // ── Committed shapes ──────────────────────────────────────────────────────
 
+  /** Path data per shape. Shapes are replaced, never mutated, when edited, so
+   *  this holds across change-detection passes (one per pointer move). */
+  private readonly pathData = new WeakMap<VectorShape, string>();
+
+  private pathOf(shape: VectorShape): string {
+    let d = this.pathData.get(shape);
+    if (d === undefined) {
+      d = buildPathData(shape);
+      this.pathData.set(shape, d);
+    }
+    return d;
+  }
+
   get renderShapes(): RenderShape[] {
     const labels = this.labelService.listSegmentationLabels;
     const orderById = new Map<number, number>();
@@ -173,7 +186,7 @@ export class VectorLayerComponent {
         const color = colorById.get(s.labelId) ?? '#ffffff';
         return {
           id: s.id,
-          d: buildPathData(s),
+          d: this.pathOf(s),
           color,
           fill: s.closed && s.filled ? color + '40' : 'none',
           selected: selectedIds.has(s.id),
@@ -246,10 +259,10 @@ export class VectorLayerComponent {
     if (!target) return [];
     const out: HandleDeco[] = [];
     for (const n of target.nodes) {
-      if (!(n.inX === n.x && n.inY === n.y)) {
+      if (!isFlatHandle(n.x, n.y, n.inX, n.inY)) {
         out.push({ ax: n.x, ay: n.y, hx: n.inX, hy: n.inY });
       }
-      if (!(n.outX === n.x && n.outY === n.y)) {
+      if (!isFlatHandle(n.x, n.y, n.outX, n.outY)) {
         out.push({ ax: n.x, ay: n.y, hx: n.outX, hy: n.outY });
       }
     }

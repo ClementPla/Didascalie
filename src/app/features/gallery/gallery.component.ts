@@ -32,12 +32,12 @@ import {
 } from './gallery-element/gallery-element.component';
 import { LabelledSwitchComponent } from '../../shared/generics/labelled-switch/labelled-switch.component';
 import { Router } from '@angular/router';
+import { jsonEqual } from '../../core/misc/equal';
 import {
   InspectionService,
   MAX_INSPECT_PANES,
 } from '../inspect/inspection.service';
-
-type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
+import { SequenceStatus, sequenceStatus } from '../../core/sequence-status';
 
 /** Which page to show once the filters are applied: the one holding the
  *  sequence open in the editor, the first, or the one already shown. */
@@ -210,7 +210,8 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     const newItems = await this.getItems();
     if (this.destroyed) return;
 
-    if (JSON.stringify(this.galleryItems) !== JSON.stringify(newItems)) {
+    // Unchanged items keep their identity, and the grid its rendering.
+    if (!jsonEqual(this.galleryItems, newItems)) {
       this.galleryItems = newItems;
     }
 
@@ -283,7 +284,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
           title: seq.name,
           frameCount: seq.frameCount,
           thumbnailFrameId: seq.firstFrameId!,
-          status: this.computeStatus(
+          status: sequenceStatus(
             seq.reviewedCount,
             seq.annotatedCount,
             seq.frameCount,
@@ -306,16 +307,6 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
     } finally {
       this.uiState.endLoading();
     }
-  }
-
-  private computeStatus(
-    reviewed: number,
-    annotated: number,
-    total: number,
-  ): SequenceStatus {
-    if (total > 0 && reviewed >= total) return 'reviewed';
-    if (reviewed > 0 || annotated > 0) return 'annotated';
-    return 'empty';
   }
 
   // ── Classification & regression controls ─────────────────────────────────
@@ -843,7 +834,7 @@ export class GalleryComponent implements AfterViewInit, OnDestroy {
       }
 
       item.progress = event.reviewed ? 1 : 0;
-      item.status = this.computeStatus(
+      item.status = sequenceStatus(
         event.reviewed ? item.frameCount : 0,
         item.annotatedCount,
         item.frameCount,

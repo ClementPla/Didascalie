@@ -181,18 +181,31 @@ export class MaskVolumeService implements ProjectScoped {
 
   /** Persist the slices written directly since the last save. */
   async saveDirty(): Promise<void> {
+    const token = this.loadToken;
     const jobs = this.takeDirty();
-    for (const { frameId, labelId, data } of jobs) {
-      await api.saveAnnotation(frameId, labelId, data);
+    for (let i = 0; i < jobs.length; i++) {
+      const { frameId, labelId, data } = jobs[i];
+      try {
+        await api.saveAnnotation(frameId, labelId, data);
+      } catch (error) {
+        // Keep the unsaved slices queued for the next save, unless the volume
+        // was rebuilt meanwhile (their keys would name other slices). The
+        // caller reports the failure.
+        if (token === this.loadToken && this.status() === 'ready') {
+          for (const job of jobs.slice(i)) this.dirtySlices.add(job.key);
+        }
+        throw error;
+      }
     }
   }
 
   /** The dirty slices as copies, and forget them. */
-  private takeDirty(): { frameId: number; labelId: number; data: Uint8Array }[] {
+  private takeDirty(): { key: string; frameId: number; labelId: number; data: Uint8Array }[] {
     const size = this.sliceSize;
     const jobs = [...this.dirtySlices].map((key) => {
       const [z, label] = key.split(':').map(Number);
       return {
+        key,
         frameId: this.frameIds[z],
         labelId: this.labelIds[label],
         data: this.masks[label].slice(z * size, (z + 1) * size),

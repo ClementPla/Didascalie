@@ -27,6 +27,9 @@ export interface Pyramid {
 const MAX_LEVEL_PX       = 4096;  // coarsest level's longest side
 const OVERSAMPLE_FACTOR  = 1.5;   // prefer a level at least 1.5× the viewport
 const MAX_LEVELS         = 8;
+/** Pyramids kept: each holds a native-size canvas. Registration shows two at a
+ *  time, the editor one. */
+const MAX_CACHED         = 6;
 
 // ── Service ────────────────────────────────────────────────────────────────
 
@@ -48,11 +51,7 @@ export class PyramidService implements OnDestroy, ProjectScoped {
 
   /** Build, or return from cache, the pyramid of `img`. */
   async getPyramid(img: HTMLImageElement): Promise<Pyramid> {
-    const key = img.src;
-    if (!this.cache.has(key)) {
-      this.cache.set(key, this.buildPyramid(img));
-    }
-    return this.cache.get(key)!;
+    return this.cached(img.src, () => this.buildPyramid(img));
   }
 
   /** Build, or return from cache, a pyramid of any canvas source, under a
@@ -64,10 +63,23 @@ export class PyramidService implements OnDestroy, ProjectScoped {
     key: string,
     finestPx = 0,
   ): Promise<Pyramid> {
-    if (!this.cache.has(key)) {
-      this.cache.set(key, this.buildPyramidFromSource(source, width, height, finestPx));
+    return this.cached(key, () => this.buildPyramidFromSource(source, width, height, finestPx));
+  }
+
+  /** The pyramid under `key`, built if missing. The least recently used ones
+   *  past MAX_CACHED are dropped. */
+  private cached(key: string, build: () => Promise<Pyramid>): Promise<Pyramid> {
+    let pyramid = this.cache.get(key);
+    if (pyramid) {
+      this.cache.delete(key); // re-inserted: most recent last
+    } else {
+      pyramid = build();
     }
-    return this.cache.get(key)!;
+    this.cache.set(key, pyramid);
+    while (this.cache.size > MAX_CACHED) {
+      this.cache.delete(this.cache.keys().next().value!);
+    }
+    return pyramid;
   }
 
   invalidate(src: string): void {

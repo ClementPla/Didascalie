@@ -16,10 +16,7 @@ import { Role, UserInfo } from '../../lib/api';
 import { NotificationService } from '../../services/notification.service';
 import { ProjectService } from '../../services/project/project.service';
 import { UserService } from '../../services/users/user.service';
-
-function plural(n: number, noun: string): string {
-  return `${n} ${noun}${n === 1 ? '' : 's'}`;
-}
+import { errorMessage, plural } from '../../core/misc/text';
 
 /** An account deletion waiting for confirmation. */
 interface PendingDelete {
@@ -95,7 +92,7 @@ export class UsersComponent implements OnInit {
       await this.users.ensureSession();
       await this.users.refreshUsers();
     } catch (error) {
-      this.notifications.error('Could not load the accounts', this.message(error));
+      this.notifications.error('Could not load the accounts', errorMessage(error));
     }
   }
 
@@ -134,7 +131,7 @@ export class UsersComponent implements OnInit {
       this.asking.set(null);
       await this.router.navigate(['/gallery']);
     } catch (error) {
-      this.loginError.set(this.message(error));
+      this.loginError.set(errorMessage(error));
     } finally {
       this.busy.set(false);
     }
@@ -150,7 +147,7 @@ export class UsersComponent implements OnInit {
       this.newPassword = '';
       await this.router.navigate(['/gallery']);
     } catch (error) {
-      this.notifications.error('Could not create the account', this.message(error));
+      this.notifications.error('Could not create the account', errorMessage(error));
     } finally {
       this.busy.set(false);
     }
@@ -210,7 +207,7 @@ export class UsersComponent implements OnInit {
         ].filter((line): line is string => !!line),
       });
     } catch (error) {
-      this.notifications.error('Could not delete the account', this.message(error));
+      this.notifications.error('Could not delete the account', errorMessage(error));
     }
   }
 
@@ -231,14 +228,9 @@ export class UsersComponent implements OnInit {
     try {
       await action();
     } catch (error) {
-      this.notifications.error(failure, this.message(error));
+      this.notifications.error(failure, errorMessage(error));
     } finally {
       this.busy.set(false);
     }
-  }
-
-  /** Tauri rejects with the backend's message as a plain string. */
-  private message(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
   }
 }

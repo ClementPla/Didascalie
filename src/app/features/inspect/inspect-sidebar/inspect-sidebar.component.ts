@@ -23,6 +23,7 @@ import { from_hex_to_rgb } from '../../../core/misc/colors';
 import { api, SequenceClassification } from '../../../lib/api';
 import { WorklistService } from '../../../services/worklist.service';
 import { SortButtonsComponent } from '../../../shared/generics/sort-buttons/sort-buttons.component';
+import { SequenceStatus } from '../../../core/sequence-status';
 
 /** A segmentation label that can be shown or hidden. */
 export interface SidebarLabel {
@@ -46,8 +47,6 @@ interface TaskAnswer {
   /** Frames answer differently, or only some of them answer. */
   mixed: boolean;
 }
-
-type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
 
 interface SequenceRow {
   id: number;

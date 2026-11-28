@@ -8,6 +8,8 @@
  * touching the border does not erode or smooth away from it.
  */
 
+import { flood8 } from './label-ops';
+
 // ── Label-level operations ──────────────────────────────────────────────────
 
 /** The label becomes its complement over the whole image. */
@@ -310,27 +312,7 @@ function components(p: Uint8Array, w: number, h: number): number[][] {
   for (let start = 0; start < p.length; start++) {
     if (!p[start] || seen[start]) continue;
     const piece: number[] = [];
-    seen[start] = 1;
-    stack.push(start);
-    while (stack.length) {
-      const i = stack.pop()!;
-      piece.push(i);
-      const x = i % w;
-      const y = (i - x) / w;
-      for (let dy = -1; dy <= 1; dy++) {
-        const ny = y + dy;
-        if (ny < 0 || ny >= h) continue;
-        for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx;
-          if (nx < 0 || nx >= w) continue;
-          const j = ny * w + nx;
-          if (p[j] && !seen[j]) {
-            seen[j] = 1;
-            stack.push(j);
-          }
-        }
-      }
-    }
+    flood8(w, h, start, seen, (j) => p[j] !== 0, (i) => piece.push(i), stack);
     pieces.push(piece);
   }
   return pieces;

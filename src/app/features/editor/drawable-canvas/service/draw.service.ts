@@ -20,7 +20,7 @@ import {
   intRect,
 } from '../../../../core/misc/label-ops';
 import { Point2D, DrawingTool, ToolContext } from '../interface';
-import { PenTool, EraserTool, LassoTool, LineTool, LassoEraserTool } from '../tools';
+import { PenTool, EraserTool, LassoTool, LineTool } from '../tools';
 import { IOService } from '../../../../services/io.service';
 
 @Injectable({ providedIn: 'root' })
@@ -45,7 +45,7 @@ export class DrawService implements OnDestroy {
     [Tools.ERASER, new EraserTool()],
     [Tools.LINE, new LineTool()],
     [Tools.LASSO, new LassoTool()],
-    [Tools.LASSO_ERASER, new LassoEraserTool()],
+    [Tools.LASSO_ERASER, new LassoTool(true)],
   ]);
 
   private currentToolContext: ToolContext | null = null;
@@ -125,6 +125,9 @@ export class DrawService implements OnDestroy {
 
     const imageCoord = this.zoomPanService.getImageCoordinates(event);
     this.stateService.updateCurrentPoint(imageCoord);
+    // The flood fill seeds where the stroke ends. Set here too: a tap on a
+    // touch screen raises no move.
+    this.zoomPanService.currentPixel = imageCoord;
 
     const tool = this.tools.get(this.editorService.selectedTool);
     if (tool && this.currentToolContext) {
@@ -227,12 +230,6 @@ export class DrawService implements OnDestroy {
     return this.labelService.paintValue(this.projectService.isInstanceSegmentation());
   }
 
-  public clearCanvas(
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
-  ): void {
-    ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
-  }
-
   /** Rebuild the palettes and recomposite. */
   public recolor(): void {
     this.canvasManagerService.rebuildPalettes();
@@ -310,20 +307,27 @@ export class DrawService implements OnDestroy {
     const isCombined = this.editorService.labelledCombinedBoundingBox;
     const labels = this.labelService.listSegmentationLabels;
 
+    const touched: number[] = [];
     this.canvasManagerService.getAllMasks().forEach((mask, index) => {
       if (!isCombined && labels[index]?.label !== bbox.label.label) return;
 
+      let changed = false;
       for (let ry = 0; ry < rect.height; ry++) {
         for (let rx = 0; rx < rect.width; rx++) {
           const x = rect.x + rx;
           const y = rect.y + ry;
-          if (mask[y * w + x] !== 0) clearComponentAt(mask, w, h, x, y);
+          if (mask[y * w + x] !== 0) {
+            clearComponentAt(mask, w, h, x, y);
+            changed = true;
+          }
         }
       }
+      if (changed) touched.push(index);
     });
+    if (touched.length === 0) return;
 
-    this.stateService.recomputeCanvasSum = true;
-    this.ioService.markDirty();
-    this.redrawRequest.next(true);
+    // The state after the action, as one undo step (see clearLabel).
+    this.undoRedoService.snapshotLayers(touched);
+    this.finishClear(touched);
   }
 }

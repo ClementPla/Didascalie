@@ -16,8 +16,7 @@ import { SequenceService } from '../../../services/sequence.service';
 import { WorklistService } from '../../../services/worklist.service';
 import { api } from '../../../lib/api';
 import { GalleryElementComponent } from '../../gallery/gallery-element/gallery-element.component';
-
-type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
+import { SequenceStatus, sequenceStatus } from '../../../core/sequence-status';
 
 interface NavSequence {
   id: number;
@@ -121,7 +120,7 @@ export class SequenceNavigatorComponent implements OnInit {
           id: s.id,
           name: s.name,
           frameCount: s.frameCount,
-          status: this.computeStatus(
+          status: sequenceStatus(
             s.reviewedCount,
             s.annotatedCount,
             s.frameCount,
@@ -135,16 +134,6 @@ export class SequenceNavigatorComponent implements OnInit {
     } catch (error) {
       console.error('Failed to load sequence navigator:', error);
     }
-  }
-
-  private computeStatus(
-    reviewed: number,
-    annotated: number,
-    total: number,
-  ): SequenceStatus {
-    if (total > 0 && reviewed >= total) return 'reviewed';
-    if (reviewed > 0 || annotated > 0) return 'annotated';
-    return 'empty';
   }
 
   select(seq: NavSequence): void {

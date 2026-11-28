@@ -29,6 +29,7 @@ const INFO: PixelInfo = {
 
 describe('PostProcessService', () => {
   const pixelInfo = signal<PixelInfo | null>(INFO);
+  let frameId = 5;
   const activeMask = new Uint8Array(64 * 64);
   const canvasImage = {
     getContext: () => ({ getImageData: () => ({ data: new Uint8ClampedArray(8) }) }),
@@ -39,6 +40,7 @@ describe('PostProcessService', () => {
   beforeEach(() => {
     pixelInfo.set(INFO);
     activeMask.fill(0);
+    frameId = 5;
     spyOn(api, 'otsuSegmentationRaw').and.resolveTo(new Uint8Array([255, 0]).buffer);
     spyOn(api, 'floodFillRaw').and.resolveTo(new Uint8Array([0, 255]).buffer);
     spyOn(api, 'otsuSegmentation').and.resolveTo(new Uint8Array([255, 255]).buffer);
@@ -47,13 +49,15 @@ describe('PostProcessService', () => {
       providers: [
         {
           provide: SequenceService,
-          useValue: { currentPixelInfo: pixelInfo, currentFrame: () => ({ id: 5 }) },
+          useValue: { currentPixelInfo: pixelInfo, currentFrame: () => ({ id: frameId }) },
         },
         {
           provide: CanvasManagerService,
           useValue: {
             readBufferRegion: () => new Uint8ClampedArray(8).fill(255),
             getActiveMask: () => activeMask,
+            getActiveIndex: () => 0,
+            getAllMasks: () => [activeMask],
           },
         },
         { provide: StateManagerService, useValue: { width: 64, height: 64, strokeRect: () => RECT } },
@@ -87,6 +91,15 @@ describe('PostProcessService', () => {
     await service.flood_fill_post_process();
     args = (api.floodFillRaw as jasmine.Spy).calls.mostRecent().args[0];
     expect(args.source).toBeNull();
+  });
+
+  it('drops a result that arrives after the frame changed', async () => {
+    (api.otsuSegmentationRaw as jasmine.Spy).and.callFake(async () => {
+      frameId = 6; // navigation while the command runs
+      return new Uint8Array([255, 255]).buffer;
+    });
+    await service.otsu_post_process();
+    expect(activeMask[20 * 64 + 10]).toBe(0);
   });
 
   it('keeps reading the canvas for an 8-bit image', async () => {

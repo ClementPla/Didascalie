@@ -138,7 +138,7 @@ export class CompositeViewportComponent
 
   constructor() {
     effect(() => {
-      const _track = [this.mode()];
+      this.mode(); // redraw when it changes
       this.view.redraw();
     });
   }

@@ -15,6 +15,7 @@ import { ProjectService } from '../../../../services/project/project.service';
 import { ZoomPanService } from './zoom-pan.service';
 import { SequenceService } from '../../../../services/sequence.service';
 import { findExperimentalPostProcess } from '../../../../experimental/registry';
+import { PaintTarget, capturePaintTarget, isStillTarget } from './paint-target';
 
 /** Runs the Rust post-process commands and writes their results into the
  *  active label mask. */
@@ -65,22 +66,32 @@ export class PostProcessService {
     return { frameId, source: channel !== null && channel < info.channels ? channel : null };
   }
 
-  private applyResult(result: ArrayBufferLike, rect: { x: number; y: number; width: number; height: number }) {
-    const mask = this.canvasManagerService.getActiveMask();
-    if (mask) {
-      applyRegionResult(
-        mask,
-        this.stateService.width,
-        new Uint8Array(result),
-        rect,
-        this.labelService.paintValue(this.projectService.isInstanceSegmentation()),
-      );
-    }
+  private target(): PaintTarget | null {
+    return capturePaintTarget(this.canvasManagerService, this.stateService, this.sequenceService);
+  }
+
+  /** Write a region result into the mask the stroke was made on, unless the
+   *  frame or label changed while it was computed. */
+  private applyResult(
+    result: ArrayBufferLike,
+    rect: { x: number; y: number; width: number; height: number },
+    target: PaintTarget,
+  ) {
+    if (!isStillTarget(target, this.canvasManagerService, this.stateService, this.sequenceService)) return;
+    applyRegionResult(
+      target.mask,
+      target.width,
+      new Uint8Array(result),
+      rect,
+      this.labelService.paintValue(this.projectService.isInstanceSegmentation()),
+    );
   }
 
   async otsu_post_process() {
     const rect = this.stateService.strokeRect();
     if (!rect) return;
+    const target = this.target();
+    if (!target) return;
 
     const raw = this.rawTarget();
     if (raw) {
@@ -92,7 +103,7 @@ export class PostProcessService {
         denoiseSigma: this.editorService.denoise,
         ...this.refinement(),
       });
-      this.applyResult(result, rect);
+      this.applyResult(result, rect, target);
       return;
     }
 
@@ -109,12 +120,14 @@ export class PostProcessService {
       width: rect.width,
       height: rect.height,
     });
-    this.applyResult(result, rect);
+    this.applyResult(result, rect, target);
   }
 
   async flood_fill_post_process() {
     const rect = this.stateService.strokeRect();
     if (!rect) return;
+    const target = this.target();
+    if (!target) return;
 
     const clickX = Math.floor(this.zoomPanService.currentPixel.x - rect.x);
     const clickY = Math.floor(this.zoomPanService.currentPixel.y - rect.y);
@@ -129,7 +142,7 @@ export class PostProcessService {
         tolerance: this.editorService.floodFillTolerance,
         ...this.refinement(),
       });
-      this.applyResult(result, rect);
+      this.applyResult(result, rect, target);
       return;
     }
 
@@ -146,7 +159,7 @@ export class PostProcessService {
       tolerance: this.editorService.floodFillTolerance,
       ...this.refinement(),
     });
-    this.applyResult(result, rect);
+    this.applyResult(result, rect, target);
   }
 
   /** Erase the connected components the eraser stroke touched, in the active

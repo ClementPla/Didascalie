@@ -1,22 +1,11 @@
-import { flavorEntries } from "@catppuccin/palette";
+import { flavors } from "@catppuccin/palette";
 
-export function getDefaultColor(n: number) {
-
-    n = n % 32
-
-    let color = "#ffffff"
-    flavorEntries.map(([_, flavor]) => {
-        if (flavor.name === 'Latte') {
-
-            flavor.colorEntries.map(([colorName, { hex, rgb, accent }], index) => {
-                if (index === n) {
-                    color = hex
-                }
-            })
-        }
-    })
-    return color
-
+/** The default colour of the `n`-th label: Latte's colours in order, cycling
+ *  (the palette has 26). */
+export function getDefaultColor(n: number): string {
+    const entries = flavors.latte.colorEntries;
+    const i = ((n % entries.length) + entries.length) % entries.length;
+    return entries[i]?.[1].hex ?? "#ffffff";
 }
 
 export function from_hex_to_rgb(hex: string) {

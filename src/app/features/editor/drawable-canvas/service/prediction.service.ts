@@ -180,6 +180,13 @@ export class PredictionService {
     try {
       const scribbles = useScribbles ? this.deriveScribbles() : undefined;
       const result = await api.mlPredictFrame(frame.id, scribbles);
+      if (this.sequenceService.currentFrame()?.id !== frame.id) {
+        this.notifications.warn(
+          'Prediction discarded',
+          'The frame changed while the model was running.',
+        );
+        return;
+      }
 
       const labels = this.labelService.listSegmentationLabels;
       const touched: number[] = [];
@@ -199,14 +206,10 @@ export class PredictionService {
         return;
       }
 
-      // One undo step for the whole replacement.
-      this.undoRedo.beginGroup();
+      // One undo step for the whole replacement. The state after it is what is
+      // snapshotted, as for a stroke (snapshotLayers marks the layers dirty).
+      for (const { index, mask } of applied) this.canvasManager.setMask(index, mask);
       this.undoRedo.snapshotLayers(touched);
-      for (const { index, mask } of applied) {
-        this.canvasManager.setMask(index, mask);
-        this.io.markLabelDirty(index);
-      }
-      this.undoRedo.endGroup();
       this.orchestrator.requestRedrawAllCanvas();
 
       const covered = result.masks

@@ -89,3 +89,101 @@ describe('IOService saves', () => {
     expect(most).toBe(1);
   });
 });
+
+describe('IOService loads and discards', () => {
+  let io: IOService;
+  let currentFrameId: number;
+  const setMask = jasmine.createSpy('setMask');
+  const setShapes = jasmine.createSpy('setShapes');
+
+  beforeEach(() => {
+    currentFrameId = 7;
+    setMask.calls.reset();
+    setShapes.calls.reset();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: LabelsService, useValue: { listSegmentationLabels: [{ id: 10 }] } },
+        { provide: SequenceService, useValue: { currentFrame: () => ({ id: currentFrameId }) } },
+        {
+          provide: CanvasManagerService,
+          useValue: {
+            labelMasks: [new Uint8Array(2)],
+            detachMasks: () => {},
+            clearAllMasks: () => {},
+            setMask,
+          },
+        },
+        { provide: StateManagerService, useValue: {} },
+        {
+          provide: VectorEditorService,
+          useValue: {
+            changed$: new Subject<void>(),
+            shapesByLabel: () => new Map(),
+            setShapes,
+            clear: () => {},
+          },
+        },
+        { provide: NotificationService, useValue: jasmine.createSpyObj('N', ['error', 'notify']) },
+        {
+          provide: MaskVolumeService,
+          useValue: {
+            released$: new Subject<void>(),
+            ready$: new Subject<void>(),
+            markEdited: () => {},
+            syncSaved: () => {},
+            saveDirty: () => Promise.resolve(),
+            slicesFor: () => null,
+            status: () => 'off',
+          },
+        },
+      ],
+    });
+    io = TestBed.inject(IOService);
+    spyOn(api, 'saveVectorAnnotations').and.resolveTo();
+  });
+
+  afterEach(() => io.ngOnDestroy());
+
+  it('lets the last of two overlapping loads win', async () => {
+    spyOn(api, 'loadVectorAnnotations').and.resolveTo([]);
+    const annotation = (frameId: number) => ({
+      labelId: 10,
+      width: 1,
+      height: 2,
+      rle8Base64: btoa(String.fromCharCode(0, 2, 0, 0, 0)), // two zeros
+      frameId,
+    });
+    // Frame 7's masks arrive after frame 8's.
+    spyOn(api, 'loadAnnotations').and.callFake(((id: number) =>
+      new Promise((resolve) =>
+        setTimeout(() => resolve([annotation(id)] as never), id === 7 ? 20 : 1),
+      )) as never);
+
+    const first = io.load();
+    await Promise.resolve();
+    currentFrameId = 8;
+    const second = io.load();
+    expect(await Promise.all([first, second])).toEqual([false, true]);
+    expect(setMask).toHaveBeenCalledTimes(1);
+
+    // Saves go to the frame the canvas holds.
+    const save = spyOn(api, 'saveAnnotation').and.resolveTo();
+    io.markLabelDirty(0);
+    await io.save();
+    expect(save.calls.mostRecent().args[0]).toBe(8);
+  });
+
+  it('discards what a failing in-flight save queues again', async () => {
+    (io as unknown as { loadedFrameId: number }).loadedFrameId = 7;
+    spyOn(api, 'saveAnnotation').and.callFake(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      throw new Error('disk full');
+    });
+    io.markLabelDirty(0);
+    const saving = io.save();
+    await new Promise((r) => setTimeout(r, 1)); // the save is writing
+    await io.discardPendingSave();
+    expect(await saving).toBeFalse();
+    expect(io.isDirty()).toBeFalse();
+  });
+});

@@ -4,12 +4,14 @@ import {
   Component,
   DestroyRef,
   HostListener,
+  Injector,
   OnDestroy,
   OnInit,
   computed,
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -72,6 +74,7 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly movingImageUrl = signal<string | null>(null);
   // ── Services ─────────────────────────────────────────────────────────────
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
   private readonly pyramidSvc = inject(PyramidService);
   private readonly frameLoader = inject(FrameLoaderService);
   private readonly seqSvc = inject(SequenceService);
@@ -148,46 +151,27 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     this.syncGroup.add(this.refVP);
     this.syncGroup.add(this.movingVP);
 
-    let lastSync = this.state.vis().syncPanZoom;
-    queueMicrotask(() => {
-      this.applySyncMode(lastSync);
-    });
-    let lastScale = 0;
-    let lastOffsetX = 0;
-    let lastOffsetY = 0;
-    const checkSync = () => {
-      const s = this.state.vis().syncPanZoom;
-      if (s !== lastSync) {
-        lastSync = s;
-        this.applySyncMode(s);
-      }
-      if (this.isPoppedOut()) {
-        const currentScale = this.refVP.scale();
-        const currentOffset = this.refVP.offset();
-
-        if (
-          currentScale !== lastScale ||
-          currentOffset.x !== lastOffsetX ||
-          currentOffset.y !== lastOffsetY
-        ) {
-          lastScale = currentScale;
-          lastOffsetX = currentOffset.x;
-          lastOffsetY = currentOffset.y;
-
-          emitTo('composite-view', 'sync-viewport-transform', {
-            scale: currentScale,
-            offset: currentOffset,
-          }).catch((err) => console.error(err));
-        }
-      }
-    };
-    let rafId = 0;
-    const loop = () => {
-      checkSync();
-      rafId = requestAnimationFrame(loop);
-    };
-    rafId = requestAnimationFrame(loop);
-    this.destroyRef.onDestroy(() => cancelAnimationFrame(rafId));
+    // Reactive, rather than polled every animation frame: they run only when
+    // what they read changes.
+    effect(
+      () => {
+        const synced = this.state.vis().syncPanZoom;
+        // Aligning reads and writes the viewports: not dependencies.
+        untracked(() => this.applySyncMode(synced));
+      },
+      { injector: this.injector },
+    );
+    effect(
+      () => {
+        if (!this.isPoppedOut()) return;
+        const scale = this.refVP.scale();
+        const offset = this.refVP.offset();
+        emitTo('composite-view', 'sync-viewport-transform', { scale, offset }).catch((err) =>
+          console.error(err),
+        );
+      },
+      { injector: this.injector },
+    );
   }
 
   ngOnDestroy(): void {
@@ -211,7 +195,11 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ── Sequence + frame loading ─────────────────────────────────────────────
 
+  /** Bumped by every `loadSequence`: one overtaken by a later one stops. */
+  private sequenceLoadToken = 0;
+
   private async loadSequence(seqId: number): Promise<void> {
+    const token = ++this.sequenceLoadToken;
     if (this.seqSvc.sequences().length === 0) {
       try {
         await this.seqSvc.loadSequences();
@@ -227,6 +215,7 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
       console.error('[Registration] getSequenceFrames failed:', e);
       return;
     }
+    if (token !== this.sequenceLoadToken) return;
 
     this.frameOptions.set(
       frames.map((f, i) => ({
@@ -252,8 +241,10 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
         this.state.startSession(seqKey);
       }
     } finally {
-      this.registrationLoading = false;
+      // A later load is still running: saving must wait for it.
+      if (token === this.sequenceLoadToken) this.registrationLoading = false;
     }
+    if (token !== this.sequenceLoadToken) return;
     await this.refreshCases();
   }
 
@@ -421,8 +412,10 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
     const frameId = this.state.referenceFrameId();
     if (!frameId) return;
     const img = await this.frameLoader.loadAsImageById(frameId);
-    if (!img) return;
+    // Another reference frame was chosen meanwhile: its load shows it.
+    if (!img || this.state.referenceFrameId() !== frameId) return;
     const pyramid = await this.pyramidSvc.getPyramid(img);
+    if (this.state.referenceFrameId() !== frameId) return;
     this.refPyramid.set(pyramid);
   }
 
@@ -434,12 +427,14 @@ export class RegistrationComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     const img = await this.frameLoader.loadAsImageById(frameId);
+    if (this.state.movingFrameId() !== frameId) return; // see loadRefFrame
     if (!img) {
       this.movingPyramid.set(null);
       this.movingImageUrl.set(null);
       return;
     }
     const pyramid = await this.pyramidSvc.getPyramid(img);
+    if (this.state.movingFrameId() !== frameId) return;
     this.movingPyramid.set(pyramid);
 
     this.movingImageUrl.set(img.src);

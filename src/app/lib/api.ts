@@ -284,8 +284,6 @@ export const api = {
   renderFrameTile: (frameId: number, x: number, y: number, width: number, height: number) =>
     invoke<ArrayBuffer>('render_frame_tile', { frameId, x, y, width, height }),
 
-  /** Erase every annotation on every frame of a sequence, returning how many
-   *  frames carried one. Not undoable. */
   /** Copy the stored annotations of these frames (undo of multi-frame
    *  operations); returns the snapshot's id. */
   snapshotTake: (frameIds: number[]) => invoke<number>('snapshot_take', { frameIds }),
@@ -296,6 +294,8 @@ export const api = {
   snapshotDrop: (ids: number[]) => invoke<void>('snapshot_drop', { ids }),
   snapshotClear: () => invoke<void>('snapshot_clear'),
 
+  /** Erase every annotation on every frame of a sequence, returning how many
+   *  frames carried one. Not undoable. */
   clearSequenceAnnotations: (sequenceId: number) =>
     invoke<number>('clear_sequence_annotations', { sequenceId }),
 

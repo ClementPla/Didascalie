@@ -118,10 +118,16 @@ export function applyRegionResult(
   rect: Rect,
   value: number
 ): void {
-  for (let ry = 0; ry < rect.height; ry++) {
+  // Clamped to the mask: a row past its right edge must not wrap to the next.
+  const maskH = Math.floor(mask.length / maskW);
+  const x0 = Math.max(0, -rect.x);
+  const x1 = Math.min(rect.width, maskW - rect.x);
+  const y0 = Math.max(0, -rect.y);
+  const y1 = Math.min(rect.height, maskH - rect.y);
+  for (let ry = y0; ry < y1; ry++) {
     const maskRow = (rect.y + ry) * maskW + rect.x;
     const resRow = ry * rect.width;
-    for (let rx = 0; rx < rect.width; rx++) {
+    for (let rx = x0; rx < x1; rx++) {
       if (result[resRow + rx] !== 0) mask[maskRow + rx] = value;
     }
   }
@@ -274,7 +280,7 @@ export function connectedComponentBoxes(mask: Uint8Array, w: number, h: number):
  * (`start` itself is not tested). `seen` marks visited pixels and can be
  * shared across calls so regions are visited once; `stack` can be reused.
  */
-function flood8(
+export function flood8(
   w: number,
   h: number,
   start: number,

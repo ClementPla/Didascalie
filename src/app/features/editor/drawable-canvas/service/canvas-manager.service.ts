@@ -75,6 +75,8 @@ export class CanvasManagerService implements ProjectScoped {
   private outlineScratch = new OutlineScratch();
   /** One label layer sampled on the device-pixel grid (viewport path). */
   private viewportGrid = new Uint8Array(0);
+  /** The output of `compositeToDisplay`, kept for the next frame. */
+  private displayImage: ImageData | null = null;
   /** Contour radius (image px) the combined canvas was last composited with,
    *  0 for none. */
   private compositedRadius = 0;
@@ -287,7 +289,13 @@ export class CanvasManagerService implements ProjectScoped {
     const offY = Math.round(this.zoomPan.getOffset().y) * dpr;
     const invScale = 1 / scale;
 
-    const out = ctx.createImageData(dispW, dispH);
+    // Reused across pan/zoom frames: a fresh one is megabytes of garbage each.
+    let out = this.displayImage;
+    if (!out || out.width !== dispW || out.height !== dispH) {
+      out = this.displayImage = ctx.createImageData(dispW, dispH);
+    } else {
+      out.data.fill(0);
+    }
     const data = out.data;
     // Outline radius in device pixels: this grid is the screen.
     const style = this.outlineStyle(dpr);
@@ -535,10 +543,6 @@ export class CanvasManagerService implements ProjectScoped {
   }
   getCombinedCanvas() {
     return this.combinedCanvas;
-  }
-
-  clearCanvas(ctx: OffscreenCanvasRenderingContext2D) {
-    ctx.clearRect(0, 0, this.stateService.width, this.stateService.height);
   }
 
   public ensurePixelPerfectDrawing(

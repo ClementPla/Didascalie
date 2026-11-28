@@ -179,7 +179,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
       const frameIds = this.sequenceService.frames().map((f) => f.id);
       const frames = await this.sequenceUndo.record('clear sequence', frameIds, async () => {
         // A pending autosave landing afterwards would restore the frame.
-        this.ioService.discardPendingSave();
+        await this.ioService.discardPendingSave();
         const erased = await api.clearSequenceAnnotations(sequence.id);
         // Before reloading the canvas, which would read its stale slice.
         this.volume.reload();
@@ -225,7 +225,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     await this.tauriEvents.initialize();
     this.initSubscriptions();
     this.ngZone.runOutsideAngular(() => {
-      window.addEventListener('mousemove', this.updateMousePosition.bind(this));
+      window.addEventListener('mousemove', this.updateMousePosition);
     });
   }
 
@@ -244,10 +244,7 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.complete();
     if (!IS_ANDROID) this.inferenceClient.stopDiscovery();
     this.volume.disable();
-    window.removeEventListener(
-      'mousemove',
-      this.updateMousePosition.bind(this),
-    );
+    window.removeEventListener('mousemove', this.updateMousePosition);
   }
 
   private initSubscriptions() {
@@ -363,6 +360,8 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     this.stateManagerService.width = frameImage.frame.width;
     this.stateManagerService.height = frameImage.frame.height;
     await this.canvasManagerService.updateCanvasesDimensions();
+    // The history may still be that of the frame open when the editor last was.
+    this.orchestratorService.resetHistory();
     await this.loadCanvas();
   }
 
@@ -374,8 +373,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     try {
-      await this.ioService.load();
+      // Overtaken by a later load, which records the history.
+      if (!(await this.ioService.load())) return;
 
+      // The same frame, reloaded: its history is rebased on what was loaded.
       await this.orchestratorService.captureInitialHistory();
 
       this.orchestratorService.requestRedraw();
@@ -546,9 +547,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // `load()` clears the masks, except in 3D mode, where they are slices of the
       // volume.
-      await this.ioService.load();
-      this.orchestratorService.resetHistory();
-      await this.orchestratorService.captureInitialHistory();
+      if (await this.ioService.load()) {
+        this.orchestratorService.resetHistory();
+        await this.orchestratorService.captureInitialHistory();
+      }
     }
 
     this.orchestratorService.requestRedraw();
@@ -607,9 +609,10 @@ export class EditorComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ── Event Handlers ───────────────────────────────────────────────────────
 
-  public updateMousePosition(event: MouseEvent) {
+  /** An arrow function: the same object is added and removed as a listener. */
+  public readonly updateMousePosition = (event: MouseEvent): void => {
     this.mousePosition = { x: event.clientX, y: event.clientY };
-  }
+  };
 
   private handleDownloadProgress(info: DownloadProgress) {
     this.displayDownloadDialog = !info.downloaded;

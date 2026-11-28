@@ -549,9 +549,12 @@ export class VolumeScene {
 
   private applyVisibility(): void {
     const s = this.settings;
-    this.labels.forEach((label, i) => {
-      if (this.groups.surface[i]) this.groups.surface[i].visible = label.visible && !!s?.showSurface;
-      if (this.groups.blocks[i]) this.groups.blocks[i].visible = label.visible && !!s?.showBlocks;
+    // Groups are kept when labels are deleted: those past the list are hidden.
+    this.groups.surface.forEach((group, i) => {
+      group.visible = !!this.labels[i]?.visible && !!s?.showSurface;
+    });
+    this.groups.blocks.forEach((group, i) => {
+      group.visible = !!this.labels[i]?.visible && !!s?.showBlocks;
     });
     const hasImage = this.volumeTexture !== null;
     for (const plane of this.planes) plane.visible = hasImage && !!s?.showPlanes;

@@ -35,10 +35,12 @@ export class IOService implements OnDestroy, ProjectScoped {
   public requestedReload = new Subject<boolean>();
   /** A frame's masks were loaded into the canvas manager. */
   public readonly loaded$ = new Subject<void>();
-  private destroy$ = new Subject<void>();
   private dirty = false;
   /** Label-layer indices changed since the last save (see markLabelDirty). */
   private readonly dirtyLabels = new Set<number>();
+  /** The vector shapes changed since the last save: they are re-sent only then
+   *  (one call per label). */
+  private vectorsDirty = false;
   /** Frame whose masks the canvas manager currently holds (set by `load`). */
   private loadedFrameId: number | null = null;
 
@@ -48,7 +50,10 @@ export class IOService implements OnDestroy, ProjectScoped {
 
   constructor() {
     // Vector edits use the same dirty flag and autosave.
-    this.vectorEditor.changed$.subscribe(() => this.markDirty());
+    this.vectorEditor.changed$.subscribe(() => {
+      this.vectorsDirty = true;
+      this.markDirty();
+    });
 
     // 3D mode. Before the volume drops its buffers, the open frame's masks become
     // owned copies. Once it is resident, they move into their slice.
@@ -58,8 +63,6 @@ export class IOService implements OnDestroy, ProjectScoped {
 
   ngOnDestroy(): void {
     this.cancelAutosave();
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   // ── Public API ───────────────────────────────────────────────────────────
@@ -109,23 +112,38 @@ export class IOService implements OnDestroy, ProjectScoped {
   }
 
   /** Forget what is queued for saving, without writing it. For callers about
-   *  to delete the same annotations: a pending autosave would restore them. */
-  public discardPendingSave(): void {
+   *  to delete the same annotations: a pending autosave would restore them.
+   *  Resolves once no save is in flight: one already writing would too, and a
+   *  failed one queues its changes again. */
+  public async discardPendingSave(): Promise<void> {
+    this.forgetPending();
+    await this.saveChain;
+    this.forgetPending();
+  }
+
+  private forgetPending(): void {
     this.cancelAutosave();
     this.dirty = false;
     this.dirtyLabels.clear();
+    this.vectorsDirty = false;
   }
 
   /** @see ProjectScoped */
   resetForProject(): void {
-    this.discardPendingSave();
+    void this.discardPendingSave();
   }
 
-  public async load(): Promise<void> {
-    const frame = this.sequenceService.currentFrame();
-    if (!frame) {
-      return;
-    }
+  /** Bumped by every `load`: a load overtaken by a later one stops, so that
+   *  the canvas holds the masks of the frame the last load read. */
+  private loadGeneration = 0;
+
+  /**
+   * Load the current frame's annotations into the canvas. Resolves to false
+   * when a later load overtook this one, which then did nothing more.
+   */
+  public async load(): Promise<boolean> {
+    const generation = ++this.loadGeneration;
+    const superseded = () => generation !== this.loadGeneration;
 
     // The canvas still holds the previous frame: write its changes before they
     // are cleared. Navigation saves first; this covers every other way here.
@@ -136,13 +154,21 @@ export class IOService implements OnDestroy, ProjectScoped {
     } else {
       await this.saveChain;
     }
+    if (superseded()) return false;
+
+    // Read after the save: a navigation may have moved on meanwhile.
+    const frame = this.sequenceService.currentFrame();
+    if (!frame) return false;
 
     try {
-      // Until this load completes, a volume becoming ready must not adopt the
-      // canvas's masks.
+      // Until this load completes, nothing may save into, or adopt, the canvas's
+      // masks: they are about to belong to another frame.
       this.loadedFrameId = null;
 
-      await this.loadVectors(frame.id);
+      const vectors = await this.fetchVectors(frame.id);
+      if (superseded()) return false;
+      if (vectors) this.vectorEditor.setShapes(vectors);
+      else this.vectorEditor.clear();
 
       // 3D mode: the masks are already resident as slices of the volume.
       const slices = this.volume.slicesFor(frame.id);
@@ -155,6 +181,7 @@ export class IOService implements OnDestroy, ProjectScoped {
         this.canvasManagerService.detachMasks();
         this.canvasManagerService.clearAllMasks();
         const annotations = await api.loadAnnotations(frame.id);
+        if (superseded()) return false;
         const labels = this.labelService.listSegmentationLabels;
 
         for (const annotation of annotations) {
@@ -175,7 +202,9 @@ export class IOService implements OnDestroy, ProjectScoped {
 
       this.dirty = false;
       this.dirtyLabels.clear();
+      this.vectorsDirty = false;
       this.loaded$.next();
+      return true;
     } catch (error) {
       console.error('Failed to load annotations:', error);
       throw error;
@@ -194,13 +223,14 @@ export class IOService implements OnDestroy, ProjectScoped {
     this.canvasManagerService.bindMasks(slices);
   }
 
-  private async loadVectors(frameId: number): Promise<void> {
+  /** A frame's vector shapes; null when they could not be read. */
+  private async fetchVectors(frameId: number) {
     try {
       const rows = await api.loadVectorAnnotations(frameId);
-      this.vectorEditor.setShapes(rows.flatMap((r) => r.shapes));
+      return rows.flatMap((r) => r.shapes);
     } catch (error) {
       console.error('Failed to load vector annotations:', error);
-      this.vectorEditor.clear();
+      return null;
     }
   }
 
@@ -233,8 +263,9 @@ export class IOService implements OnDestroy, ProjectScoped {
     // again by markLabelDirty for the next save.
     const labels = this.labelService.listSegmentationLabels;
     const dirty = [...this.dirtyLabels];
-    const shapes = this.vectorEditor.shapesByLabel();
+    const shapes = this.vectorsDirty ? this.vectorEditor.shapesByLabel() : null;
     this.dirtyLabels.clear();
+    this.vectorsDirty = false;
     this.dirty = false;
     this.cancelAutosave();
 
@@ -246,8 +277,10 @@ export class IOService implements OnDestroy, ProjectScoped {
         await api.saveAnnotation(frameId, labels[i].id, mask);
         this.volume.syncSaved(frameId, labels[i].id, mask);
       }
-      for (const label of labels) {
-        await api.saveVectorAnnotations(frameId, label.id, shapes.get(label.id) ?? []);
+      if (shapes) {
+        for (const label of labels) {
+          await api.saveVectorAnnotations(frameId, label.id, shapes.get(label.id) ?? []);
+        }
       }
       // 3D mode: other slices written through the volume (projection view).
       await this.volume.saveDirty();
@@ -258,6 +291,7 @@ export class IOService implements OnDestroy, ProjectScoped {
       // saves, so it should not have).
       if (this.loadedFrameId === frameId) {
         dirty.forEach((i) => this.dirtyLabels.add(i));
+        if (shapes) this.vectorsDirty = true;
         this.dirty = true;
       }
       this.notifications.error(

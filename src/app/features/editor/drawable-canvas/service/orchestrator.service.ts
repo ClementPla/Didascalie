@@ -129,7 +129,9 @@ export class OrchestratorService {
       const maxDim = Math.max(img.width, img.height);
       this.zoomPan.smooth = maxDim < 2048;
 
-      this.resetHistory();
+      // The undo history is reset where the frame's masks are loaded (the
+      // editor): the image can finish decoding after that, and resetting here
+      // would wipe the baseline just captured.
 
       this.redrawRequest.next();
 
@@ -312,10 +314,6 @@ export class OrchestratorService {
 
   public applyViewTransform(ctx: CanvasRenderingContext2D, dpr: number) {
     this.zoomPan.applyViewTransform(ctx, dpr);
-  }
-
-  public resetView(resetZoom: boolean, resetPan: boolean) {
-    this.zoomPan.resetZoomAndPan(resetZoom, resetPan);
   }
 
   public handleWheel(event: WheelEvent) {

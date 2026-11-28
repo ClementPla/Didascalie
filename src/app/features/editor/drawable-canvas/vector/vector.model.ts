@@ -435,10 +435,6 @@ export function splitSegment(
   return { ...shape, nodes };
 }
 
-function handleIsFlat(nx: number, ny: number, hx: number, hy: number): boolean {
-  return nx === hx && ny === hy;
-}
-
 /** SVG path data of a shape, in image coordinates. Every segment is a cubic;
  *  a straight one has its control points on the anchors. */
 export function buildPathData(shape: VectorShape): string {
@@ -457,8 +453,8 @@ export function buildPathData(shape: VectorShape): string {
     const b = n[(i + 1) % n.length];
 
     const straight =
-      handleIsFlat(a.x, a.y, a.outX, a.outY) &&
-      handleIsFlat(b.x, b.y, b.inX, b.inY);
+      isFlatHandle(a.x, a.y, a.outX, a.outY) &&
+      isFlatHandle(b.x, b.y, b.inX, b.inY);
 
     d += straight
       ? ` L ${b.x} ${b.y}`

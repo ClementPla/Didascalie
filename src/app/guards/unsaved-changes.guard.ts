@@ -19,6 +19,6 @@ export const saveBeforeLeavingGuard: CanDeactivateFn<unknown> = async () => {
   const io = inject(IOService);
   if (await io.saveIfDirty()) return true;
   if (!(await confirmDiscardUnsaved('Leave'))) return false;
-  io.discardPendingSave();
+  await io.discardPendingSave();
   return true;
 };

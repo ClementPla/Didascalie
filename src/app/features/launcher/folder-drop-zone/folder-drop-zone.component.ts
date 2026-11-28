@@ -55,10 +55,7 @@ export class FolderDropZoneComponent implements OnInit, OnDestroy {
   }
 
   private pointInside(p: { x: number; y: number }): boolean {
-    const el =
-      ((this as any).hostElement as HTMLElement | undefined) ??
-      this.elementRef?.nativeElement;
-    if (!el) return false;
+    const el = this.elementRef.nativeElement;
     const rect = el.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const x = p.x / dpr;

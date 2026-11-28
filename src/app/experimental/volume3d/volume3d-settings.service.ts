@@ -97,10 +97,6 @@ export class Volume3dSettingsService {
     this.settings.update((s) => ({ ...s, ...patch }));
   }
 
-  reset(): void {
-    this.settings.set({ ...DEFAULTS });
-  }
-
   /** The level of detail to mesh a `w×h×d` volume at. */
   resolveLod(w: number, h: number, d: number): number {
     const detail = this.settings().detail;

@@ -5,6 +5,8 @@ import { CanvasManagerService } from '../../features/editor/drawable-canvas/serv
 import { StateManagerService } from '../../features/editor/drawable-canvas/service/state-manager.service';
 import { ImageAdjustmentService } from '../../features/editor/drawable-canvas/service/image-adjustment/image-adjustment.service';
 import { LabelsService } from '../../services/labels/labels.service';
+import { SequenceService } from '../../services/sequence.service';
+import { capturePaintTarget, isStillTarget } from '../../features/editor/drawable-canvas/service/paint-target';
 
 /** Snap brush strokes to superpixel boundaries (Rust `superpixel_refine` /
  *  `superpixel_overlay`). */
@@ -14,6 +16,7 @@ export class SuperpixelService {
   private stateService = inject(StateManagerService);
   private imageProcessingService = inject(ImageAdjustmentService);
   private labelService = inject(LabelsService);
+  private sequenceService = inject(SequenceService);
 
   /** Approximate number of superpixels in the map. */
   public count = 2000;
@@ -31,6 +34,15 @@ export class SuperpixelService {
   /** Keep only the touched superpixels that match the dominant colour under
    *  the stroke. */
   async refineStroke(): Promise<void> {
+    // The refinement reads the full image and stroke buffer, which large
+    // images (windowed stroke buffer) do not have.
+    if (this.canvasManagerService.usesViewportComposite) {
+      console.warn('Superpixel post-process is unavailable for large images.');
+      return;
+    }
+    const target = capturePaintTarget(this.canvasManagerService, this.stateService, this.sequenceService);
+    if (!target) return;
+
     const bufferCtx = this.canvasManagerService.getBufferCtx();
     const rect = {
       x: 0,
@@ -64,17 +76,19 @@ export class SuperpixelService {
       similarityThreshold: this.threshold,
       minOverlapFraction: this.minOverlap,
     });
+    // The map is of the image sent, whichever frame is open now.
+    if (!isStillTarget(target, this.canvasManagerService, this.stateService, this.sequenceService)) {
+      this.mapComputed = this.sequenceService.currentFrame()?.id === target.frameId;
+      return;
+    }
     this.mapComputed = true;
 
     const value = Math.min(
       255,
       Math.max(1, Math.round(this.labelService.activeSegInstance?.instance ?? 1))
     );
-    const mask = this.canvasManagerService.getActiveMask();
-    if (mask) {
-      applyResultMask(mask, new Uint8Array(result), value);
-      this.stateService.recomputeCanvasSum = true;
-    }
+    applyResultMask(target.mask, new Uint8Array(result), value);
+    this.stateService.recomputeCanvasSum = true;
   }
 
   /** Drop the cached map and overlay. */

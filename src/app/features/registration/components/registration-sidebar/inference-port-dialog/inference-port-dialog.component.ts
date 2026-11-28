@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, signal, inject,
+  ChangeDetectionStrategy, Component, computed, signal, inject,
   output
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -26,10 +26,10 @@ export class InferencePortDialogComponent {
   readonly cancelled = output<void>();
 
   readonly inference = inject(InferenceClientService);
-  readonly statusError = (() => {
+  readonly statusError = computed(() => {
     const status = this.inference.status();
     return status.kind === 'error' ? status.message : null;
-  })();
+  });
   host = signal(this.inference.endpoint().host);
   port = signal(this.inference.endpoint().port);
 

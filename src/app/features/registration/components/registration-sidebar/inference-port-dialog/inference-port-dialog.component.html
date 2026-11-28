@@ -17,7 +17,7 @@
                      [showButtons]="false" [useGrouping]="false" [min]="1" [max]="65535" />
     </label>
     @if (inference.status().kind === 'error') {
-      <small class="error">{{ statusError }}</small>
+      <small class="error">{{ statusError() }}</small>
     }
   </div>
   <ng-template pTemplate="footer">

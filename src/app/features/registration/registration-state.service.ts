@@ -329,6 +329,7 @@ export class RegistrationStateService implements ProjectScoped {
     this._placement.set({ phase: 'idle' });
     this._vis.set({ ...DEFAULT_VIS_OPTIONS });
     this._hoveredPairId.set(null);
+    this._hoverPoint.set(null);
     this._cases.set([]);
   }
   setShowMovingWarped(v: boolean): void {

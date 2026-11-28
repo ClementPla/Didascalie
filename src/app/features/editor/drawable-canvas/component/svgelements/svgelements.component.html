@@ -23,7 +23,7 @@
       [attr.stroke-linecap]="'round'"
     />
   }
-  @for (rectLabel of bboxManager.listBbox; track rectLabel.instance) {
+  @for (rectLabel of bboxManager.listBbox; track $index) {
     <rect
       class="bbox"
       [ngClass]="{ 'cursor-pointer': isBboxClickable() }"

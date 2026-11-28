@@ -1,7 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { ProjectScoped } from '../../core/project-scoped';
-
-type SequenceStatus = 'empty' | 'annotated' | 'reviewed';
+import { SequenceStatus } from '../../core/sequence-status';
 
 export type KeypointFilter = 'all' | 'with' | 'without';
 

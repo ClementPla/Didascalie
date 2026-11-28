@@ -130,6 +130,8 @@ export class ProjectionService implements ProjectScoped {
     const id = this.picking();
     if (!id) return;
     const path = this.vectorPathAt(p, tolerance) ?? (await this.centerlineAt(p));
+    // Cancelled, or another curve picked, while the centreline was computed.
+    if (this.picking() !== id) return;
     if (!path || path.length < 2) {
       this.pickMessage.set('No label or path there. Click on an annotation of this slice.');
       return;

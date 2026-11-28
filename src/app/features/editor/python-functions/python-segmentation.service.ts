@@ -165,9 +165,10 @@ export class PythonSegmentationService {
     return fn.params.every((p) => this.argError(fn, p) === null);
   }
 
+  /** Run only once `argsValid`: no value is null then (the cast drops it). */
   private args(fn: PythonFunction): PythonSegContext['args'] {
     return Object.fromEntries(
-      fn.params.map((p) => [p.name, this.argValue(fn, p) as number]),
+      fn.params.map((p) => [p.name, this.argValue(fn, p) as PythonSegContext['args'][string]]),
     );
   }
 
@@ -243,8 +244,6 @@ export class PythonSegmentationService {
 
       // One undo step for the whole run.
       const masks = this.canvasManager.getAllMasks();
-      this.undoRedo.beginGroup();
-      this.undoRedo.snapshotLayers(applied.map((l) => l.index));
       for (const { index, additive, mask } of applied) {
         if (additive) {
           const target = masks[index];
@@ -255,9 +254,9 @@ export class PythonSegmentationService {
         } else {
           this.canvasManager.setMask(index, mask);
         }
-        this.io.markLabelDirty(index);
       }
-      this.undoRedo.endGroup();
+      // The state after the run, as for a stroke (it marks the layers dirty).
+      this.undoRedo.snapshotLayers(applied.map((l) => l.index));
       this.orchestrator.requestRedrawAllCanvas();
 
       const unknown = this.unknownDetail(result.unknownLabels);

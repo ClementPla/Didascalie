@@ -344,10 +344,15 @@ export class UndoRedoService implements ProjectScoped {
   }
 
   /** Give every layer stack a baseline, so the first action on it can be
-   *  undone. Call after loading masks. */
+   *  undone. Call after loading masks. A layer that already has a history (the
+   *  same frame, reloaded) is rebased instead: pushing would add a state that
+   *  no action owns, and the next undo would land on it. */
   public async captureInitialStates(): Promise<void> {
     this.canvasManagerService.getAllMasks().forEach((mask, index) => {
-      this.getLayerUndoRedo(index).push({ data: new Uint8Array(mask) });
+      const stack = this.getLayerUndoRedo(index);
+      const state = { data: new Uint8Array(mask) };
+      if (stack.isEmpty()) stack.push(state);
+      else stack.replaceCurrent(state);
     });
   }
 }

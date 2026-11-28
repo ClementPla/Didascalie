@@ -1,4 +1,5 @@
 import {
+  applyRegionResult,
   clearComponentAt,
   clearValueComponentAt,
   componentsUnderStroke,
@@ -120,5 +121,14 @@ describe('swapUnderStroke', () => {
     swapUnderStroke(m, 0, 4, region, rect, 1);
     expect([...m[0]]).toEqual([1, 1, 1, 0]);
     expect([...m[2]]).toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe('applyRegionResult', () => {
+  it('clips a rect that overhangs the mask instead of wrapping rows', () => {
+    const { mask, w } = maskFrom(['...', '...']);
+    // 2x2 rect at (2,0): its right column is past the edge.
+    applyRegionResult(mask, w, new Uint8Array([1, 1, 1, 1]), { x: 2, y: 0, width: 2, height: 2 }, 5);
+    expect(rowsOf(mask, w)).toEqual(['..5', '..5']);
   });
 });

@@ -81,7 +81,8 @@ describe('SequenceFrameCache', () => {
     const first = cache.get(0)!.image;
 
     cache.setPlayhead(20);
-    await until(() => !!cache!.get(26), 'the second window');
+    // The whole window: its frames decode concurrently, so 26 can land first.
+    await until(() => cachedOf(cache!).length === 8, 'the second window');
 
     expect(cachedOf(cache)).toEqual([19, 20, 21, 22, 23, 24, 25, 26]);
     // Evicted bitmaps are released, not just forgotten.

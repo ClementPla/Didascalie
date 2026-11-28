@@ -82,16 +82,13 @@ export class ConvertService {
         nextId.set(li, id + 1);
       }
 
-      const region = ctx.getImageData(rect.x, rect.y, rect.width, rect.height).data;
+      const region = this.canvasManager.readBufferRegion(rect);
       commitStroke(mask, w, region, rect, value);
       touched.add(li);
       burned.push(shape.id);
     }
 
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    ctx.restore();
+    this.canvasManager.beginStrokeBuffer(); // leave it clear
 
     if (touched.size === 0) return;
 
@@ -122,9 +119,13 @@ export class ConvertService {
     const bounds = shapeBounds(shape);
     if (!bounds) return null;
 
+    // On large images the buffer is a window: centre it on the shape, which
+    // is drawn in image space (a shape wider than the window is clipped).
+    this.canvasManager.beginStrokeBuffer({
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    });
     ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, w, h);
 
     const path = new Path2D(buildPathData(shape));
     const filled = shape.closed && shape.filled;
