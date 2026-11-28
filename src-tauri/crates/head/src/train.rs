@@ -512,7 +512,7 @@ fn fit<B: AutodiffBackend>(
     let mut rng = Rng::new(cfg.seed);
 
     let batch = cfg.batch.min(train.n).max(1);
-    let batches_per_epoch = (train.n + batch - 1) / batch;
+    let batches_per_epoch = train.n.div_ceil(batch);
 
     let table_mb =
         (train.n * train.d * Samples::patch_pixels() * std::mem::size_of::<f32>()) as f64 / 1e6;
@@ -650,7 +650,7 @@ mod tests {
     #[test]
     fn rare_classes_outweigh_common_ones() {
         let mut y = vec![0i32; 95];
-        y.extend(std::iter::repeat(1).take(5));
+        y.extend(std::iter::repeat_n(1, 5));
         let w = class_weights(&y, 2);
         assert!(w[1] > w[0], "rare class must outweigh common: {w:?}");
         assert!((w[0] - 100.0 / (2.0 * 95.0)).abs() < 1e-4, "{w:?}");
@@ -658,7 +658,7 @@ mod tests {
 
     #[test]
     fn a_balanced_split_leaves_weights_at_one() {
-        let y: Vec<i32> = (0..100).map(|i| (i % 2) as i32).collect();
+        let y: Vec<i32> = (0..100).map(|i| i % 2).collect();
         for w in class_weights(&y, 2) {
             assert!((w - 1.0).abs() < 1e-5, "balanced data should not reweight");
         }
@@ -688,7 +688,7 @@ mod tests {
     #[test]
     fn evaluate_penalises_a_constant_predictor() {
         let pred = vec![0; 8];
-        let truth: Vec<i32> = (0..8).map(|i| (i % 2) as i32).collect();
+        let truth: Vec<i32> = (0..8).map(|i| i % 2).collect();
         let m = evaluate(&pred, &truth, 2);
         assert!((m.accuracy - 0.5).abs() < 1e-6);
         assert!(m.mean_dice < 0.5, "constant predictor scored {}", m.mean_dice);

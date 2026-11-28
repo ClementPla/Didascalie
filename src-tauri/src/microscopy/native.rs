@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 use rusqlite::{params, Connection, OptionalExtension};
 
@@ -235,14 +235,13 @@ fn cached_inspect(path: &Path) -> Result<Vec<MicroscopySeries>> {
     let modified = fs::metadata(path).and_then(|m| m.modified()).ok();
     if let Some((_, _, series)) = CACHE
         .lock()
-        .unwrap()
         .iter()
         .find(|(p, m, _)| p == path && *m == modified)
     {
         return Ok(series.clone());
     }
     let series = inspect(path)?.series;
-    let mut cache = CACHE.lock().unwrap();
+    let mut cache = CACHE.lock();
     cache.retain(|(p, _, _)| p != path);
     if cache.len() >= 8 {
         cache.remove(0);

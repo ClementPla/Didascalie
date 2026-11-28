@@ -39,7 +39,7 @@ pub fn list_sequences(db: State<DbState>) -> Result<Vec<Sequence>> {
              LEFT JOIN frames f ON f.sequence_id = s.id
              GROUP BY s.id
              ORDER BY s.sort_order, s.name"
-        ).map_err(|e| AppError::Database(e))?;
+        ).map_err(AppError::Database)?;
 
         let rows = stmt.query_map([], |row| {
             Ok(Sequence {
@@ -48,7 +48,7 @@ pub fn list_sequences(db: State<DbState>) -> Result<Vec<Sequence>> {
                 sort_order: row.get(2)?,
                 frame_count: row.get(3)?,
             })
-        }).map_err(|e| AppError::Database(e))?;
+        }).map_err(AppError::Database)?;
 
         let sequences: Vec<Sequence> = rows
             
@@ -107,7 +107,7 @@ pub fn get_gallery_sequences(db: State<DbState>) -> Result<Vec<GallerySequence>>
              GROUP BY s.id
              ORDER BY s.sort_order",
             queries::FRAME_HAS_ANNOTATION
-        )).map_err(|e| AppError::Database(e))?;
+        )).map_err(AppError::Database)?;
         
         let rows = stmt.query_map([], |row| {
             Ok(GallerySequence {
@@ -120,7 +120,7 @@ pub fn get_gallery_sequences(db: State<DbState>) -> Result<Vec<GallerySequence>>
                 first_frame_id: row.get(6)?,
                 has_keypoints: row.get(7)?,
             })
-        }).map_err(|e| AppError::Database(e))?;
+        }).map_err(AppError::Database)?;
         
         let sequences: Vec<GallerySequence> = rows
             
@@ -211,13 +211,13 @@ pub fn get_all_frame_ids_by_sequence(db: State<DbState>) -> Result<HashMap<i64, 
     db.with_conn(|conn| {
         let mut stmt = conn.prepare(
             "SELECT sequence_id, id FROM frames ORDER BY sequence_id, frame_index"
-        ).map_err(|e| AppError::Database(e))?;
+        ).map_err(AppError::Database)?;
         
         let mut result: HashMap<i64, Vec<i64>> = HashMap::new();
         
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
-        }).map_err(|e| AppError::Database(e))?;
+        }).map_err(AppError::Database)?;
         
         for row in rows {
             let (sequence_id, frame_id) = row?;
@@ -244,7 +244,7 @@ pub fn get_sequence_frames(db: State<DbState>, sequence_id: i64) -> Result<Vec<F
              FROM frames 
              WHERE sequence_id = ?1
              ORDER BY frame_index"
-        ).map_err(|e| AppError::Database(e))?;
+        ).map_err(AppError::Database)?;
 
         let rows = stmt.query_map(params![sequence_id], |row| {
             Ok(Frame {
@@ -257,7 +257,7 @@ pub fn get_sequence_frames(db: State<DbState>, sequence_id: i64) -> Result<Vec<F
                 reviewed: row.get(6)?,
                 is_embedded: row.get(7)?,
             })
-        }).map_err(|e| AppError::Database(e))?;
+        }).map_err(AppError::Database)?;
 
         let frames: Vec<Frame> = rows
             

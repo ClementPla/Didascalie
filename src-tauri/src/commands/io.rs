@@ -97,7 +97,7 @@ impl FileFilter {
       .and_then(|e| e.to_str())
       .map(|e| e.to_ascii_lowercase());
     extension.is_some_and(|e| self.extensions.contains(&e)) &&
-      self.pattern.as_ref().map_or(true, |re| re.is_match(file_name))
+      self.pattern.as_ref().is_none_or(|re| re.is_match(file_name))
   }
 }
 
@@ -132,7 +132,7 @@ pub struct ImportProgress {
 /// 100 ms and for its last file. Shared by the threads of a phase.
 pub struct Progress {
   app: Option<AppHandle>,
-  phase: std::sync::Mutex<(ImportPhase, usize, std::time::Instant)>,
+  phase: parking_lot::Mutex<(ImportPhase, usize, std::time::Instant)>,
   done: std::sync::atomic::AtomicUsize,
 }
 
@@ -145,14 +145,14 @@ impl Progress {
   pub fn silent() -> Self {
     Self {
       app: None,
-      phase: std::sync::Mutex::new((ImportPhase::Images, 0, std::time::Instant::now())),
+      phase: parking_lot::Mutex::new((ImportPhase::Images, 0, std::time::Instant::now())),
       done: std::sync::atomic::AtomicUsize::new(0),
     }
   }
 
   /// Start `phase`, of `total` files. Nothing is shown for an empty phase.
   fn begin(&self, phase: ImportPhase, total: usize) {
-    *self.phase.lock().unwrap() = (phase, total, std::time::Instant::now());
+    *self.phase.lock() = (phase, total, std::time::Instant::now());
     self.done.store(0, std::sync::atomic::Ordering::SeqCst);
     if total > 0 {
       self.emit(ImportProgress { phase, done: 0, total, current: None });
@@ -163,7 +163,7 @@ impl Progress {
   fn advance(&self, file: &str) {
     let done = self.done.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
     let (phase, total) = {
-      let mut state = self.phase.lock().unwrap();
+      let mut state = self.phase.lock();
       if done < state.1 && state.2.elapsed() < std::time::Duration::from_millis(100) {
         return;
       }
@@ -536,12 +536,12 @@ fn scan_for_images(
 ) -> Result<Vec<ImageFile>> {
   let mut images = Vec::new();
 
-  let entries = fs::read_dir(current).map_err(|e| AppError::Io(e))?;
+  let entries = fs::read_dir(current).map_err(AppError::Io)?;
 
   for entry in entries {
-    let entry = entry.map_err(|e| AppError::Io(e))?;
+    let entry = entry.map_err(AppError::Io)?;
     let path = entry.path();
-    let file_type = entry.file_type().map_err(|e| AppError::Io(e))?;
+    let file_type = entry.file_type().map_err(AppError::Io)?;
 
     if file_type.is_dir() {
       if recursive {

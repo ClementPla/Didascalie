@@ -1216,7 +1216,7 @@ mod tests {
             .map(|row| {
                 row.iter()
                     .enumerate()
-                    .flat_map(|(c, n)| std::iter::repeat(names[c]).take(*n))
+                    .flat_map(|(c, n)| std::iter::repeat_n(names[c], *n))
                     .collect()
             })
             .collect();
@@ -1284,7 +1284,7 @@ mod tests {
         let mut rgb = vec![0u8; 49 * 3];
         draw_comparison(&mut rgb, 7, 7, Some(&mask), None, 7, 7, &TEST_COLOURS, 1);
         let on = drawn(&rgb);
-        assert!(on[1 * 7 + 1] && on[1 * 7 + 3] && on[3 * 7 + 5], "the border ring is drawn");
+        assert!(on[7 + 1] && on[7 + 3] && on[3 * 7 + 5], "the border ring is drawn");
         assert!(!on[3 * 7 + 3] && !on[2 * 7 + 2], "the inside is not");
         assert!(!on[0], "nor the outside");
         assert_eq!(on.iter().filter(|v| **v).count(), 16, "a one-pixel ring around 5×5");

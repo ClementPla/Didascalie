@@ -95,7 +95,7 @@ impl FeaturesExtractor {
             .map_err(|e| format!("Failed to bind features output: {}", e))?;
 
         self.features = session
-            .run_binding(&mut io_binding)
+            .run_binding(&io_binding)
             .map_err(|e| format!("Encoder inference failed: {}", e))?
             .remove("features")
             .ok_or("Encoder produced no 'features' output")?;

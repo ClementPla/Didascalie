@@ -456,7 +456,7 @@ mod tests {
             DisplaySettings::auto(&f, &stats::compute(&f))
         };
         for colors in [[Some("#ffffff"), Some("#ffffff")], [Some("#ff0000"), None]] {
-            insert(&conn, &prepared(series(colors), &[frame.clone()])).unwrap();
+            insert(&conn, &prepared(series(colors), std::slice::from_ref(&frame))).unwrap();
             let id = conn.last_insert_rowid();
             let seq: i64 = conn.query_row("SELECT sequence_id FROM frames WHERE id = ?1", [id], |r| r.get(0)).unwrap();
             let json = queries::load_display_settings(&conn, seq).unwrap().unwrap();

@@ -391,7 +391,7 @@ fn zhang_suen_thin(img: &mut [u8], w: usize, h: usize) {
                     }
                     let p = ring8(img, w, x, y);
                     let b: u8 = p.iter().sum();
-                    if b < 2 || b > 6 {
+                    if !(2..=6).contains(&b) {
                         continue;
                     }
                     if transitions(&p) != 1 {

@@ -237,12 +237,11 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
-    app.run(|app_handle, event| match event {
-        RunEvent::Exit => {
+    app.run(|app_handle, event| {
+        if let RunEvent::Exit = event {
             log::info!("shutting down");
             app_handle.state::<DbState>().close();
         }
-        _ => {}
     });
 }
 

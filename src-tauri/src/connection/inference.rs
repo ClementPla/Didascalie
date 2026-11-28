@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::time::Duration;
 
 use image::GenericImageView;
@@ -64,12 +64,12 @@ impl InferenceClient {
   pub fn connect(&self, host: &str, port: u16, wait: Duration) -> Result<PingReply, ComError> {
     let endpoint = format!("tcp://{host}:{port}");
     let reply: PingReply = Channel::open(&self.ctx, &endpoint)?.call(&Request::Ping, wait)?;
-    *self.endpoint.lock().unwrap() = Some(endpoint);
+    *self.endpoint.lock() = Some(endpoint);
     Ok(reply.with_legacy_functions())
   }
 
   pub fn channel(&self) -> Result<Channel, ComError> {
-    let endpoint = self.endpoint.lock().unwrap().clone();
+    let endpoint = self.endpoint.lock().clone();
     let endpoint = endpoint.ok_or_else(|| ComError::Other("not connected".into()))?;
     Channel::open(&self.ctx, &endpoint)
   }

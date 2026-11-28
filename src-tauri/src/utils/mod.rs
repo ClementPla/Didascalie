@@ -1,3 +1,4 @@
 pub mod color;
 pub mod error;
-pub use error::{AppError};
+pub mod process;
+pub use error::AppError;

@@ -26,6 +26,7 @@ use ts_rs::TS;
 
 use crate::types::project::MICROSCOPY_EXTENSIONS;
 use crate::utils::error::{AppError, Result};
+use crate::utils::process::{find_program, last_error_line, no_window};
 
 /// Version of `didascalie-bioformats`'s JSON this build understands.
 pub const PROTOCOL: u32 = 1;
@@ -243,21 +244,7 @@ fn index_set(spec: &str) -> Option<Vec<RangeInclusive<u32>>> {
 const PROGRAM: &str = "didascalie-bioformats";
 
 fn reader_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("DIDASCALIE_BIOFORMATS") {
-        return PathBuf::from(path);
-    }
-    let name = format!("{PROGRAM}{}", std::env::consts::EXE_SUFFIX);
-    if let Some(bundled) = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|dir| dir.join(&name)))
-        .filter(|p| p.is_file())
-    {
-        return bundled;
-    }
-    if let Some(fetched) = fetched_reader().filter(|p| p.is_file()) {
-        return fetched;
-    }
-    PathBuf::from(name)
+    find_program("DIDASCALIE_BIOFORMATS", PROGRAM, fetched_reader())
 }
 
 /// Where `npm run fetch-reader` puts the reader for a source build; None in a
@@ -274,13 +261,7 @@ fn fetched_reader() -> Option<PathBuf> {
 fn run(args: &[OsString]) -> Result<String> {
     let mut command = Command::new(reader_path());
     command.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
-    // Without this, every call flashes a console window on Windows.
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
+    no_window(&mut command);
     let output = command.output().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
             let hint = if cfg!(debug_assertions) {
@@ -296,9 +277,8 @@ fn run(args: &[OsString]) -> Result<String> {
         }
     })?;
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let last = stderr.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("unknown error");
-        return Err(AppError::Other(last.trim().trim_start_matches("error: ").to_string()));
+        let last = last_error_line(&output.stderr);
+        return Err(AppError::Other(last.trim_start_matches("error: ").to_string()));
     }
     String::from_utf8(output.stdout)
         .map_err(|_| AppError::Other(format!("{PROGRAM} printed something that is not text")))

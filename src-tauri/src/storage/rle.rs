@@ -139,12 +139,12 @@ mod tests {
 
     #[test]
     fn roundtrip_all_zero() {
-        assert_roundtrip(&vec![0u8; 4 * 3], 4, 3);
+        assert_roundtrip(&[0u8; 4 * 3], 4, 3);
     }
 
     #[test]
     fn roundtrip_all_set() {
-        assert_roundtrip(&vec![255u8; 4 * 3], 4, 3);
+        assert_roundtrip(&[255u8; 4 * 3], 4, 3);
     }
 
     #[test]
@@ -200,8 +200,8 @@ mod tests {
 
     #[test]
     fn rle8_roundtrip_all_zero_and_all_set() {
-        assert_roundtrip8(&vec![0u8; 12], 4, 3);
-        assert_roundtrip8(&vec![7u8; 12], 4, 3);
+        assert_roundtrip8(&[0u8; 12], 4, 3);
+        assert_roundtrip8(&[7u8; 12], 4, 3);
     }
 
     #[test]

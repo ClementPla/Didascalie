@@ -33,30 +33,17 @@ pub fn load_classification(
     frame_id: i64,
 ) -> Result<Vec<ClassificationData>> {
     db.with_conn(|conn| {
-        let config_json: String = conn.query_row(
-            "SELECT config FROM project WHERE id = 1",
-            [],
-            |row| row.get(0),
-        ).map_err(AppError::Database)?;
-
-        let config: serde_json::Value = serde_json::from_str(&config_json)
-            .map_err(|e| AppError::Generic(format!("Failed to parse config: {}", e)))?;
-
-        let mut task_index_map: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
-        
-        if let Some(tasks) = config.get("classification_tasks").and_then(|v| v.as_array()) {
-            for (i, task) in tasks.iter().enumerate() {
-                if let Some(name) = task.get("name").and_then(|v| v.as_str()) {
-                    task_index_map.insert(name.to_string(), i as i32);
-                }
-            }
-        }
-
+        let config = queries::get_project_config(conn)?;
+        let mut task_index_map: std::collections::HashMap<String, i32> = config
+            .classification_tasks
+            .iter()
+            .flatten()
+            .enumerate()
+            .map(|(i, task)| (task.name.clone(), i as i32))
+            .collect();
         // The multilabel task has index -1.
-        if let Some(multilabel) = config.get("multilabel_task") {
-            if let Some(name) = multilabel.get("name").and_then(|v| v.as_str()) {
-                task_index_map.insert(name.to_string(), -1);
-            }
+        if let Some(multilabel) = &config.multilabel_task {
+            task_index_map.insert(multilabel.name.clone(), -1);
         }
 
         let mut stmt = conn.prepare(

@@ -97,11 +97,11 @@ pub fn get_progress(db: State<DbState>) -> Result<(i64, i64)> {
   db.with_conn(|conn| {
     let total: i64 = conn
       .query_row("SELECT COUNT(*) FROM frames", [], |row| row.get(0))
-      .map_err(|e| AppError::Database(e))?;
+      .map_err(AppError::Database)?;
 
     let reviewed: i64 = conn
       .query_row("SELECT COUNT(*) FROM frame_reviews", [], |row| row.get(0))
-      .map_err(|e| AppError::Database(e))?;
+      .map_err(AppError::Database)?;
 
     Ok((reviewed, total))
   })
@@ -443,7 +443,7 @@ pub fn get_frame_tile(
 ) -> std::result::Result<Response, String> {
     let mut guard = cache.inner.lock().map_err(|e| e.to_string())?;
 
-    let stale = guard.as_ref().map_or(true, |c| c.frame_id != frame_id);
+    let stale = guard.as_ref().is_none_or(|c| c.frame_id != frame_id);
     if stale {
         let (_, bytes) = read_frame_bytes(&db, frame_id).map_err(|e| e.to_string())?;
         let img = image::load_from_memory(&bytes)

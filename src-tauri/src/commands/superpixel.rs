@@ -64,7 +64,7 @@ fn ensure_map<'a>(
 ) -> Result<MutexGuard<'a, Option<SuperpixelMap>>, String> {
     let mut guard = state.lock();
     let needs_compute =
-        compute_map || guard.as_ref().map_or(true, |m| !m.matches(width, height));
+        compute_map || guard.as_ref().is_none_or(|m| !m.matches(width, height));
     if needs_compute {
         let map = SuperpixelMap::compute(image, width, height, target_count)?;
         log::info!(

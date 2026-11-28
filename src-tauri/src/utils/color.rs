@@ -38,7 +38,7 @@ pub fn rgb_to_lab(r: u8, g: u8, b: u8) -> Lab {
 
     let x = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) / 0.95047;
     let y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
-    let z = (r * 0.0193339 + g * 0.1191920 + b * 0.9503041) / 1.08883;
+    let z = (r * 0.0193339 + g * 0.119_192 + b * 0.9503041) / 1.08883;
 
     let fx = xyz_to_lab_component(x);
     let fy = xyz_to_lab_component(y);

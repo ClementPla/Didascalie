@@ -14,7 +14,7 @@
 //! sequence or closes the project.
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
@@ -113,7 +113,7 @@ pub fn snapshot_take(
     frame_ids: Vec<i64>,
 ) -> Result<u32> {
     let snapshot = db.with_conn(|conn| take(conn, &frame_ids))?;
-    Ok(store.inner.lock().unwrap().insert(snapshot))
+    Ok(store.inner.lock().insert(snapshot))
 }
 
 /// Put the frames of snapshot `target` back, except those whose rows differ
@@ -125,7 +125,7 @@ pub fn snapshot_restore(
     target: u32,
     expected: u32,
 ) -> Result<RestoreReport> {
-    let inner = store.inner.lock().unwrap();
+    let inner = store.inner.lock();
     let (Some(target), Some(expected)) =
         (inner.snapshots.get(&target), inner.snapshots.get(&expected))
     else {
@@ -136,12 +136,12 @@ pub fn snapshot_restore(
 
 #[tauri::command]
 pub fn snapshot_drop(store: State<SnapshotStore>, ids: Vec<u32>) {
-    store.inner.lock().unwrap().drop_ids(&ids);
+    store.inner.lock().drop_ids(&ids);
 }
 
 #[tauri::command]
 pub fn snapshot_clear(store: State<SnapshotStore>) {
-    store.inner.lock().unwrap().clear();
+    store.inner.lock().clear();
 }
 
 // ── Work ────────────────────────────────────────────────────────────────────

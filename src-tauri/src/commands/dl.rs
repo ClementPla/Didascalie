@@ -21,9 +21,9 @@ pub async fn mask_sam_segment<'a>(
     model_sessions: State<'a, ModelSessions>,
 ) -> Result<Response, String> {
     let start_time = std::time::Instant::now();
-    let _ = app.emit("mask-segmentation-started", {});
+    let _ = app.emit("mask-segmentation-started", ());
     if extract_features {
-        let _ = app.emit("features-extraction-started", {});
+        let _ = app.emit("features-extraction-started", ());
         let prepare_start = std::time::Instant::now();
 
         let image_tensor = {
@@ -31,7 +31,7 @@ pub async fn mask_sam_segment<'a>(
             features_extractor_guard.prepare_image(image, width, height)?
         };
 
-        println!("Image preparation took: {:?}", prepare_start.elapsed());
+        log::debug!("Image preparation took: {:?}", prepare_start.elapsed());
 
         let encoder = get_encoder_async(&app, &model_sessions).await?;
         let mut encoder_guard = encoder.lock().await;
@@ -40,11 +40,11 @@ pub async fn mask_sam_segment<'a>(
 
         let mut features_extractor_guard = features_extractor.lock().await;
         features_extractor_guard
-            .extract_features(image_tensor, &mut *encoder_guard)
+            .extract_features(image_tensor, &mut encoder_guard)
             .map_err(|e| format!("Feature extraction failed: {}", e))?;
 
-        println!("Feature extraction took: {:?}", encode_start.elapsed());
-        let _ = app.emit("features-extraction-completed", {});
+        log::debug!("Feature extraction took: {:?}", encode_start.elapsed());
+        let _ = app.emit("features-extraction-completed", ());
     }
 
     let gray_image = image::GrayImage::from_raw(
@@ -94,13 +94,13 @@ pub async fn mask_sam_segment<'a>(
     __decoder_binding__
         .synchronize_inputs()
         .map_err(|e| format!("Failed to synchronize inputs: {}", e))?;
-    println!("Decoder setup took: {:?}", decoder_start.elapsed());
+    log::debug!("Decoder setup took: {:?}", decoder_start.elapsed());
 
     let inference_start = std::time::Instant::now();
     let outputs = decoder_guard
         .run_binding(&__decoder_binding__)
         .map_err(|e| e.to_string())?;
-    println!("Decoder inference took: {:?}", inference_start.elapsed());
+    log::debug!("Decoder inference took: {:?}", inference_start.elapsed());
     drop(features_extractor_guard);
 
     let binding = outputs.get("masks").ok_or("No output named 'masks'")?;
@@ -124,7 +124,7 @@ pub async fn mask_sam_segment<'a>(
     );
 
     let binary_vec: Vec<u8> = binary.into_raw();
-    println!("Total execution time: {:?}", start_time.elapsed());
-    let _ = app.emit("mask-segmentation-completed", {});
+    log::debug!("Total execution time: {:?}", start_time.elapsed());
+    let _ = app.emit("mask-segmentation-completed", ());
     Ok(Response::new(binary_vec))
 }

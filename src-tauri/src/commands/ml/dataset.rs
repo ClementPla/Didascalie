@@ -781,7 +781,7 @@ mod tests {
         let out = combine_masks(&masks, &order, 3);
         assert_eq!(out, vec![1, 2, 1]);
 
-        let out = combine_masks(&masks, &vec![9i64, 7], 3);
+        let out = combine_masks(&masks, &[9i64, 7], 3);
         assert_eq!(out, vec![1, 1, 2]);
     }
 

@@ -219,7 +219,7 @@ fn luminance(image: &Array3<f32>) -> Array2<f32> {
 }
 
 /// The full basis of a `[C, H, W]` image: `([D, H, W], channel_names)`. The
-/// names are stored with a trained head.
+/// names label the channels for inspection and tests; nothing stores them.
 pub fn compute(image: &Array3<f32>, cfg: &FilterBankConfig) -> (Array3<f32>, Vec<String>) {
     let (c, h, w) = (image.shape()[0], image.shape()[1], image.shape()[2]);
     let d = cfg.output_channels(c);

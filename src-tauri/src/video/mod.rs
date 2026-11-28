@@ -33,6 +33,7 @@ use std::sync::{mpsc, Condvar, Mutex};
 use once_cell::sync::Lazy;
 
 use crate::utils::error::{AppError, Result};
+use crate::utils::process::{find_program, last_error_line, no_window};
 
 /// Containers whose frames can be addressed exactly. Lower case, no dot.
 pub const EXTENSIONS: &[&str] = &["mp4", "m4v", "mov", "mkv", "webm", "avi"];
@@ -63,18 +64,7 @@ pub struct VideoIndex {
 /// The `ffmpeg` to run: `DIDASCALIE_FFMPEG` if set, else the one shipped next
 /// to the application, else whatever `PATH` resolves.
 fn ffmpeg_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("DIDASCALIE_FFMPEG") {
-        return PathBuf::from(path);
-    }
-    let name = format!("ffmpeg{}", std::env::consts::EXE_SUFFIX);
-    if let Some(bundled) = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|dir| dir.join(&name)))
-        .filter(|p| p.is_file())
-    {
-        return bundled;
-    }
-    PathBuf::from(name)
+    find_program("DIDASCALIE_FFMPEG", "ffmpeg", None)
 }
 
 fn ffmpeg_command(args: &[OsString]) -> Command {
@@ -85,13 +75,7 @@ fn ffmpeg_command(args: &[OsString]) -> Command {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    // Without this, every call flashes a console window on Windows.
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
+    no_window(&mut command);
     command
 }
 
@@ -105,12 +89,6 @@ fn spawn_error(e: std::io::Error) -> AppError {
     } else {
         AppError::Other(format!("Could not run ffmpeg: {}", e))
     }
-}
-
-/// The last line ffmpeg wrote to stderr: with `-v error`, what went wrong.
-fn last_error_line(stderr: &[u8]) -> String {
-    let text = String::from_utf8_lossy(stderr);
-    text.lines().last().unwrap_or("unknown error").trim().to_string()
 }
 
 fn run_ffmpeg(args: &[OsString]) -> Result<Vec<u8>> {

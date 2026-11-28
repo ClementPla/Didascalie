@@ -670,9 +670,6 @@ fn replace_class(classes: &mut Vec<String>, from: &str, to: Option<&str>) {
     }
 }
 
-/// Rebuild `config.segmentation_labels` from the `labels` table:
-/// `sync_labels_from_config` replays the config, by name, on the next open.
-/// `renamed` is `(old, new)`, so a renamed label keeps its stored shades.
 /// Write the label table into the stored config, after labels were added
 /// outside [`apply_edit`] (a dataset import). Opening the project syncs the
 /// table from the config, so a label missing from it would be lost.
@@ -686,6 +683,9 @@ pub fn store_labels_in_config(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Rebuild `config.segmentation_labels` from the `labels` table:
+/// `sync_labels_from_config` replays the config, by name, on the next open.
+/// `renamed` is `(old, new)`, so a renamed label keeps its stored shades.
 fn write_labels_to_config(
     conn: &Connection,
     config: &mut ProjectConfig,

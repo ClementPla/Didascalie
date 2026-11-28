@@ -296,7 +296,7 @@ mod tests {
         let s = stats::compute(&f);
         assert_eq!(window_at(&s[0], 0.0, 1.0), (0.0, 100.0));
         let (lo, hi) = window_at(&s[0], 0.1, 0.9);
-        assert!(lo >= 9.0 && lo <= 11.0 && hi >= 89.0 && hi <= 91.0, "{lo} {hi}");
+        assert!((9.0..=11.0).contains(&lo) && (89.0..=91.0).contains(&hi), "{lo} {hi}");
         // Swapped bounds still give a window.
         assert_eq!(window_at(&s[0], 0.9, 0.1), (lo, hi));
     }

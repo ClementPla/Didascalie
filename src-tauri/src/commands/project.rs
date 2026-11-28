@@ -208,12 +208,12 @@ pub fn close_project(
 
 #[tauri::command]
 pub fn get_frames_count(db: State<DbState>) -> Result<i64> {
-    db.with_conn(|conn| queries::get_frames_count(conn))
+    db.with_conn(queries::get_frames_count)
 }
 
 #[tauri::command]
 pub fn get_sequences_count(db: State<DbState>) -> Result<i64> {
-    db.with_conn(|conn| queries::get_sequences_count(conn))
+    db.with_conn(queries::get_sequences_count)
 }
 #[cfg(test)]
 mod tests {

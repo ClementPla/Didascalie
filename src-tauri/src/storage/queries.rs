@@ -113,7 +113,7 @@ pub fn open_database(path: &Path) -> Result<Connection> {
     let conn = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX
-    ).map_err(|e| AppError::Database(e))?;
+    ).map_err(AppError::Database)?;
 
     configure_connection(&conn)?;
     run_migrations(&conn)?;
@@ -128,7 +128,7 @@ pub fn insert_project(conn: &Connection, config: &ProjectConfig) -> Result<()> {
     conn.execute(
         "INSERT INTO project (id, config) VALUES (1, ?1)",
         params![config_json],
-    ).map_err(|e| AppError::Database(e))?;
+    ).map_err(AppError::Database)?;
 
     Ok(())
 }
@@ -138,7 +138,7 @@ pub fn get_frames_count(conn: &Connection) -> Result<i64> {
         "SELECT COUNT(*) FROM frames",
         [],
         |row| row.get(0),
-    ).map_err(|e| AppError::Database(e))?;
+    ).map_err(AppError::Database)?;
 
     Ok(count)
 }
@@ -148,7 +148,7 @@ pub fn get_sequences_count(conn: &Connection) -> Result<i64> {
         "SELECT COUNT(*) FROM sequences",
         [],
         |row| row.get(0),
-    ).map_err(|e| AppError::Database(e))?;
+    ).map_err(AppError::Database)?;
 
     Ok(count)
 }

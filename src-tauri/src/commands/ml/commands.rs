@@ -59,7 +59,6 @@ pub async fn ml_download_encoder(app: AppHandle, encoder_id: String) -> Result<S
 }
 
 /// What the project currently offers the trainer.
-// Not `rename_all = "camelCase"`: the frontend reads the snake_case fields.
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "../../src/app/lib/generated/")]
@@ -158,10 +157,6 @@ fn emit_avg(app: &AppHandle, stage: &str, done: usize, total: usize, last_ms: f3
             eta_ms,
         },
     );
-}
-
-fn emit(app: &AppHandle, stage: &str, done: usize, total: usize, last_ms: f32) {
-    emit_avg(app, stage, done, total, last_ms, last_ms);
 }
 
 /// Everything a fit needs, built once for the sweep and a single run alike.
@@ -284,7 +279,7 @@ fn build_split(
     options: &TrainOptions,
 ) -> Result<Split, String> {
     let frames = dataset::annotated_frame_ids(db)?;
-    let mut order = dataset::label_order(&db)?;
+    let mut order = dataset::label_order(db)?;
     if order.is_empty() {
         return Err("this project defines no segmentation labels".into());
     }
@@ -590,7 +585,7 @@ fn store_model(
 /// Restore the head stored in the open project, if any. A model this build
 /// cannot read is not an error. Called when a project opens.
 pub fn ml_load_saved_model(db: State<DbState>, state: State<MlState>) -> Option<TrainSummary> {
-    let stored = db.with_conn(|conn| queries::load_ml_model(conn)).ok()??;
+    let stored = db.with_conn(queries::load_ml_model).ok()??;
     let (json, weights) = stored;
     let meta: persist::ModelMeta = match serde_json::from_str(&json) {
         Ok(m) => m,
@@ -639,7 +634,7 @@ pub fn ml_load_saved_model(db: State<DbState>, state: State<MlState>) -> Option<
 #[tauri::command]
 pub fn ml_forget_model(db: State<DbState>, state: State<MlState>) -> Result<bool, String> {
     *state.model.lock() = None;
-    db.with_conn(|conn| queries::delete_ml_model(conn))
+    db.with_conn(queries::delete_ml_model)
         .map_err(|e| e.to_string())
 }
 
@@ -729,6 +724,6 @@ pub fn ml_predict_frame(
         encoder,
         &mut features,
         scribbles.as_ref(),
-        &|stage, done, total| emit(&app, stage, done, total, 0.0),
+        &|stage, done, total| emit_avg(&app, stage, done, total, 0.0, 0.0),
     )
 }
