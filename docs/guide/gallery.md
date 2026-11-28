@@ -1,8 +1,6 @@
 # The gallery and review
 
-The gallery lists the sequences of the project, with their progress. It is where
-you pick what to work on, check what is left, and act on several sequences at
-once.
+The gallery lists the sequences of the project, with their progress.
 
 <!-- SCREENSHOT: the gallery in grid view with a few items selected and the batch
      actions visible. -->
@@ -26,7 +24,7 @@ Hovering over a sequence with several frames previews them in its thumbnail.
 - **Keypoints**, to keep sequences with or without keypoints.
 
 Sequences can be sorted by name, number of frames or progress, and shown as a
-grid or a list. **Reset filters** clears the filters.
+grid or a list.
 
 The sort order, the layout and the thumbnail size are remembered. Filters are
 reset when you open another project.
@@ -39,7 +37,7 @@ reset when you open another project.
 | In progress | Has annotations, not fully reviewed |
 | Reviewed | Checked |
 
-**Only reviewed frames are used to train a model.** Mark a frame reviewed when you
+Only reviewed frames are used to train a model. Mark a frame reviewed when you
 are satisfied with its labels.
 
 In a project with [several accounts](multi-user.md), the status is yours: the
@@ -73,5 +71,5 @@ This is quicker than opening each image when most of a dataset shares a class.
 
 ## Refreshing
 
-**Refresh** reloads the list. With auto-refresh on, the gallery reloads every few
+**Refresh** reloads the list; with auto-refresh on, the gallery reloads every few
 seconds, which is useful while a script writes to the project.

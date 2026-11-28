@@ -92,5 +92,5 @@ annotators or with another model.
 ## The round trip
 
 These uses combine into a loop: write predictions from Python, correct them in the
-application, read the corrected labels from Python, retrain, and start again. No
-server is involved. The project file is all that moves between steps.
+application, read the corrected labels back, retrain. No server is involved; the
+project file is all that moves between steps.

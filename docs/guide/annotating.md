@@ -1,8 +1,6 @@
 # Annotating
 
-Double-click a sequence in the gallery to open it in the editor. The labels are
-on the left, the tools above the image, and the settings of the current tool on
-the right.
+Double-click a sequence in the gallery to open it in the editor.
 
 <!-- SCREENSHOT: the whole editor with a mask drawn, labels panel on the left and settings on the right. -->
 
@@ -18,19 +16,22 @@ The panel also has:
 - a button to hide or show all labels (++tab++);
 - a button to clear every label on the frame.
 
-++ctrl+e++ shows the masks as outlines, to see the image under them.
+++ctrl+e++ shows the masks as outlines.
 
 ## Painting masks
 
 Each label has its own mask, so two labels can cover the same pixels.
 
-| Tool | Key | What it does |
-| --- | --- | --- |
-| Pen | ++p++ | Paints freehand |
-| Line | ++l++ | Paints a straight line between two clicks |
-| Lasso | ++shift+l++ | Fills a closed outline |
-| Eraser | ++e++ | Erases painted pixels |
-| Lasso eraser | ++ctrl+shift+e++ | Erases everything inside a closed outline |
+| Tool | Key |
+| --- | --- |
+| Pen | ++p++ |
+| Line | ++l++ |
+| Lasso | ++shift+l++ |
+| Eraser | ++e++ |
+| Lasso eraser | ++ctrl+shift+e++ |
+
+The lasso tools work on a closed outline you draw: the lasso fills it, the lasso
+eraser clears it.
 
 ++ctrl++ + wheel changes the brush size. With a stylus, **Pressure sensitivity**
 makes the brush wider as you press harder.

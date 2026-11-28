@@ -1,8 +1,5 @@
 # Assisted labelling
 
-There are two kinds of help. The first needs no setup. The second needs a model
-download and a few annotated frames.
-
 ## Operators bounded by your stroke
 
 These need nothing installed and run instantly. Switch on **Auto-segment** (++d++)
@@ -55,8 +52,8 @@ structure stands out, then paint. The stored image is never modified.
 
 ## Training a model on your own data
 
-!!! warning "This is very experimental"
-    The following section describes what is currently mostly a "proof of concept". It is very lightly tested and will likely change a lot in the future.
+!!! warning "Very experimental"
+    Lightly tested, and likely to change.
 
 Scribble on a few frames, train, and apply the result to the rest of the project.
 
@@ -69,10 +66,10 @@ be saved to disk and reused.
 
 In practice:
 
-- **It adapts to your project.** The head learns the structures and the modality
-  of your images. It is not a general-purpose object model.
+- **It fits your project**, not a general-purpose model: the head learns the
+  structures and the modality of your images.
 - **The model is saved in the project.** Reopening the `.dida` file restores the
-  trained head, so predictions are reproducible and travel with the data.
+  trained head, so predictions travel with the data.
 - **Only reviewed frames are used for training**, and at least two are needed so
   that one can be held out to measure accuracy. Annotated frames that are not
   marked reviewed are ignored; the page says how many.

@@ -41,10 +41,6 @@ of a folder but keep its PNGs, and two more settings:
 
 The choice is saved with the project and offered again when images are added.
 
-While the files are imported, a progress line shows what is being done (reading
-images, indexing videos, converting microscopy files), how many files are done
-out of how many, and the file last finished.
-
 ### Images
 
 PNG, JPEG, TIFF, BMP and WebP images are imported as they are: 8-bit RGB or

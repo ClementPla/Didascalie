@@ -1,7 +1,7 @@
 # Quickstart
 
-This page goes through one project from start to finish: create it, annotate an
-image, train a model on a few scribbles, and export the result.
+One project, from creation to export: create it, annotate an image, train a
+model on a few scribbles, and get the data out.
 
 ## 1. Create a project
 

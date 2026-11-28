@@ -1,7 +1,7 @@
 # Very large images
 
-Didascalie can annotate images much larger than a browser can decode in one piece,
-including gigapixel microscopy, at full resolution.
+Didascalie annotates gigapixel microscopy images at full resolution, without
+cutting them into pieces.
 
 ![A 17785x8298 microscopy image](../assets/screenshots/large_images.png)
 ## How it works
@@ -21,8 +21,7 @@ native pixels, so a mask drawn while zoomed in is stored at full resolution.
 
 - Just after opening a large frame, the image can look soft until the tiles
   arrive.
-- When zoomed out, only the pyramid is used. Fetching hundreds of tiles to draw
-  each one a few pixels wide would be wasted work.
+- When zoomed out, only the pyramid is used.
 - Masks are run-length encoded, so a large and mostly empty mask takes little
   space.
 

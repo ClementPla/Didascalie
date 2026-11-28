@@ -13,8 +13,7 @@ The switch controls [3D volume mode](#3d-volume-mode),
 [superpixel selection](#superpixel-selection) and
 [MedSAM refinement](#medsam-mask-refinement). Switching it off leaves 3D mode
 and resets the post-processing mode if one of the experimental ones was
-selected. The [Python bridge](#python-bridge) does not depend on the switch.
-It is listed here because it is equally unfinished.
+selected. The [Python bridge](#python-bridge) is not gated by the switch.
 
 <!-- SCREENSHOT: top toolbar with the wrench popover open and the switch on. -->
 
@@ -172,7 +171,10 @@ assistance, prefer
 
 ## Python bridge
 
-Functions you write in Python can be called from the application: to segment
-the frame or the sequence open in the editor, or to propose keypoint pairs for
-registration. It has its own page:
-[Your own Python functions](guide/python-functions.md).
+Functions you write in Python run in your own environment and are called from
+the application over a local ZeroMQ socket: segment the frame or the whole
+sequence open in the editor, or propose keypoint pairs for registration. A
+function can also declare **arguments** — number fields, switches, drop-down
+lists — which appear as controls in the editor and are sent with every run.
+
+Full documentation: [Your own Python functions](guide/python-functions.md).

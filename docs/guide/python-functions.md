@@ -1,14 +1,13 @@
 # Your own Python functions
 
-Didascalie can call functions you write in Python:
+Didascalie calls functions you write in Python, running in your own environment
+— no ONNX export. The application and the Python process talk over a local
+ZeroMQ socket. A function can:
 
-- a **segmentation** function runs on the frame open in the editor, or on its
-  whole sequence;
-- a **keypoint** function proposes correspondences in the
-  [registration](registration.md) view.
-
-The model runs in your own Python environment, with no ONNX export. The
-application and the Python process talk over a local ZeroMQ socket.
+- **segment** the frame open in the editor, or its whole sequence;
+- **propose keypoint pairs** in the [registration](registration.md) view;
+- take **arguments** you set in the editor — number fields, switches,
+  drop-downs — sent with every run (see [Arguments](#arguments)).
 
 !!! note "Experimental"
     This is recent and lightly tested. It does not depend on the
@@ -175,7 +174,10 @@ All four also take:
 - `hint`, the help line under the control. By default, numbers show their type
   and range.
 
-The values are kept until the application closes, including when the script is
+Number fields are checked before a run: an empty, non-whole or out-of-range
+value disables the run button and says why under the field.
+
+The values are kept for the session, so they survive the script being
 restarted. `@register_sequence_seg` takes arguments the same way;
 `@register_kpts` does not.
 
@@ -243,12 +245,13 @@ docstring.
   step.
 - **Whole sequence** lists the `@register_sequence_seg` functions, on sequences
   of more than one frame. You choose the whole sequence or the frames from the
-  current one onward, and set the function's arguments. The masks are written straight to the project, like
-  [propagating labels](annotating.md), and this cannot be undone.
+  current one onward, and set the function's arguments. The masks are written
+  straight to the project, like [propagating labels](annotating.md); ++ctrl+z++
+  reverts the whole run while the sequence stays open.
 
-The arguments of a frame function appear under its row, and the
-:material-tune: button folds them away. Those of a sequence function are in its
-run dialog.
+The arguments of a frame function appear under its row, and the sliders button
+folds them away. Those of a sequence function are in its run dialog, which also
+shows the progress of the run.
 
 **Use image adjustments**, at the top of the panel, applies to every function
 and is off by default. On, functions receive frames with the
@@ -303,7 +306,8 @@ serve(port=5556, host="tcp://*")
 
 `serve` blocks. Register every function before calling it.
 
-The application looks at `127.0.0.1:5556`. To change it, click the connection
+The application looks at `127.0.0.1:5556`; the panel's header shows the endpoint
+it is using. To change it, click the connection
 button (:material-link-variant:) at the right of the top toolbar and set the host
 and port under **Python functions server**. The registration sidebar has the same
 setting under **Change port**.
@@ -315,6 +319,7 @@ setting under **Change port**.
 | Symptom | Cause |
 | --- | --- |
 | The panel does not appear | The script is not running, serves no segmentation function, or the host and port under **Python functions server** do not match. |
+| A run button stays disabled | An argument is empty, not a whole number, or outside its range; the reason is under the field. |
 | No **Whole sequence** group | The open sequence has a single frame. |
 | "Nothing applied" | The function returned no mask, or only keys that are not label names. |
 | A shape error | A mask is not the size of the frame it was given (with **Full resolution**, the file's size, not the editor's). |

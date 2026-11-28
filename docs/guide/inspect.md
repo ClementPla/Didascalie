@@ -35,9 +35,9 @@ Playback never skips frames. If frames cannot be loaded fast enough for the
 chosen speed, playback slows down and the actual rate is shown next to the speed
 selector.
 
-Wheel zooms and dragging pans. Double-click a pane to fit the image again.
-Changing sequence fits the new one. Turn the **lock** button on to keep the
-zoom and position from one sequence to the next.
+Double-click a pane to fit the image again. Changing sequence fits the new one.
+Turn the **lock** button on to keep the zoom and position from one sequence to
+the next.
 Frames are loaded as previews of at most 2048 px. To see a large image at native
 resolution, open the frame in the editor.
 

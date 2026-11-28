@@ -95,7 +95,7 @@ These are hidden until you switch on **Experimental features** in the toolbar. T
 
 - **3D volume mode.** A sequence opened as a volume, with a 3D view and a curved projection you can paint on.
 - **Superpixel selection** and **MedSAM refinement**, two more ways to refine a stroke.
-- **Python bridge.** Python functions of yours propose keypoint pairs for registration, or segment a frame or a whole sequence from the editor, over ZeroMQ.
+- **Python bridge.** Functions you write in Python segment a frame or a whole sequence from the editor, or propose keypoint pairs for registration, over ZeroMQ. Arguments you declare in the function — number fields, switches, drop-downs — appear as controls in the editor and are sent with every run. See [Your own Python functions](https://didascalie.readthedocs.io/en/latest/guide/python-functions/).
 
 Details are in the [documentation](https://didascalie.readthedocs.io/en/latest/experimental/).
 
