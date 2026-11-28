@@ -77,6 +77,24 @@ fn checkpoint_and_close(conn: Connection) {
     log::info!("[project] database closed and checkpointed");
 }
 
+/// Somewhere to run queries: the open project behind its lock, or a bare
+/// connection (tests). Lets slow work take the lock only around its queries.
+pub trait WithConn {
+    fn with_conn<T>(&self, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T>;
+}
+
+impl WithConn for DbState {
+    fn with_conn<T>(&self, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        DbState::with_conn(self, f)
+    }
+}
+
+impl WithConn for Connection {
+    fn with_conn<T>(&self, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        f(self)
+    }
+}
+
 impl Default for DbState {
     fn default() -> Self {
         Self::new()

@@ -287,20 +287,36 @@ fn add_images_to_open_project(
 ) -> Result<AddImagesResult> {
   log::info!("[import] adding images from {}", options.folder_path);
   let filter = FileFilter::from_options(&options)?;
-  db.with_conn(|conn| {
+  // The connection lock is taken only to read and write rows: scanning,
+  // hashing, decoding, probing videos and converting microscopy files run
+  // without it, so the rest of the app is not frozen meanwhile.
+  let input_folder = db.with_conn(|conn| {
     crate::commands::users::require_admin(conn)?;
     let config = crate::storage::queries::get_project_config(conn)?;
-    let input_folder = crate::frames::resolve_image_folder(&config)
-      .map(|folder| folder.to_string_lossy().into_owned());
-    add_images(conn, input_folder.as_deref(), &options, &filter, progress)
-  })
+    Ok(crate::frames::resolve_image_folder(&config))
+  })?;
+  add_images(db, input_folder.as_deref(), &options, &filter, progress)
 }
 
 // ── Internal Functions ─────────────────────────────────────────────────────
 
+/// A sequence images go into. Created when its first frame goes in, so a
+/// folder whose files all fail leaves nothing behind.
+struct Target {
+  name: String,
+  sequence_id: Option<i64>,
+  next_index: usize,
+  created: bool,
+  imported: usize,
+}
+
+/// Images read per chunk: decoded in parallel without the lock, then inserted
+/// in one short transaction. Also what keeps embedded files from piling up.
+const IMPORT_CHUNK: usize = 64;
+
 fn add_images(
-  conn: &rusqlite::Connection,
-  input_folder: Option<&str>,
+  db: &impl crate::storage::WithConn,
+  input_folder: Option<&Path>,
   options: &ScanOptions,
   filter: &FileFilter,
   progress: &Progress
@@ -319,48 +335,47 @@ fn add_images(
     (folder.clone(), folder.file_name().map(PathBuf::from))
   };
   let embed_images = options.embed_images || !inside;
+  let with_prefix = |path: &mut String| {
+    if let Some(prefix) = &prefix {
+      *path = prefix.join(&*path).to_string_lossy().to_string();
+    }
+  };
 
   let mut result = AddImagesResult::default();
   let (videos, images) =
     split_videos(scan_for_images(&scan_root, &folder, filter, options.recursive)?);
-  let (microscopy, images) = split_microscopy(images);
+  let (mut microscopy, images) = split_microscopy(images);
   let mut groups: Vec<(String, Vec<ImageFile>)> =
     group_into_sequences(images, options.folders_as_sequences).into_iter().collect();
   groups.sort_by(|a, b| a.0.cmp(&b.0));
+  microscopy.iter_mut().for_each(|file| with_prefix(&mut file.relative_path));
 
-  // Every path the project already holds, with the hash of what is behind it.
-  let known: HashMap<String, Option<String>> = {
+  // What the project already holds.
+  let (known, known_videos, known_microscopy) = db.with_conn(|conn| {
     let mut stmt = conn.prepare(
       "SELECT relative_path, content_hash FROM frames WHERE relative_path IS NOT NULL"
     )?;
-    let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
-    rows.collect::<std::result::Result<_, _>>()?
-  };
+    let known: HashMap<String, Option<String>> =
+      stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?.collect::<std::result::Result<_, _>>()?;
+    let mut stmt = conn.prepare(
+      "SELECT DISTINCT v.relative_path FROM videos v JOIN frames f ON f.video_id = v.id"
+    )?;
+    let videos: std::collections::HashSet<String> =
+      stmt.query_map([], |row| row.get(0))?.collect::<std::result::Result<_, _>>()?;
+    let mut imported = Vec::with_capacity(microscopy.len());
+    for file in &microscopy {
+      imported.push(crate::microscopy::import::already_imported(conn, &file.relative_path)?);
+    }
+    Ok((known, videos, imported))
+  })?;
 
-  let tx = conn.unchecked_transaction()?;
-  let mut next_sort_order: i64 = tx.query_row(
-    "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM sequences",
-    [],
-    |row| row.get(0)
-  )?;
-
-  // Decide what is new and where it goes first, then read all of it several
-  // files at a time: one image per sequence is common.
-  struct Target {
-    sequence_id: i64,
-    next_index: usize,
-    created: bool,
-    imported: usize,
-  }
+  // Decide what is new and where it goes.
   let mut targets: Vec<Target> = Vec::new();
   let mut queue: Vec<(usize, ImageFile)> = Vec::new();
   for (name, files) in groups {
-    // A folder that brings nothing leaves no empty sequence.
     let mut fresh = Vec::new();
     for mut image in files {
-      if let Some(prefix) = &prefix {
-        image.relative_path = prefix.join(&image.relative_path).to_string_lossy().to_string();
-      }
+      with_prefix(&mut image.relative_path);
       match known.get(&image.relative_path) {
         None => fresh.push(image),
         // Same root, same path: the same file, already imported.
@@ -379,67 +394,9 @@ fn add_images(
         }
       }
     }
-    if fresh.is_empty() {
-      continue;
-    }
-
-    let existing: Option<i64> = tx
-      .query_row("SELECT id FROM sequences WHERE name = ?1", params![name], |row| row.get(0))
-      .optional()?;
-    let (sequence_id, frame_index) = match existing {
-      Some(id) if inside => {
-        let next: i64 = tx.query_row(
-          "SELECT COALESCE(MAX(frame_index), -1) + 1 FROM frames WHERE sequence_id = ?1",
-          params![id],
-          |row| row.get(0)
-        )?;
-        (id, next as usize)
-      }
-      taken => {
-        let name = if taken.is_some() { free_sequence_name(&tx, &name)? } else { name };
-        tx.execute(
-          "INSERT INTO sequences (name, sort_order) VALUES (?1, ?2)",
-          params![name, next_sort_order]
-        )?;
-        next_sort_order += 1;
-        (tx.last_insert_rowid(), 0)
-      }
-    };
-    targets.push(Target {
-      sequence_id,
-      next_index: frame_index,
-      created: existing.is_none() || !inside,
-      imported: 0,
-    });
-    queue.extend(fresh.into_iter().map(|image| (targets.len() - 1, image)));
-  }
-
-  let started = std::time::Instant::now();
-  let files: Vec<&ImageFile> = queue.iter().map(|(_, image)| image).collect();
-  read_images(&files, embed_images, progress, |i, read| {
-    let (target, image) = (&mut targets[queue[i].0], &queue[i].1);
-    match read.and_then(|read| insert_frame(&tx, target.sequence_id, target.next_index, image, read)) {
-      Ok(embedded) => {
-        target.next_index += 1;
-        target.imported += 1;
-        result.frames_imported += 1;
-        if embedded {
-          result.frames_embedded += 1;
-        }
-      }
-      Err(e) => {
-        result.errors.push(format!("Failed to import {}: {}", image.relative_path, e));
-      }
-    }
-    Ok(())
-  })?;
-  log::info!("[import] images: {} frame(s) in {:.1?}", result.frames_imported, started.elapsed());
-  for target in targets.iter().filter(|t| t.created) {
-    if target.imported > 0 {
-      result.sequences_created += 1;
-    } else {
-      // Every file failed to decode: do not leave an empty sequence behind.
-      tx.execute("DELETE FROM sequences WHERE id = ?1", params![target.sequence_id])?;
+    if !fresh.is_empty() {
+      targets.push(Target { name, sequence_id: None, next_index: 0, created: false, imported: 0 });
+      queue.extend(fresh.into_iter().map(|image| (targets.len() - 1, image)));
     }
   }
 
@@ -451,47 +408,89 @@ fn add_images(
          the project file. Move it into that folder first.",
         video.relative_path
       ));
-      continue;
-    }
-    let known: bool = tx.query_row(
-      "SELECT EXISTS (SELECT 1 FROM frames f JOIN videos v ON v.id = f.video_id
-                      WHERE v.relative_path = ?1)",
-      params![video.relative_path],
-      |row| row.get(0)
-    )?;
-    if known {
+    } else if known_videos.contains(&video.relative_path) {
       result.frames_skipped += 1;
-      continue;
+    } else {
+      new_videos.push(video);
     }
-    new_videos.push(video);
   }
-  let indexes = probe_videos(&new_videos, progress);
-  let (sequences, frames) =
-    import_probed_videos(&tx, &new_videos, indexes, options.video_frame_step, &mut result.errors);
-  result.sequences_created += sequences;
-  result.frames_imported += frames;
-
-  // Microscopy files are converted and embedded wherever they are. A file is
-  // known by its path: its frames are named after it, not the file itself.
   let mut new_microscopy = Vec::new();
-  for mut file in microscopy {
-    if let Some(prefix) = &prefix {
-      file.relative_path = prefix.join(&file.relative_path).to_string_lossy().to_string();
-    }
-    if crate::microscopy::import::already_imported(&tx, &file.relative_path)? {
+  for (file, imported) in microscopy.into_iter().zip(known_microscopy) {
+    if imported {
       result.frames_skipped += 1;
     } else {
       new_microscopy.push(file);
     }
   }
+
+  // Images, a chunk at a time.
+  let started = std::time::Instant::now();
+  progress.begin(ImportPhase::Images, queue.len());
+  for chunk in queue.chunks(IMPORT_CHUNK) {
+    let reads: Vec<Result<ReadImage>> = chunk
+      .par_iter()
+      .map(|(_, image)| {
+        let read = read_image(&image.absolute_path, embed_images);
+        progress.advance(&image.relative_path);
+        read
+      })
+      .collect();
+    db.with_conn(|conn| {
+      let tx = conn.unchecked_transaction()?;
+      for ((t, image), read) in chunk.iter().zip(reads) {
+        let target = &mut targets[*t];
+        let inserted = read.and_then(|read| {
+          let sequence_id = target_sequence(&tx, target, inside)?;
+          insert_frame(&tx, sequence_id, target.next_index, image, read)
+        });
+        match inserted {
+          Ok(embedded) => {
+            target.next_index += 1;
+            target.imported += 1;
+            result.frames_imported += 1;
+            if embedded {
+              result.frames_embedded += 1;
+            }
+          }
+          Err(e) => {
+            result.errors.push(format!("Failed to import {}: {}", image.relative_path, e));
+          }
+        }
+      }
+      tx.commit()?;
+      Ok(())
+    })?;
+  }
+  log::info!("[import] images: {} frame(s) in {:.1?}", result.frames_imported, started.elapsed());
+
+  // Slow, file-bound work, still without the lock.
+  let indexes = probe_videos(&new_videos, progress);
   let prepared =
     prepare_microscopy(&new_microscopy, options.microscopy.as_deref(), &mut result.errors, progress);
-  let (sequences, frames) = insert_microscopy(&tx, &prepared, &mut result.errors);
-  result.sequences_created += sequences;
-  result.frames_imported += frames;
-  result.frames_embedded += frames;
 
-  tx.commit()?;
+  db.with_conn(|conn| {
+    let tx = conn.unchecked_transaction()?;
+    for target in targets.iter().filter(|t| t.created) {
+      if target.imported > 0 {
+        result.sequences_created += 1;
+      } else if let Some(id) = target.sequence_id {
+        // Created, then every insert failed: do not leave it empty.
+        tx.execute("DELETE FROM sequences WHERE id = ?1", params![id])?;
+      }
+    }
+    let (sequences, frames) =
+      import_probed_videos(&tx, &new_videos, indexes, options.video_frame_step, &mut result.errors);
+    result.sequences_created += sequences;
+    result.frames_imported += frames;
+
+    let (sequences, frames) = insert_microscopy(&tx, &prepared, &mut result.errors);
+    result.sequences_created += sequences;
+    result.frames_imported += frames;
+    result.frames_embedded += frames;
+    tx.commit()?;
+    Ok(())
+  })?;
+
   log::info!(
     "[import] added {} frame(s), skipped {}, {} error(s)",
     result.frames_imported,
@@ -499,6 +498,43 @@ fn add_images(
     result.errors.len()
   );
   Ok(result)
+}
+
+/// The sequence `target`'s next frame goes into, found or created on its
+/// first frame. Inside the image folder, a folder already imported as a
+/// sequence gets the new frames appended; otherwise a taken name gets a
+/// `name (2)`.
+fn target_sequence(conn: &rusqlite::Connection, target: &mut Target, inside: bool) -> Result<i64> {
+  if let Some(id) = target.sequence_id {
+    return Ok(id);
+  }
+  let existing: Option<i64> = conn
+    .query_row("SELECT id FROM sequences WHERE name = ?1", params![target.name], |row| row.get(0))
+    .optional()?;
+  let id = match existing {
+    Some(id) if inside => {
+      let next: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(frame_index), -1) + 1 FROM frames WHERE sequence_id = ?1",
+        params![id],
+        |row| row.get(0)
+      )?;
+      target.next_index = next as usize;
+      id
+    }
+    taken => {
+      let name = if taken.is_some() { free_sequence_name(conn, &target.name)? } else { target.name.clone() };
+      conn.execute(
+        "INSERT INTO sequences (name, sort_order)
+         VALUES (?1, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM sequences))",
+        params![name]
+      )?;
+      target.created = true;
+      target.next_index = 0;
+      conn.last_insert_rowid()
+    }
+  };
+  target.sequence_id = Some(id);
+  Ok(id)
 }
 
 fn scan_for_images(
@@ -1007,7 +1043,7 @@ mod tests {
         let mut opts = options(&root, false);
         opts.extensions.push("czi".into());
         let re = FileFilter::from_options(&opts).unwrap();
-        let result = add_images(&conn, Some(&root.to_string_lossy()), &opts, &re, &Progress::silent()).unwrap();
+        let result = add_images(&conn, Some(root.as_ref()), &opts, &re, &Progress::silent()).unwrap();
         assert_eq!(result.frames_imported, 1);
         assert_eq!(result.errors.len(), 1);
         assert!(result.errors[0].starts_with("plate.CZI: "), "{:?}", result.errors);
@@ -1100,7 +1136,7 @@ mod tests {
 
     fn add(conn: &rusqlite::Connection, root: &Path, folder: &Path, as_sequences: bool) -> AddImagesResult {
         let re = images_filter();
-        add_images(conn, Some(&root.to_string_lossy()), &options(folder, as_sequences), &re, &Progress::silent()).unwrap()
+        add_images(conn, Some(root), &options(folder, as_sequences), &re, &Progress::silent()).unwrap()
     }
 
     fn column<T: rusqlite::types::FromSql>(conn: &rusqlite::Connection, sql: &str) -> Vec<T> {
@@ -1321,13 +1357,13 @@ mod tests {
             let re = filter(&["mp4"], &format!(r"^{}\.mp4$", name));
             let mut opts = options(&root, false);
             opts.video_frame_step = step;
-            let result = add_images(&conn, Some(&root.to_string_lossy()), &opts, &re, &Progress::silent()).unwrap();
+            let result = add_images(&conn, Some(root.as_ref()), &opts, &re, &Progress::silent()).unwrap();
             assert_eq!(result.errors, Vec::<String>::new());
             let expected = count.div_ceil(step as usize);
             assert_eq!((result.sequences_created, result.frames_imported), (1, expected), "{name}");
 
             // A rescan finds the video already there.
-            let again = add_images(&conn, Some(&root.to_string_lossy()), &opts, &re, &Progress::silent()).unwrap();
+            let again = add_images(&conn, Some(root.as_ref()), &opts, &re, &Progress::silent()).unwrap();
             assert_eq!((again.frames_imported, again.frames_skipped), (0, 1));
 
             let mut frames: Vec<(i64, i64)> = {
@@ -1362,7 +1398,7 @@ mod tests {
         let conn = open_project();
         let re = video_filter();
         let result =
-            add_images(&conn, Some(&root.to_string_lossy()), &options(&other, false), &re, &Progress::silent()).unwrap();
+            add_images(&conn, Some(root.as_ref()), &options(&other, false), &re, &Progress::silent()).unwrap();
         assert_eq!(result.frames_imported, 0);
         assert_eq!(result.errors.len(), 1);
         assert_eq!(column::<String>(&conn, "SELECT name FROM sequences").len(), 0);
