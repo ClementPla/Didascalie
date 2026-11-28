@@ -31,6 +31,20 @@
     }
   </div>
 
+  <div class="fn-option">
+    <label class="fn-option__label" for="py-full-resolution"
+      >Full resolution</label
+    >
+    <p-toggleswitch
+      inputId="py-full-resolution"
+      [ngModel]="python.fullResolution()"
+      (ngModelChange)="python.fullResolution.set($event)"
+    />
+    <small class="fn-option__hint"
+      >Microscopy frames imported at a lower level are read again from their file</small
+    >
+  </div>
+
   @if (python.frameFunctions().length) {
     <section class="fn-group">
       <h4 class="fn-group__title">This frame</h4>

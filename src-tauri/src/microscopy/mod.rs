@@ -4,7 +4,9 @@
 //! That program links bioformats-rs, which is GPL: running it as its own
 //! process keeps this application under its own licence. It is found like
 //! ffmpeg: `DIDASCALIE_BIOFORMATS` if set, else next to the application, else
-//! on `PATH`. It answers in JSON whose `protocol` must match [`PROTOCOL`].
+//! (in a debug build) in `src-tauri/binaries/`, where `npm run fetch-reader`
+//! puts it, else on `PATH`. It answers in JSON whose `protocol` must match
+//! [`PROTOCOL`].
 //!
 //! A file is converted when imported (see [`import`]): every picked (t, z) of a
 //! series becomes one frame, a multi-page TIFF with one page per channel at
@@ -12,6 +14,7 @@
 //! frame. The project then needs neither the file nor the program again.
 
 pub mod import;
+pub mod native;
 
 use std::collections::HashSet;
 use std::ffi::OsString;
@@ -27,9 +30,10 @@ use crate::utils::error::{AppError, Result};
 /// Version of `didascalie-bioformats`'s JSON this build understands.
 pub const PROTOCOL: u32 = 1;
 
-/// Longest side a series is imported at by default: past it, a lower
-/// resolution level is taken when the file has one.
-const DEFAULT_MAX_SIDE: u32 = 8192;
+/// Pixels a frame is imported at by default (16384 × 16384): past it, a lower
+/// resolution level is taken when the file has one. The editor holds a frame
+/// and one mask per label whole, so a whole-slide level 0 would not open.
+const DEFAULT_MAX_PIXELS: u64 = 1 << 28;
 /// Z stacks up to this many slices are imported slice by slice by default;
 /// deeper ones as a maximum projection.
 const DEFAULT_MAX_SLICES: u32 = 64;
@@ -177,8 +181,8 @@ pub struct SeriesPick {
 
 impl SeriesPick {
     /// Every channel and time point; every slice of a stack up to
-    /// [`DEFAULT_MAX_SLICES`], else a maximum projection; the largest level no
-    /// wider than [`DEFAULT_MAX_SIDE`]. None for a thumbnail or unreadable
+    /// [`DEFAULT_MAX_SLICES`], else a maximum projection; the finest level
+    /// within [`DEFAULT_MAX_PIXELS`]. None for a thumbnail or unreadable
     /// series.
     pub fn default_for(series: &MicroscopySeries) -> Option<SeriesPick> {
         if series.thumbnail || series.error.is_some() {
@@ -187,7 +191,7 @@ impl SeriesPick {
         let level = series
             .levels
             .iter()
-            .position(|l| l.width.max(l.height) <= DEFAULT_MAX_SIDE)
+            .position(|l| l.width as u64 * l.height as u64 <= DEFAULT_MAX_PIXELS)
             .unwrap_or(series.levels.len().saturating_sub(1));
         Some(SeriesPick {
             index: series.index,
@@ -249,7 +253,21 @@ fn reader_path() -> PathBuf {
     {
         return bundled;
     }
+    if let Some(fetched) = fetched_reader().filter(|p| p.is_file()) {
+        return fetched;
+    }
     PathBuf::from(name)
+}
+
+/// Where `npm run fetch-reader` puts the reader for a source build; None in a
+/// release build, which bundles it next to the application instead.
+fn fetched_reader() -> Option<PathBuf> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    let target = option_env!("DIDASCALIE_TARGET")?;
+    let name = format!("{PROGRAM}-{target}{}", std::env::consts::EXE_SUFFIX);
+    Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("binaries").join(name))
 }
 
 fn run(args: &[OsString]) -> Result<String> {
@@ -264,10 +282,14 @@ fn run(args: &[OsString]) -> Result<String> {
     }
     let output = command.output().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            AppError::Other(format!(
-                "Microscopy files need {PROGRAM}, which was not found. Reinstall Didascalie, \
-                 or point the DIDASCALIE_BIOFORMATS environment variable at the program."
-            ))
+            let hint = if cfg!(debug_assertions) {
+                "Run `npm run fetch-reader`, or point the DIDASCALIE_BIOFORMATS environment \
+                 variable at the program."
+            } else {
+                "Reinstall Didascalie, or point the DIDASCALIE_BIOFORMATS environment variable \
+                 at the program."
+            };
+            AppError::Other(format!("Microscopy files need {PROGRAM}, which was not found. {hint}"))
         } else {
             AppError::Other(format!("Could not run {PROGRAM}: {e}"))
         }
@@ -431,6 +453,12 @@ mod tests {
         ];
         let pick = SeriesPick::default_for(&deep).unwrap();
         assert_eq!((pick.level, pick.z.as_str()), (2, "max"));
+        // Full size whenever it fits, however long a side.
+        deep.levels = vec![
+            LevelSize { width: 15_000, height: 12_000 },
+            LevelSize { width: 3_750, height: 3_000 },
+        ];
+        assert_eq!(SeriesPick::default_for(&deep).unwrap().level, 0);
         deep.thumbnail = true;
         assert_eq!(SeriesPick::default_for(&deep), None);
     }

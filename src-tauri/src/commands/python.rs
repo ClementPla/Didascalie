@@ -7,6 +7,10 @@
 //! one undo step. Segmenting a sequence writes straight to the project, like
 //! propagation. In both, a layer returned for a named label replaces that
 //! label; a single unnamed mask is painted onto the active label.
+//!
+//! A function sees a frame at full resolution: one the project holds at a
+//! lower level of a microscopy file is read again from the file (see
+//! `microscopy::native`), and the masks are scaled between the two sizes.
 
 use ts_rs::TS;
 use base64::prelude::BASE64_STANDARD;
@@ -21,6 +25,7 @@ use crate::connection::request::{
     WireMask,
 };
 use crate::connection::types::ComError;
+use crate::microscopy::native::{self, resample_mask, NativeFrames, Outcome};
 use crate::storage::{queries, rle, DbState};
 use crate::types::image::MaskEncoding;
 use crate::utils::error::Result;
@@ -116,6 +121,14 @@ pub struct SegContext {
     #[serde(default)]
     #[ts(type = "number[] | null")]
     pub image_lut: Option<Vec<u8>>,
+    /// Send a frame the project holds at a lower resolution level as the file
+    /// has it. Off sends what the editor shows.
+    #[serde(default = "full_resolution_by_default")]
+    pub full_resolution: bool,
+}
+
+fn full_resolution_by_default() -> bool {
+    true
 }
 
 impl SegContext {
@@ -147,13 +160,80 @@ fn apply_lut(rgb: &mut [u8], lut: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// A frame as the function receives it.
-fn frame_payload(db: &DbState, frame_id: i64, ctx: &SegContext) -> Result<ImagePayload> {
-    let mut image = load_frame_as_payload(db, frame_id).map_err(bridge)?;
+/// A frame's size in the project, and as the function sees it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Geometry {
+    stored: (u32, u32),
+    sent: (u32, u32),
+}
+
+impl Geometry {
+    fn same(size: (u32, u32)) -> Self {
+        Self { stored: size, sent: size }
+    }
+}
+
+/// The frames of a run at full resolution, when the context asks for it.
+fn native_frames(db: &DbState, frame_ids: &[i64], ctx: &SegContext) -> Result<Option<NativeFrames>> {
+    if !ctx.full_resolution {
+        return Ok(None);
+    }
+    native::read(db, frame_ids).map(Some)
+}
+
+/// A frame as the function receives it, and its size.
+fn frame_payload(
+    db: &DbState,
+    frame_id: i64,
+    ctx: &SegContext,
+    native: Option<&NativeFrames>,
+) -> Result<(ImagePayload, Geometry)> {
+    let stored = db.with_conn(|conn| queries::get_frame_dimensions(conn, frame_id))?;
+    let (mut image, geometry) = match native.and_then(|n| n.get(frame_id)) {
+        Some(Outcome::Finer(plane)) => {
+            let bytes = std::fs::read(&plane.path)?;
+            let picture = crate::commands::pixels::frame_picture(db, frame_id, &bytes, 0)?;
+            drop(bytes);
+            let (w, h) = (picture.width(), picture.height());
+            let image = ImagePayload {
+                buf: picture.into_rgb8().into_raw(),
+                shape: vec![h as usize, w as usize, 3],
+                dtype: "uint8".into(),
+            };
+            (image, Geometry { stored, sent: (w, h) })
+        }
+        _ => (load_frame_as_payload(db, frame_id).map_err(bridge)?, Geometry::same(stored)),
+    };
     if let Some(lut) = &ctx.image_lut {
         apply_lut(&mut image.buf, lut)?;
     }
-    Ok(image)
+    Ok((image, geometry))
+}
+
+/// What to tell the user about the resolution the frames went at; None when
+/// every frame went at full resolution.
+fn resolution_note(native: Option<&NativeFrames>) -> Option<String> {
+    let native = native?;
+    let mut reduced = native.frames.values().filter_map(|o| match o {
+        Outcome::Finer(p) if p.level > 0 => Some(p),
+        _ => None,
+    });
+    let mut as_stored = native.frames.values().filter_map(|o| match o {
+        Outcome::AsStored(reason) => Some(reason),
+        _ => None,
+    });
+    let several = native.frames.len() > 1;
+    if let Some(reason) = as_stored.next() {
+        let count = 1 + as_stored.count();
+        let what = if several { format!("{count} frames were") } else { "The frame was".into() };
+        return Some(format!("{what} sent at the resolution the project holds: {reason}."));
+    }
+    let plane = reduced.next()?;
+    let what = if several { "Frames were" } else { "The frame was" };
+    Some(format!(
+        "{what} sent at resolution level {} ({} × {}): level 0 is too large for one message.",
+        plane.level, plane.width, plane.height
+    ))
 }
 
 /// A returned mask, resolved against the project.
@@ -164,8 +244,11 @@ struct Layer {
     mask: Vec<u8>,
 }
 
-fn resolve(wire: WireMask, ctx: &SegContext, width: u32, height: u32) -> Result<Layer> {
-    if wire.shape != [height as usize, width as usize] || wire.buf.len() != (width * height) as usize
+/// A returned mask, at the size the project stores.
+fn resolve(wire: WireMask, ctx: &SegContext, geometry: Geometry) -> Result<Layer> {
+    let (width, height) = geometry.sent;
+    if wire.shape != [height as usize, width as usize]
+        || wire.buf.len() != width as usize * height as usize
     {
         return Err(AppError::Other(format!(
             "A returned mask is {:?}, the frame is [{height}, {width}]",
@@ -194,19 +277,22 @@ fn resolve(wire: WireMask, ctx: &SegContext, width: u32, height: u32) -> Result<
         let value = if additive { ctx.active_value.max(1) } else { 1 };
         mask.iter_mut().for_each(|v| *v = if *v > 0 { value } else { 0 });
     }
+    let (w, h) = geometry.stored;
+    let mask = resample_mask(&mask, width, height, w, h);
     Ok(Layer { label_id: label.id, additive, mask })
 }
 
-/// What is currently stored for `frame_id`, by label name, as the function
-/// asked for it. Labels with nothing drawn are omitted.
-fn current_masks(db: &DbState, frame_id: i64, ctx: &SegContext) -> Result<MaskPayloads> {
+/// What is currently stored for `frame_id`, by label name, at the size the
+/// frame is sent. Labels with nothing drawn are omitted.
+fn current_masks(db: &DbState, frame_id: i64, ctx: &SegContext, geometry: Geometry) -> Result<MaskPayloads> {
+    let ((width, height), (sent_w, sent_h)) = (geometry.stored, geometry.sent);
     db.with_conn(|conn| {
-        let (width, height) = queries::get_frame_dimensions(conn, frame_id)?;
         let mut out = MaskPayloads::new();
         for a in queries::load_annotations(conn, frame_id)? {
             let Some(label) = ctx.labels.iter().find(|l| l.id == a.label_id) else { continue };
             let mask = decode_to_uint8(&a.mask_data, &a.encoding, width, height);
-            out.insert(label.name.clone(), ImagePayload::mask(mask, width, height));
+            let mask = resample_mask(&mask, width, height, sent_w, sent_h);
+            out.insert(label.name.clone(), ImagePayload::mask(mask, sent_w, sent_h));
         }
         Ok(out)
     })
@@ -233,6 +319,8 @@ pub struct SegmentedFrame {
     pub unknown_labels: Vec<String>,
     /// A message from the function, to show when the run ends.
     pub message: Option<String>,
+    /// Set when the frame was not sent at full resolution, saying why.
+    pub resolution_note: Option<String>,
 }
 
 /// Run a `@register_seg` function on one frame and hand the masks back. With
@@ -248,16 +336,17 @@ pub async fn python_segment_frame(
 ) -> Result<SegmentedFrame> {
     blocking(move || {
         let db = app.state::<DbState>();
-        let (width, height) = db.with_conn(|conn| queries::get_frame_dimensions(conn, frame_id))?;
+        let native = native_frames(&db, &[frame_id], &context)?;
+        let (image, geometry) = frame_payload(&db, frame_id, &context, native.as_ref())?;
         let req = Request::Segment {
             name,
-            image: frame_payload(&db, frame_id, &context)?,
+            image,
             labels: context.names(),
             active_label: context.active_name(),
             frame_index,
             masks: context
                 .send_masks
-                .then(|| current_masks(&db, frame_id, &context))
+                .then(|| current_masks(&db, frame_id, &context, geometry))
                 .transpose()?,
             args: context.args.clone(),
             frame_name: db.with_conn(|conn| queries::frame_name(conn, frame_id))?,
@@ -270,7 +359,7 @@ pub async fn python_segment_frame(
             .masks
             .into_iter()
             .map(|wire| {
-                let layer = resolve(wire, &context, width, height)?;
+                let layer = resolve(wire, &context, geometry)?;
                 Ok(SegmentedLayer {
                     label_id: layer.label_id,
                     additive: layer.additive,
@@ -278,14 +367,19 @@ pub async fn python_segment_frame(
                 })
             })
             .collect::<Result<_>>()?;
-        Ok(SegmentedFrame { layers, unknown_labels: reply.unknown, message: reply.message })
+        Ok(SegmentedFrame {
+            layers,
+            unknown_labels: reply.unknown,
+            message: reply.message,
+            resolution_note: resolution_note(native.as_ref()),
+        })
     })
     .await
 }
 
 #[derive(Serialize, Clone)]
 struct SequenceProgress<'a> {
-    /// "sending" | "running" | "receiving"
+    /// "reading" | "sending" | "running" | "receiving"
     stage: &'a str,
     done: usize,
     total: usize,
@@ -301,6 +395,8 @@ pub struct SequenceSegReport {
     pub unknown_labels: Vec<String>,
     /// A message from the function, to show when the run ends.
     pub message: Option<String>,
+    /// Set when frames were not sent at full resolution, saying why.
+    pub resolution_note: Option<String>,
 }
 
 /// Run a `@register_sequence_seg` function over `frame_ids` and store what it
@@ -353,14 +449,23 @@ fn segment_sequence(
         args: ctx.args.clone(),
         frame_name,
     };
+    // Before the session opens: reading a file again can take a while.
+    progress("reading", 0);
+    let native = native_frames(&db, frame_ids, ctx)?;
     channel.send(&begin, timeout::PING).map_err(bridge)?;
 
+    let mut geometries = Vec::with_capacity(total);
     for (index, &frame_id) in frame_ids.iter().enumerate() {
         progress("sending", index);
+        let (image, geometry) = frame_payload(&db, frame_id, ctx, native.as_ref())?;
+        geometries.push(geometry);
         let frame = Request::SeqFrame {
             index,
-            image: frame_payload(&db, frame_id, ctx)?,
-            masks: ctx.send_masks.then(|| current_masks(&db, frame_id, ctx)).transpose()?,
+            image,
+            masks: ctx
+                .send_masks
+                .then(|| current_masks(&db, frame_id, ctx, geometry))
+                .transpose()?,
         };
         channel.send(&frame, timeout::TRANSFER).map_err(bridge)?;
     }
@@ -373,8 +478,10 @@ fn segment_sequence(
     let mut report = SequenceSegReport {
         unknown_labels: run.unknown,
         message: run.message,
+        resolution_note: resolution_note(native.as_ref()),
         ..Default::default()
     };
+    drop(native);
 
     for (index, &frame_id) in frame_ids.iter().enumerate() {
         progress("receiving", index);
@@ -383,9 +490,10 @@ fn segment_sequence(
         if reply.masks.is_empty() {
             continue;
         }
-        let (width, height) = db.with_conn(|conn| queries::get_frame_dimensions(conn, frame_id))?;
+        let geometry = geometries[index];
+        let (width, height) = geometry.stored;
         for wire in reply.masks {
-            let mut layer = resolve(wire, ctx, width, height)?;
+            let mut layer = resolve(wire, ctx, geometry)?;
             if layer.additive {
                 paint_over_stored(&db, frame_id, width, height, &mut layer)?;
             }
@@ -445,7 +553,12 @@ mod tests {
             send_masks: false,
             args: ArgValues::new(),
             image_lut: None,
+            full_resolution: true,
         }
+    }
+
+    fn g(width: u32, height: u32) -> Geometry {
+        Geometry::same((width, height))
     }
 
     fn wire(label: Option<&str>, buf: Vec<u8>, binary: bool) -> WireMask {
@@ -454,24 +567,24 @@ mod tests {
 
     #[test]
     fn semantic_labels_collapse_to_one() {
-        let layer = resolve(wire(Some("vessel"), vec![0, 7, 255], false), &ctx(), 3, 1).unwrap();
+        let layer = resolve(wire(Some("vessel"), vec![0, 7, 255], false), &ctx(), g(3, 1)).unwrap();
         assert_eq!((layer.label_id, layer.additive), (10, false));
         assert_eq!(layer.mask, vec![0, 1, 1]);
     }
 
     #[test]
     fn unnamed_binary_mask_paints_the_active_instance() {
-        let layer = resolve(wire(None, vec![0, 1, 1], true), &ctx(), 3, 1).unwrap();
+        let layer = resolve(wire(None, vec![0, 1, 1], true), &ctx(), g(3, 1)).unwrap();
         assert_eq!((layer.label_id, layer.additive), (20, true));
         assert_eq!(layer.mask, vec![0, 5, 5]);
     }
 
     #[test]
     fn instance_ids_are_kept() {
-        let layer = resolve(wire(Some("cell"), vec![0, 2, 9], false), &ctx(), 3, 1).unwrap();
+        let layer = resolve(wire(Some("cell"), vec![0, 2, 9], false), &ctx(), g(3, 1)).unwrap();
         assert_eq!(layer.mask, vec![0, 2, 9]);
         // Named, so it replaces: an on/off mask there is instance 1.
-        let layer = resolve(wire(Some("cell"), vec![0, 1, 1], true), &ctx(), 3, 1).unwrap();
+        let layer = resolve(wire(Some("cell"), vec![0, 1, 1], true), &ctx(), g(3, 1)).unwrap();
         assert_eq!(layer.mask, vec![0, 1, 1]);
     }
 
@@ -501,11 +614,22 @@ mod tests {
     }
 
     #[test]
+    fn a_mask_at_full_resolution_is_stored_at_the_project_size() {
+        // Sent at 6 × 2, stored at 3 × 1.
+        let geometry = Geometry { stored: (3, 1), sent: (6, 2) };
+        let mut w = wire(Some("cell"), vec![0, 0, 4, 4, 7, 7, 0, 0, 4, 4, 7, 7], false);
+        w.shape = vec![2, 6];
+        assert_eq!(resolve(w, &ctx(), geometry).unwrap().mask, vec![0, 4, 7]);
+        // A mask at the stored size is refused.
+        assert!(resolve(wire(Some("cell"), vec![0, 1, 1], false), &ctx(), geometry).is_err());
+    }
+
+    #[test]
     fn wrong_size_and_missing_target_are_errors() {
-        assert!(resolve(wire(Some("vessel"), vec![0, 1, 1], true), &ctx(), 4, 1).is_err());
-        assert!(resolve(wire(Some("nope"), vec![0, 1, 1], true), &ctx(), 3, 1).is_err());
+        assert!(resolve(wire(Some("vessel"), vec![0, 1, 1], true), &ctx(), g(4, 1)).is_err());
+        assert!(resolve(wire(Some("nope"), vec![0, 1, 1], true), &ctx(), g(3, 1)).is_err());
         let mut no_active = ctx();
         no_active.active_label_id = None;
-        assert!(resolve(wire(None, vec![0, 1, 1], true), &no_active, 3, 1).is_err());
+        assert!(resolve(wire(None, vec![0, 1, 1], true), &no_active, g(3, 1)).is_err());
     }
 }

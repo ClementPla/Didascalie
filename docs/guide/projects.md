@@ -82,17 +82,23 @@ scenes) and lets you choose, per series or for every file at once:
 - which channels to keep, by name;
 - the slices: every one, the middle one, or a maximum projection;
 - the time points: every one, one in N, or the first;
-- for very large images, the resolution to import.
+- for very large images, the resolution to import. By default a series comes in
+  at full size up to 16,384 × 16,384 pixels (or the same area in another
+  shape); past that, at the finest resolution level the file has within it.
 
 Each series becomes a sequence whose frames run through time, then slices. The
-frames are stored in the project file, so the original files are not needed
-afterwards. The channels start with the names and colours the file records.
+frames are stored in the project file, so the original files are not needed to
+annotate them. They are needed again for one thing: a
+[Python function](python-functions.md#full-resolution) is given a frame imported
+below full size as the file has it, read again from the file. The channels start
+with the names and colours the file records.
 
 The files are read by **didascalie-bioformats**, a separate program installed
 with Didascalie on Windows, macOS and Linux (see
 [`THIRD_PARTY_NOTICES.md`](https://github.com/ClementPla/Didascalie/blob/release/THIRD_PARTY_NOTICES.md)).
 To use another copy, set the `DIDASCALIE_BIOFORMATS` environment variable to
-it. Microscopy files cannot be imported on Android tablets.
+it. A build from source does not include it: `npm run fetch-reader` downloads
+the version the release ships. Microscopy files cannot be imported on Android tablets.
 
 A 3D volume is imported as a sequence with one image per slice.
 

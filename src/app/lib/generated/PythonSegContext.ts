@@ -22,4 +22,9 @@ args: Record<string, number | boolean | string>,
  * The image adjustments to apply to each frame sent: 256 values for red,
  * then green, then blue. Absent sends the frame as it is.
  */
-imageLut: number[] | null, };
+imageLut: number[] | null, 
+/**
+ * Send a frame the project holds at a lower resolution level as the file
+ * has it. Off sends what the editor shows.
+ */
+fullResolution: boolean, };

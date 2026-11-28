@@ -87,6 +87,8 @@ export class PythonFunctionsComponent {
     const p = this.python.progress();
     if (!p) return 'Starting…';
     switch (p.stage) {
+      case 'reading':
+        return 'Reading the frames at full resolution…';
       case 'sending':
         return `Sending frames to Python (${p.done + 1}/${p.total})`;
       case 'running':
@@ -99,7 +101,9 @@ export class PythonFunctionsComponent {
   /** Percent done, or null while Python computes. */
   readonly progressValue = computed(() => {
     const p = this.python.progress();
-    if (!p || p.stage === 'running' || !p.total) return null;
+    if (!p || p.stage === 'running' || p.stage === 'reading' || !p.total) {
+      return null;
+    }
     return Math.round((100 * (p.done + 1)) / p.total);
   });
 

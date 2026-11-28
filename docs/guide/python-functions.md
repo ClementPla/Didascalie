@@ -256,6 +256,21 @@ and is off by default. On, functions receive frames with the
 **Apply image adjustments** (++q++) on as well. On a sequence, the same
 adjustments apply to every frame. The stored image is never modified.
 
+### Full resolution
+
+**Full resolution**, also at the top of the panel, is on by default. A
+microscopy frame imported at a lower resolution level (see
+[Microscopy files](projects.md#microscopy-files)) is then read again from its
+file and sent at full size, up to about a billion pixels; past that, at the
+finest level within it. The masks the function reads are scaled up to that
+size, and the masks it returns must have it: they are scaled down to the size
+the project holds, by nearest pixel, before being applied.
+
+This needs the original file, where the project recorded it, and
+didascalie-bioformats. Without either, the frame is sent at the size the
+project holds and a warning says why. Off, every frame is sent as the editor
+shows it.
+
 A frame function has 5 minutes to answer, a sequence function an hour.
 
 ## Keypoint functions
@@ -302,7 +317,8 @@ setting under **Change port**.
 | The panel does not appear | The script is not running, serves no segmentation function, or the host and port under **Python functions server** do not match. |
 | No **Whole sequence** group | The open sequence has a single frame. |
 | "Nothing applied" | The function returned no mask, or only keys that are not label names. |
-| A shape error | A mask is not the size of the frame. |
+| A shape error | A mask is not the size of the frame it was given (with **Full resolution**, the file's size, not the editor's). |
+| "Not at full resolution" | The original microscopy file or didascalie-bioformats was not found, or the full size is too large to send. The frame went at the size the project holds. |
 | "Got N masks for M labels" | A C × H × W result needs one mask per project label. Return a dictionary to fill only some. |
 | The function raises | The traceback is printed by the script. The application shows its last line. |
 | "Python did not answer in time" | The function exceeded its time limit, or the script stopped. |

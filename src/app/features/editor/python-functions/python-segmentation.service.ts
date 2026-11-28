@@ -33,7 +33,7 @@ export type SequenceRunScope = 'all' | 'fromCurrent';
 export type PythonArgValue = number | boolean | string | null;
 
 export interface SequenceRunProgress {
-  stage: 'sending' | 'running' | 'receiving';
+  stage: 'reading' | 'sending' | 'running' | 'receiving';
   done: number;
   total: number;
 }
@@ -89,6 +89,11 @@ export class PythonSegmentationService {
    *  applied. Off by default: a display setting should not change a result
    *  unasked. */
   readonly useAdjustments = signal(false);
+
+  /** Whether a microscopy frame the project holds at a lower resolution
+   *  level is read again from its file at full resolution. On by default: a
+   *  function is not limited to what the editor can hold. */
+  readonly fullResolution = signal(true);
 
   /** The editor's own switch for the image adjustments (Q). */
   get adjustmentsEnabled(): boolean {
@@ -180,6 +185,7 @@ export class PythonSegmentationService {
       sendMasks: fn.wants.includes('masks'),
       args: this.args(fn),
       imageLut: this.imageLut(),
+      fullResolution: this.fullResolution(),
     };
   }
 
@@ -218,6 +224,8 @@ export class PythonSegmentationService {
           mask: decodeRle8(base64ToUint8(layer.rle8Base64), frame.width * frame.height),
         }))
         .filter((layer) => layer.index >= 0);
+
+      this.resolutionWarning(fn, result.resolutionNote);
 
       if (!applied.length && result.message) {
         this.showMessage(fn, result.message, result.unknownLabels);
@@ -293,6 +301,7 @@ export class PythonSegmentationService {
         ),
       );
 
+      this.resolutionWarning(fn, report.resolutionNote);
       const unknown = this.unknownDetail(report.unknownLabels);
       const count = report.applied.length;
       if (!count && report.message) {
@@ -344,6 +353,11 @@ export class PythonSegmentationService {
       detail: unknown ? `${message} ${unknown}` : message,
       life: MESSAGE_LIFE,
     });
+  }
+
+  /** The frames did not all go at full resolution. */
+  private resolutionWarning(fn: PythonFunction, note: string | null): void {
+    if (note) this.notifications.warn(`${fn.name}: not at full resolution`, note);
   }
 
   private unknownDetail(unknown: string[]): string | null {

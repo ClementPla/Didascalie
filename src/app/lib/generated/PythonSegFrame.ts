@@ -9,4 +9,8 @@ unknownLabels: Array<string>,
 /**
  * A message from the function, to show when the run ends.
  */
-message: string | null, };
+message: string | null, 
+/**
+ * Set when the frame was not sent at full resolution, saying why.
+ */
+resolutionNote: string | null, };

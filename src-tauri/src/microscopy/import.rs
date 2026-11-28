@@ -216,12 +216,18 @@ fn file_stem(source_path: &str) -> String {
 }
 
 /// A folder under the system's temporary folder, removed when dropped.
-struct TempDir {
+pub(crate) struct TempDir {
     path: PathBuf,
 }
 
 impl TempDir {
-    fn new() -> Result<Self> {
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl TempDir {
+    pub(crate) fn new() -> Result<Self> {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
             "didascalie-microscopy-{}-{}",

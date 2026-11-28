@@ -1,6 +1,6 @@
 {
   "name": "didascalie",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "tauri": "tauri",
+    "fetch-reader": "node scripts/fetch-reader.mjs",
     "compodoc:build": "compodoc -p tsconfig.doc.json",
     "compodoc:build-and-serve": "compodoc -p tsconfig.doc.json -s",
     "compodoc:serve": "compodoc -s",

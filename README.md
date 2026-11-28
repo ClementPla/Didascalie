@@ -136,7 +136,9 @@ a small companion program installed with Didascalie on Windows, macOS and Linux.
 At import, Didascalie asks it what a file holds (series, channels, slices, time
 points, resolutions, channel names and colours), then has it write the planes you
 pick as lossless TIFF frames at their own bit depth. These frames are stored in the
-project, so the original files are not needed afterwards.
+project, so the original files are not needed to annotate them. Python functions are
+the exception: they receive a frame imported at a lower resolution level as the file
+has it, read again from the file when it is still there.
 
 didascalie-bioformats is built on
 [**bioformats-rs**](https://github.com/henriksson-lab/bioformats-rs), by Johan
@@ -196,8 +198,10 @@ npm run tauri build    # build installers into src-tauri/target/release/
 Building with GPU support needs the CUDA Toolkit; `cargo build --no-default-features` skips it.
 
 A source build does not include didascalie-bioformats. To import microscopy files,
-download it from its [releases](https://github.com/ClementPla/didascalie-bioformats/releases)
-(or build it) and point the `DIDASCALIE_BIOFORMATS` environment variable at it.
+run `npm run fetch-reader`: it downloads the version the release ships into
+`src-tauri/binaries/`, where a debug build looks for it. Otherwise download it from
+its [releases](https://github.com/ClementPla/didascalie-bioformats/releases) (or build
+it) and point the `DIDASCALIE_BIOFORMATS` environment variable at it.
 
 Didascalie is built with Tauri v2 and Rust, Angular 20 and PrimeNG, SQLite, WebGPU, ONNX Runtime, burn, three.js and ZeroMQ.
 

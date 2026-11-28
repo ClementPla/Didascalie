@@ -8,6 +8,12 @@ fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().windows_attributes(windows))
         .expect("failed to run tauri-build");
 
+    // The target triple, by which a debug build finds the microscopy reader
+    // that `npm run fetch-reader` downloads (see `microscopy::reader_path`).
+    if let Ok(target) = std::env::var("TARGET") {
+        println!("cargo:rustc-env=DIDASCALIE_TARGET={target}");
+    }
+
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows")
         && std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
     {
