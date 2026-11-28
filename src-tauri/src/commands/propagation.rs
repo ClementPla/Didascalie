@@ -157,7 +157,7 @@ fn frame_dimensions_opt(conn: &Connection, frame_id: i64) -> Result<Option<(u32,
             params![frame_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .ok();
+        .optional()?;
     Ok(dims)
 }
 

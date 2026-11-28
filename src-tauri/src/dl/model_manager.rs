@@ -65,10 +65,15 @@ async fn compute_sha256(path: &Path) -> Result<String, String> {
     .map_err(|e| format!("Hashing task failed: {}", e))?
 }
 
+/// Held across a check-then-download, so two callers never download into the
+/// same temporary file: the second finds the model the first fetched.
+static DOWNLOAD: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 pub async fn ensure_model_cached(
     app: &tauri::AppHandle,
     config: &ModelConfig,
 ) -> Result<PathBuf, String> {
+    let _downloading = DOWNLOAD.lock().await;
     let cache_dir = app
         .path()
         .app_cache_dir()
@@ -82,7 +87,7 @@ pub async fn ensure_model_cached(
     let model_path = models_dir.join(&config.filename);
 
     if model_path.exists() {
-        println!("Model found at: {:?}", model_path);
+        log::info!("Model found at: {:?}", model_path);
 
         if let Some(expected_size) = config.expected_size {
             let metadata = tokio::fs::metadata(&model_path)
@@ -90,7 +95,7 @@ pub async fn ensure_model_cached(
                 .map_err(|e| format!("Failed to read file metadata: {}", e))?;
 
             if metadata.len() != expected_size {
-                println!(
+                log::info!(
                     "Model file size mismatch! Expected: {}, Got: {}. Re-downloading...",
                     expected_size,
                     metadata.len()
@@ -99,16 +104,16 @@ pub async fn ensure_model_cached(
                     .await
                     .map_err(|e| format!("Failed to remove corrupted file: {}", e))?;
             } else {
-                println!("Model already cached at: {:?}", model_path);
+                log::info!("Model already cached at: {:?}", model_path);
                 return Ok(model_path);
             }
         } else {
-            println!("Model already cached at: {:?}", model_path);
+            log::info!("Model already cached at: {:?}", model_path);
             return Ok(model_path);
         }
     }
 
-    println!("Model not found in cache, downloading...");
+    log::info!("Model not found in cache, downloading...");
     download_model(app, config, &model_path).await?;
 
     if let Some(expected_size) = config.expected_size {
@@ -135,7 +140,7 @@ pub async fn ensure_model_cached(
                 config.filename, expected, actual
             ));
         }
-        println!("Checksum verified for {}", config.filename);
+        log::info!("Checksum verified for {}", config.filename);
     }
 
     Ok(model_path)
@@ -151,7 +156,7 @@ async fn download_model(
         HUGGINGFACE_BASE_URL, config.repo_id, config.filename
     );
 
-    println!("Downloading from: {}", url);
+    log::info!("Downloading from: {}", url);
 
     let client = reqwest::Client::builder()
         .user_agent("tauri-app")
@@ -177,7 +182,7 @@ async fn download_model(
         .content_length()
         .ok_or("Failed to get content length")?;
 
-    println!("Total size: {} bytes", total_size);
+    log::info!("Total size: {} bytes", total_size);
 
     // `filename` may contain directories (`onnx/model.onnx`): create the parent.
     let temp_path = output_path.with_extension("tmp");
@@ -206,7 +211,7 @@ async fn download_model(
         let progress = (downloaded as f64 / total_size as f64) * 100.0;
 
         if downloaded - last_progress_log >= total_size / 10 || downloaded == total_size {
-            println!(
+            log::info!(
                 "Download progress: {:.2}% ({}/{})",
                 progress, downloaded, total_size
             );
@@ -241,6 +246,6 @@ async fn download_model(
         .await
         .map_err(|e| format!("Failed to rename file: {}", e))?;
 
-    println!("Download complete: {:?}", output_path);
+    log::info!("Download complete: {:?}", output_path);
     Ok(())
 }

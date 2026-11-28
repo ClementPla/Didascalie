@@ -13,10 +13,6 @@ pub enum AppError {
     #[error("No project open")]
     NoProjectOpen,
     
-    #[error("Project already open")]
-    #[allow(dead_code)] // reserved for future use
-    ProjectAlreadyOpen,
-    
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     
@@ -30,19 +26,10 @@ pub enum AppError {
     #[error("ZMQ error: {0}")]
     Zmq(#[from] zmq::Error),
     
-    #[error("Event error: {0}")]
-    #[allow(dead_code)] // reserved for future use
-    Event(String),
-
-    #[error("Timeout")]
-    #[allow(dead_code)] // reserved for future use
-    Timeout,
-    
     #[error("Tauri error: {0}")]
     Tauri(String),
     
     #[error("{0}")]
-    #[allow(dead_code)] // reserved for future use
     Other(String),
 }
 

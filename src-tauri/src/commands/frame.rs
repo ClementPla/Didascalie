@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use tauri::ipc::Response;
 use tauri::State;
 
+use crate::pixels::display::Region;
 use crate::storage::DbState;
 use crate::utils::error::{ AppError, Result };
 
@@ -417,12 +418,11 @@ fn crop_rgba(raw: &[u8], img_w: u32, img_h: u32, x: u32, y: u32, w: u32, h: u32)
     }
     let copy_w = w.min(img_w - x);
     for row in 0..h {
-        let iy = y + row;
-        if iy >= img_h {
+        let Some(iy) = y.checked_add(row).filter(|&iy| iy < img_h) else {
             break;
-        }
-        let src = ((iy * img_w + x) as usize) * 4;
-        let dst = ((row * w) as usize) * 4;
+        };
+        let src = (iy as usize * img_w as usize + x as usize) * 4;
+        let dst = row as usize * w as usize * 4;
         out[dst..dst + (copy_w as usize) * 4]
             .copy_from_slice(&raw[src..src + (copy_w as usize) * 4]);
     }
@@ -453,8 +453,9 @@ pub fn get_frame_tile(
         *guard = Some(CachedFrame { frame_id, rgba: img.into_raw(), width: w, height: h });
     }
 
-    let c = guard.as_ref().unwrap();
-    let tile = crop_rgba(&c.rgba, c.width, c.height, x, y, width, height);
+    let c = guard.as_ref().ok_or("Frame image cache is empty")?;
+    let region = Region { x, y, width, height }.bounded(c.width, c.height)?;
+    let tile = crop_rgba(&c.rgba, c.width, c.height, region.x, region.y, region.width, region.height);
     Ok(Response::new(tile))
 }
 

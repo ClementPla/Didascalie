@@ -144,7 +144,7 @@ pub fn list_labels(db: State<DbState>) -> Result<Vec<LabelId>> {
             })
         })?;
 
-        Ok(rows.filter_map(|r| r.ok()).collect())
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
     })
 }
 
@@ -176,8 +176,8 @@ pub fn get_labels(db: State<DbState>) -> Result<Vec<LabelInfo>> {
                 sort_order: row.get(4)?,
             })
         })?
-        .filter_map(|r| r.ok())
-        .collect();
+        
+        .collect::<rusqlite::Result<_>>()?;
         
         Ok(labels)
     })

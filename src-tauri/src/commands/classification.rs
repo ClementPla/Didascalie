@@ -76,8 +76,7 @@ pub fn load_classification(
         for result in results {
             let (task_name, selected_classes_json, is_multilabel) = result.map_err(AppError::Database)?;
             
-            let selected_classes: Vec<String> = serde_json::from_str(&selected_classes_json)
-                .unwrap_or_default();
+            let selected_classes: Vec<String> = serde_json::from_str(&selected_classes_json)?;
 
             let task_index = task_index_map.get(&task_name).copied().unwrap_or(-1);
 
@@ -117,7 +116,7 @@ pub fn save_classification(
                 params![
                     frame_id,
                     task_name,
-                    serde_json::to_string(&selected_classes).unwrap_or_default(),
+                    serde_json::to_string(&selected_classes)?,
                     is_multilabel,
                     user,
                 ],
@@ -215,7 +214,9 @@ fn sequence_classification(
             Ok(SequenceClassificationAnswer {
                 task_name: row.get(0)?,
                 is_multilabel: row.get(1)?,
-                selected_classes: serde_json::from_str(&classes).unwrap_or_default(),
+                selected_classes: serde_json::from_str(&classes).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e))
+                })?,
                 frame_count: row.get(3)?,
             })
         })?

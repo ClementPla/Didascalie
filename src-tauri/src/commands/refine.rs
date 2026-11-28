@@ -33,12 +33,14 @@ pub fn refine(mask: &Array2<bool>, options: &Refine) -> Array2<bool> {
 const MIN_SIGMA: f32 = 0.3;
 /// Above this, three box blurs stand in for the Gaussian kernel.
 const EXACT_SIGMA: f32 = 4.0;
+/// Largest blur applied (px); the UI offers far less.
+const MAX_SIGMA: f32 = 64.0;
 
 /// Round the outline of a selection: blur it, and keep what is still above
 /// one half. Bumps and notches narrower than about `sigma` go, a straight edge
 /// stays where it is, and separate regions are not joined.
 pub fn smooth_mask(mask: &Array2<bool>, sigma: f32) -> Array2<bool> {
-    if sigma < MIN_SIGMA {
+    if sigma.is_nan() || sigma < MIN_SIGMA {
         return mask.clone();
     }
     let soft = blur(&mask.map(|&on| if on { 1.0 } else { 0.0 }), sigma);
@@ -48,7 +50,7 @@ pub fn smooth_mask(mask: &Array2<bool>, sigma: f32) -> Array2<bool> {
 /// Blur an 8-bit image, to threshold it without its pixel noise.
 /// [`denoise`] for float intensities.
 pub fn denoise_f32(image: &Array2<f32>, sigma: f32) -> Array2<f32> {
-    if sigma < MIN_SIGMA {
+    if sigma.is_nan() || sigma < MIN_SIGMA {
         return image.clone();
     }
     blur(image, sigma)
@@ -61,7 +63,7 @@ pub fn presence_bytes(mask: &Array2<bool>) -> Vec<u8> {
 }
 
 pub fn denoise(image: &Array2<u8>, sigma: f32) -> Array2<u8> {
-    if sigma < MIN_SIGMA {
+    if sigma.is_nan() || sigma < MIN_SIGMA {
         return image.clone();
     }
     blur(&image.map(|&v| v as f32), sigma).map(|&v| v.round().clamp(0.0, 255.0) as u8)
@@ -70,6 +72,9 @@ pub fn denoise(image: &Array2<u8>, sigma: f32) -> Array2<u8> {
 /// Gaussian blur. Pixels past the border take the border's value, so a region
 /// touching the edge of the array is not eaten away.
 pub fn blur(src: &Array2<f32>, sigma: f32) -> Array2<f32> {
+    // Sigma comes over IPC; past this the box blur's cost explodes for no
+    // visible difference.
+    let sigma = sigma.min(MAX_SIGMA);
     if sigma <= EXACT_SIGMA {
         let kernel = gaussian_kernel(sigma);
         return filter_columns(&filter_rows(src, &kernel), &kernel);

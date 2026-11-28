@@ -51,8 +51,8 @@ pub fn intensity_region(frame: &RawFrame, settings: &DisplaySettings, region: Re
 
     let (fw, fh) = (frame.width, frame.height);
     Array2::from_shape_fn((region.height as usize, region.width as usize), |(ry, rx)| {
-        let (x, y) = (region.x + rx as u32, region.y + ry as u32);
-        if x >= fw || y >= fh {
+        let (x, y) = (region.x as u64 + rx as u64, region.y as u64 + ry as u64);
+        if x >= fw as u64 || y >= fh as u64 {
             return 0.0;
         }
         let i = y as usize * fw as usize + x as usize;

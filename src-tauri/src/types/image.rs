@@ -17,12 +17,22 @@ impl MaskEncoding {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    /// The encoding named by a stored `encoding` column. Unknown names are an
+    /// error: decoding them as one of these would yield a garbage mask.
+    pub fn parse(s: &str) -> Result<Self, String> {
         match s {
-            "png" => MaskEncoding::Png,
-            "rle8" => MaskEncoding::Rle8,
-            _ => MaskEncoding::Rle,
+            "rle" => Ok(MaskEncoding::Rle),
+            "png" => Ok(MaskEncoding::Png),
+            "rle8" => Ok(MaskEncoding::Rle8),
+            other => Err(format!("unknown mask encoding \"{other}\"")),
         }
+    }
+
+    /// [`Self::parse`] for a column read inside a rusqlite row closure.
+    pub fn from_column(s: &str, column: usize) -> rusqlite::Result<Self> {
+        Self::parse(s).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(column, rusqlite::types::Type::Text, e.into())
+        })
     }
 }
 

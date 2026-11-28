@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 use crate::commands::annotation::decode_to_uint8;
 use crate::commands::project_edit;
@@ -87,8 +87,8 @@ fn load_frames(
                 image: row.get(5)?,
             })
         })?
-        .filter_map(|r| r.ok())
-        .collect();
+        
+        .collect::<rusqlite::Result<_>>()?;
 
     let mut frames = Vec::with_capacity(rows.len());
     for row in rows {
@@ -156,8 +156,7 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
 
     // IR label index -> db label id, creating missing labels.
     let mut next_sort: i32 = conn
-        .query_row("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM labels", [], |r| r.get(0))
-        .unwrap_or(0);
+        .query_row("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM labels", [], |r| r.get(0))?;
     let mut db_label_by_index: HashMap<u32, i64> = HashMap::new();
     for label in &dataset.labels {
         let id = match label_id_by_name.get(&label.name) {
@@ -232,7 +231,7 @@ pub fn write_dataset(conn: &Connection, dataset: &Dataset) -> Result<ImportResul
         }
 
         for c in &frame.classifications {
-            let json = serde_json::to_string(&c.values).unwrap_or_else(|_| "[]".to_string());
+            let json = serde_json::to_string(&c.values)?;
             conn.execute(
                 "INSERT INTO main.classifications
                  (frame_id, user_id, task_name, selected_classes, modified_at)
@@ -286,9 +285,9 @@ fn load_shapes_for(conn: &Connection, frame_id: i64, label_id: i64) -> Result<Ve
             (frame_id, label_id),
             |r| r.get(0),
         )
-        .ok();
+        .optional()?;
     Ok(match json {
-        Some(s) => serde_json::from_str(&s).unwrap_or_default(),
+        Some(s) => serde_json::from_str(&s)?,
         None => Vec::new(),
     })
 }
@@ -303,7 +302,7 @@ fn load_classifications(conn: &Connection, frame_id: i64) -> Result<Vec<Classifi
     let mut out = Vec::new();
     for row in rows {
         let (task, json) = row?;
-        let values: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
+        let values: Vec<String> = serde_json::from_str(&json)?;
         out.push(Classification { task, values });
     }
     Ok(out)

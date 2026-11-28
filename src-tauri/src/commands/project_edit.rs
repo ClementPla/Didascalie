@@ -733,7 +733,7 @@ fn rewrite_selected_classes(
     };
 
     for (id, json) in rows {
-        let mut classes: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
+        let mut classes: Vec<String> = serde_json::from_str(&json)?;
         if !classes.iter().any(|c| c == from) {
             continue;
         }

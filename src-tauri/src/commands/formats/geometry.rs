@@ -63,7 +63,7 @@ fn region_from_binary(bin: &[u8], w: u32, h: u32) -> Option<Region> {
     let mut area = 0u32;
     for y in 0..h {
         for x in 0..w {
-            if bin[(y * w + x) as usize] != 0 {
+            if bin[y as usize * w as usize + x as usize] != 0 {
                 area += 1;
                 minx = minx.min(x);
                 miny = miny.min(y);
@@ -129,7 +129,7 @@ fn simplify_ring(ring: Vec<[f64; 2]>) -> Option<Vec<[f64; 2]>> {
 }
 
 /// Unsigned enclosed area of a closed ring (shoelace).
-fn ring_area(ring: &[[f64; 2]]) -> f64 {
+pub fn ring_area(ring: &[[f64; 2]]) -> f64 {
     if ring.len() < 3 {
         return 0.0;
     }
@@ -187,14 +187,14 @@ fn flood_same_value_component(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -
     if values.len() < wu * hu || sx >= w || sy >= h {
         return None;
     }
-    let seed = values[(sy * w + sx) as usize];
+    let seed = values[sy as usize * wu + sx as usize];
     if seed == 0 {
         return None;
     }
 
     let mut bin = vec![0u8; values.len()];
     let mut stack = vec![(sx, sy)];
-    bin[(sy * w + sx) as usize] = 255;
+    bin[sy as usize * wu + sx as usize] = 255;
     while let Some((x, y)) = stack.pop() {
         for dy in -1i64..=1 {
             for dx in -1i64..=1 {
@@ -206,7 +206,7 @@ fn flood_same_value_component(values: &[u8], w: u32, h: u32, sx: u32, sy: u32) -
                 if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 {
                     continue;
                 }
-                let ni = (ny as u32 * w + nx as u32) as usize;
+                let ni = ny as usize * wu + nx as usize;
                 if bin[ni] == 0 && values[ni] == seed {
                     bin[ni] = 255;
                     stack.push((nx as u32, ny as u32));

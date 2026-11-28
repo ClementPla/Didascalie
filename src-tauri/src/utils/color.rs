@@ -138,23 +138,21 @@ pub fn ciede2000(lab1: Lab, lab2: Lab) -> f32 {
     let s_c = 1.0 + 0.045 * c_prime_avg;
     let s_h = 1.0 + 0.015 * c_prime_avg * t;
 
+    // R_T = -R_C · sin(2Δθ), Δθ = 30° · exp(-((H̄' - 275°) / 25°)²).
+    let delta_theta = 30.0 * (-((h_prime_avg - 275.0) / 25.0).powi(2)).exp();
     let r_t = -2.0
         * (c_prime_avg.powi(7) / (c_prime_avg.powi(7) + 25.0_f32.powi(7))).sqrt()
-        * ((60.0 * (-(((h_prime_avg - 275.0) / 25.0).powi(2)))).exp())
-            .sin()
-            .to_radians();
+        * (2.0 * delta_theta).to_radians().sin();
 
     let k_l = 1.0;
     let k_c = 1.0;
     let k_h = 1.0;
 
-    let delta_e = ((delta_l / (k_l * s_l)).powi(2)
+    ((delta_l / (k_l * s_l)).powi(2)
         + (delta_c_prime / (k_c * s_c)).powi(2)
         + (delta_big_h_prime / (k_h * s_h)).powi(2)
         + r_t * (delta_c_prime / (k_c * s_c)) * (delta_big_h_prime / (k_h * s_h)))
-        .sqrt();
-
-    delta_e
+        .sqrt()
 }
 
 /// Parse `#rrggbb` (the `#` is optional) into RGB.
@@ -168,4 +166,35 @@ pub fn parse_hex(colour: &str) -> Result<[u8; 3], String> {
             .map_err(|_| format!("“{colour}” is not a #rrggbb colour"))
     };
     Ok([channel(0)?, channel(2)?, channel(4)?])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pairs from Sharma, Wu & Dalal (2005), the reference CIEDE2000 data.
+    /// The first ones are blues near H̄' ≈ 275°, where the rotation term
+    /// matters.
+    #[test]
+    fn ciede2000_matches_sharma_reference() {
+        let cases: [(Lab, Lab, f32); 6] = [
+            ((50.0, 2.6772, -79.7751), (50.0, 0.0, -82.7485), 2.0425),
+            ((50.0, 3.1571, -77.2803), (50.0, 0.0, -82.7485), 2.8615),
+            ((50.0, 2.8361, -74.0200), (50.0, 0.0, -82.7485), 3.4412),
+            ((50.0, 0.0, 0.0), (50.0, -1.0, 2.0), 2.3669),
+            ((50.0, 2.5, 0.0), (73.0, 25.0, -18.0), 27.1492),
+            ((60.2574, -34.0099, 36.2677), (60.4626, -34.1751, 39.4387), 1.2644),
+        ];
+        for (a, b, expected) in cases {
+            let got = ciede2000(a, b);
+            assert!((got - expected).abs() < 1e-3, "{a:?} vs {b:?}: {got} != {expected}");
+            assert!((ciede2000(b, a) - expected).abs() < 1e-3, "not symmetric for {a:?}");
+        }
+    }
+
+    #[test]
+    fn parse_hex_rejects_multibyte_input() {
+        assert_eq!(parse_hex("#ff8000"), Ok([255, 128, 0]));
+        assert!(parse_hex("€abc").is_err());
+    }
 }

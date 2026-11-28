@@ -40,9 +40,11 @@ pub struct TrainedModel {
     pub train_frames: usize,
 }
 
-/// Identifies a cached encoder result: frame, encoder, working size and tile
-/// size (0 for none). The last two change the images fed to the encoder.
-pub type FeatureKey = (i64, String, u32, u32);
+/// Identifies a cached encoder result: frame, a hash of its stored bytes,
+/// encoder, working size and tile size (0 for none). The hash catches a frame
+/// re-imported under the same id; the last two change the images fed to the
+/// encoder.
+pub type FeatureKey = (i64, u64, String, u32, u32);
 
 /// A frame's encoder token grids, one per tile in grid order.
 pub type FeatureCache = Option<(FeatureKey, Vec<Array3<f32>>)>;
@@ -191,13 +193,13 @@ pub fn predict_frame(
     db: &DbState,
     model: &TrainedModel,
     frame_id: i64,
-    encoder: Option<&mut EncoderSession>,
+    mut encoder: Option<&mut EncoderSession>,
     cache: &mut FeatureCache,
     scribbles: Option<&ScribbleInput>,
     on_stage: &dyn Fn(&str, usize, usize),
 ) -> Result<PredictedFrame, String> {
     on_stage("decoding frame", 0, 1);
-    let (image, w, h) = dataset::load_working_image(db, frame_id, model.working_size)?;
+    let (image, w, h, content) = dataset::load_working_image_hashed(db, frame_id, model.working_size)?;
     let side = dataset::tile_side(model.tile_size);
     let tiles = dataset::tile_grid(w, h, side);
     let margin = side.map_or(0, |t| dataset::tile_overlap(t) / 2);
@@ -211,11 +213,11 @@ pub fn predict_frame(
     // same frame is predicted again with other scribbles.
     let key: FeatureKey = (
         frame_id,
+        content,
         model.encoder_id.clone().unwrap_or_default(),
         model.working_size,
         model.tile_size.unwrap_or(0),
     );
-    let mut encoder = encoder;
     let keep = encoder.is_some() && tiles.len() <= MAX_CACHED_TILES;
     let mut tokens_kept: Vec<Array3<f32>> = match cache.take() {
         Some((k, grids)) if keep && k == key => grids,

@@ -60,7 +60,8 @@ pub fn import_project_file(app: AppHandle, location: String) -> Result<String> {
 
     let dir = data_dir(&app)?;
     fs::create_dir_all(&dir)?;
-    let partial = dir.join("import.part");
+    // A name of its own, so two imports at once do not write the same file.
+    let partial = dir.join(format!("import-{}.part", uuid::Uuid::new_v4()));
     io::copy(&mut source, &mut fs::File::create(&partial)?)?;
     adopt(&app, &partial)
 }
@@ -80,8 +81,9 @@ pub fn take_incoming_project(app: AppHandle) -> Result<Option<String>> {
 #[tauri::command]
 pub fn export_project_file(app: AppHandle, db: State<DbState>, location: String) -> Result<()> {
     // A snapshot: the live file's latest changes may still be in the WAL.
-    let snapshot = data_dir(&app)?.join("export.part");
-    let _ = fs::remove_file(&snapshot);
+    let dir = data_dir(&app)?;
+    fs::create_dir_all(&dir)?;
+    let snapshot = dir.join(format!("export-{}.part", uuid::Uuid::new_v4()));
     db.with_conn(|conn| {
         // Not through `conn`: its per-user TEMP views shadow the tables, and
         // VACUUM INTO then fails rebuilding their indexes ("views may not be

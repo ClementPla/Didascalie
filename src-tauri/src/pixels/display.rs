@@ -101,15 +101,9 @@ pub fn window_at(stats: &ChannelStats, low: f64, high: f64) -> (f64, f64) {
 
 /// `#rrggbb` as 0–1 floats; white when malformed.
 fn parse_color(hex: &str) -> [f32; 3] {
-    let h = hex.trim_start_matches('#');
-    if h.len() != 6 {
-        return [1.0; 3];
-    }
-    let byte = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).map(|b| b as f32 / 255.0);
-    match (byte(0), byte(2), byte(4)) {
-        (Ok(r), Ok(g), Ok(b)) => [r, g, b],
-        _ => [1.0; 3],
-    }
+    crate::utils::color::parse_hex(hex)
+        .map(|rgb| rgb.map(|c| c as f32 / 255.0))
+        .unwrap_or([1.0; 3])
 }
 
 /// Normalised display intensity (0–1) of a raw value.
@@ -174,7 +168,29 @@ pub struct Region {
     pub height: u32,
 }
 
+/// How large an IPC region may be past the frame's own size: a fixed-size
+/// tile of a small frame overhangs it.
+pub const MAX_REGION_SIDE: u32 = 8192;
+
 impl Region {
+    /// `self`, when it is fit to allocate for: no larger than the frame (or
+    /// than [`MAX_REGION_SIDE`]), and with no edge past `u32::MAX`. Regions
+    /// come over IPC, and the renderer and operators allocate per pixel.
+    pub fn bounded(self, frame_w: u32, frame_h: u32) -> Result<Self, String> {
+        let fits = self.width <= frame_w.max(MAX_REGION_SIDE)
+            && self.height <= frame_h.max(MAX_REGION_SIDE)
+            && self.x.checked_add(self.width).is_some()
+            && self.y.checked_add(self.height).is_some();
+        if fits {
+            Ok(self)
+        } else {
+            Err(format!(
+                "Region {}×{} at ({}, {}) does not fit a {frame_w}×{frame_h} frame",
+                self.width, self.height, self.x, self.y
+            ))
+        }
+    }
+
     pub fn full(frame: &RawFrame) -> Self {
         Region {
             x: 0,
@@ -210,8 +226,10 @@ pub fn render_rgb(
                 let x0 = region.x + ox * step;
                 let mut acc = [0f32; 3];
                 let mut n = 0u32;
-                for y in y0..(y0 + step).min(region.y + region.height).min(fh) {
-                    for x in x0..(x0 + step).min(region.x + region.width).min(fw) {
+                let y_end = y0.saturating_add(step).min(region.y.saturating_add(region.height)).min(fh);
+                let x_end = x0.saturating_add(step).min(region.x.saturating_add(region.width)).min(fw);
+                for y in y0..y_end {
+                    for x in x0..x_end {
                         let i = y as usize * fw as usize + x as usize;
                         for p in &prepared {
                             let t = match &p.lut {

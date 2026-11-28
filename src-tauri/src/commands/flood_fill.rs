@@ -28,6 +28,9 @@ pub fn flood_fill_mask(
     if start_x >= width || start_y >= height {
         return Err("Start point is outside image bounds".to_string());
     }
+    if width.checked_mul(height).and_then(|n| n.checked_mul(4)) != Some(image.len()) {
+        return Err(format!("Image buffer of {} bytes is not {width}×{height} RGBA", image.len()));
+    }
 
     let seed_idx = (start_y * width + start_x) * 4;
     let seed_lab = rgb_to_lab(image[seed_idx], image[seed_idx + 1], image[seed_idx + 2]);
@@ -113,9 +116,9 @@ pub async fn flood_fill_raw(
     }
     let d = cache.get(&db, frame_id).map_err(|e| e.to_string())?;
     let settings = effective_settings(&db, &d, frame_id).map_err(|e| e.to_string())?;
-    let region = Region { x, y, width, height };
+    let region = Region { x, y, width, height }.bounded(d.frame.width, d.frame.height)?;
     let intensity = intensity_region(&d.frame, &settings, region, Source::from_option(source));
-    let values = intensity.as_slice().expect("standard layout");
+    let values = intensity.as_slice().ok_or("Intensity buffer is not contiguous")?;
     let seed = values[start_y * w + start_x];
     let limit = tolerance / 100.0;
     let filled = flood_region(w, h, start_y * w + start_x, |i| (values[i] - seed).abs() <= limit);

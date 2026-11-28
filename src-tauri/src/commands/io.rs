@@ -305,8 +305,8 @@ fn add_images(
   filter: &FileFilter,
   progress: &Progress
 ) -> Result<AddImagesResult> {
-  let folder = fs::canonicalize(&options.folder_path).map_err(|_|
-    AppError::Other(format!("Folder not found: {}", options.folder_path))
+  let folder = fs::canonicalize(&options.folder_path).map_err(|e|
+    AppError::Io(std::io::Error::new(e.kind(), format!("Folder not found: {} ({e})", options.folder_path)))
   )?;
   // A project whose image folder is unreachable has no "inside": everything is
   // embedded.
@@ -700,14 +700,16 @@ fn import_sequences(
     // Every sequence first, then every image, several files at a time: in
     // flat mode each sequence holds one image.
     let mut queue: Vec<(i64, usize, &ImageFile)> = Vec::new();
+    // Per sequence: its id and how many of its frames went in.
+    let mut created: HashMap<i64, u32> = HashMap::new();
     for (sort_order, sequence_name) in sequence_names.iter().enumerate() {
       tx.execute(
         "INSERT INTO sequences (name, sort_order) VALUES (?1, ?2)",
         params![sequence_name, sort_order as i32]
       )?;
       let sequence_id = tx.last_insert_rowid();
-      result.sequences_created += 1;
-      let frames = sequences.get(*sequence_name).unwrap();
+      created.insert(sequence_id, 0);
+      let frames = &sequences[*sequence_name];
       queue.extend(frames.iter().enumerate().map(|(index, image)| (sequence_id, index, image)));
     }
 
@@ -716,6 +718,7 @@ fn import_sequences(
       let (sequence_id, frame_index, image) = queue[i];
       match read.and_then(|read| insert_frame(&tx, sequence_id, frame_index, image, read)) {
         Ok(embedded) => {
+          *created.entry(sequence_id).or_default() += 1;
           result.frames_imported += 1;
           if embedded {
             result.frames_embedded += 1;
@@ -727,6 +730,14 @@ fn import_sequences(
       }
       Ok(())
     })?;
+    for (&sequence_id, &imported) in &created {
+      if imported > 0 {
+        result.sequences_created += 1;
+      } else {
+        // Every file failed to decode: do not leave an empty sequence behind.
+        tx.execute("DELETE FROM sequences WHERE id = ?1", params![sequence_id])?;
+      }
+    }
     tx.commit()?;
 
     Ok(result)

@@ -141,19 +141,28 @@ pub fn create_project(
     config: ProjectConfig,
 ) -> Result<()> {
     log::info!("[project] creating at {}", path);
-    forget_project(&thumbnails, &tiles, &raw, &ml);
-    
-    let conn = queries::create_database(Path::new(&path))?;
+    // Opening an existing file would migrate it before the insert below
+    // fails: refuse first, so it is left untouched.
+    let target = Path::new(&path);
+    if target.metadata().map(|m| m.len() > 0).unwrap_or(false) {
+        return Err(AppError::Generic(format!(
+            "A file already exists at {path}. Choose another name, or open it as a project."
+        )));
+    }
+
+    let conn = queries::create_database(target)?;
     queries::insert_project(&conn, &config)?;
-    
+
     queries::sync_labels_from_config(&conn, &config)?;
 
     // A new project has exactly one account, its creator's, so this logs in.
     queries::install_user_scope(&conn)?;
     crate::commands::users::auto_login(&conn)?;
 
-    db.set(conn);
-    db.set_image_root(resolve_image_folder(&config));
+    // Only now that the new project is up is the old one closed and its
+    // caches dropped.
+    db.replace(conn, resolve_image_folder(&config));
+    forget_project(&thumbnails, &tiles, &raw, &ml);
     Ok(())
 }
 
@@ -166,12 +175,6 @@ pub fn open_project(
     raw: State<RawFrameCache>,
     path: String,
 ) -> Result<ProjectConfig> {
-    if db.is_open() {
-        log::info!("[project] closing the open project first");
-        db.close();
-    }
-    forget_project(&thumbnails, &tiles, &raw, &ml);
-
     let conn = queries::open_database(Path::new(&path))?;
     let config = queries::get_project_config(&conn)?;
 
@@ -181,8 +184,10 @@ pub fn open_project(
     queries::install_user_scope(&conn)?;
     crate::commands::users::auto_login(&conn)?;
 
-    db.set(conn);
-    db.set_image_root(resolve_image_folder(&config));
+    // Swapped under one lock, closing whatever was open; then the caches,
+    // keyed by ids that restart at 1 in every project, are dropped.
+    db.replace(conn, resolve_image_folder(&config));
+    forget_project(&thumbnails, &tiles, &raw, &ml);
     // Restore the project's trained head, if any.
     crate::commands::ml::commands::ml_load_saved_model(db, ml);
     Ok(config)

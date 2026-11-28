@@ -28,7 +28,7 @@ pub fn load_text_descriptions(db: State<DbState>, frame_id: i64) -> Result<Vec<T
             })
         })?;
         
-        Ok(rows.filter_map(|r| r.ok()).collect())
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
     })
 }
 

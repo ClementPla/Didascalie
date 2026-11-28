@@ -110,13 +110,17 @@ pub async fn otsu_segmentation(
     width: usize,
     height: usize,
 ) -> Result<Response, String> {
-
-    let image = image::DynamicImage::ImageRgba8(
-        image::RgbaImage::from_raw(width as u32, height as u32, image).unwrap(),
+    let (width, height) = (
+        u32::try_from(width).map_err(|_| "Image width out of range")?,
+        u32::try_from(height).map_err(|_| "Image height out of range")?,
     );
-
+    let image = image::DynamicImage::ImageRgba8(
+        image::RgbaImage::from_raw(width, height, image)
+            .ok_or("The image buffer does not match its dimensions")?,
+    );
     let mask = image::DynamicImage::ImageRgba8(
-        image::RgbaImage::from_raw(width as u32, height as u32, mask).unwrap(),
+        image::RgbaImage::from_raw(width, height, mask)
+            .ok_or("The stroke mask does not match the image")?,
     );
 
     // Thresholding a lightly blurred image gives an outline free of pixel
@@ -209,7 +213,7 @@ pub async fn otsu_segmentation_raw(
 
     let d = cache.get(&db, frame_id).map_err(|e| e.to_string())?;
     let settings = effective_settings(&db, &d, frame_id).map_err(|e| e.to_string())?;
-    let region = Region { x, y, width, height };
+    let region = Region { x, y, width, height }.bounded(d.frame.width, d.frame.height)?;
     let intensity = intensity_region(&d.frame, &settings, region, Source::from_option(source));
     let intensity = denoise_f32(&intensity, denoise_sigma);
 

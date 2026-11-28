@@ -7,7 +7,7 @@ use std::path::Path;
 use image::{DynamicImage, GrayImage, RgbImage};
 use serde_json::json;
 
-use super::{bool_opt, get_bool, Capabilities, ExportFormat, OptionSpec, OptionValues, Progress};
+use super::{bool_opt, component_name, contained_path, get_bool, Capabilities, ExportFormat, OptionSpec, OptionValues, Progress};
 use crate::types::dataset::{Dataset, FrameData};
 use crate::utils::color::parse_hex;
 use crate::utils::error::Result;
@@ -61,7 +61,7 @@ impl ExportFormat for Masks {
         let total = dataset.frames.len() as u32;
         for (i, frame) in dataset.frames.iter().enumerate() {
             progress(i as u32, total, &frame.relative_path);
-            let rel = Path::new(&frame.relative_path);
+            let rel = contained_path(&frame.relative_path, &format!("frame_{i}"));
             let stem = rel
                 .file_stem()
                 .and_then(|s| s.to_str())
@@ -80,7 +80,10 @@ impl ExportFormat for Masks {
                     } else {
                         lm.values.iter().map(|&v| if v != 0 { 255 } else { 0 }).collect()
                     };
-                    let dir = out_dir.join("individual_masks").join(name).join(parent);
+                    let dir = out_dir
+                        .join("individual_masks")
+                        .join(component_name(name, "label"))
+                        .join(parent);
                     save_gray(&pixels, frame.width, frame.height, &dir, &stem)?;
                 }
             }
@@ -127,7 +130,7 @@ impl ExportFormat for Masks {
 
 /// Top-most label index per pixel (later labels win), 0 = background.
 fn combined_index_map(frame: &FrameData) -> Vec<u8> {
-    let mut map = vec![0u8; (frame.width * frame.height) as usize];
+    let mut map = vec![0u8; frame.width as usize * frame.height as usize];
     for lm in &frame.label_masks {
         let idx = lm.label_index.min(255) as u8;
         for (i, &v) in lm.values.iter().enumerate() {
@@ -140,7 +143,7 @@ fn combined_index_map(frame: &FrameData) -> Vec<u8> {
 }
 
 fn colormap_rgb(dataset: &Dataset, frame: &FrameData) -> Vec<u8> {
-    let mut rgb = vec![0u8; (frame.width * frame.height * 3) as usize];
+    let mut rgb = vec![0u8; frame.width as usize * frame.height as usize * 3];
     for lm in &frame.label_masks {
         // Grey for a label that is missing or carries an unreadable colour.
         let [r, g, b] = dataset

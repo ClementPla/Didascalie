@@ -78,12 +78,12 @@ impl FeaturesExtractor {
         Ok(image::DynamicImage::ImageRgba8(img))
     }
 
-    pub fn __extract_features__(
+    pub fn extract_features(
         &mut self,
         image: Tensor<f32>,
         session: &mut ort::session::Session,
     ) -> Result<(), String> {
-        println!("Running encoder inference");
+        log::info!("Running encoder inference");
         let mut io_binding = session
             .create_binding()
             .map_err(|e| format!("Failed to create encoder binding: {}", e))?;

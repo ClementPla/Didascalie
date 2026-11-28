@@ -4,10 +4,6 @@ use thiserror::Error;
 pub enum ComError {
     #[error("ZMQ error: {0}")]
     ZmqError(#[from] zmq::Error),
-    #[error("JSON error: {0}")]
-    JsonError(#[from] serde_json::Error),
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
     #[error("Other error: {0}")]
     Other(String),
     /// The Python peer answered `ok: false`; the message is its own.
@@ -15,13 +11,8 @@ pub enum ComError {
     Peer(String),
     #[error("Python did not answer in time")]
     NoReply,
+    /// The request could not be handed over within the send timeout.
+    #[error("Python is not accepting requests")]
+    NotListening,
 }
 
-impl From<tauri::Error> for ComError {
-
-    fn from(error: tauri::Error) -> Self {
-
-        ComError::Other(error.to_string())
-
-    }
-}

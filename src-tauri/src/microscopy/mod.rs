@@ -16,7 +16,7 @@
 pub mod import;
 pub mod native;
 
-use std::collections::HashSet;
+use std::ops::RangeInclusive;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -209,27 +209,28 @@ pub fn picked_channels<'a>(series: &'a MicroscopySeries, c: &str) -> Vec<&'a Mic
     series
         .channels
         .iter()
-        .filter(|ch| keep.as_ref().map_or(true, |k| k.contains(&ch.source)))
+        .filter(|ch| keep.as_ref().is_none_or(|k| k.iter().any(|r| r.contains(&ch.source))))
         .collect()
 }
 
-/// `all` as None; `0,3,5-7` as the set of those indices. Malformed parts are
-/// skipped: the program rejects them before anything is imported.
-fn index_set(spec: &str) -> Option<HashSet<u32>> {
+/// `all` as None; `0,3,5-7` as those index ranges (`3` is `3..=3`).
+/// Malformed parts are skipped: the program rejects them before anything is
+/// imported. Ranges stay ranges: `0-4294967295` must not expand to a set.
+fn index_set(spec: &str) -> Option<Vec<RangeInclusive<u32>>> {
     if spec.trim() == "all" {
         return None;
     }
-    let mut out = HashSet::new();
+    let mut out = Vec::new();
     for part in spec.split(',').map(str::trim) {
         match part.split_once('-') {
             Some((a, b)) => {
-                if let (Ok(a), Ok(b)) = (a.parse::<u32>(), b.parse::<u32>()) {
-                    out.extend(a..=b);
+                if let (Ok(a), Ok(b)) = (a.trim().parse::<u32>(), b.trim().parse::<u32>()) {
+                    out.push(a..=b);
                 }
             }
             None => {
                 if let Ok(v) = part.parse() {
-                    out.insert(v);
+                    out.push(v..=v);
                 }
             }
         }

@@ -8,9 +8,9 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use super::geometry::regions_from_mask;
+use super::geometry::{polygon_bounds, regions_from_mask, ring_area};
 use super::{
-    bool_opt, get_bool, Capabilities, ExportFormat, ImportFormat, OptionSpec, OptionValues,
+    bool_opt, contained_path, get_bool, write_file, Capabilities, ExportFormat, ImportFormat, OptionSpec, OptionValues,
     Progress,
 };
 use crate::types::dataset::{Dataset, FrameData, LabelDef, PolygonShape};
@@ -127,11 +127,8 @@ impl ExportFormat for Coco {
 
             if copy_images {
                 if let Some(bytes) = &frame.image {
-                    let dst = out_dir.join("images").join(&frame.relative_path);
-                    if let Some(parent) = dst.parent() {
-                        let _ = fs::create_dir_all(parent);
-                    }
-                    let _ = fs::write(dst, bytes);
+                    let rel = contained_path(&frame.relative_path, &format!("frame_{image_id}"));
+                    write_file(&out_dir.join("images").join(rel), bytes)?;
                 }
             }
 
@@ -162,24 +159,26 @@ impl ExportFormat for Coco {
                 }
             }
 
-            if include_seg {
-                for shape in &frame.shapes {
-                    if shape.points.len() < 3 {
-                        continue;
-                    }
-                    let (bbox, area) = bounds_and_area(&shape.points);
-                    let seg = vec![shape.points.iter().flat_map(|p| [p[0], p[1]]).collect()];
-                    annotations.push(CocoAnnotation {
-                        id: ann_id,
-                        image_id,
-                        category_id: shape.label_index,
-                        bbox,
-                        area,
-                        iscrowd: 0,
-                        segmentation: seg,
-                    });
-                    ann_id += 1;
+            // Without segmentation a shape still exports as its bounding box.
+            for shape in &frame.shapes {
+                if shape.points.len() < 3 {
+                    continue;
                 }
+                let segmentation = if include_seg {
+                    vec![shape.points.iter().flat_map(|p| [p[0], p[1]]).collect()]
+                } else {
+                    Vec::new()
+                };
+                annotations.push(CocoAnnotation {
+                    id: ann_id,
+                    image_id,
+                    category_id: shape.label_index,
+                    bbox: polygon_bounds(&shape.points),
+                    area: ring_area(&shape.points),
+                    iscrowd: 0,
+                    segmentation,
+                });
+                ann_id += 1;
             }
         }
 
@@ -347,20 +346,4 @@ fn parse_segmentation(seg: &Value) -> Vec<Vec<[f64; 2]>> {
         }
     }
     rings
-}
-
-/// Bounding box `[x, y, w, h]` and shoelace area of a polygon.
-fn bounds_and_area(points: &[[f64; 2]]) -> ([f64; 4], f64) {
-    let (mut minx, mut miny, mut maxx, mut maxy) = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
-    let mut area2 = 0.0;
-    for i in 0..points.len() {
-        let p = points[i];
-        let q = points[(i + 1) % points.len()];
-        minx = minx.min(p[0]);
-        miny = miny.min(p[1]);
-        maxx = maxx.max(p[0]);
-        maxy = maxy.max(p[1]);
-        area2 += p[0] * q[1] - q[0] * p[1];
-    }
-    ([minx, miny, maxx - minx, maxy - miny], area2.abs() / 2.0)
 }

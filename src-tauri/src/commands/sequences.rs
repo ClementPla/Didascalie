@@ -51,8 +51,8 @@ pub fn list_sequences(db: State<DbState>) -> Result<Vec<Sequence>> {
         }).map_err(|e| AppError::Database(e))?;
 
         let sequences: Vec<Sequence> = rows
-            .filter_map(|r| r.ok())
-            .collect();
+            
+            .collect::<rusqlite::Result<_>>()?;
 
         Ok(sequences)
     })
@@ -123,8 +123,8 @@ pub fn get_gallery_sequences(db: State<DbState>) -> Result<Vec<GallerySequence>>
         }).map_err(|e| AppError::Database(e))?;
         
         let sequences: Vec<GallerySequence> = rows
-            .filter_map(|r| r.ok())
-            .collect();
+            
+            .collect::<rusqlite::Result<_>>()?;
         
         Ok(sequences)
     })
@@ -171,7 +171,7 @@ fn gallery_answers(conn: &rusqlite::Connection) -> Result<Vec<SequenceAnswers>> 
         })?;
         for row in rows {
             let (sequence_id, task, json) = row?;
-            let selected: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
+            let selected: Vec<String> = serde_json::from_str(&json)?;
             let classes = entry(&mut by_sequence, sequence_id).classes.entry(task).or_default();
             for class in selected {
                 if !classes.contains(&class) {
@@ -219,8 +219,9 @@ pub fn get_all_frame_ids_by_sequence(db: State<DbState>) -> Result<HashMap<i64, 
             Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?))
         }).map_err(|e| AppError::Database(e))?;
         
-        for row in rows.flatten() {
-            result.entry(row.0).or_default().push(row.1);
+        for row in rows {
+            let (sequence_id, frame_id) = row?;
+            result.entry(sequence_id).or_default().push(frame_id);
         }
         
         Ok(result)
@@ -259,8 +260,8 @@ pub fn get_sequence_frames(db: State<DbState>, sequence_id: i64) -> Result<Vec<F
         }).map_err(|e| AppError::Database(e))?;
 
         let frames: Vec<Frame> = rows
-            .filter_map(|r| r.ok())
-            .collect();
+            
+            .collect::<rusqlite::Result<_>>()?;
 
         Ok(frames)
     })

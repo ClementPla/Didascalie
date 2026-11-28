@@ -67,7 +67,8 @@ pub fn encode8(mask: &[u8]) -> Vec<u8> {
     let mut current = mask[0];
     let mut count: u32 = 0;
     for &v in mask {
-        if v == current {
+        // A run longer than a u32 count is split into several.
+        if v == current && count < u32::MAX {
             count += 1;
         } else {
             out.push(current);
@@ -95,7 +96,7 @@ pub fn pixel_count8(data: &[u8]) -> Option<u64> {
 }
 
 pub fn decode8(data: &[u8], width: usize, height: usize) -> Vec<u8> {
-    let total = width * height;
+    let total = width.saturating_mul(height);
     let mut mask = vec![0u8; total];
     let mut idx = 0usize;
 

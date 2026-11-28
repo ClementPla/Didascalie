@@ -41,7 +41,10 @@ impl SuperpixelMap {
         height: usize,
         target_count: usize,
     ) -> Result<Self, String> {
-        if image_rgba.len() != width * height * 4 {
+        if width == 0 || height == 0 {
+            return Err(format!("Cannot compute superpixels of an empty {width}x{height} image"));
+        }
+        if width.checked_mul(height).and_then(|n| n.checked_mul(4)) != Some(image_rgba.len()) {
             return Err(format!(
                 "Image buffer does not match dimensions {}x{} (expected {} bytes, got {})",
                 width,

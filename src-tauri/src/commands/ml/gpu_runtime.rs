@@ -166,6 +166,10 @@ pub fn ml_gpu_runtime_status() -> GpuRuntimeStatus {
 pub async fn ml_install_gpu_runtime(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     {
+        // One install at a time: they share the download file, and `extract`
+        // clears every other folder beside its own.
+        static INSTALL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+        let _installing = INSTALL.lock().await;
         install(&app).await
     }
     #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]

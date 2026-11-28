@@ -113,7 +113,7 @@ pub async fn load_label_volume(
                 let row = stmt
                     .query_row(params![frame_id, label_id], |row| {
                         Ok((
-                            MaskEncoding::from_str(&row.get::<_, String>(0)?),
+                            MaskEncoding::from_column(&row.get::<_, String>(0)?, 0)?,
                             row.get::<_, Vec<u8>>(1)?,
                         ))
                     })

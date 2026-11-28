@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
+use rusqlite::OptionalExtension;
 use tauri::State;
 use crate::storage::DbState;
 use crate::utils::error::Result;
@@ -77,8 +78,8 @@ pub fn list_registrations(
                     pair_count: row.get(4)?,
                 })
             })?
-            .filter_map(|r| r.ok())
-            .collect();
+            
+            .collect::<rusqlite::Result<_>>()?;
         Ok(rows)
     })
 }
@@ -90,13 +91,16 @@ pub fn save_registration(
     data: RegistrationData,
 ) -> Result<()> {
     db.with_conn(|conn| {
+        // One transaction: a failed pair insert must not leave the
+        // registration saved with its pairs deleted.
+        let tx = conn.unchecked_transaction()?;
         let homography_json = match &data.homography {
             Some(h) => serde_json::to_string(h)
                 .map_err(|e| AppError::Generic(format!("Failed to serialize homography: {}", e)))?,
             None => "null".to_string(),
         };
 
-        conn.execute(
+        tx.execute(
             "INSERT INTO registrations
                 (sequence_id, reference_frame_id, moving_frame_id, homography, transform_type, modified_at)
              VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP)
@@ -109,7 +113,7 @@ pub fn save_registration(
              &homography_json, &data.transform_type),
         )?;
 
-        let registration_id: i64 = conn.query_row(
+        let registration_id: i64 = tx.query_row(
             "SELECT id FROM registrations
              WHERE reference_frame_id = ?1 AND moving_frame_id = ?2",
             (data.reference_frame_id, data.moving_frame_id),
@@ -117,13 +121,13 @@ pub fn save_registration(
         )?;
 
         // Replace all pairs: keypoint sets are small.
-        conn.execute(
+        tx.execute(
             "DELETE FROM keypoint_pairs WHERE registration_id = ?1",
             [registration_id],
         )?;
 
         for (idx, pair) in data.pairs.iter().enumerate() {
-            conn.execute(
+            tx.execute(
                 "INSERT INTO keypoint_pairs
                     (registration_id, client_uuid,
                      ref_x, ref_y, moving_x, moving_y,
@@ -134,6 +138,7 @@ pub fn save_registration(
                  idx as i64),
             )?;
         }
+        tx.commit()?;
         Ok(())
     })
 }
@@ -153,7 +158,7 @@ pub fn load_registration(
                 (reference_frame_id, moving_frame_id),
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
-            .ok();
+            .optional()?;
 
         let Some((reg_id, homography_json, transform_type)) = reg_row else {
             return Ok(None);
@@ -181,8 +186,8 @@ pub fn load_registration(
                 moving_y: row.get(4)?,
             })
         })?
-        .filter_map(|r| r.ok())
-        .collect();
+        
+        .collect::<rusqlite::Result<_>>()?;
 
         Ok(Some(RegistrationData {
             reference_frame_id,

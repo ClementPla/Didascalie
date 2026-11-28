@@ -91,9 +91,13 @@ pub fn current_user_id(conn: &Connection) -> Result<i64> {
     session_user(conn)?.ok_or_else(|| AppError::Other("Nobody is logged in.".into()))
 }
 
+/// Connections are `NO_MUTEX`: `DbState`'s mutex serializes all use.
 pub fn create_database(path: &Path) -> Result<Connection> {
-    let conn = Connection::open(path)
-        .map_err(|e| AppError::Database(e))?;
+    let conn = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(AppError::Database)?;
 
     configure_connection(&conn)?;
     run_migrations(&conn)?;
@@ -361,12 +365,12 @@ pub fn load_annotations(conn: &Connection, frame_id: i64) -> Result<Vec<Annotati
             label_id: row.get(0)?,
             label_name: row.get(1)?,
             color: row.get(2)?,
-            encoding: MaskEncoding::from_str(&row.get::<_, String>(3)?),
+            encoding: MaskEncoding::from_column(&row.get::<_, String>(3)?, 3)?,
             mask_data: row.get(4)?,
         })
     })?;
     
-    Ok(rows.filter_map(|r| r.ok()).collect())
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
 #[cfg(test)]

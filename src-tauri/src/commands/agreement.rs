@@ -23,7 +23,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use tauri::ipc::Response;
 use tauri::State;
@@ -311,7 +311,7 @@ pub fn pair_cases(
                 params![frame],
                 |row| Ok((row.get::<_, u32>(0)?, row.get::<_, u32>(1)?, row.get::<_, String>(2)?)),
             )
-            .ok()
+            .optional()?
         else {
             continue;
         };
@@ -590,7 +590,7 @@ fn load_frame_rows(conn: &Connection, frame_id: i64) -> Result<FrameRows> {
     let rows = stmt.query_map(params![frame_id], |row| {
         Ok((
             (row.get::<_, i64>(0)?, row.get::<_, i64>(1)?),
-            (MaskEncoding::from_str(&row.get::<_, String>(2)?), row.get::<_, Vec<u8>>(3)?),
+            (MaskEncoding::from_column(&row.get::<_, String>(2)?, 2)?, row.get::<_, Vec<u8>>(3)?),
         ))
     })?;
     for row in rows {
@@ -661,7 +661,7 @@ fn load_answers(conn: &Connection) -> Result<Answers> {
     let mut answers = Answers::new();
     for row in rows {
         let (user, frame, task, json) = row?;
-        let classes: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
+        let classes: Vec<String> = serde_json::from_str(&json)?;
         answers.insert((user, frame, task), classes);
     }
     Ok(answers)
@@ -831,7 +831,7 @@ pub fn build_report(conn: &Connection, basis: FrameBasis) -> Result<AgreementRep
                     params![frame],
                     |row| Ok((row.get::<_, u32>(0)?, row.get::<_, u32>(1)?)),
                 )
-                .ok()
+                .optional()?
             else {
                 continue;
             };

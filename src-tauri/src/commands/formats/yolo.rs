@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::geometry::{polygon_bounds, regions_from_mask};
-use super::{enum_opt, bool_opt, get_bool, get_str, Capabilities, ExportFormat, ImportFormat, OptionSpec, OptionValues, Progress};
+use super::{contained_path, enum_opt, bool_opt, get_bool, get_str, write_file, Capabilities, ExportFormat, ImportFormat, OptionSpec, OptionValues, Progress};
 use crate::types::dataset::{Dataset, FrameData, LabelDef, PolygonShape};
 use crate::utils::error::Result;
 use crate::utils::AppError;
@@ -46,9 +46,6 @@ impl ExportFormat for Yolo {
         let copy_images = get_bool(opts, "images", false);
         fs::create_dir_all(out_dir.join("labels"))
             .map_err(|e| AppError::Generic(format!("create labels dir: {e}")))?;
-        if copy_images {
-            let _ = fs::create_dir_all(out_dir.join("images"));
-        }
 
         let mut yaml = String::from("path: .\ntrain: images\nval: images\nnames:\n");
         for l in &dataset.labels {
@@ -65,10 +62,9 @@ impl ExportFormat for Yolo {
             if fw == 0.0 || fh == 0.0 {
                 continue;
             }
-            let stem = Path::new(&frame.relative_path)
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("frame");
+            // Labels mirror the image tree (`images/a/x.png` ↔ `labels/a/x.txt`),
+            // so same-named files in different folders do not collide.
+            let rel = contained_path(&frame.relative_path, &format!("frame_{i}"));
             let mut lines = String::new();
 
             for lm in &frame.label_masks {
@@ -124,11 +120,11 @@ impl ExportFormat for Yolo {
             }
 
             if !lines.is_empty() {
-                let _ = fs::write(out_dir.join("labels").join(format!("{stem}.txt")), lines);
+                write_file(&out_dir.join("labels").join(rel.with_extension("txt")), lines)?;
             }
             if copy_images {
                 if let Some(bytes) = &frame.image {
-                    let _ = fs::write(out_dir.join("images").join(&frame.relative_path), bytes);
+                    write_file(&out_dir.join("images").join(&rel), bytes)?;
                 }
             }
         }
@@ -169,27 +165,25 @@ impl ImportFormat for Yolo {
 
         let images_dir = path.join("images");
         let labels_dir = path.join("labels");
-        let entries: Vec<PathBuf> = fs::read_dir(&images_dir)
-            .map(|it| it.flatten().map(|e| e.path()).collect())
-            .unwrap_or_default();
+        let mut entries: Vec<PathBuf> = Vec::new();
+        collect_images(&images_dir, &mut entries);
+        entries.sort();
         let total = entries.len() as u32;
 
         let mut frames = Vec::new();
         for (i, img_path) in entries.iter().enumerate() {
-            let ext = img_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-            if !IMAGE_EXTS.contains(&ext.as_str()) {
-                continue;
-            }
             if i % 64 == 0 {
                 progress(i as u32, total, "Reading labels");
             }
-            let (w, h) = image::image_dimensions(img_path).unwrap_or((0, 0));
+            let rel = img_path.strip_prefix(&images_dir).unwrap_or(img_path);
+            let (w, h) = image::image_dimensions(img_path)
+                .map_err(|e| AppError::Generic(format!("read {}: {e}", img_path.display())))?;
             let (wf, hf) = (w as f64, h as f64);
-            let stem = img_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-            let file_name = img_path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
+            // Frames match by relative path, then by file name, on write.
+            let relative_path = rel.to_string_lossy().replace('\\', "/");
 
             let mut shapes = Vec::new();
-            let txt = labels_dir.join(format!("{stem}.txt"));
+            let txt = labels_dir.join(rel.with_extension("txt"));
             if let Ok(content) = fs::read_to_string(&txt) {
                 for line in content.lines() {
                     let toks: Vec<f64> = line.split_whitespace().filter_map(|t| t.parse().ok()).collect();
@@ -217,7 +211,7 @@ impl ImportFormat for Yolo {
             }
 
             frames.push(FrameData {
-                relative_path: file_name,
+                relative_path,
                 width: w,
                 height: h,
                 shapes,
@@ -227,6 +221,23 @@ impl ImportFormat for Yolo {
 
         progress(total, total, "Done");
         Ok(Dataset { name: "YOLO import".to_string(), labels, frames })
+    }
+}
+
+/// Image files under `dir`, recursively.
+fn collect_images(dir: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for path in entries.flatten().map(|e| e.path()) {
+        if path.is_dir() {
+            collect_images(&path, out);
+            continue;
+        }
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+        if IMAGE_EXTS.contains(&ext.as_str()) {
+            out.push(path);
+        }
     }
 }
 
@@ -270,4 +281,59 @@ fn parse_yaml_names(yaml_path: &Path) -> Vec<String> {
         }
     }
     names
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::commands::formats::OptionValues;
+
+    fn png(w: u32, h: u32) -> Vec<u8> {
+        let mut out = std::io::Cursor::new(Vec::new());
+        image::RgbImage::new(w, h).write_to(&mut out, image::ImageFormat::Png).unwrap();
+        out.into_inner()
+    }
+
+    fn frame(path: &str, x: f64) -> FrameData {
+        FrameData {
+            relative_path: path.into(),
+            width: 10,
+            height: 10,
+            shapes: vec![PolygonShape {
+                label_index: 1,
+                closed: true,
+                filled: true,
+                points: vec![[x, 1.0], [x + 2.0, 1.0], [x + 2.0, 3.0]],
+            }],
+            image: Some(png(10, 10)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn same_named_frames_in_two_folders_round_trip() {
+        let dir = std::env::temp_dir().join(format!("dida-yolo-{}", uuid::Uuid::new_v4()));
+        let dataset = Dataset {
+            name: "t".into(),
+            labels: vec![LabelDef { index: 1, name: "cell".into(), color: "#ff0000".into(), is_instance: false }],
+            frames: vec![frame("a/x.png", 1.0), frame("b/x.png", 5.0), frame("../../escape.png", 2.0)],
+        };
+        let mut opts = OptionValues::new();
+        opts.insert("images".into(), true.into());
+        Yolo.export(&dataset, &dir, &opts, &mut |_, _, _| {}).unwrap();
+
+        assert!(dir.join("labels/a/x.txt").is_file());
+        assert!(dir.join("labels/b/x.txt").is_file());
+        // The escaping path lands inside the export folder.
+        assert!(dir.join("images/escape.png").is_file());
+
+        let back = Yolo.import(&dir, &OptionValues::new(), &mut |_, _, _| {}).unwrap();
+        let mut paths: Vec<_> = back.frames.iter().map(|f| f.relative_path.as_str()).collect();
+        paths.sort();
+        assert_eq!(paths, ["a/x.png", "b/x.png", "escape.png"]);
+        let b = back.frames.iter().find(|f| f.relative_path == "b/x.png").unwrap();
+        assert!((b.shapes[0].points[0][0] - 5.0).abs() < 1e-3);
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

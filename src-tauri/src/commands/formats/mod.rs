@@ -12,10 +12,12 @@ pub mod yolo;
 
 use ts_rs::TS;
 use serde::Serialize;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use crate::types::dataset::Dataset;
 use crate::utils::error::Result;
+use crate::utils::AppError;
+use std::fs;
 
 // ── Self-describing options ─────────────────────────────────────────────────
 
@@ -55,6 +57,45 @@ pub fn get_bool(v: &OptionValues, key: &str, default: bool) -> bool {
 }
 pub fn get_str(v: &OptionValues, key: &str, default: &str) -> String {
     v.get(key).and_then(|x| x.as_str()).unwrap_or(default).to_string()
+}
+
+/// `rel` reduced to its plain components, so joining it onto an export folder
+/// can never land outside it: `..`, roots and drive prefixes are dropped.
+/// Frame paths come from the project, and through imports from foreign
+/// files, so they are not trusted. Empty results become `fallback`.
+pub fn contained_path(rel: &str, fallback: &str) -> PathBuf {
+    let clean: PathBuf = Path::new(rel)
+        .components()
+        .filter_map(|c| match c {
+            Component::Normal(part) => Some(part),
+            _ => None,
+        })
+        .collect();
+    if clean.as_os_str().is_empty() {
+        PathBuf::from(fallback)
+    } else {
+        clean
+    }
+}
+
+/// `name` made safe as a single path component (a label name used as a
+/// folder): separators become `_`, and `.`/`..`/empty become `fallback`.
+pub fn component_name(name: &str, fallback: &str) -> String {
+    let cleaned: String =
+        name.chars().map(|c| if c == '/' || c == '\\' || c == '\0' { '_' } else { c }).collect();
+    match cleaned.trim() {
+        "" | "." | ".." => fallback.to_string(),
+        _ => cleaned,
+    }
+}
+
+/// Create `path`'s parent folder, then write `bytes` to it.
+pub fn write_file(path: &Path, bytes: impl AsRef<[u8]>) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| AppError::Generic(format!("create {}: {e}", parent.display())))?;
+    }
+    fs::write(path, bytes).map_err(|e| AppError::Generic(format!("write {}: {e}", path.display())))
 }
 
 /// A default label colour by index, for imports that carry none.
@@ -116,6 +157,27 @@ pub trait ImportFormat: Send + Sync {
         opts: &OptionValues,
         progress: &mut Progress,
     ) -> Result<Dataset>;
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+
+    #[test]
+    fn contained_path_drops_escaping_components() {
+        assert_eq!(contained_path("../../evil.png", "f"), PathBuf::from("evil.png"));
+        assert_eq!(contained_path("/etc/passwd", "f"), PathBuf::from("etc/passwd"));
+        assert_eq!(contained_path("a/./b/../c.png", "f"), PathBuf::from("a/b/c.png"));
+        assert_eq!(contained_path("..", "f"), PathBuf::from("f"));
+        assert_eq!(contained_path("", "f"), PathBuf::from("f"));
+    }
+
+    #[test]
+    fn component_name_is_one_component() {
+        assert_eq!(component_name("a/b", "x"), "a_b");
+        assert_eq!(component_name("..", "x"), "x");
+        assert_eq!(component_name("Cell", "x"), "Cell");
+    }
 }
 
 // ── Registry ────────────────────────────────────────────────────────────────

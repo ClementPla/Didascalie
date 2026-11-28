@@ -26,12 +26,12 @@ impl ModelSessions {
 }
 
 fn create_session(path: PathBuf, intra_threads: usize) -> Result<Session, ort::Error> {
-    println!(
+    log::info!(
         "CUDA execution provider is available: {:?}",
         CUDAExecutionProvider::default().is_available()
     );
 
-    println!("Building session with {} intra threads...", intra_threads);
+    log::info!("Building session with {} intra threads...", intra_threads);
 
     Session::builder()?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
@@ -52,17 +52,17 @@ pub async fn get_encoder_async(
     let mut encoder_opt = sessions.encoder.lock().await;
 
     if encoder_opt.is_none() {
-        println!("Encoder not initialized, ensuring model is cached...");
+        log::info!("Encoder not initialized, ensuring model is cached...");
 
         let config = ModelConfig::encoder();
         let model_path = ensure_model_cached(app, &config).await?;
 
-        println!("Creating encoder session from: {:?}", model_path);
+        log::info!("Creating encoder session from: {:?}", model_path);
         let session = create_session(model_path, 6)
             .map_err(|e| format!("Failed to create encoder session: {}", e))?;
 
         *encoder_opt = Some(Arc::new(Mutex::new(session)));
-        println!("Encoder session created successfully");
+        log::info!("Encoder session created successfully");
     }
 
     Ok(Arc::clone(encoder_opt.as_ref().unwrap()))
@@ -75,17 +75,17 @@ pub async fn get_decoder_async(
     let mut decoder_opt = sessions.decoder.lock().await;
 
     if decoder_opt.is_none() {
-        println!("Decoder not initialized, ensuring model is cached...");
+        log::info!("Decoder not initialized, ensuring model is cached...");
 
         let config = ModelConfig::decoder();
         let model_path = ensure_model_cached(app, &config).await?;
 
-        println!("Creating decoder session from: {:?}", model_path);
+        log::info!("Creating decoder session from: {:?}", model_path);
         let session = create_session(model_path, 4)
             .map_err(|e| format!("Failed to create decoder session: {}", e))?;
 
         *decoder_opt = Some(Arc::new(Mutex::new(session)));
-        println!("Decoder session created successfully");
+        log::info!("Decoder session created successfully");
     }
 
     Ok(Arc::clone(decoder_opt.as_ref().unwrap()))

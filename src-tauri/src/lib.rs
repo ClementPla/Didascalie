@@ -239,14 +239,8 @@ pub fn run() {
         .expect("error while running tauri application");
     app.run(|app_handle, event| match event {
         RunEvent::Exit => {
-            println!("Graceful shutdown initiated...");
-            
-            let db_state = app_handle.state::<DbState>();
-            
-            tauri::async_runtime::block_on(async {
-                db_state.close(); 
-                println!("Database connections closed safely.");
-            });
+            log::info!("shutting down");
+            app_handle.state::<DbState>().close();
         }
         _ => {}
     });

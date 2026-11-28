@@ -297,7 +297,9 @@ pub fn render_frame_tile(
         y,
         width,
         height,
-    };
+    }
+    .bounded(d.frame.width, d.frame.height)
+    .map_err(AppError::Generic)?;
     let (_, _, rgb) = render_rgb(&d.frame, &settings, region, 1);
     Ok(Response::new(rgb_to_tile_rgba(
         &rgb,
@@ -353,7 +355,7 @@ fn rgb_to_tile_rgba(rgb: &[u8], region: Region, frame_w: u32, frame_h: u32) -> V
     let mut out = vec![0u8; region.width as usize * region.height as usize * 4];
     for ty in 0..region.height {
         for tx in 0..region.width {
-            let i = (ty * region.width + tx) as usize;
+            let i = ty as usize * region.width as usize + tx as usize;
             let inside = region.x + tx < frame_w && region.y + ty < frame_h;
             out[i * 4..i * 4 + 3].copy_from_slice(&rgb[i * 3..i * 3 + 3]);
             out[i * 4 + 3] = if inside { 255 } else { 0 };

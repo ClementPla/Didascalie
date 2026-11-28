@@ -92,8 +92,13 @@ impl Channel {
   /// After an error the channel is unusable.
   pub fn call<T: DeserializeOwned>(&self, req: &Request, wait: Duration) -> Result<T, ComError> {
     let buf = rmp_serde::to_vec_named(req).map_err(|e| ComError::Other(e.to_string()))?;
-    self.socket.set_rcvtimeo(wait.as_millis() as i32)?;
-    self.socket.send(buf, 0)?;
+    // Saturated, never truncated: a wrapped -1 means "block forever" to libzmq.
+    self.socket.set_rcvtimeo(i32::try_from(wait.as_millis()).unwrap_or(i32::MAX))?;
+    match self.socket.send(buf, 0) {
+      Ok(()) => {}
+      Err(zmq::Error::EAGAIN) => return Err(ComError::NotListening),
+      Err(e) => return Err(e.into()),
+    }
     let reply = match self.socket.recv_bytes(0) {
       Ok(reply) => reply,
       Err(zmq::Error::EAGAIN) => return Err(ComError::NoReply),

@@ -509,12 +509,22 @@ pub fn load_working_image(
     frame_id: i64,
     working_size: u32,
 ) -> Result<(Array3<f32>, usize, usize), String> {
+    load_working_image_hashed(db, frame_id, working_size).map(|(image, w, h, _)| (image, w, h))
+}
+
+/// [`load_working_image`], with [`cache::hash_bytes`] of the stored bytes: the
+/// frame's content identity, since a re-imported frame can keep its id.
+pub fn load_working_image_hashed(
+    db: &DbState,
+    frame_id: i64,
+    working_size: u32,
+) -> Result<(Array3<f32>, usize, usize, u64), String> {
     let (_meta, bytes) = crate::commands::frame::read_frame_bytes(db, frame_id)
         .map_err(|e| format!("frame {frame_id}: {e}"))?;
     let image = decode_image(&bytes)?;
     let (src_w, src_h) = (image.shape()[2], image.shape()[1]);
     let (w, h) = working_dims(src_w, src_h, working_size);
-    Ok((resize_bilinear(&image, h, w), w, h))
+    Ok((resize_bilinear(&image, h, w), w, h, cache::hash_bytes(&bytes)))
 }
 
 /// The working image, from cache when possible. Keyed on a hash of the stored
@@ -535,7 +545,8 @@ fn working_image(
         .map_err(|e| format!("frame {frame_id}: {e}"))?;
     let key = cache::Key::raw(cache::IMAGE_KIND, cfg.working_size, cache::hash_bytes(&bytes));
     if let Some(img) = cache::load(dir, &key) {
-        if img.ndim() == 3 && img.shape()[0] == 3 {
+        // 1 channel for a grayscale frame, 3 otherwise, as `decode_image` gives.
+        if img.ndim() == 3 && matches!(img.shape()[0], 1 | 3) {
             let (h, w) = (img.shape()[1], img.shape()[2]);
             return Ok((img, w, h));
         }

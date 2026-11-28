@@ -40,7 +40,7 @@ pub async fn mask_sam_segment<'a>(
 
         let mut features_extractor_guard = features_extractor.lock().await;
         features_extractor_guard
-            .__extract_features__(image_tensor, &mut *encoder_guard)
+            .extract_features(image_tensor, &mut *encoder_guard)
             .map_err(|e| format!("Feature extraction failed: {}", e))?;
 
         println!("Feature extraction took: {:?}", encode_start.elapsed());

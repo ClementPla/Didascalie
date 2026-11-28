@@ -36,21 +36,24 @@ pub async fn export_dataset(
         build_dataset(conn, &name, only_reviewed)
     })?;
 
-    let out = Path::new(&output_folder);
     let mut errors: Vec<String> = Vec::new();
-    let emit = |done: u32, total: u32, label: &str| {
-        let _ = app.emit(
-            "export-progress",
-            ExportProgress { current: done, total, current_file: label.to_string() },
-        );
+    let mut progress = progress_emitter(&app, "export-progress");
+    let total_exported = match exporter.export(&dataset, Path::new(&output_folder), &options, &mut progress) {
+        Ok(()) => dataset.frames.len() as u32,
+        Err(e) => {
+            errors.push(e.to_string());
+            0
+        }
     };
-    let mut progress = emit;
 
-    if let Err(e) = exporter.export(&dataset, out, &options, &mut progress) {
-        errors.push(e.to_string());
+    Ok(ExportResult { total_exported, errors })
+}
+
+/// A format progress callback forwarding to `event` as [`ExportProgress`].
+fn progress_emitter<'a>(app: &'a AppHandle, event: &'a str) -> impl FnMut(u32, u32, &str) + 'a {
+    move |done, total, label| {
+        let _ = app.emit(event, ExportProgress { current: done, total, current_file: label.to_string() });
     }
-
-    Ok(ExportResult { total_exported: dataset.frames.len() as u32, errors })
 }
 
 /// Import annotations from `path` (a file or folder) into the open project,
@@ -66,13 +69,9 @@ pub async fn import_dataset(
     let importer = formats::find_importer(&format_id)
         .ok_or_else(|| AppError::Generic(format!("Unknown import format: {format_id}")))?;
 
-    let emit = |done: u32, total: u32, label: &str| {
-        let _ = app.emit(
-            "import-progress",
-            ExportProgress { current: done, total, current_file: label.to_string() },
-        );
-    };
-    let mut progress = emit;
+    // Not `import-progress`: that event carries `ImportProgress`, the image
+    // import's payload, which the frontend listens for.
+    let mut progress = progress_emitter(&app, "dataset-import-progress");
     let dataset = importer.import(Path::new(&path), &options, &mut progress)?;
 
     // One transaction: a failure midway leaves nothing.
