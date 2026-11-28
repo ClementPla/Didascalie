@@ -9,21 +9,64 @@ use crate::commands::annotation::decode_to_uint8;
 use crate::commands::project_edit;
 use crate::commands::vector::{self, flatten_shape, VectorNode, VectorShape};
 use crate::storage::{queries, rle};
-use crate::types::dataset::{Classification, Dataset, FrameData, LabelDef, LabelMask, PolygonShape};
+use crate::storage::DbState;
+use crate::types::dataset::{
+    Classification, Dataset, DatasetInfo, FrameData, FrameSource, LabelDef, LabelMask, PolygonShape,
+};
 use crate::types::export::ImportResult;
 use crate::types::image::MaskEncoding;
 use crate::utils::error::Result;
 
-/// Read a project into the IR. `only_reviewed` limits to reviewed frames.
-pub fn build_dataset(conn: &Connection, name: &str, only_reviewed: bool) -> Result<Dataset> {
-    let labels = load_labels(conn)?;
-    // label_id -> 1-based index used across formats.
-    let index_by_id: HashMap<i64, u32> = labels.iter().map(|(id, l)| (*id, l.index)).collect();
+/// The open project as an export reads it: its labels now, its frames one
+/// at a time. `only_reviewed` limits to reviewed frames; without
+/// `with_images` the embedded image bytes are never read.
+pub fn export_source<'a>(
+    db: &'a DbState,
+    name: &str,
+    only_reviewed: bool,
+    with_images: bool,
+) -> Result<(DatasetInfo, DbFrames<'a>)> {
+    db.with_conn(|conn| {
+        let labels = load_labels(conn)?;
+        // label_id -> 1-based index used across formats.
+        let index_by_id: HashMap<i64, u32> = labels.iter().map(|(id, l)| (*id, l.index)).collect();
+        let sql = if only_reviewed {
+            "SELECT f.id FROM frames f
+             WHERE EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id)
+             ORDER BY f.id"
+        } else {
+            "SELECT id FROM frames ORDER BY id"
+        };
+        let ids = conn
+            .prepare(sql)?
+            .query_map([], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<i64>>>()?;
+        let info = DatasetInfo {
+            name: name.to_string(),
+            labels: labels.into_iter().map(|(_, l)| l).collect(),
+        };
+        Ok((info, DbFrames { db, ids, index_by_id, with_images }))
+    })
+}
 
-    let label_defs: Vec<LabelDef> = labels.into_iter().map(|(_, l)| l).collect();
-    let frames = load_frames(conn, only_reviewed, &index_by_id)?;
+/// The frames of an export, each read under the connection lock only while
+/// it loads.
+pub struct DbFrames<'a> {
+    db: &'a DbState,
+    ids: Vec<i64>,
+    index_by_id: HashMap<i64, u32>,
+    with_images: bool,
+}
 
-    Ok(Dataset { name: name.to_string(), labels: label_defs, frames })
+impl FrameSource for DbFrames<'_> {
+    fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    fn load(&mut self, i: usize) -> Result<FrameData> {
+        let id = self.ids[i];
+        self.db.with_conn(|conn| load_frame(conn, id, &self.index_by_id, self.with_images))
+    }
 }
 
 fn load_labels(conn: &Connection) -> Result<Vec<(i64, LabelDef)>> {
@@ -49,89 +92,56 @@ fn load_labels(conn: &Connection) -> Result<Vec<(i64, LabelDef)>> {
     Ok(out)
 }
 
-fn load_frames(
+fn load_frame(
     conn: &Connection,
-    only_reviewed: bool,
+    id: i64,
     index_by_id: &HashMap<i64, u32>,
-) -> Result<Vec<FrameData>> {
-    let sql = if only_reviewed {
-        "SELECT f.id, f.relative_path, f.width, f.height, 1, f.embedded_data
-         FROM frames f
-         WHERE EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id)
-         ORDER BY f.id"
-    } else {
-        "SELECT f.id, f.relative_path, f.width, f.height,
-                EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id),
-                f.embedded_data
-         FROM frames f ORDER BY f.id"
-    };
+    with_images: bool,
+) -> Result<FrameData> {
+    let (relative_path, width, height, reviewed, image): (Option<String>, u32, u32, bool, Option<Vec<u8>>) =
+        conn.query_row(
+            "SELECT relative_path, width, height,
+                    EXISTS (SELECT 1 FROM frame_reviews r WHERE r.frame_id = f.id),
+                    CASE WHEN ?2 THEN embedded_data END
+             FROM frames f WHERE id = ?1",
+            rusqlite::params![id, with_images],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )?;
+    let relative_path = relative_path.unwrap_or_else(|| format!("frame_{id}"));
 
-    struct Row {
-        id: i64,
-        relative_path: Option<String>,
-        width: u32,
-        height: u32,
-        reviewed: bool,
-        image: Option<Vec<u8>>,
+    let mut label_masks = Vec::new();
+    for a in queries::load_annotations(conn, id)? {
+        let Some(&label_index) = index_by_id.get(&a.label_id) else {
+            continue;
+        };
+        let values = decode_to_uint8(&a.mask_data, &a.encoding, width, height);
+        if values.iter().any(|&v| v != 0) {
+            label_masks.push(LabelMask { label_index, values });
+        }
     }
 
-    let mut stmt = conn.prepare(sql)?;
-    let rows: Vec<Row> = stmt
-        .query_map([], |row| {
-            Ok(Row {
-                id: row.get(0)?,
-                relative_path: row.get(1)?,
-                width: row.get(2)?,
-                height: row.get(3)?,
-                reviewed: row.get(4)?,
-                image: row.get(5)?,
-            })
-        })?
-        
-        .collect::<rusqlite::Result<_>>()?;
-
-    let mut frames = Vec::with_capacity(rows.len());
-    for row in rows {
-        let relative_path = row.relative_path.unwrap_or_else(|| format!("frame_{}", row.id));
-
-        let mut label_masks = Vec::new();
-        for a in queries::load_annotations(conn, row.id)? {
-            let Some(&label_index) = index_by_id.get(&a.label_id) else {
-                continue;
-            };
-            let values = decode_to_uint8(&a.mask_data, &a.encoding, row.width, row.height);
-            if values.iter().any(|&v| v != 0) {
-                label_masks.push(LabelMask { label_index, values });
-            }
+    // Vector shapes, flattened to pixel polylines.
+    let mut shapes = Vec::new();
+    for s in vector::load_frame_shapes(conn, id)? {
+        let Some(&label_index) = index_by_id.get(&s.label_id) else {
+            continue;
+        };
+        let points: Vec<[f64; 2]> = flatten_shape(&s, 24).into_iter().map(|(x, y)| [x, y]).collect();
+        if points.len() >= 2 {
+            shapes.push(PolygonShape { label_index, closed: s.closed, filled: s.filled, points });
         }
-
-        // Vector shapes, flattened to pixel polylines.
-        let mut shapes = Vec::new();
-        for s in vector::load_frame_shapes(conn, row.id)? {
-            let Some(&label_index) = index_by_id.get(&s.label_id) else {
-                continue;
-            };
-            let points: Vec<[f64; 2]> =
-                flatten_shape(&s, 24).into_iter().map(|(x, y)| [x, y]).collect();
-            if points.len() >= 2 {
-                shapes.push(PolygonShape { label_index, closed: s.closed, filled: s.filled, points });
-            }
-        }
-
-        let classifications = load_classifications(conn, row.id)?;
-
-        frames.push(FrameData {
-            relative_path,
-            width: row.width,
-            height: row.height,
-            reviewed: row.reviewed,
-            label_masks,
-            shapes,
-            classifications,
-            image: row.image,
-        });
     }
-    Ok(frames)
+
+    Ok(FrameData {
+        relative_path,
+        width,
+        height,
+        reviewed,
+        label_masks,
+        shapes,
+        classifications: load_classifications(conn, id)?,
+        image,
+    })
 }
 
 // ── Write side: overlay an imported IR onto the open project ────────────────
@@ -306,4 +316,49 @@ fn load_classifications(conn: &Connection, frame_id: i64) -> Result<Vec<Classifi
         out.push(Classification { task, values });
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn project() -> DbState {
+        let conn = queries::create_database(Path::new(":memory:")).unwrap();
+        conn.execute_batch(
+            "INSERT INTO labels (id, name, color) VALUES (5, 'cell', '#ff0000');
+             INSERT INTO sequences (id, name) VALUES (1, 's');
+             INSERT INTO frames (id, sequence_id, frame_index, width, height, embedded_data)
+                 VALUES (1, 1, 0, 2, 2, x'0102'), (2, 1, 1, 2, 2, NULL);",
+        )
+        .unwrap();
+        queries::save_annotation(&conn, 1, 5, &rle::encode8(&[0, 1, 1, 0]), MaskEncoding::Rle8).unwrap();
+        let db = DbState::new();
+        db.set(conn);
+        db
+    }
+
+    #[test]
+    fn export_frames_load_one_at_a_time_and_images_only_on_request() {
+        let db = project();
+        let (info, mut frames) = export_source(&db, "p", false, false).unwrap();
+        assert_eq!(info.labels.len(), 1);
+        assert_eq!(frames.len(), 2);
+        let first = frames.load(0).unwrap();
+        assert_eq!(first.image, None, "image bytes are not read when not copied");
+        assert_eq!(first.label_masks[0].values, vec![0, 1, 1, 0]);
+        assert!(frames.load(1).unwrap().label_masks.is_empty());
+
+        let (_, mut frames) = export_source(&db, "p", false, true).unwrap();
+        assert_eq!(frames.load(0).unwrap().image, Some(vec![1, 2]));
+    }
+
+    #[test]
+    fn only_reviewed_frames_are_exported_when_asked() {
+        let db = project();
+        db.with_conn(|conn| crate::commands::frame::mark_reviewed(conn, &[2], true)).unwrap();
+        let (_, mut frames) = export_source(&db, "p", true, false).unwrap();
+        assert_eq!(frames.len(), 1);
+        assert!(frames.load(0).unwrap().reviewed);
+    }
 }

@@ -4,9 +4,10 @@ use std::path::Path;
 
 use tauri::{AppHandle, Emitter, State};
 
-use crate::commands::formats::storage::{build_dataset, write_dataset};
+use crate::commands::formats::storage::{export_source, write_dataset};
 use crate::commands::formats::{self, FormatInfo, OptionValues};
 use crate::storage::{queries, DbState};
+use crate::types::dataset::FrameSource;
 use crate::types::export::{ExportProgress, ExportResult, ImportResult};
 use crate::utils::error::Result;
 use crate::utils::AppError;
@@ -28,18 +29,18 @@ pub async fn export_dataset(
     let exporter = formats::find_exporter(&format_id)
         .ok_or_else(|| AppError::Generic(format!("Unknown export format: {format_id}")))?;
 
-    // Build the IR under the DB lock, then release it before writing.
-    let dataset = db.with_conn(|conn| {
-        let name = queries::get_project_config(conn)
-            .map(|c| c.name)
-            .unwrap_or_else(|_| "project".to_string());
-        build_dataset(conn, &name, only_reviewed)
-    })?;
+    let name = db
+        .with_conn(|conn| queries::get_project_config(conn).map(|c| c.name))
+        .unwrap_or_else(|_| "project".to_string());
+    // Frames are read one at a time while the files are written, each under
+    // the DB lock only while it loads.
+    let (info, mut frames) =
+        export_source(&db, &name, only_reviewed, exporter.wants_images(&options))?;
 
     let mut errors: Vec<String> = Vec::new();
     let mut progress = progress_emitter(&app, "export-progress");
-    let total_exported = match exporter.export(&dataset, Path::new(&output_folder), &options, &mut progress) {
-        Ok(()) => dataset.frames.len() as u32,
+    let total_exported = match exporter.export(&info, &mut frames, Path::new(&output_folder), &options, &mut progress) {
+        Ok(()) => frames.len() as u32,
         Err(e) => {
             errors.push(e.to_string());
             0

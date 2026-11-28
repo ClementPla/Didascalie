@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use super::geometry::{polygon_bounds, regions_from_mask};
 use super::{contained_path, enum_opt, bool_opt, get_bool, get_str, write_file, Capabilities, ExportFormat, ImportFormat, OptionSpec, OptionValues, Progress};
-use crate::types::dataset::{Dataset, FrameData, LabelDef, PolygonShape};
+use crate::types::dataset::{Dataset, DatasetInfo, FrameData, FrameSource, LabelDef, PolygonShape};
 use crate::utils::error::Result;
 use crate::utils::AppError;
 
@@ -41,7 +41,11 @@ impl ExportFormat for Yolo {
         ]
     }
 
-    fn export(&self, dataset: &Dataset, out_dir: &Path, opts: &OptionValues, progress: &mut Progress) -> Result<()> {
+    fn wants_images(&self, opts: &OptionValues) -> bool {
+        get_bool(opts, "images", false)
+    }
+
+    fn export(&self, dataset: &DatasetInfo, frames: &mut dyn FrameSource, out_dir: &Path, opts: &OptionValues, progress: &mut Progress) -> Result<()> {
         let segment = is_segment(opts);
         let copy_images = get_bool(opts, "images", false);
         fs::create_dir_all(out_dir.join("labels"))
@@ -55,8 +59,9 @@ impl ExportFormat for Yolo {
         fs::write(out_dir.join("data.yaml"), yaml)
             .map_err(|e| AppError::Generic(format!("write data.yaml: {e}")))?;
 
-        let total = dataset.frames.len() as u32;
-        for (i, frame) in dataset.frames.iter().enumerate() {
+        let total = frames.len() as u32;
+        for i in 0..frames.len() {
+            let frame = &frames.load(i)?;
             progress(i as u32, total, &frame.relative_path);
             let (fw, fh) = (frame.width as f64, frame.height as f64);
             if fw == 0.0 || fh == 0.0 {
@@ -313,14 +318,15 @@ mod tests {
     #[test]
     fn same_named_frames_in_two_folders_round_trip() {
         let dir = std::env::temp_dir().join(format!("dida-yolo-{}", uuid::Uuid::new_v4()));
-        let dataset = Dataset {
+        let info = DatasetInfo {
             name: "t".into(),
             labels: vec![LabelDef { index: 1, name: "cell".into(), color: "#ff0000".into(), is_instance: false }],
-            frames: vec![frame("a/x.png", 1.0), frame("b/x.png", 5.0), frame("../../escape.png", 2.0)],
         };
+        let mut frames = vec![frame("a/x.png", 1.0), frame("b/x.png", 5.0), frame("../../escape.png", 2.0)];
         let mut opts = OptionValues::new();
         opts.insert("images".into(), true.into());
-        Yolo.export(&dataset, &dir, &opts, &mut |_, _, _| {}).unwrap();
+        assert!(Yolo.wants_images(&opts));
+        Yolo.export(&info, &mut frames, &dir, &opts, &mut |_, _, _| {}).unwrap();
 
         assert!(dir.join("labels/a/x.txt").is_file());
         assert!(dir.join("labels/b/x.txt").is_file());

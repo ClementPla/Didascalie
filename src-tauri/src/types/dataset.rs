@@ -3,6 +3,8 @@
 // `commands::formats::storage` converts between it and SQLite.
 use serde::{Deserialize, Serialize};
 
+use crate::utils::error::Result;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Dataset {
     pub name: String,
@@ -63,8 +65,34 @@ pub struct Classification {
     pub values: Vec<String>,
 }
 
-impl Dataset {
+/// What an exporter knows of a dataset up front: its name and labels. The
+/// frames come one at a time from a [`FrameSource`].
+#[derive(Debug, Clone, Default)]
+pub struct DatasetInfo {
+    pub name: String,
+    pub labels: Vec<LabelDef>,
+}
+
+impl DatasetInfo {
     pub fn label(&self, index: u32) -> Option<&LabelDef> {
         self.labels.iter().find(|l| l.index == index)
+    }
+}
+
+/// An export's frames, loaded one at a time: a frame is a full-size mask per
+/// label, so a whole project held at once can exhaust memory.
+pub trait FrameSource {
+    fn len(&self) -> usize;
+    /// Frame `i`, for `i < len()`.
+    fn load(&mut self, i: usize) -> Result<FrameData>;
+}
+
+/// Frames already in memory (tests).
+impl FrameSource for Vec<FrameData> {
+    fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+    fn load(&mut self, i: usize) -> Result<FrameData> {
+        Ok(self[i].clone())
     }
 }

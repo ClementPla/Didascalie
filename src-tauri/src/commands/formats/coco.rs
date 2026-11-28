@@ -13,7 +13,7 @@ use super::{
     bool_opt, contained_path, get_bool, write_file, Capabilities, ExportFormat, ImportFormat, OptionSpec, OptionValues,
     Progress,
 };
-use crate::types::dataset::{Dataset, FrameData, LabelDef, PolygonShape};
+use crate::types::dataset::{Dataset, DatasetInfo, FrameData, FrameSource, LabelDef, PolygonShape};
 use crate::utils::error::Result;
 use crate::utils::AppError;
 
@@ -87,9 +87,14 @@ impl ExportFormat for Coco {
         ]
     }
 
+    fn wants_images(&self, opts: &OptionValues) -> bool {
+        get_bool(opts, "images", false)
+    }
+
     fn export(
         &self,
-        dataset: &Dataset,
+        dataset: &DatasetInfo,
+        frames: &mut dyn FrameSource,
         out_dir: &Path,
         opts: &OptionValues,
         progress: &mut Progress,
@@ -112,9 +117,10 @@ impl ExportFormat for Coco {
         let mut images = Vec::new();
         let mut annotations = Vec::new();
         let mut ann_id: u32 = 1;
-        let total = dataset.frames.len() as u32;
+        let total = frames.len() as u32;
 
-        for (i, frame) in dataset.frames.iter().enumerate() {
+        for i in 0..frames.len() {
+            let frame = &frames.load(i)?;
             let image_id = (i + 1) as u32;
             progress(i as u32, total, &frame.relative_path);
 

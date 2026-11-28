@@ -14,7 +14,7 @@ use ts_rs::TS;
 use serde::Serialize;
 use std::path::{Component, Path, PathBuf};
 
-use crate::types::dataset::Dataset;
+use crate::types::dataset::{Dataset, DatasetInfo, FrameSource};
 use crate::utils::error::Result;
 use crate::utils::AppError;
 use std::fs;
@@ -133,9 +133,15 @@ pub trait ExportFormat: Send + Sync {
     fn options(&self) -> Vec<OptionSpec> {
         Vec::new()
     }
+    /// Whether this export, with `opts`, writes the embedded image files: if
+    /// not, they are not read at all.
+    fn wants_images(&self, _opts: &OptionValues) -> bool {
+        false
+    }
     fn export(
         &self,
-        dataset: &Dataset,
+        dataset: &DatasetInfo,
+        frames: &mut dyn FrameSource,
         out_dir: &Path,
         opts: &OptionValues,
         progress: &mut Progress,

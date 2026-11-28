@@ -8,7 +8,7 @@ use image::{DynamicImage, GrayImage, RgbImage};
 use serde_json::json;
 
 use super::{bool_opt, component_name, contained_path, get_bool, Capabilities, ExportFormat, OptionSpec, OptionValues, Progress};
-use crate::types::dataset::{Dataset, FrameData};
+use crate::types::dataset::{DatasetInfo, FrameData, FrameSource};
 use crate::utils::color::parse_hex;
 use crate::utils::error::Result;
 use crate::utils::AppError;
@@ -45,7 +45,8 @@ impl ExportFormat for Masks {
 
     fn export(
         &self,
-        dataset: &Dataset,
+        dataset: &DatasetInfo,
+        frames: &mut dyn FrameSource,
         out_dir: &Path,
         opts: &OptionValues,
         progress: &mut Progress,
@@ -58,8 +59,9 @@ impl ExportFormat for Masks {
         fs::create_dir_all(out_dir)
             .map_err(|e| AppError::Generic(format!("create output folder: {e}")))?;
 
-        let total = dataset.frames.len() as u32;
-        for (i, frame) in dataset.frames.iter().enumerate() {
+        let total = frames.len() as u32;
+        for i in 0..frames.len() {
+            let frame = &frames.load(i)?;
             progress(i as u32, total, &frame.relative_path);
             let rel = contained_path(&frame.relative_path, &format!("frame_{i}"));
             let stem = rel
@@ -142,7 +144,7 @@ fn combined_index_map(frame: &FrameData) -> Vec<u8> {
     map
 }
 
-fn colormap_rgb(dataset: &Dataset, frame: &FrameData) -> Vec<u8> {
+fn colormap_rgb(dataset: &DatasetInfo, frame: &FrameData) -> Vec<u8> {
     let mut rgb = vec![0u8; frame.width as usize * frame.height as usize * 3];
     for lm in &frame.label_masks {
         // Grey for a label that is missing or carries an unreadable colour.
